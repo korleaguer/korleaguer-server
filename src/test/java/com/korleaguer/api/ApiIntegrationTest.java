@@ -30,8 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ApiIntegrationTest {
 
     private static final String PHOTO_PREFIX = "https://img.mlbstatic.com/mlb-photos/image/upload/"
-            + "d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/";
-    private static final String PHOTO_SUFFIX = "/headshot/67/current";
+            + "d_people:generic:headshot:silo:current.png/w_213,q_auto:best/v1/people/";
+    private static final String PHOTO_SUFFIX = "/headshot/silo/current";
     private static final String JUNG_HOO_PHOTO = PHOTO_PREFIX + "808982" + PHOTO_SUFFIX;
 
     @Autowired
