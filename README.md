@@ -1,4 +1,4 @@
-# korleaguer-server — 코리거 야구 MVP 백엔드
+# korleaguer-server — KOR Leaguer 야구 MVP 백엔드
 
 한국 MLB 선수 6명의 최근 경기 한 줄 기록과 2026 시즌 성적을 JSON으로 준다. 화면([korleaguer-web](https://github.com/korleaguer/korleaguer-web))이 이 API를 부른다.
 
