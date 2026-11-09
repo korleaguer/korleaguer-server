@@ -10,6 +10,7 @@ import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.support.MlbTeams;
@@ -38,7 +39,8 @@ import java.util.stream.Stream;
  * <ul>
  *   <li>시즌 백필: 선수마다 gameLog 2번(타격·투구) + 그 선수들의 지금 팀·뛴 팀의 시즌 일정 1번 + 끝난 포스트시즌 경기 박스스코어
  *       (gameLog는 정규시즌만 준다).</li>
- *   <li>경기 갱신: 우리 팀들의 미국 날짜 [from, to] 일정을 받고, 진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.</li>
+ *   <li>경기 갱신: 우리 팀들(마이너에 있는 선수의 MLB 구단은 뺀다)의 미국 날짜 [from, to] 일정을 받고,
+ *       진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.</li>
  *   <li>끝난 경기 재확인: 끝난 뒤 3일 동안 하루 한 번 박스스코어로 다시 받고, 그 뒤에는 settled로 두어 다시 받지 않는다.</li>
  * </ul>
  * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 건만 건너뛴다.
@@ -191,9 +193,10 @@ public class GameIngest {
         return fetched;
     }
 
-    // 선수들의 지금 소속 팀
+    // 지금 메이저에 있는(또는 단계를 모르는) 선수들의 소속 팀. 마이너 선수의 MLB 구단 경기는 갱신하지 않는다.
     private List<Long> trackedTeamIds() {
         return affiliations.findAllCurrent().stream()
+                .filter(a -> a.getPlayer().getLevel() != Level.MINORS)
                 .map(a -> a.getTeam().getMlbTeamId())
                 .distinct()
                 .toList();

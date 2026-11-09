@@ -6,6 +6,7 @@ import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
@@ -32,7 +33,8 @@ import java.util.stream.Collectors;
  *   <li>기록이 없는 정규시즌·포스트시즌 경기: 아래 "뛴 기간" 안에서만 played=false 줄을 만든다(시범경기는 뺀다).
  *     <ul>
  *       <li>선수 기록을 받은 상태: 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기까지.
- *           단 지금 소속 팀이 마지막 기록의 팀과 같으면 끝을 열어 둔다(마지막 출전 뒤 경기도 결장으로 보인다).</li>
+ *           단 지금 소속 팀이 마지막 기록의 팀과 같으면 끝을 열어 둔다(마지막 출전 뒤 경기도 결장으로 보인다).
+ *           지금 마이너에 있는 선수(level=MINORS)는 끝을 열지 않는다(마이너로 간 뒤의 메이저 경기는 결장이 아니다).</li>
  *       <li>선수 기록을 받지 못한 상태: 지금 소속 팀 경기 전부. summary는 "기록 없음"이다.</li>
  *     </ul>
  *   </li>
@@ -111,9 +113,13 @@ class GameLineAssembler {
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
         return members.stream().collect(Collectors.toMap(
                 m -> m.player().getId(),
-                m -> stints(byPlayer.getOrDefault(m.player().getId(), List.of()), m.team())));
+                m -> stints(byPlayer.getOrDefault(m.player().getId(), List.of()),
+                        m.player().getLevel() == Level.MINORS ? null : m.team())));
     }
 
+    /**
+     * @param currentTeam 지금 소속 팀. 마이너에 있는 선수는 null로 넘긴다(메이저 팀의 그 뒤 경기를 결장으로 보지 않는다).
+     */
     static List<Stint> stints(List<Appearance> seasonAppearances, Team currentTeam) {
         if (seasonAppearances.isEmpty()) {
             return List.of();
