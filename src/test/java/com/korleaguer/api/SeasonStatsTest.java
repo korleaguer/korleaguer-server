@@ -63,6 +63,10 @@ class SeasonStatsTest {
 
         assertThat(SeasonStats.scorelessStreak(scorelessThenRun)).isEqualTo(2);
         assertThat(SeasonStats.scorelessStreak(unknownRuns)).isEqualTo(1);
+        // 투구 기록 없는 출전(대주자 등)은 건너뛴다.
+        List<Appearance> pinchRunner = List.of(
+                pitchedOn(1, runs(1)), pitchedOn(2, runs(0)), pitchedOn(3, null), pitchedOn(4, runs(0)));
+        assertThat(SeasonStats.scorelessStreak(pinchRunner)).isEqualTo(2);
     }
 
     private static Appearance pitched(Player player, Team team, long gameId, Pitching pitching) {

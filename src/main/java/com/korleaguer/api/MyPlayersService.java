@@ -106,7 +106,10 @@ public class MyPlayersService {
         boolean loadStats = statsAvailable && !members.isEmpty();
         List<Long> memberIds = members.stream().map(m -> m.player().getId()).toList();
         Map<Long, List<Appearance>> periodByPlayer = loadStats
-                ? byPlayer(appearances.findWithGameBetween(memberIds, from, to)) : Map.of();
+                ? byPlayer(appearances.findWithGameBetween(memberIds, from, to).stream()
+                        // 시범경기는 빼고 센다(시즌 비교 값과 기준을 맞춘다).
+                        .filter(a -> STREAK_SEASON_TYPES.contains(a.getGame().getSeasonType()))
+                        .toList()) : Map.of();
         Map<Long, List<Appearance>> seasonByPlayer = loadStats
                 ? byPlayer(appearances.findSeason(memberIds, season, STREAK_SEASON_TYPES)) : Map.of();
 

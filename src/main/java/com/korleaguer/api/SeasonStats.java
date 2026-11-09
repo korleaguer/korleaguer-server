@@ -96,12 +96,15 @@ final class SeasonStats {
         return streak;
     }
 
-    /** 최근 등판부터 연속 무실점 경기 수. 실점했거나 실점을 모르면 멈춘다. */
+    /** 최근 등판부터 연속 무실점 경기 수. 투구 기록이 없는 출전(대주자 등)은 건너뛰고, 실점했거나 실점을 모르면 멈춘다. */
     static int scorelessStreak(List<Appearance> appearances) {
         int streak = 0;
         for (Appearance appearance : newestFirst(appearances)) {
             Pitching p = appearance.getPitching();
-            if (p == null || p.runsAllowed() == null || p.runsAllowed() > 0) {
+            if (p == null) {
+                continue;
+            }
+            if (p.runsAllowed() == null || p.runsAllowed() > 0) {
                 break;
             }
             streak++;
