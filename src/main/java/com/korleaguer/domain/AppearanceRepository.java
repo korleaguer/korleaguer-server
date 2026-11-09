@@ -40,4 +40,12 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
             where a.player.id in :playerIds and a.game.gamePk in :gamePks
             """)
     List<Appearance> findByPlayersAndGames(Collection<Long> playerIds, Collection<Long> gamePks);
+
+    /** 주어진 선수들이 뛴 경기 중 now까지 가장 늦게 시작한 경기의 시작 시각 */
+    @Query("""
+            select max(g.startTimeUtc) from Appearance a
+            join a.game g
+            where a.player.id in :playerIds and g.startTimeUtc <= :now
+            """)
+    Optional<Instant> findLastStartTime(Collection<Long> playerIds, Instant now);
 }

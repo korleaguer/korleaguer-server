@@ -1,7 +1,5 @@
 package com.korleaguer.api;
 
-import com.korleaguer.domain.GameRepository;
-import com.korleaguer.domain.Team;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
 
@@ -13,12 +11,11 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
  * 홈의 "최근 경기"를 고른다. 선수당 한 줄, 구간 안 가장 최근 경기다.
- * 최근 24시간에 경기가 없으면 데이터가 있는 마지막 경기일(한국 날짜)로 대신한다.
+ * 최근 24시간에 경기가 없으면 마지막 경기일(LastGameDay, 한국 날짜)로 대신한다.
  */
 @Component
 class RecentGamesFinder {
@@ -26,11 +23,11 @@ class RecentGamesFinder {
     private static final Duration RECENT_WINDOW = Duration.ofHours(24);
 
     private final GameLineAssembler assembler;
-    private final GameRepository games;
+    private final LastGameDay lastGameDay;
 
-    RecentGamesFinder(GameLineAssembler assembler, GameRepository games) {
+    RecentGamesFinder(GameLineAssembler assembler, LastGameDay lastGameDay) {
         this.assembler = assembler;
-        this.games = games;
+        this.lastGameDay = lastGameDay;
     }
 
     RecentGames find(List<RosterMember> roster, Instant now, boolean statsReady) {
@@ -44,17 +41,11 @@ class RecentGamesFinder {
             return new RecentGames(false, latest, last24h);
         }
 
-        List<Long> teamIds = roster.stream()
-                .map(RosterMember::team)
-                .filter(Objects::nonNull)
-                .map(Team::getMlbTeamId)
-                .distinct()
-                .toList();
-        Optional<Instant> lastGame = teamIds.isEmpty() ? Optional.empty() : games.findLastFinalStartTime(teamIds, now);
-        if (lastGame.isEmpty()) {
+        Optional<LocalDate> lastDay = lastGameDay.find(roster, now);
+        if (lastDay.isEmpty()) {
             return new RecentGames(true, null, List.of());
         }
-        LocalDate day = KoreanTime.kstDate(lastGame.get());
+        LocalDate day = lastDay.get();
         List<GameLine> lines = assembler.lines(roster, KoreanTime.startOfKstDay(day),
                 KoreanTime.startOfKstDay(day.plusDays(1)), statsReady);
         return new RecentGames(true, day, latestPerPlayer(lines));

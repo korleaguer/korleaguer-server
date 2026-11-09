@@ -6,7 +6,6 @@ import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
-import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
@@ -114,7 +113,7 @@ class GameLineAssembler {
         return members.stream().collect(Collectors.toMap(
                 m -> m.player().getId(),
                 m -> stints(byPlayer.getOrDefault(m.player().getId(), List.of()),
-                        m.player().getLevel() == Level.MINORS ? null : m.team())));
+                        m.majorTeam())));
     }
 
     /**
