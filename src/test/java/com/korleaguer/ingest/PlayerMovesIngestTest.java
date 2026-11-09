@@ -1,6 +1,5 @@
 package com.korleaguer.ingest;
 
-import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.IngestLog;
@@ -9,6 +8,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -21,19 +21,16 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 샘플 모드 수집이 MLB 단계·이동 기록을 저장하는지, 하루 한 번만 묻는지, 같은 줄을 다시 받아도 늘지 않는지(upsert) 확인한다.
- * 앱이 뜰 때(2026-11-01) 샘플 수집이 한 번 돈다.
+ * 앱이 뜰 때(2026-11-01) 따라잡기 수집이 한 번 돈다.
  */
 @SpringBootTest(properties =
         "spring.datasource.url=jdbc:h2:mem:moves-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
@@ -57,27 +54,6 @@ class PlayerMovesIngestTest {
 
     @Autowired
     private MutableClock clock;
-
-    /** 시각을 앞으로 돌릴 수 있는 시계 */
-    static class MutableClock extends Clock {
-
-        volatile Instant now = START;
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneOffset.UTC;
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
-    }
 
     /** 이동 기록 설명 글 뒤에 글자를 붙일 수 있는 샘플 클라이언트(MLB가 같은 번호의 줄을 고쳐 준 상황) */
     static class EditableMlbClient extends SampleMlbClient {
@@ -103,7 +79,7 @@ class PlayerMovesIngestTest {
         @Bean
         @Primary
         MutableClock mutableClock() {
-            return new MutableClock();
+            return new MutableClock(START);
         }
 
         @Bean
@@ -143,27 +119,28 @@ class PlayerMovesIngestTest {
     void sameDayIsNotAskedAgain() {
         long before = client.requestCount();
 
-        IngestLog log = ingestService.ingestDaily(LocalDate.of(2026, 11, 1));
+        IngestLog log = ingestService.catchUp(false);
 
         assertThat(client.requestCount()).isEqualTo(before);
-        assertThat(log.getMessage()).doesNotContain("MLB");
+        assertThat(log.getMessage()).isEqualTo("할 일 없음");
     }
 
     @Test
     @Order(3)
     void nextDayUpsertsByMlbId() {
-        clock.now = START.plus(Duration.ofDays(1));
+        clock.set(START.plus(Duration.ofDays(1)));
         client.suffix = " (edited)";
         long before = client.requestCount();
 
-        IngestLog log = ingestService.ingestDaily(LocalDate.of(2026, 11, 2));
+        IngestLog log = ingestService.catchUp(false);
 
-        // 선수 6명 × (선수 + 이동 기록) = 12회. 마이너 팀 단계는 어제 물어 기억하므로 다시 묻지 않는다.
-        assertThat(client.requestCount() - before).isEqualTo(12);
-        assertThat(log.getMessage()).contains("MLB 단계·이동 기록 6명");
+        // 선수 정보 1회(6명 한 번에) + 이동 기록 6회. 마이너 팀 단계는 어제 물어 기억하므로 다시 묻지 않는다.
+        // 시즌은 이미 받았으므로 다시 받지 않는다.
+        assertThat(client.requestCount() - before).isEqualTo(7);
+        assertThat(log.getMessage()).isEqualTo("선수 정보·이동 기록 6명");
         assertThat(moves.count()).isEqualTo(10);
         assertThat(moves.findById(990105L).orElseThrow().getDescription())
                 .isEqualTo("Minnesota Twins sent RHP Woo-Suk Go outright to St. Paul Saints. (edited)");
-        assertThat(players.findByNameKo("고우석").orElseThrow().getLevelCheckedAt()).isEqualTo(clock.now);
+        assertThat(players.findByNameKo("고우석").orElseThrow().getLevelCheckedAt()).isEqualTo(clock.instant());
     }
 }

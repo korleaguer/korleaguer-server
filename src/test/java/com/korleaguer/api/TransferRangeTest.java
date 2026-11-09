@@ -1,11 +1,9 @@
 package com.korleaguer.api;
 
-import com.korleaguer.client.BdlClient;
-import com.korleaguer.client.BdlGame;
-import com.korleaguer.client.BdlPlayer;
-import com.korleaguer.client.BdlStats;
-import com.korleaguer.client.BdlTeam;
-import com.korleaguer.client.SampleBdlClient;
+import com.korleaguer.client.MlbClient;
+import com.korleaguer.client.MlbScheduleGame;
+import com.korleaguer.client.MlbTeam;
+import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
@@ -22,13 +20,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Comparator;
 import java.util.List;
 
-import static com.korleaguer.client.BdlFixtures.batting;
-import static com.korleaguer.client.BdlFixtures.game;
-import static com.korleaguer.client.BdlFixtures.player;
-import static com.korleaguer.client.BdlFixtures.team;
+import static com.korleaguer.client.MlbFixtures.batting;
+import static com.korleaguer.client.MlbFixtures.game;
+import static com.korleaguer.client.MlbFixtures.hitter;
+import static com.korleaguer.client.MlbFixtures.team;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
@@ -37,15 +34,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 이적한 선수: SD에서 뛰다가 ATL로 옮겼다.
- * - 이전 팀(SD) 경기도 받아서 SD 기록을 버리지 않는다.
+ * - gameLog에 나온 이전 팀(SD)의 시즌 일정도 받아서 SD 기록을 버리지 않는다.
  * - 결장은 그 팀에서 뛴 기간 안의 정규시즌 경기에만 붙인다. 지금 팀(ATL)은 마지막 출전 뒤도 결장이다.
- * - 명단의 bdl-player-id로 검색 없이 선수를 고른다.
+ * - 시범경기는 저장하지 않는다.
  */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:transfer-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=김하성",
-        "roster.baseball[0].aliases[0]=Ha-Seong Kim",
-        "roster.baseball[0].bdl-player-id=2103"
+        "roster.baseball[0].mlb-id=673490"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -68,30 +64,31 @@ class TransferRangeTest {
 
         @Bean
         @Primary
-        BdlClient transferClient() {
-            BdlTeam sd = team(23, "SD");
-            BdlTeam mia = team(15, "MIA");
-            BdlTeam atl = team(2, "ATL");
-            BdlTeam nym = team(18, "NYM");
-            BdlPlayer kim = player(2103, "Ha-Seong Kim", "Kim", "Bucheon, South Korea", atl);
-            List<BdlGame> games = List.of(
-                    game(9001, mia, sd, "2026-08-01T23:00:00Z", "regular"),   // SD 출전
-                    game(9002, mia, sd, "2026-08-02T23:00:00Z", "regular"),   // SD 결장(기간 안)
-                    game(9003, mia, sd, "2026-08-03T23:00:00Z", "regular"),   // SD 출전(SD 마지막)
-                    game(9004, mia, sd, "2026-08-10T23:00:00Z", "regular"),   // 이적 뒤 SD 경기: 줄 없음
-                    game(9101, nym, atl, "2026-08-05T23:00:00Z", "regular"),  // ATL 첫 출전 전: 줄 없음
-                    game(9102, nym, atl, "2026-08-06T23:00:00Z", "regular"),  // ATL 출전
-                    game(9103, nym, atl, "2026-08-07T23:00:00Z", "regular"),  // ATL 결장(기간 안)
-                    game(9104, nym, atl, "2026-08-08T23:00:00Z", "regular"),  // ATL 출전(마지막)
-                    game(9105, nym, atl, "2026-08-09T23:00:00Z", "regular"),  // 지금 팀, 마지막 출전 뒤: 결장
-                    game(9106, nym, atl, "2026-03-10T17:00:00Z", "spring_training")); // 시범경기: 줄 없음
-            List<BdlStats> stats = List.of(
-                    batting(kim, sd, 9001, 4, 1),
-                    batting(kim, sd, 9003, 4, 2),
-                    batting(kim, atl, 9102, 3, 1),
-                    batting(kim, atl, 9104, 4, 0),
-                    batting(kim, sd, 9999, 4, 1)); // 어느 경기 목록에도 없는 경기: 건너뛴다
-            return new SampleBdlClient(List.of(kim), games, stats);
+        MlbClient transferClient() {
+            MlbTeam sd = team(135, "San Diego Padres");
+            MlbTeam mia = team(146, "Miami Marlins");
+            MlbTeam atl = team(144, "Atlanta Braves");
+            MlbTeam nym = team(121, "New York Mets");
+            List<MlbScheduleGame> games = List.of(
+                    game(9001, mia, sd, "2026-08-01T23:00:00Z", "R"),   // SD 출전
+                    game(9002, mia, sd, "2026-08-02T23:00:00Z", "R"),   // SD 결장(기간 안)
+                    game(9003, mia, sd, "2026-08-03T23:00:00Z", "R"),   // SD 출전(SD 마지막)
+                    game(9004, mia, sd, "2026-08-10T23:00:00Z", "R"),   // 이적 뒤 SD 경기: 줄 없음
+                    game(9101, nym, atl, "2026-08-05T23:00:00Z", "R"),  // ATL 첫 출전 전: 줄 없음
+                    game(9102, nym, atl, "2026-08-06T23:00:00Z", "R"),  // ATL 출전
+                    game(9103, nym, atl, "2026-08-07T23:00:00Z", "R"),  // ATL 결장(기간 안)
+                    game(9104, nym, atl, "2026-08-08T23:00:00Z", "R"),  // ATL 출전(마지막)
+                    game(9105, nym, atl, "2026-08-09T23:00:00Z", "R"),  // 지금 팀, 마지막 출전 뒤: 결장
+                    game(9106, nym, atl, "2026-03-10T17:00:00Z", "S")); // 시범경기: 저장하지 않음
+            return new SampleMlbClient(SampleMlbClient.Data.empty()
+                    .withPeople(List.of(hitter(673490, "Ha-Seong Kim", atl)))
+                    .withSchedule(games)
+                    .withHittingLogs(List.of(
+                            batting(673490, sd, games.get(0), 4, 1),
+                            batting(673490, sd, games.get(2), 4, 2),
+                            batting(673490, atl, games.get(5), 3, 1),
+                            batting(673490, atl, games.get(7), 4, 0),
+                            batting(673490, sd, 9999, "2026", 4, 1)))); // 일정에 없는 경기: 건너뛴다
         }
     }
 
@@ -121,14 +118,14 @@ class TransferRangeTest {
     }
 
     @Test
-    void fixedIdNeedsOneRequestAndSkippedStatsAreReported() {
-        List<IngestLog> logs = ingestLogs.findAll().stream()
-                .sorted(Comparator.comparing(IngestLog::getId))
-                .toList();
-        IngestLog resolve = logs.stream().filter(l -> l.getKind() == IngestKind.RESOLVE_PLAYERS).findFirst().orElseThrow();
-        IngestLog season = logs.stream().filter(l -> l.getKind() == IngestKind.SEASON).findFirst().orElseThrow();
+    void startupRequestsAndSkippedLinesAreReported() {
+        IngestLog startup = ingestLogs.findAll().stream()
+                .filter(l -> l.getKind() == IngestKind.SCHEDULED)
+                .findFirst()
+                .orElseThrow();
 
-        assertThat(resolve.getRequestsUsed()).isEqualTo(1); // getPlayer 한 번, 검색 없음
-        assertThat(season.getMessage()).contains("선수 기록 4개", "건너뛴 기록 1개");
+        // 선수 정보 1 + 이동 기록 1 + gameLog 2(타격·투구) + 시즌 일정 1(SD·ATL 한 번에)
+        assertThat(startup.getRequestsUsed()).isEqualTo(5);
+        assertThat(startup.getMessage()).contains("선수 기록 4개", "건너뛴 기록 1개");
     }
 }

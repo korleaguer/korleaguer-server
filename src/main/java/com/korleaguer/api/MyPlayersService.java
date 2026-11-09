@@ -162,7 +162,7 @@ public class MyPlayersService {
         List<Long> teamIds = members.stream()
                 .map(RosterMember::team)
                 .filter(Objects::nonNull)
-                .map(Team::getBdlTeamId)
+                .map(Team::getMlbTeamId)
                 .distinct()
                 .toList();
         Optional<Instant> last = teamIds.isEmpty() ? Optional.empty() : games.findLastFinalStartTime(teamIds, now);

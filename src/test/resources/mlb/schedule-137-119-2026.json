@@ -1,0 +1,518 @@
+{
+ "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+ "totalGames": 6,
+ "dates": [
+  {
+   "date": "2026-02-21",
+   "totalGames": 1,
+   "games": [
+    {
+     "gamePk": 832063,
+     "gameGuid": "e964a2ca-b7e4-4237-9185-be8eb5958599",
+     "link": "/api/v1.1/game/832063/feed/live",
+     "gameType": "S",
+     "season": "2026",
+     "gameDate": "2026-02-21T20:10:00Z",
+     "officialDate": "2026-02-21",
+     "status": {
+      "abstractGameState": "Final",
+      "codedGameState": "F",
+      "detailedState": "Final",
+      "statusCode": "F",
+      "startTimeTBD": false,
+      "abstractGameCode": "F"
+     },
+     "teams": {
+      "away": {
+       "team": {
+        "id": 119,
+        "name": "Los Angeles Dodgers",
+        "link": "/api/v1/teams/119"
+       },
+       "leagueRecord": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 0,
+        "pct": "1.000"
+       },
+       "score": 15,
+       "isWinner": true,
+       "splitSquad": false,
+       "seriesNumber": 1
+      },
+      "home": {
+       "team": {
+        "id": 108,
+        "name": "Los Angeles Angels",
+        "link": "/api/v1/teams/108"
+       },
+       "leagueRecord": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 0,
+        "pct": ".000"
+       },
+       "score": 2,
+       "isWinner": false,
+       "splitSquad": false,
+       "seriesNumber": 1
+      }
+     },
+     "venue": {
+      "id": 2500,
+      "name": "Tempe Diablo Stadium",
+      "link": "/api/v1/venues/2500"
+     },
+     "content": {
+      "link": "/api/v1/game/832063/content"
+     },
+     "isTie": false,
+     "gameNumber": 1,
+     "publicFacing": true,
+     "doubleHeader": "N",
+     "gamedayType": "E",
+     "tiebreaker": "N",
+     "calendarEventID": "14-832063-2026-02-21",
+     "seasonDisplay": "2026",
+     "dayNight": "day",
+     "scheduledInnings": 9,
+     "reverseHomeAwayStatus": false,
+     "inningBreakLength": 120,
+     "gamesInSeries": 1,
+     "seriesGameNumber": 1,
+     "seriesDescription": "Spring Training",
+     "recordSource": "S",
+     "ifNecessary": "N",
+     "ifNecessaryDescription": "Normal Game"
+    }
+   ],
+   "events": []
+  },
+  {
+   "date": "2026-03-25",
+   "totalGames": 1,
+   "games": [
+    {
+     "gamePk": 823244,
+     "gameGuid": "cc3d3afe-591e-44b8-a273-5730f50910b7",
+     "link": "/api/v1.1/game/823244/feed/live",
+     "gameType": "R",
+     "season": "2026",
+     "gameDate": "2026-03-26T00:05:00Z",
+     "officialDate": "2026-03-25",
+     "status": {
+      "abstractGameState": "Final",
+      "codedGameState": "F",
+      "detailedState": "Final",
+      "statusCode": "F",
+      "startTimeTBD": false,
+      "abstractGameCode": "F"
+     },
+     "teams": {
+      "away": {
+       "team": {
+        "id": 147,
+        "name": "New York Yankees",
+        "link": "/api/v1/teams/147"
+       },
+       "leagueRecord": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 0,
+        "pct": "1.000"
+       },
+       "score": 7,
+       "isWinner": true,
+       "splitSquad": false,
+       "seriesNumber": 1
+      },
+      "home": {
+       "team": {
+        "id": 137,
+        "name": "San Francisco Giants",
+        "link": "/api/v1/teams/137"
+       },
+       "leagueRecord": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 0,
+        "pct": ".000"
+       },
+       "score": 0,
+       "isWinner": false,
+       "splitSquad": false,
+       "seriesNumber": 1
+      }
+     },
+     "venue": {
+      "id": 2395,
+      "name": "Oracle Park",
+      "link": "/api/v1/venues/2395"
+     },
+     "content": {
+      "link": "/api/v1/game/823244/content"
+     },
+     "isTie": false,
+     "gameNumber": 1,
+     "publicFacing": true,
+     "doubleHeader": "N",
+     "gamedayType": "P",
+     "tiebreaker": "N",
+     "calendarEventID": "14-823244-2026-03-25",
+     "seasonDisplay": "2026",
+     "dayNight": "night",
+     "scheduledInnings": 9,
+     "reverseHomeAwayStatus": false,
+     "inningBreakLength": 145,
+     "gamesInSeries": 3,
+     "seriesGameNumber": 1,
+     "seriesDescription": "Regular Season",
+     "recordSource": "S",
+     "ifNecessary": "N",
+     "ifNecessaryDescription": "Normal Game"
+    }
+   ],
+   "events": []
+  },
+  {
+   "date": "2026-04-29",
+   "totalGames": 1,
+   "games": [
+    {
+     "gamePk": 823471,
+     "gameGuid": "280c9390-aeee-420a-8619-18bfc123b2be",
+     "link": "/api/v1.1/game/823471/feed/live",
+     "gameType": "R",
+     "season": "2026",
+     "gameDate": "2026-04-29T22:10:00Z",
+     "officialDate": "2026-04-30",
+     "rescheduleDate": "2026-04-30T21:35:00Z",
+     "rescheduleGameDate": "2026-04-30",
+     "status": {
+      "abstractGameState": "Final",
+      "codedGameState": "D",
+      "detailedState": "Postponed",
+      "statusCode": "DR",
+      "startTimeTBD": false,
+      "reason": "Rain",
+      "abstractGameCode": "F"
+     },
+     "teams": {
+      "away": {
+       "team": {
+        "id": 137,
+        "name": "San Francisco Giants",
+        "link": "/api/v1/teams/137"
+       },
+       "leagueRecord": {
+        "wins": 13,
+        "losses": 17,
+        "ties": 0,
+        "pct": ".433"
+       },
+       "splitSquad": false,
+       "seriesNumber": 10
+      },
+      "home": {
+       "team": {
+        "id": 143,
+        "name": "Philadelphia Phillies",
+        "link": "/api/v1/teams/143"
+       },
+       "leagueRecord": {
+        "wins": 11,
+        "losses": 19,
+        "ties": 0,
+        "pct": ".367"
+       },
+       "splitSquad": false,
+       "seriesNumber": 10
+      }
+     },
+     "venue": {
+      "id": 2681,
+      "name": "Citizens Bank Park",
+      "link": "/api/v1/venues/2681"
+     },
+     "content": {
+      "link": "/api/v1/game/823471/content"
+     },
+     "gameNumber": 1,
+     "publicFacing": true,
+     "doubleHeader": "N",
+     "gamedayType": "P",
+     "tiebreaker": "N",
+     "calendarEventID": "14-823471-2026-04-29",
+     "seasonDisplay": "2026",
+     "dayNight": "night",
+     "description": "Makeup 4/30",
+     "scheduledInnings": 9,
+     "reverseHomeAwayStatus": false,
+     "inningBreakLength": 145,
+     "gamesInSeries": 3,
+     "seriesGameNumber": 2,
+     "seriesDescription": "Regular Season",
+     "recordSource": "S",
+     "ifNecessary": "N",
+     "ifNecessaryDescription": "Normal Game"
+    }
+   ],
+   "events": []
+  },
+  {
+   "date": "2026-04-30",
+   "totalGames": 2,
+   "games": [
+    {
+     "gamePk": 823472,
+     "gameGuid": "7a6f61d8-b7aa-4e74-a0d7-a2f0e97dfed2",
+     "link": "/api/v1.1/game/823472/feed/live",
+     "gameType": "R",
+     "season": "2026",
+     "gameDate": "2026-04-30T16:35:00Z",
+     "officialDate": "2026-04-30",
+     "status": {
+      "abstractGameState": "Final",
+      "codedGameState": "F",
+      "detailedState": "Final",
+      "statusCode": "F",
+      "startTimeTBD": false,
+      "abstractGameCode": "F"
+     },
+     "teams": {
+      "away": {
+       "team": {
+        "id": 137,
+        "name": "San Francisco Giants",
+        "link": "/api/v1/teams/137"
+       },
+       "leagueRecord": {
+        "wins": 13,
+        "losses": 17,
+        "ties": 0,
+        "pct": ".433"
+       },
+       "score": 2,
+       "isWinner": false,
+       "splitSquad": false,
+       "seriesNumber": 10
+      },
+      "home": {
+       "team": {
+        "id": 143,
+        "name": "Philadelphia Phillies",
+        "link": "/api/v1/teams/143"
+       },
+       "leagueRecord": {
+        "wins": 11,
+        "losses": 19,
+        "ties": 0,
+        "pct": ".367"
+       },
+       "score": 3,
+       "isWinner": true,
+       "splitSquad": false,
+       "seriesNumber": 10
+      }
+     },
+     "venue": {
+      "id": 2681,
+      "name": "Citizens Bank Park",
+      "link": "/api/v1/venues/2681"
+     },
+     "content": {
+      "link": "/api/v1/game/823472/content"
+     },
+     "isTie": false,
+     "gameNumber": 1,
+     "publicFacing": true,
+     "doubleHeader": "S",
+     "gamedayType": "P",
+     "tiebreaker": "N",
+     "calendarEventID": "14-823472-2026-04-30",
+     "seasonDisplay": "2026",
+     "dayNight": "day",
+     "scheduledInnings": 9,
+     "reverseHomeAwayStatus": false,
+     "inningBreakLength": 120,
+     "gamesInSeries": 3,
+     "seriesGameNumber": 2,
+     "seriesDescription": "Regular Season",
+     "recordSource": "S",
+     "ifNecessary": "N",
+     "ifNecessaryDescription": "Normal Game"
+    },
+    {
+     "gamePk": 823471,
+     "gameGuid": "280c9390-aeee-420a-8619-18bfc123b2be",
+     "link": "/api/v1.1/game/823471/feed/live",
+     "gameType": "R",
+     "season": "2026",
+     "gameDate": "2026-04-30T21:35:00Z",
+     "officialDate": "2026-04-30",
+     "rescheduledFrom": "2026-04-29T22:10:00Z",
+     "rescheduledFromDate": "2026-04-29",
+     "status": {
+      "abstractGameState": "Final",
+      "codedGameState": "F",
+      "detailedState": "Final",
+      "statusCode": "F",
+      "startTimeTBD": false,
+      "abstractGameCode": "F"
+     },
+     "teams": {
+      "away": {
+       "team": {
+        "id": 137,
+        "name": "San Francisco Giants",
+        "link": "/api/v1/teams/137"
+       },
+       "leagueRecord": {
+        "wins": 13,
+        "losses": 18,
+        "ties": 0,
+        "pct": ".419"
+       },
+       "score": 5,
+       "isWinner": false,
+       "splitSquad": false,
+       "seriesNumber": 10
+      },
+      "home": {
+       "team": {
+        "id": 143,
+        "name": "Philadelphia Phillies",
+        "link": "/api/v1/teams/143"
+       },
+       "leagueRecord": {
+        "wins": 12,
+        "losses": 19,
+        "ties": 0,
+        "pct": ".387"
+       },
+       "score": 6,
+       "isWinner": true,
+       "splitSquad": false,
+       "seriesNumber": 10
+      }
+     },
+     "venue": {
+      "id": 2681,
+      "name": "Citizens Bank Park",
+      "link": "/api/v1/venues/2681"
+     },
+     "content": {
+      "link": "/api/v1/game/823471/content"
+     },
+     "isTie": false,
+     "gameNumber": 2,
+     "publicFacing": true,
+     "doubleHeader": "S",
+     "gamedayType": "P",
+     "tiebreaker": "N",
+     "calendarEventID": "14-823471-2026-04-30",
+     "seasonDisplay": "2026",
+     "dayNight": "night",
+     "description": "Makeup of 4/29 PPD",
+     "scheduledInnings": 9,
+     "reverseHomeAwayStatus": false,
+     "inningBreakLength": 145,
+     "gamesInSeries": 3,
+     "seriesGameNumber": 3,
+     "seriesDescription": "Regular Season",
+     "recordSource": "S",
+     "ifNecessary": "N",
+     "ifNecessaryDescription": "Normal Game"
+    }
+   ],
+   "events": []
+  },
+  {
+   "date": "2026-10-03",
+   "totalGames": 1,
+   "games": [
+    {
+     "gamePk": 849828,
+     "gameGuid": "621a974a-b250-4410-992f-37cb6c829743",
+     "link": "/api/v1.1/game/849828/feed/live",
+     "gameType": "D",
+     "season": "2026",
+     "gameDate": "2026-10-03T20:00:00Z",
+     "officialDate": "2026-10-03",
+     "status": {
+      "abstractGameState": "Final",
+      "codedGameState": "F",
+      "detailedState": "Final",
+      "statusCode": "F",
+      "startTimeTBD": false,
+      "abstractGameCode": "F"
+     },
+     "teams": {
+      "away": {
+       "team": {
+        "id": 144,
+        "name": "Atlanta Braves",
+        "link": "/api/v1/teams/144"
+       },
+       "leagueRecord": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 0,
+        "pct": ".000"
+       },
+       "score": 3,
+       "isWinner": false,
+       "splitSquad": false,
+       "seriesNumber": 4
+      },
+      "home": {
+       "team": {
+        "id": 119,
+        "name": "Los Angeles Dodgers",
+        "link": "/api/v1/teams/119"
+       },
+       "leagueRecord": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 0,
+        "pct": "1.000"
+       },
+       "score": 5,
+       "isWinner": true,
+       "splitSquad": false,
+       "seriesNumber": 4
+      }
+     },
+     "venue": {
+      "id": 22,
+      "name": "UNIQLO Field at Dodger Stadium",
+      "link": "/api/v1/venues/22"
+     },
+     "content": {
+      "link": "/api/v1/game/849828/content"
+     },
+     "isTie": false,
+     "gameNumber": 1,
+     "publicFacing": true,
+     "doubleHeader": "N",
+     "gamedayType": "P",
+     "tiebreaker": "N",
+     "calendarEventID": "14-849828-2026-10-03",
+     "seasonDisplay": "2026",
+     "dayNight": "day",
+     "description": "NLDS 'B' Game 1",
+     "scheduledInnings": 9,
+     "reverseHomeAwayStatus": false,
+     "inningBreakLength": 175,
+     "gamesInSeries": 5,
+     "seriesGameNumber": 1,
+     "seriesDescription": "NL Division Series",
+     "recordSource": "S",
+     "ifNecessary": "N",
+     "ifNecessaryDescription": "Normal Game"
+    }
+   ],
+   "events": []
+  }
+ ]
+}

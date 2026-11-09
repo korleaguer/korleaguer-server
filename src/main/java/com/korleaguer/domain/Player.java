@@ -19,11 +19,11 @@ public class Player {
 
     private String nameKo;
     private String nameEn;
+    private Long mlbId;
     private String position;
-    private Long bdlPlayerId;
     private String birthPlace;
     private boolean active = true;
-    // balldontlie 선수 필드. 키·몸무게·투타는 받은 원문 그대로 두고 응답에서 바꾼다.
+    // MLB 선수 필드. 키·몸무게·투타는 받은 값 그대로(6' 0", 196, Left/Right) 두고 응답에서 바꾼다.
     private LocalDate birthDate;
     private String height;
     private String weight;
@@ -44,10 +44,14 @@ public class Player {
         this.nameKo = nameKo;
     }
 
-    public void update(String nameEn, String position, Long bdlPlayerId, String birthPlace, boolean active) {
+    /** 명단의 MLB 선수 번호. 명단에서 빠지면 null이다. */
+    public void changeMlbId(Long mlbId) {
+        this.mlbId = mlbId;
+    }
+
+    public void update(String nameEn, String position, String birthPlace, boolean active) {
         this.nameEn = nameEn;
         this.position = position;
-        this.bdlPlayerId = bdlPlayerId;
         this.birthPlace = birthPlace;
         this.active = active;
     }
@@ -89,8 +93,8 @@ public class Player {
         return position;
     }
 
-    public Long getBdlPlayerId() {
-        return bdlPlayerId;
+    public Long getMlbId() {
+        return mlbId;
     }
 
     public String getBirthPlace() {

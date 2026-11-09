@@ -67,7 +67,7 @@ class GameLineAssembler {
         Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady);
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
-                .map(stint -> stint.team().getBdlTeamId())
+                .map(stint -> stint.team().getMlbTeamId())
                 .distinct()
                 .toList();
         List<Game> teamGames = teamIds.isEmpty() ? List.of() : games.findTeamGamesBetween(teamIds, from, to).stream()
@@ -81,12 +81,12 @@ class GameLineAssembler {
             for (Appearance appearance : played) {
                 if (appearance.getPlayer().getId().equals(player.getId())) {
                     lines.add(line(player, appearance.getTeam(), appearance.getGame(), appearance, statsReady));
-                    playedGameIds.add(appearance.getGame().getBdlGameId());
+                    playedGameIds.add(appearance.getGame().getGamePk());
                 }
             }
             List<Stint> playerStints = stints.getOrDefault(player.getId(), List.of());
             for (Game game : teamGames) {
-                if (!playedGameIds.contains(game.getBdlGameId())) {
+                if (!playedGameIds.contains(game.getGamePk())) {
                     teamInRange(game, playerStints)
                             .ifPresent(team -> lines.add(line(player, team, game, null, statsReady)));
                 }
@@ -122,7 +122,7 @@ class GameLineAssembler {
                 .max(Comparator.comparing(a -> a.getGame().getStartTimeUtc()))
                 .orElseThrow();
         Map<Long, List<Appearance>> byTeam = seasonAppearances.stream()
-                .collect(Collectors.groupingBy(a -> a.getTeam().getBdlTeamId()));
+                .collect(Collectors.groupingBy(a -> a.getTeam().getMlbTeamId()));
 
         List<Stint> result = new ArrayList<>();
         for (List<Appearance> teamAppearances : byTeam.values()) {
@@ -157,7 +157,7 @@ class GameLineAssembler {
                 player.getNameKo(),
                 profiles.photoUrl(player),
                 player.role(),
-                game.getBdlGameId(),
+                game.getGamePk(),
                 KoreanTime.toKst(game.getStartTimeUtc()),
                 TeamLabels.korean(team),
                 TeamLabels.abbreviation(team),
@@ -206,7 +206,7 @@ class GameLineAssembler {
     }
 
     private static boolean sameTeam(Team a, Team b) {
-        return a != null && b != null && Objects.equals(a.getBdlTeamId(), b.getBdlTeamId());
+        return a != null && b != null && Objects.equals(a.getMlbTeamId(), b.getMlbTeamId());
     }
 
     /** 선수가 한 팀에서 뛴 기간. first/last가 null이면 그쪽 끝이 열려 있다. */

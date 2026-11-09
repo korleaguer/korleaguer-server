@@ -33,4 +33,11 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
               and g.season = :season and g.seasonType in :seasonTypes
             """)
     List<Appearance> findSeason(Collection<Long> playerIds, int season, Collection<String> seasonTypes);
+
+    /** 주어진 선수들의 기록 중 주어진 경기들 것 */
+    @Query("""
+            select a from Appearance a
+            where a.player.id in :playerIds and a.game.gamePk in :gamePks
+            """)
+    List<Appearance> findByPlayersAndGames(Collection<Long> playerIds, Collection<Long> gamePks);
 }

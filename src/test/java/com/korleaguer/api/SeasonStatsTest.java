@@ -21,8 +21,8 @@ class SeasonStatsTest {
     void eraIgnoresGamesWithUnknownOuts() {
         Player player = new Player("고우석");
         ReflectionTestUtils.setField(player, "id", 5L);
-        Team team = new Team(17L);
-        team.update("MIN", "Minnesota Twins", "Minnesota", "American");
+        Team team = new Team(142L);
+        team.update("MIN", "Minnesota Twins");
 
         Appearance known = pitched(player, team, 1L, new Pitching(3, 1, 0, 0, 0, 2, 0, 15, 0, 0, 1));
         // 아웃 수를 모르는 경기의 자책점 2점은 평균자책점에 넣지 않는다.

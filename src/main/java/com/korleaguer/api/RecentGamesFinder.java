@@ -1,6 +1,7 @@
 package com.korleaguer.api;
 
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Team;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
 
@@ -46,7 +47,7 @@ class RecentGamesFinder {
         List<Long> teamIds = roster.stream()
                 .map(RosterMember::team)
                 .filter(Objects::nonNull)
-                .map(team -> team.getBdlTeamId())
+                .map(Team::getMlbTeamId)
                 .distinct()
                 .toList();
         Optional<Instant> lastGame = teamIds.isEmpty() ? Optional.empty() : games.findLastFinalStartTime(teamIds, now);

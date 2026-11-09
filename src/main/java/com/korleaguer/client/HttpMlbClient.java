@@ -8,17 +8,21 @@ import org.springframework.web.util.UriBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 실제 MLB Stats API(statsapi.mlb.com)를 부르는 클라이언트. User-Agent·제한 시간은 ClientConfig에서 정한다.
  * - 요청마다 RateLimiter에서 차례를 기다린다(기본 1초에 1회).
  * - 다시 시도는 하지 않는다. 실패한 건은 다음 수집 때 다시 묻는다.
- * - 404는 null, 403/429는 MlbBlockedException(이번 실행 중단), 그 밖의 실패는 MlbApiException이다.
+ * - 404는 null(목록이면 빈 목록), 403/429는 MlbBlockedException(이번 실행 중단), 그 밖의 실패는 MlbApiException이다.
  */
 public class HttpMlbClient implements MlbClient {
+
+    private static final int MLB = 1;
 
     private final RestClient restClient;
     private final RateLimiter rateLimiter;
@@ -30,11 +34,17 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
-    public MlbPerson getPerson(long personId) {
-        MlbResponses.People body = get("people/" + personId,
-                uri -> uri.path("/api/v1/people/{id}").queryParam("hydrate", "currentTeam").build(personId),
+    public List<MlbPerson> getPeople(Collection<Long> personIds) {
+        if (personIds.isEmpty()) {
+            return List.of();
+        }
+        MlbResponses.People body = get("people",
+                uri -> uri.path("/api/v1/people")
+                        .queryParam("personIds", joined(personIds))
+                        .queryParam("hydrate", "currentTeam")
+                        .build(),
                 MlbResponses.People.class);
-        return body == null || body.people() == null || body.people().isEmpty() ? null : body.people().getFirst();
+        return body == null || body.people() == null ? List.of() : body.people();
     }
 
     @Override
@@ -58,8 +68,69 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
+    public List<MlbGameLogSplit> getGameLog(long personId, Group group, int season) {
+        MlbResponses.Stats body = get("people/" + personId + "/stats gameLog " + group.value(),
+                uri -> uri.path("/api/v1/people/{id}/stats")
+                        .queryParam("stats", "gameLog")
+                        .queryParam("group", group.value())
+                        .queryParam("season", season)
+                        .build(personId),
+                MlbResponses.Stats.class);
+        if (body == null || body.stats() == null) {
+            return List.of();
+        }
+        return body.stats().stream()
+                .filter(statGroup -> statGroup.splits() != null)
+                .flatMap(statGroup -> statGroup.splits().stream())
+                .toList();
+    }
+
+    @Override
+    public List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season) {
+        if (teamIds.isEmpty()) {
+            return List.of();
+        }
+        return schedule("schedule season " + season, uri -> uri.path("/api/v1/schedule")
+                .queryParam("sportId", MLB)
+                .queryParam("teamId", joined(teamIds))
+                .queryParam("season", season)
+                .build());
+    }
+
+    @Override
+    public List<MlbScheduleGame> getSchedule(Collection<Long> teamIds, LocalDate startDate, LocalDate endDate) {
+        if (teamIds.isEmpty()) {
+            return List.of();
+        }
+        return schedule("schedule " + startDate + "~" + endDate, uri -> uri.path("/api/v1/schedule")
+                .queryParam("sportId", MLB)
+                .queryParam("teamId", joined(teamIds))
+                .queryParam("startDate", startDate)
+                .queryParam("endDate", endDate)
+                .build());
+    }
+
+    @Override
+    public MlbBoxscore getBoxscore(long gamePk) {
+        return get("game/" + gamePk + "/boxscore",
+                uri -> uri.path("/api/v1/game/{gamePk}/boxscore").build(gamePk),
+                MlbBoxscore.class);
+    }
+
+    @Override
     public long requestCount() {
         return requestCount.get();
+    }
+
+    private List<MlbScheduleGame> schedule(String label, Function<UriBuilder, URI> uri) {
+        MlbResponses.Schedule body = get(label, uri, MlbResponses.Schedule.class);
+        if (body == null || body.dates() == null) {
+            return List.of();
+        }
+        return body.dates().stream()
+                .filter(date -> date.games() != null)
+                .flatMap(date -> date.games().stream())
+                .toList();
     }
 
     /**
@@ -80,5 +151,9 @@ public class HttpMlbClient implements MlbClient {
         } catch (RestClientException e) {
             throw new MlbApiException("MLB request failed: " + label + " (" + e.getMessage() + ")", e);
         }
+    }
+
+    private static String joined(Collection<Long> ids) {
+        return ids.stream().distinct().sorted().map(String::valueOf).collect(Collectors.joining(","));
     }
 }

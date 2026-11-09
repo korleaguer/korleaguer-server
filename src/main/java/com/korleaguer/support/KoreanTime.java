@@ -18,7 +18,7 @@ public final class KoreanTime {
     public static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     // 2026-09-24 / 2026-09-24T01:45:00(.000) 뒤에 Z, +00:00, +0000 이 붙거나 안 붙은 형식
-    private static final DateTimeFormatter BDL_DATE = new DateTimeFormatterBuilder()
+    private static final DateTimeFormatter UTC_DATE = new DateTimeFormatterBuilder()
             .append(DateTimeFormatter.ISO_LOCAL_DATE)
             .optionalStart().appendLiteral('T').append(DateTimeFormatter.ISO_LOCAL_TIME).optionalEnd()
             .optionalStart().appendOffset("+HH:MM", "Z").optionalEnd()
@@ -43,13 +43,13 @@ public final class KoreanTime {
     }
 
     /**
-     * balldontlie의 date 문자열을 읽는다.
+     * MLB gameDate 같은 시각 문자열(예: 2026-09-26T20:05:00Z)을 읽는다.
      * 시간대 표시가 없으면 UTC로, 시각이 없으면 그날 0시(UTC)로 간주한다.
      *
      * @throws java.time.format.DateTimeParseException 읽을 수 없는 형식일 때
      */
     public static Instant parseUtc(String text) {
-        TemporalAccessor parsed = BDL_DATE.parse(text.trim());
+        TemporalAccessor parsed = UTC_DATE.parse(text.trim());
         LocalTime time = parsed.query(TemporalQueries.localTime());
         ZoneOffset offset = parsed.query(TemporalQueries.offset());
         return LocalDateTime.of(LocalDate.from(parsed), time == null ? LocalTime.MIDNIGHT : time)
