@@ -3,10 +3,13 @@ package com.korleaguer.api;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
+import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
+import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
@@ -166,7 +169,31 @@ class GameLineAssembler {
                 result(game, teamScore, opponentScore),
                 game.getStatusState(),
                 played,
-                summary);
+                summary,
+                played ? batting(appearance.getBatting()) : null,
+                played ? pitching(appearance.getPitching()) : null);
+    }
+
+    private static GameBatting batting(Batting b) {
+        if (b == null) {
+            return null;
+        }
+        return new GameBatting(orZero(b.atBats()), orZero(b.hits()), orZero(b.homeRuns()), orZero(b.rbi()),
+                orZero(b.walks()), orZero(b.stolenBases()));
+    }
+
+    private static GamePitching pitching(Pitching p) {
+        if (p == null) {
+            return null;
+        }
+        Integer outs = p.pitchingOuts();
+        return new GamePitching(outs, outs == null ? null : BaseballMath.inningsText(outs),
+                orZero(p.runsAllowed()), orZero(p.earnedRuns()), orZero(p.pitcherStrikeouts()),
+                orZero(p.wins()) > 0, orZero(p.losses()) > 0, orZero(p.saves()) > 0);
+    }
+
+    private static int orZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     /** 끝난 경기만 W/L/T, 경기 전·중이면 null */
