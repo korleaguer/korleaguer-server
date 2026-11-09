@@ -1,5 +1,6 @@
 package com.korleaguer.domain;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -33,6 +34,18 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
               and g.season = :season and g.seasonType in :seasonTypes
             """)
     List<Appearance> findSeason(Collection<Long> playerIds, int season, Collection<String> seasonTypes);
+
+    /**
+     * 선발·교체를 아직 모르는 기록이 있는 굳은(settled) 경기 중, 박스스코어로 채워 보지 않은 경기(최근 경기부터).
+     * 지난 경기를 뒤에서 천천히 채울 때 쓴다. 굳기 전 경기는 경기 갱신·재확인에서 박스스코어를 받을 때 채운다.
+     */
+    @Query("""
+            select distinct g from Appearance a
+            join a.game g
+            where a.lineup is null and g.settled = true and g.lineupsChecked = false
+            order by g.startTimeUtc desc
+            """)
+    List<Game> findGamesMissingLineups(Pageable page);
 
     /** 주어진 선수들의 기록 중 주어진 경기들 것 */
     @Query("""

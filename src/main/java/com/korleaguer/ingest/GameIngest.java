@@ -8,6 +8,7 @@ import com.korleaguer.client.MlbGameLogSplit;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
+import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
@@ -16,6 +17,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.support.MlbTeams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -42,6 +44,7 @@ import java.util.stream.Stream;
  *   <li>경기 갱신: 우리 팀들(마이너에 있는 선수의 MLB 구단은 뺀다)의 미국 날짜 [from, to] 일정을 받고,
  *       진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.</li>
  *   <li>끝난 경기 재확인: 끝난 뒤 3일 동안 하루 한 번 박스스코어로 다시 받고, 그 뒤에는 settled로 두어 다시 받지 않는다.</li>
+ *   <li>선발·교체: 박스스코어를 받는 경기는 그때 같이 채우고, 지난 경기는 fillLineups로 조금씩 채운다.</li>
  * </ul>
  * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 건만 건너뛴다.
  */
@@ -58,15 +61,18 @@ public class GameIngest {
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
     private final GameRepository games;
+    private final AppearanceRepository appearances;
     private final Clock clock;
 
     public GameIngest(MlbClient client, IngestWriter writer, PlayerRepository players,
-                      AffiliationRepository affiliations, GameRepository games, Clock clock) {
+                      AffiliationRepository affiliations, GameRepository games, AppearanceRepository appearances,
+                      Clock clock) {
         this.client = client;
         this.writer = writer;
         this.players = players;
         this.affiliations = affiliations;
         this.games = games;
+        this.appearances = appearances;
         this.clock = clock;
     }
 
@@ -149,6 +155,35 @@ public class GameIngest {
         return "경기 " + gamePks.size() + "개" + (boxscores > 0 ? ", 박스스코어 " + boxscores + "개" : "");
     }
 
+    /**
+     * 선발·교체를 아직 모르는 지난 경기(굳은 경기)를 최근 것부터 limit개까지 박스스코어로 채운다.
+     * 한 경기는 한 번만 받는다(못 정한 선수가 있어도 다시 받지 않는다). 기록은 건드리지 않는다.
+     */
+    public String fillLineups(int limit) {
+        List<Game> targets = appearances.findGamesMissingLineups(PageRequest.of(0, limit));
+        if (targets.isEmpty()) {
+            return "";
+        }
+        Map<Long, Long> ours = ourPlayers();
+        int games = 0;
+        int filled = 0;
+        for (Game game : targets) {
+            MlbBoxscore box;
+            try {
+                box = client.getBoxscore(game.getGamePk());
+            } catch (MlbBlockedException e) {
+                throw e;
+            } catch (MlbApiException e) {
+                log.warn("[mlb] boxscore {} for lineups failed, will retry next ingest ({})", game.getGamePk(),
+                        e.getMessage());
+                continue;
+            }
+            filled += writer.saveLineups(game.getGamePk(), box, ours);
+            games++;
+        }
+        return "선발·교체 " + filled + "개(경기 " + games + "개)";
+    }
+
     /** 끝났지만 아직 굳지 않은 경기 중 오늘 아직 다시 확인하지 않은 경기를 박스스코어로 받는다. */
     public String recheckFinals() {
         Instant now = clock.instant();
@@ -174,8 +209,7 @@ public class GameIngest {
         if (targets.isEmpty()) {
             return 0;
         }
-        Map<Long, Long> ours = players.findByMlbIdIsNotNull().stream()
-                .collect(Collectors.toMap(Player::getMlbId, Player::getId));
+        Map<Long, Long> ours = ourPlayers();
         int fetched = 0;
         for (Game game : targets) {
             MlbBoxscore box;
@@ -191,6 +225,12 @@ public class GameIngest {
             fetched++;
         }
         return fetched;
+    }
+
+    // 우리 선수의 MLB 번호 → 선수 id
+    private Map<Long, Long> ourPlayers() {
+        return players.findByMlbIdIsNotNull().stream()
+                .collect(Collectors.toMap(Player::getMlbId, Player::getId));
     }
 
     // 지금 메이저에 있는(또는 단계를 모르는) 선수들의 소속 팀. 마이너 선수의 MLB 구단 경기는 갱신하지 않는다.

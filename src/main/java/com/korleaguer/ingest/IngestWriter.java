@@ -15,6 +15,7 @@ import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
+import com.korleaguer.domain.Lineup;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
@@ -187,7 +188,7 @@ public class IngestWriter {
     }
 
     /**
-     * 박스스코어에서 우리 선수(그 경기에 뛴 선수만)의 기록을 저장하고, 경기 점수와 확인 시각을 고친다.
+     * 박스스코어에서 우리 선수(그 경기에 뛴 선수만)의 기록과 선발·교체를 저장하고, 경기 점수와 확인 시각을 고친다.
      *
      * @param playerIdByMlbId 우리 선수의 MLB 번호 → 선수 id
      * @return 저장한 선수 기록 수
@@ -215,6 +216,7 @@ public class IngestWriter {
                     Appearance appearance = appearances.findByPlayerAndGame(player, game)
                             .orElseGet(() -> new Appearance(player, game));
                     appearance.update(team, toBatting(line.batting()), toPitching(line.pitching()));
+                    appearance.updateLineup(LineupRule.of(box, ours.getKey()));
                     appearances.save(appearance);
                     saved++;
                 }
@@ -226,7 +228,39 @@ public class IngestWriter {
             }
         }
         game.markChecked(now);
+        if (box != null) {
+            game.markLineupsChecked();
+        }
         return saved;
+    }
+
+    /**
+     * 지난 경기의 선발·교체만 채운다(기록은 건드리지 않는다). 그 경기의 우리 선수 기록 중 선발·교체를 모르는 것만 고친다.
+     * 박스스코어에 없는 선수는 null로 두고, 경기는 "채워 봤음"으로 표시해 다시 받지 않는다.
+     *
+     * @return 선발·교체를 정한 기록 수
+     */
+    public int saveLineups(long gamePk, MlbBoxscore box, Map<Long, Long> playerIdByMlbId) {
+        Game game = games.findById(gamePk).orElse(null);
+        if (game == null) {
+            return 0;
+        }
+        Map<Long, Long> mlbIdByPlayerId = playerIdByMlbId.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+        int filled = 0;
+        for (Appearance appearance : appearances.findByPlayersAndGames(mlbIdByPlayerId.keySet(), List.of(gamePk))) {
+            Long mlbId = mlbIdByPlayerId.get(appearance.getPlayer().getId());
+            if (appearance.getLineup() != null || mlbId == null) {
+                continue;
+            }
+            Lineup lineup = LineupRule.of(box, mlbId);
+            if (lineup != null) {
+                appearance.updateLineup(lineup);
+                filled++;
+            }
+        }
+        game.markLineupsChecked();
+        return filled;
     }
 
     private LineCount saveGameLog(Player player, List<MlbGameLogSplit> hitting, List<MlbGameLogSplit> pitching) {

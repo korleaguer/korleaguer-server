@@ -12,6 +12,7 @@ import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Lineup;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -166,6 +167,7 @@ class GameIngestTest {
         ingestService.catchUp(true);
         assertThat(client.takeBoxscoresAsked()).containsExactly(7001L);
         assertThat(line(7001).getBatting().hits()).isEqualTo(2);
+        assertThat(line(7001).getLineup()).isEqualTo(Lineup.STARTER); // 박스스코어를 받을 때 선발·교체도 채운다
         assertThat(stored(7001).getHomeScore()).isEqualTo(5);
 
         // 8/10 23:40Z: 7002 진행 중 → 깨어날 때마다 받는다. 7001은 오늘 이미 받았다.

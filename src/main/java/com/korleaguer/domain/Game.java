@@ -49,6 +49,8 @@ public class Game {
     private Instant finalAt;
     private Instant checkedAt;
     private boolean settled;
+    // 선발·교체를 박스스코어로 한 번 채워 봤다(끝난 경기만). 지난 경기를 뒤에서 채울 때 다시 받지 않는다.
+    private boolean lineupsChecked;
 
     protected Game() {
     }
@@ -115,6 +117,13 @@ public class Game {
         }
     }
 
+    /** 끝난 경기의 박스스코어로 선발·교체를 채웠다. */
+    public void markLineupsChecked() {
+        if (isFinal()) {
+            lineupsChecked = true;
+        }
+    }
+
     public boolean isFinal() {
         return STATUS_FINAL.equals(statusState);
     }
@@ -178,5 +187,9 @@ public class Game {
 
     public boolean isSettled() {
         return settled;
+    }
+
+    public boolean isLineupsChecked() {
+        return lineupsChecked;
     }
 }

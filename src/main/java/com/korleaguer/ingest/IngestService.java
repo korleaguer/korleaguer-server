@@ -39,6 +39,8 @@ public class IngestService {
     private static final Logger log = LoggerFactory.getLogger(IngestService.class);
     /** 이 앞뒤 기간에 우리 팀 경기가 있으면 시즌 중으로 본다. */
     private static final int SEASON_MARGIN_DAYS = 3;
+    /** 따라잡기 한 번에 선발·교체를 채우는 지난 경기 수(1초에 1회라 약 20초) */
+    private static final int LINEUP_GAMES_PER_RUN = 20;
 
     private final MlbClient client;
     private final IngestWriter writer;
@@ -99,6 +101,7 @@ public class IngestService {
      *   <li>오늘 아직 안 받은 선수의 정보·이동 기록</li>
      *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필</li>
      *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신, 끝난 경기 재확인</li>
+     *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
      * </ol>
      */
     @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE}, allEntries = true)
@@ -112,6 +115,7 @@ public class IngestService {
                 steps.add(() -> gameIngest.refreshGames(today.minusDays(1), today, false));
                 steps.add(gameIngest::recheckFinals);
             }
+            steps.add(() -> gameIngest.fillLineups(LINEUP_GAMES_PER_RUN));
         });
     }
 
