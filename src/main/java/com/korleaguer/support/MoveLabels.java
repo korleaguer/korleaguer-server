@@ -7,6 +7,7 @@ import java.util.Locale;
  * <ul>
  *   <li>선수 상태 변경(SC)은 설명 글에서 부상자 명단·출장 정지만 골라 이름을 붙이고, 나머지는 null(화면에서 뺀다)이다.</li>
  *   <li>팀 배정(ASG)은 설명 글로 재활 경기·스프링캠프 초청을 가른다.</li>
+ *   <li>등번호 변경(NUM)은 팀을 옮긴 기록이 아니라서 null(화면에서 뺀다)이다.</li>
  *   <li>표에 없는 종류는 영어 typeDesc를 그대로 쓴다. typeDesc에 "Signed"가 들어 있으면 "계약"이다.</li>
  * </ul>
  */
@@ -34,6 +35,7 @@ public final class MoveLabels {
             case "SU" -> suspension(text);
             case "ASG" -> assignment(text);
             case "SC" -> statusChange(text);
+            case "NUM" -> null;
             default -> typeDesc != null && typeDesc.contains("Signed") ? "계약" : typeDesc;
         };
     }

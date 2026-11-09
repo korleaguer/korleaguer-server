@@ -147,6 +147,9 @@ class ApiIntegrationTest {
     void playerPageMoves() throws Exception {
         // 고우석: 상태 변경 줄(roster status changed)은 빠지고 최신순 4줄
         mockMvc.perform(get("/api/players/5"))
+                // 선수 페이지도 목록과 같이 지금 단계를 준다.
+                .andExpect(jsonPath("$.player.level").value("MINORS"))
+                .andExpect(jsonPath("$.player.levelTeam").value("St. Paul Saints"))
                 .andExpect(jsonPath("$.moves", hasSize(4)))
                 .andExpect(jsonPath("$.moves[*].date").value(contains("2026-10-06", "2026-10-02", "2026-09-20", "2026-03-24")))
                 .andExpect(jsonPath("$.moves[0].typeCode").value("OUT"))
