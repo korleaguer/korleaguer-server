@@ -129,6 +129,53 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void playersListHasLevel() throws Exception {
+        // 샘플 MLB 데이터(sample/mlb.json): 고우석만 마이너(St. Paul Saints, 트리플A), 나머지는 메이저
+        mockMvc.perform(get("/api/players"))
+                .andExpect(jsonPath("$[0].level").value("MLB"))
+                .andExpect(jsonPath("$[0].levelTeam").value("San Francisco Giants"))
+                .andExpect(jsonPath("$[4].nameKo").value("고우석"))
+                .andExpect(jsonPath("$[4].level").value("MINORS"))
+                .andExpect(jsonPath("$[4].levelTeam").value("St. Paul Saints"))
+                // balldontlie의 현재 팀은 그대로다.
+                .andExpect(jsonPath("$[4].teamAbbr").value("MIN"))
+                .andExpect(jsonPath("$[*].level").value(contains("MLB", "MLB", "MLB", "MLB", "MINORS", "MLB")));
+    }
+
+    @Test
+    void playerPageMoves() throws Exception {
+        // 고우석: 상태 변경 줄(roster status changed)은 빠지고 최신순 4줄
+        mockMvc.perform(get("/api/players/5"))
+                .andExpect(jsonPath("$.moves", hasSize(4)))
+                .andExpect(jsonPath("$.moves[*].date").value(contains("2026-10-06", "2026-10-02", "2026-09-20", "2026-03-24")))
+                .andExpect(jsonPath("$.moves[0].typeCode").value("OUT"))
+                .andExpect(jsonPath("$.moves[0].labelKo").value("마이너 이관(아웃라이트)"))
+                .andExpect(jsonPath("$.moves[0].fromTeam").value("미네소타"))
+                .andExpect(jsonPath("$.moves[0].toTeam").value("St. Paul Saints"))
+                .andExpect(jsonPath("$.moves[0].toLevel").value("MINORS"))
+                .andExpect(jsonPath("$.moves[1].labelKo").value("지명 할당(DFA)"))
+                .andExpect(jsonPath("$.moves[1].fromTeam").value(nullValue()))
+                .andExpect(jsonPath("$.moves[1].toTeam").value("미네소타"))
+                .andExpect(jsonPath("$.moves[1].toLevel").value("MLB"))
+                .andExpect(jsonPath("$.moves[2].labelKo").value("메이저 콜업"))
+                .andExpect(jsonPath("$.moves[2].fromTeam").value("St. Paul Saints"))
+                .andExpect(jsonPath("$.moves[3].labelKo").value("마이너 강등(옵션)"));
+
+        // 부상자 명단 등재·해제(상태 변경 줄 중 남기는 것)
+        mockMvc.perform(get("/api/players/2"))
+                .andExpect(jsonPath("$.moves[*].labelKo").value(contains("부상자 명단 해제", "부상자 명단 등재")))
+                .andExpect(jsonPath("$.moves[0].toTeam").value("LA 다저스"));
+        // 트레이드: 양쪽 다 MLB 구단이면 한글 이름
+        mockMvc.perform(get("/api/players/6"))
+                .andExpect(jsonPath("$.moves[0].labelKo").value("트레이드"))
+                .andExpect(jsonPath("$.moves[0].fromTeam").value("피츠버그"))
+                .andExpect(jsonPath("$.moves[0].toTeam").value("밀워키"));
+        // 이동 기록이 없으면 빈 목록
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(jsonPath("$.moves", hasSize(0)));
+    }
+
+    @Test
     void jungHooIsMatchedEvenThoughBornInJapan() throws Exception {
         // 샘플의 출생지는 Nagoya, Japan. 한국 출생이 아니어도 이름이 정확히 같으면 매칭된다.
         mockMvc.perform(get("/api/players/1"))

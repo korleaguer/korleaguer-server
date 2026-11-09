@@ -11,6 +11,8 @@ import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLogRepository;
 import com.korleaguer.domain.IngestStatus;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerMove;
+import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.Team;
@@ -18,6 +20,7 @@ import com.korleaguer.support.BatsThrows;
 import com.korleaguer.support.BirthDates;
 import com.korleaguer.support.BodyMeasures;
 import com.korleaguer.support.KoreanTime;
+import com.korleaguer.support.MoveLabels;
 import com.korleaguer.support.PositionNames;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
@@ -29,10 +32,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** DB를 읽어 화면용 응답을 만든다. 홈과 선수 응답은 60초 캐시하고, 수집이 끝나면 IngestService가 비운다. */
@@ -46,6 +52,7 @@ public class BaseballQueryService {
     private final AffiliationRepository affiliations;
     private final AppearanceRepository appearances;
     private final IngestLogRepository ingestLogs;
+    private final PlayerMoveRepository moves;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
     private final RosterProfiles profiles;
@@ -55,13 +62,14 @@ public class BaseballQueryService {
 
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
                                 AppearanceRepository appearances, IngestLogRepository ingestLogs,
-                                GameLineAssembler gameLines, RecentGamesFinder recentGames,
-                                RosterProfiles profiles, DataMode dataMode, KorleaguerProperties properties,
+                                PlayerMoveRepository moves, GameLineAssembler gameLines,
+                                RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode, KorleaguerProperties properties,
                                 Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
         this.ingestLogs = ingestLogs;
+        this.moves = moves;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
         this.profiles = profiles;
@@ -140,7 +148,30 @@ public class BaseballQueryService {
                 BirthDates.age(player.getBirthDate(), player.getAge(), KoreanTime.kstDate(now)),
                 BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
                 BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player));
-        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games);
+        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
+                fanMoves(moves.findNewestFirst(player.getId())));
+    }
+
+    /**
+     * 이동 기록(최신순) 중 팬에게 보일 것만 고른다. 이름(labelKo)이 없는 줄(의미 없는 상태 변경)은 빼고,
+     * MLB가 같은 날 같은 내용을 두 번 준 줄은 하나만 남긴다.
+     */
+    static List<PlayerPageResponse.Move> fanMoves(List<PlayerMove> newestFirst) {
+        record Key(LocalDate date, String typeCode, String description) {
+        }
+        Set<Key> seen = new HashSet<>();
+        List<PlayerPageResponse.Move> result = new ArrayList<>();
+        for (PlayerMove move : newestFirst) {
+            String label = MoveLabels.korean(move.getTypeCode(), move.getTypeDesc(), move.getDescription());
+            if (label == null || !seen.add(new Key(move.getMoveDate(), move.getTypeCode(), move.getDescription()))) {
+                continue;
+            }
+            result.add(new PlayerPageResponse.Move(move.getMoveDate(), move.getTypeCode(), label,
+                    TeamLabels.mlbTeam(move.getFromTeamId(), move.getFromTeamName()),
+                    TeamLabels.mlbTeam(move.getToTeamId(), move.getToTeamName()),
+                    move.getToLevel()));
+        }
+        return result;
     }
 
     /**

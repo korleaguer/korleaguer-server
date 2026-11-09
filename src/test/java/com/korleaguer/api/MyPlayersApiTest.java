@@ -118,6 +118,7 @@ class MyPlayersApiTest {
                 .andExpect(jsonPath("$.players[0].player.teamAbbr").value("SF"))
                 .andExpect(jsonPath("$.players[0].player.age").value(28))
                 .andExpect(jsonPath("$.players[0].player.jersey").value("51"))
+                .andExpect(jsonPath("$.players[0].player.level").value("MLB"))
                 .andExpect(jsonPath("$.players[0].hitting.games").value(3))
                 .andExpect(jsonPath("$.players[0].hitting.atBats").value(12))
                 .andExpect(jsonPath("$.players[0].hitting.hits").value(5))
@@ -150,6 +151,8 @@ class MyPlayersApiTest {
         // 가장 최근 등판(4003)에 실점 → 연속 무실점 0
         mockMvc.perform(get("/api/my").param("ids", "5"))
                 .andExpect(jsonPath("$.players[0].player.role").value("PITCHER"))
+                .andExpect(jsonPath("$.players[0].player.level").value("MINORS"))
+                .andExpect(jsonPath("$.players[0].player.levelTeam").value("St. Paul Saints"))
                 .andExpect(jsonPath("$.players[0].hitting").doesNotExist())
                 .andExpect(jsonPath("$.players[0].pitching.games").value(2))
                 .andExpect(jsonPath("$.players[0].pitching.outs").value(5))
