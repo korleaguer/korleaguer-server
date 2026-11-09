@@ -116,6 +116,13 @@ class StatsUnavailableTest {
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.hitting").doesNotExist())
                 .andExpect(jsonPath("$.games[*].summary").value(contains("기록 없음", "기록 없음")));
+
+        // 내 선수: 기간 합계·연속 기록은 비우고 경기 한 줄만 준다.
+        mockMvc.perform(get("/api/my").param("ids", "1"))
+                .andExpect(jsonPath("$.statsAvailable").value(false))
+                .andExpect(jsonPath("$.players[0].hitting").doesNotExist())
+                .andExpect(jsonPath("$.players[0].streak").doesNotExist())
+                .andExpect(jsonPath("$.players[0].games[*].summary").value(contains("기록 없음", "기록 없음")));
     }
 
     @Test

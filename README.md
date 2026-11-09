@@ -53,6 +53,7 @@ API 키가 없으면 **샘플 모드**로 뜬다. 시작할 때 `src/main/resour
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(타자 타율순, 투수 평균자책점순) |
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순). 없으면 404 |
+| `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
 | `GET /actuator/health` | 상태 확인 |
 | `POST /admin/resolve-players` | 명단(`roster/baseball.yml`)의 선수를 balldontlie 선수와 짝짓기 |
 | `POST /admin/ingest/season?season=2026` | 시즌 전체 수집 |
@@ -82,6 +83,16 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/re
   - `batsThrowsKo`: `Left/Right`(타격/투구) → `우투좌타`(투구 먼저).
   - `age`: 생년월일이 있으면 한국 시간 오늘 기준 만 나이, 없으면 balldontlie가 준 나이.
 
+### 내 선수(`GET /api/my`)
+- `ids`: 쉼표로 이은 선수 id. 겹치면 처음 것만 남기고 1~20개여야 한다. 응답 `players`는 요청한 순서이고, 없는 id는 조용히 뺀다.
+- `days`: 7·14·30 중 하나(기본 7).
+- 규칙에 안 맞으면(ids 없음·숫자 아님·21개 이상, days가 다른 값) 400 `{"error":"..."}`이다.
+- 기간: 한국 날짜로 오늘까지 `days`일. 고른 선수들 팀의 마지막 끝난 경기가 그보다 이르면(비시즌) 마지막 경기일까지 `days`일로 대신한다(`isFallback: true`). 범위는 `fromKst`~`toKst`.
+- `hitting`(타자)·`pitching`(투수): 기간 안에 뛴 경기 합계와 시즌(정규시즌) 타율 `seasonAvg`·평균자책점 `seasonEra`. 평균자책점·아웃·자책점은 아웃 수를 아는 경기만 센다.
+- `streak`: 이번 시즌 최근 경기부터 이어진 연속 기록. 타자는 안타 경기(타수도 안타도 없는 경기는 건너뜀), 투수는 무실점 등판.
+- 선수 기록을 받지 못한 상태면 `hitting`·`pitching`·`streak`이 null이다. 조합이 사람마다 달라 캐시하지 않는다.
+- 경기 한 줄(`games`, 홈·선수 응답의 경기 줄도 같다)에는 그래프용 숫자 `batting`(타수·안타·홈런·타점·볼넷·도루)·`pitching`(아웃·이닝·실점·자책·탈삼진·승패세)이 붙는다. 뛴 경기에 그 기록이 있을 때만 나오고, 결장·경기 전이면 null이다.
+
 ### 결장 판단
 - 경기가 끝났고(final) 선수 기록도 받았는데 그 선수 기록이 없으면 "결장"이다.
 - 정규시즌·포스트시즌 경기 중, 선수가 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기 사이만 본다.
@@ -104,7 +115,7 @@ com.korleaguer
 - DB 스키마: `src/main/resources/db/migration/V1__init.sql`, 선수 프로필 칸은 `V2__player_profile.sql`. 시각은 UTC로 저장하고 응답에서만 한국 시간으로 바꾼다.
 - 수집: 경기와 선수 기록을 다 받은 뒤 한 트랜잭션으로 저장한다. 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 요청 제한: 어느 60초 구간에도 N회(기본 5회)를 넘지 않는다. 429가 오면 1분을 쉬고, 5xx·네트워크 오류는 5·10·20초 기다리며 최대 3회 다시 시도한다.
-- 캐시: 홈·선수 응답을 메모리(Caffeine)에 60초 캐시하고, 수집이 끝나면 비운다(나중에 Redis로 바꿀 자리).
+- 캐시: 홈·선수 응답을 메모리(Caffeine)에 60초 캐시하고, 수집이 끝나면 비운다(나중에 Redis로 바꿀 자리). 내 선수 응답은 캐시하지 않는다.
 - H2 콘솔: 기본은 꺼져 있다. `local` 프로필로 띄우면 `http://localhost:8080/h2-console`이 열린다.
   ```bash
   SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
