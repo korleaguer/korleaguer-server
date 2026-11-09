@@ -1,6 +1,7 @@
 package com.korleaguer.api;
 
 import com.korleaguer.client.MlbClient;
+import com.korleaguer.domain.PlayerSeasonRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,11 +17,14 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * 화면용 API는 DB만 읽는다. 같은 화면을 몇 번 열어도 MLB(가짜 클라이언트)의 요청 수가 늘지 않는다.
+ * 선수 시즌을 아직 받지 않았을 때만 선수 페이지가 그 자리에서 한 번 받고, 그 뒤로는 다시 받지 않는다.
  */
 @SpringBootTest(properties =
         "spring.datasource.url=jdbc:h2:mem:no-repeat-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
@@ -33,6 +37,9 @@ class NoRepeatCallsTest {
 
     @Autowired
     private MlbClient client;
+
+    @Autowired
+    private PlayerSeasonRepository seasons;
 
     @TestConfiguration
     static class FixedClock {
@@ -57,5 +64,22 @@ class NoRepeatCallsTest {
         }
 
         assertThat(client.requestCount()).isEqualTo(before);
+    }
+
+    @Test
+    void playerPageLoadsMissingSeasonOnce() throws Exception {
+        // 김혜성(id 2)의 이번 시즌 "받았음" 표시를 지워 아직 받지 않은 상태로 만든다.
+        seasons.delete(seasons.find(2L, 2026).orElseThrow());
+        long before = client.requestCount();
+
+        mockMvc.perform(get("/api/players/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.games", hasSize(3)));
+        // gameLog 2번(타격·투구) + 팀 시즌 일정 1번
+        assertThat(client.requestCount() - before).isEqualTo(3);
+        assertThat(seasons.exists(2L, 2026)).isTrue();
+
+        mockMvc.perform(get("/api/players/2")).andExpect(status().isOk());
+        assertThat(client.requestCount() - before).isEqualTo(3);
     }
 }
