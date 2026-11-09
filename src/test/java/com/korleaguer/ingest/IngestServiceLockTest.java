@@ -41,8 +41,10 @@ class IngestServiceLockTest {
         when(affiliations.findAllCurrent()).thenReturn(List.of());
         RosterProperties roster = new RosterProperties(
                 List.of(new RosterProperties.Entry("김하성", List.of("Ha-Seong Kim"), null, null, null)));
+        MovesRefresher moves = mock(MovesRefresher.class);
+        when(moves.refreshStale()).thenReturn(new MovesRefresher.Result(0, 0, false, 0));
         IngestService service = new IngestService(blockingClient, new PlayerResolver(blockingClient),
-                mock(IngestWriter.class), affiliations, ingestLogs, roster, Clock.systemUTC());
+                mock(IngestWriter.class), moves, affiliations, ingestLogs, roster, Clock.systemUTC());
 
         Thread first = new Thread(service::resolvePlayers);
         first.start();

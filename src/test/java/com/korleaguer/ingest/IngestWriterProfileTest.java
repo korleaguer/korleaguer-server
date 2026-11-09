@@ -9,6 +9,7 @@ import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.TeamRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -30,7 +31,8 @@ class IngestWriterProfileTest {
 
     private final PlayerRepository players = mock(PlayerRepository.class);
     private final IngestWriter writer = new IngestWriter(mock(TeamRepository.class), players,
-            mock(AffiliationRepository.class), mock(GameRepository.class), mock(AppearanceRepository.class));
+            mock(AffiliationRepository.class), mock(GameRepository.class), mock(AppearanceRepository.class),
+            mock(PlayerMoveRepository.class));
     private final Player player = new Player("이정후");
 
     private final Logger writerLog = (Logger) LoggerFactory.getLogger(IngestWriter.class);
