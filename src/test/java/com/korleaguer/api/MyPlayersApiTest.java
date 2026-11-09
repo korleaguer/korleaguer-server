@@ -44,24 +44,35 @@ class MyPlayersApiTest {
     }
 
     @Test
-    void offSeasonFallsBackToLastGameDay() throws Exception {
-        mockMvc.perform(get("/api/my").param("ids", "1"))
+    void offSeasonUsesEachPlayersLastGame() throws Exception {
+        // 11월이라 최근 7일에 경기가 없다. 선수마다 본인이 마지막으로 뛴 날까지 7일로 당긴다.
+        // 이정후는 9월 27일, 김혜성은 9월 26일(다저스는 27일에도 했지만 김혜성은 결장)
+        mockMvc.perform(get("/api/my").param("ids", "1,2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dataMode").value("sample"))
                 .andExpect(jsonPath("$.statsAvailable").value(true))
                 .andExpect(jsonPath("$.season").value(2026))
                 .andExpect(jsonPath("$.generatedAt").value("2026-11-01T11:00:00Z"))
                 .andExpect(jsonPath("$.days").value(7))
-                .andExpect(jsonPath("$.fromKst").value("2026-09-21"))
-                .andExpect(jsonPath("$.toKst").value("2026-09-27"))
+                // 맨 위 기간은 최근 7일, isFallback은 한 명이라도 당겼는지
+                .andExpect(jsonPath("$.fromKst").value("2026-10-26"))
+                .andExpect(jsonPath("$.toKst").value("2026-11-01"))
                 .andExpect(jsonPath("$.isFallback").value(true))
-                .andExpect(jsonPath("$.players", hasSize(1)));
+                .andExpect(jsonPath("$.players", hasSize(2)))
+                .andExpect(jsonPath("$.players[0].fromKst").value("2026-09-21"))
+                .andExpect(jsonPath("$.players[0].toKst").value("2026-09-27"))
+                .andExpect(jsonPath("$.players[0].isFallback").value(true))
+                .andExpect(jsonPath("$.players[1].fromKst").value("2026-09-20"))
+                .andExpect(jsonPath("$.players[1].toKst").value("2026-09-26"))
+                .andExpect(jsonPath("$.players[1].isFallback").value(true));
 
-        // 30일이면 마지막 경기일(9월 27일)에서 29일 전부터
+        // 30일이면 마지막으로 뛴 날(9월 27일)에서 29일 전부터
         mockMvc.perform(get("/api/my").param("ids", "1").param("days", "30"))
                 .andExpect(jsonPath("$.days").value(30))
-                .andExpect(jsonPath("$.fromKst").value("2026-08-29"))
-                .andExpect(jsonPath("$.toKst").value("2026-09-27"));
+                .andExpect(jsonPath("$.fromKst").value("2026-10-03"))
+                .andExpect(jsonPath("$.toKst").value("2026-11-01"))
+                .andExpect(jsonPath("$.players[0].fromKst").value("2026-08-29"))
+                .andExpect(jsonPath("$.players[0].toKst").value("2026-09-27"));
     }
 
     @Test
@@ -181,16 +192,14 @@ class MyPlayersApiTest {
     }
 
     @Test
-    void absenceLineHasNoNumbers() throws Exception {
-        // 김혜성: 2001 3타수 무안타, 2002 4타수 3안타, 2003 결장
-        // → 기간 2경기 7타수 3안타(.429). 결장은 연속 기록을 끊지 않고, 2001 무안타에서 멈춰 연속 1경기
+    void offSeasonCardEndsAtPlayersOwnLastGame() throws Exception {
+        // 김혜성: 2001 3타수 무안타, 2002 4타수 3안타, 2003 결장(9월 27일)
+        // 비시즌에는 본인이 마지막으로 뛴 2002(9월 26일)까지라 뒤의 결장(2003)은 카드에 넣지 않는다.
+        // → 기간 2경기 7타수 3안타(.429). 2001 무안타에서 멈춰 연속 1경기
         mockMvc.perform(get("/api/my").param("ids", "2"))
-                .andExpect(jsonPath("$.players[0].games[*].gameId").value(contains(2003, 2002, 2001)))
-                .andExpect(jsonPath("$.players[0].games[0].played").value(false))
-                .andExpect(jsonPath("$.players[0].games[0].summary").value("결장"))
-                .andExpect(jsonPath("$.players[0].games[0].batting").doesNotExist())
-                .andExpect(jsonPath("$.players[0].games[0].pitching").doesNotExist())
-                .andExpect(jsonPath("$.players[0].games[1].batting.hits").value(3))
+                .andExpect(jsonPath("$.players[0].toKst").value("2026-09-26"))
+                .andExpect(jsonPath("$.players[0].games[*].gameId").value(contains(2002, 2001)))
+                .andExpect(jsonPath("$.players[0].games[0].batting.hits").value(3))
                 .andExpect(jsonPath("$.players[0].hitting.games").value(2))
                 .andExpect(jsonPath("$.players[0].hitting.avg").value(0.429))
                 .andExpect(jsonPath("$.players[0].streak").value(1));

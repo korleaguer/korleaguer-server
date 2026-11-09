@@ -23,12 +23,13 @@ import static com.korleaguer.client.MlbFixtures.batting;
 import static com.korleaguer.client.MlbFixtures.game;
 import static com.korleaguer.client.MlbFixtures.hitter;
 import static com.korleaguer.client.MlbFixtures.team;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 /**
- * 비시즌의 "마지막 경기일"은 메이저에 있는 선수의 구단 경기로만 정한다.
+ * 비시즌의 "마지막 경기일"은 메이저에 있는 선수의 구단 경기로만 정한다(홈). 내 선수는 선수마다 본인이 뛴 날로 정한다.
  * 마이너에 있는 선수(배지환)의 소속 구단(밀워키)이 더 늦게까지 경기를 했어도(포스트시즌 등)
  * 그 날짜를 잡으면 홈에 빈 날짜가 뜬다(2026-11-10 실제 데이터에서 "10월 29일 경기"가 비어 보였다).
  */
@@ -90,8 +91,12 @@ class MinorsLastGameDayTest {
 
     @Test
     void myPlayersFallbackIgnoresMinorsPlayersClub() throws Exception {
+        // 내 선수는 선수마다 본인이 마지막으로 뛴 날까지다. 배지환은 밀워키의 9월 28일 경기가 아니라
+        // 본인이 뛴 8월 2일(한국 날짜)까지다.
         mockMvc.perform(get("/api/my").param("ids", "1,2").param("days", "7"))
                 .andExpect(jsonPath("$.isFallback").value(true))
-                .andExpect(jsonPath("$.toKst").value("2026-09-27"));
+                .andExpect(jsonPath("$.players[0].toKst").value("2026-09-27"))
+                .andExpect(jsonPath("$.players[1].toKst").value("2026-08-02"))
+                .andExpect(jsonPath("$.players[1].games[*].gameId").value(contains(9101)));
     }
 }

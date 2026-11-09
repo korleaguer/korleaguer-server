@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * GET /api/my(내 선수). 기간은 한국 날짜 [fromKst, toKst]의 days일이다.
- * isFallback=false: 오늘까지 days일, true: 그 안에 경기가 없어(비시즌) 마지막 경기일(toKst)까지 days일.
+ * GET /api/my(내 선수). 기간은 선수마다 한국 날짜 [fromKst, toKst]의 days일이다(MyPlayer).
+ * 맨 위 fromKst·toKst는 오늘까지 days일이고, isFallback은 한 명이라도 기간을 당겼으면 true다.
  * players는 요청한 순서이고, 없는 id는 빠진다.
  */
 public record MyPlayersResponse(
@@ -28,9 +28,14 @@ public record MyPlayersResponse(
      * 선수 기록을 받지 못한 상태(statsAvailable=false)면 hitting·pitching·streak 모두 null이다.
      * streak은 이번 시즌(정규시즌+포스트시즌) 최근 경기부터 이어진 연속 기록이다(타자: 안타 경기, 투수: 무실점 등판).
      * games는 기간 안 경기 한 줄 기록(결장·경기 전 포함), 최신순이다.
+     * 기간: 보통은 오늘까지 days일(isFallback=false). 최근 days일에 구단 경기(메이저에 있을 때)도 본인 출전도 없으면
+     * (구단 시즌이 끝났거나 마이너에 있음) 그 선수가 마지막으로 뛴 날(toKst)까지 days일이다(isFallback=true).
      */
     public record MyPlayer(
             PlayerSummary player,
+            LocalDate fromKst,
+            LocalDate toKst,
+            @JsonProperty("isFallback") boolean isFallback,
             PeriodHitting hitting,
             PeriodPitching pitching,
             Integer streak,

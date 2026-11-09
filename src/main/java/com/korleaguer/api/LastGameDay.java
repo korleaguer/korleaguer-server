@@ -21,7 +21,7 @@ import java.util.stream.Stream;
  *   <li>마이너에 있는 선수는 소속 구단 경기가 아니라 본인이 뛴 경기에만 줄이 생긴다
  *       (RosterMember.majorTeam). 그래서 구단의 늦은 경기(포스트시즌 등)로 날짜를 잡지 않는다.</li>
  * </ul>
- * 홈(RecentGamesFinder)과 내 선수(MyPlayersService)가 같은 규칙을 쓴다.
+ * 홈(RecentGamesFinder)이 쓴다. 내 선수(MyPlayersService)는 선수마다 기간을 따로 정한다.
  */
 @Component
 class LastGameDay {
