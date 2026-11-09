@@ -104,13 +104,7 @@ public class BaseballQueryService {
                 .collect(Collectors.toMap(m -> m.player().getId(), RosterMember::team));
         LocalDate today = KoreanTime.kstDate(clock.instant());
         return players.findAll(Sort.by("id")).stream()
-                .map(p -> {
-                    Team team = teamByPlayer.get(p.getId());
-                    return new PlayerSummary(p.getId(), p.getNameKo(), profiles.photoUrl(p), p.getNameEn(), p.role(),
-                            p.getPosition(), PositionNames.korean(p.getPosition()), TeamLabels.korean(team),
-                            TeamLabels.abbreviation(team), BirthDates.age(p.getBirthDate(), p.getAge(), today),
-                            p.getJersey());
-                })
+                .map(p -> PlayerSummary.of(p, profiles.photoUrl(p), teamByPlayer.get(p.getId()), today))
                 .toList();
     }
 
@@ -153,8 +147,9 @@ public class BaseballQueryService {
      * 선수 기록을 받은 상태인지. 가장 최근에 끝난 시즌·하루치 수집이 기록까지 받았으면(SUCCESS) true다.
      * 401/403으로 막혔거나(STATS_UNAVAILABLE) 아직 한 번도 끝나지 않았으면 false다.
      * 경기와 기록은 한 트랜잭션으로 저장하므로, 수집이 도는 중에도 DB에는 지난번 수집 결과만 보인다.
+     * 내 선수 응답(MyPlayersService)도 이 값을 쓴다.
      */
-    private boolean statsAvailable() {
+    boolean statsAvailable() {
         return ingestLogs.findFirstByKindInAndStatusInOrderByIdDesc(
                         List.of(IngestKind.SEASON, IngestKind.DAILY),
                         List.of(IngestStatus.SUCCESS, IngestStatus.STATS_UNAVAILABLE))
