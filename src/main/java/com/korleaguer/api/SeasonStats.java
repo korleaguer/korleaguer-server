@@ -34,6 +34,7 @@ final class SeasonStats {
                 TeamLabels.korean(team),
                 TeamLabels.abbreviation(team),
                 appearances.size(),
+                lines.stream().mapToInt(Batting::plateAppearancesOrComputed).sum(),
                 atBats,
                 hits,
                 sum(lines, Batting::doubles),

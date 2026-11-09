@@ -29,6 +29,14 @@ public record Batting(
         return singles + 2 * orZero(doubles) + 3 * orZero(triples) + 4 * orZero(homeRuns);
     }
 
+    /** 타석. 값이 없으면 타수 + 볼넷 + 몸에 맞는 공 + 희생플라이로 구한다(희생번트는 몰라서 뺀다). */
+    public int plateAppearancesOrComputed() {
+        if (plateAppearances != null) {
+            return plateAppearances;
+        }
+        return orZero(atBats) + orZero(walks) + orZero(hitByPitch) + orZero(sacFlies);
+    }
+
     private static int orZero(Integer value) {
         return value == null ? 0 : value;
     }

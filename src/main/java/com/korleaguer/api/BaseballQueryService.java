@@ -7,6 +7,7 @@ import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
+import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
@@ -35,6 +36,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,6 +50,7 @@ public class BaseballQueryService {
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
     private final AppearanceRepository appearances;
+    private final GameRepository games;
     private final PlayerMoveRepository moves;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
@@ -57,12 +60,14 @@ public class BaseballQueryService {
     private final Clock clock;
 
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
-                                AppearanceRepository appearances, PlayerMoveRepository moves, GameLineAssembler gameLines,
+                                AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
+                                GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode, KorleaguerProperties properties,
                                 Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
+        this.games = games;
         this.moves = moves;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
@@ -77,6 +82,7 @@ public class BaseballQueryService {
         Instant now = clock.instant();
         boolean statsAvailable = statsAvailable();
         List<RosterMember> roster = currentRoster();
+        RankingMinimums ranking = RankingMinimums.of(teamGamesPlayed(roster));
 
         List<HitterSeason> hitters = List.of();
         List<PitcherSeason> pitchers = List.of();
@@ -86,18 +92,33 @@ public class BaseballQueryService {
                     .filter(m -> m.player().role() == Role.HITTER)
                     .map(m -> SeasonStats.hitter(m.player(), profiles.photoUrl(m.player()), m.team(),
                             seasonOf(byPlayer, m.player())))
-                    .sorted(Comparator.comparing(HitterSeason::avg, Comparator.nullsLast(Comparator.reverseOrder())))
+                    // 순위 기준을 채운 선수 먼저, 그 안에서 타율 순
+                    .sorted(Comparator.comparing((HitterSeason h) -> !ranking.qualifies(h))
+                            .thenComparing(HitterSeason::avg, Comparator.nullsLast(Comparator.reverseOrder())))
                     .toList();
             pitchers = roster.stream()
                     .filter(m -> m.player().role() == Role.PITCHER)
                     .map(m -> SeasonStats.pitcher(m.player(), profiles.photoUrl(m.player()), m.team(),
                             seasonOf(byPlayer, m.player())))
-                    .sorted(Comparator.comparing(PitcherSeason::era, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .sorted(Comparator.comparing((PitcherSeason p) -> !ranking.qualifies(p))
+                            .thenComparing(PitcherSeason::era, Comparator.nullsLast(Comparator.naturalOrder())))
                     .toList();
         }
 
         return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
-                recentGames.find(roster, now, statsAvailable), hitters, pitchers);
+                recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers);
+    }
+
+    /** 시즌이 얼마나 지났는지: 메이저에 있는 선수들의 구단 중 이번 정규시즌에 끝난 경기가 가장 많은 구단의 경기 수 */
+    private int teamGamesPlayed(List<RosterMember> roster) {
+        return (int) roster.stream()
+                .map(RosterMember::majorTeam)
+                .filter(Objects::nonNull)
+                .map(Team::getMlbTeamId)
+                .distinct()
+                .mapToLong(teamId -> games.countFinalRegularGames(teamId, season))
+                .max()
+                .orElse(0);
     }
 
     /** MLB에서 받기 전인 선수도 포함한다(영어 이름·포지션·팀·나이·등번호가 null). */
