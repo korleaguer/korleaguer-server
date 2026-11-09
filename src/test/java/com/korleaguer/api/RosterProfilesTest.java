@@ -64,7 +64,7 @@ class RosterProfilesTest {
 
     private RosterProfiles profiles(boolean officialPhotos, String template) {
         KorleaguerProperties properties = new KorleaguerProperties(2026, null, null, null, null,
-                new KorleaguerProperties.Images(officialPhotos, template));
+                new KorleaguerProperties.Images(officialPhotos, template), null);
         return new RosterProfiles(roster, properties);
     }
 }
