@@ -1,6 +1,6 @@
 # 코리거 배포(서버: pigeon.ddns.net)
 
-develop에 PR이 병합되면 GitHub Actions가 테스트하고, 버전을 정해 Docker 이미지를 만들어 GHCR(GitHub 이미지 저장소)에 올리고,
+develop에 PR이 병합되면 GitHub Actions가 테스트하고 Docker 이미지를 만들어 GHCR(GitHub 이미지 저장소)에 올리고,
 SSH로 서버에 접속해 새 이미지로 바꾼다(지속 배포, 사람이 '배포'를 누르지 않는다). 서버는 이 폴더의 `compose.yaml`로 4개 컨테이너를 띄운다.
 
 ```
@@ -9,11 +9,11 @@ SSH로 서버에 접속해 새 이미지로 바꾼다(지속 배포, 사람이 '
 ```
 
 - **배포 시작:** 저장소마다 develop 병합(푸시). 문서·테스트만 바뀐 푸시는 건너뛴다. API는 `korleaguer-server`, 웹은 `korleaguer-web`에서 따로 나간다.
-- **순서:** 테스트(CI) → 버전 정하기(Conventional Commits) → 이미지(버전·커밋 태그, SBOM·출처 증명) → 서버 교체 → (웹) 공개 주소 `/healthz`가 새 버전을 주는지 확인 → 태그·릴리스 노트(`vX.Y.Z`) → main을 배포한 커밋에 맞춤.
-- **버전:** 마지막 `vX.Y.Z` 뒤 커밋 제목으로 정한다. 호환이 깨지는 변경(`type!:`)은 1.0.0 전에는 minor, `feat`은 minor, 그 밖은 patch. 배포가 실패하면 태그·릴리스를 남기지 않아 다음 시도가 같은 버전을 쓴다.
-- **끊김 없이 바꾸기:** 새 컨테이너를 옛 것과 겹쳐 띄우고 healthy가 되면 옛 것을 내린다. 새 것이 정상이 안 되면 지우고 옛 버전을 그대로 둔다.
-- **API 배포 전 DB 백업:** `backups/`에 `before-버전` 덤프. 매일 04:30에도 백업(최근 14개).
-- **되돌리기(롤백):** Actions → deploy → Run workflow에 이전 버전(예 `0.1.0`)을 넣는다. 서버에 최근 3개 버전 이미지가 남아 있다.
+- **순서:** 테스트(CI) → 이미지(SBOM·출처 증명 포함) → 서버 교체 → (웹) 공개 주소 `/healthz`가 그 커밋을 주는지 확인 → main을 배포한 커밋에 맞춤.
+- **배포 구분:** 버전 번호 없이 커밋 해시로 구분한다. 이미지 이름표는 `sha-1a2b3c4`(병합된 커밋의 앞 7자리)이고, 배포 기록은 저장소 Actions의 `deploy` 실행 목록이다.
+- **끊김 없이 바꾸기:** 새 컨테이너를 옛 것과 겹쳐 띄우고 healthy가 되면 옛 것을 내린다. 새 것이 정상이 안 되면 지우고 옛 것을 그대로 둔다.
+- **API 배포 전 DB 백업:** `backups/`에 `before-<이미지 이름표>` 덤프(예 `before-sha-1a2b3c4`). 매일 04:30에도 백업(최근 14개).
+- **되돌리기(롤백):** Actions → deploy → Run workflow에 되돌릴 커밋(예 `1a2b3c4`)을 넣는다. 서버에 최근 3개 이미지가 남아 있고, 그보다 오래된 것은 GHCR에서 받는다.
 - **보안:** 배포 전용 계정 `deploy`의 SSH 키는 저장소마다 따로이고, 키마다 "그 서비스 배포" 명령 하나만 실행된다(셸·포트 포워딩 불가). 서버 호스트 키를 고정해 다른 서버에는 접속하지 않는다. 서버가 GHCR에서 이미지를 받을 때는 그 배포 job의 임시 토큰만 쓰고 지운다.
 
 ## 처음 한 번: 준비
@@ -95,9 +95,9 @@ Free 조직의 private 저장소는 Environment·조직 secret을 쓸 수 없어
 
 ## 배포하기
 
-PR을 develop에 병합하면 끝이다. 워크플로가 버전을 정해 배포하고, 성공하면 `vX.Y.Z` 태그와 릴리스 노트(병합된 PR 제목)를 남긴다.
+PR을 develop에 병합하면 끝이다. 워크플로가 그 커밋을 테스트해 이미지로 만들고 배포한다. 성공하면 main을 그 커밋에 맞춘다.
 API와 웹이 함께 바뀌는 변경은 API PR을 먼저 병합한다(웹은 옛 API에도 깨지지 않게 만든다).
-실패하면 Actions가 실패로 표시되고(메일 알림) 서버는 옛 버전 그대로다. 고친 뒤 다시 병합하거나 실패한 실행을 '다시 실행'한다.
+실패하면 Actions가 실패로 표시되고(메일 알림) 서버는 옛 것 그대로다. 고친 뒤 다시 병합하거나 실패한 실행을 '다시 실행'한다.
 
 - 진행 상황: 저장소 Actions 탭의 `deploy`. 서버에도 `/srv/korleaguer/deploy.log`에 남는다(SSH가 중간에 끊겨도 배포는 끝까지 간다)
 - 서버에서 보기: 아래처럼 deploy 계정으로 들어가서 본다(`/srv/korleaguer`는 deploy 계정만 열 수 있다)
@@ -111,9 +111,21 @@ docker compose logs -f api
 
 ## 되돌리기·직접 배포
 
-- GitHub: Actions → deploy → Run workflow → `version`에 이전 버전(예 `0.1.0`)
-- 서버에서 직접(이미지가 서버에 있을 때): `sudo -iu deploy` 뒤 `KORLEAGUER_SKIP_PULL=1 korleaguer-deploy api 0.1.0`
-- DB 구조가 바뀐 배포를 되돌릴 때는 `backups/`의 `before-버전` 덤프로 함께 복원한다.
+- GitHub: Actions → deploy → Run workflow → `commit`에 되돌릴 커밋(예 `1a2b3c4`, 그 저장소의 develop 커밋)
+- 서버에서 직접(이미지가 서버에 있을 때): `sudo -iu deploy` 뒤 `KORLEAGUER_SKIP_PULL=1 korleaguer-deploy api sha-1a2b3c4`
+- DB 구조가 바뀐 배포를 되돌릴 때는 `backups/`의 `before-sha-…` 덤프로 함께 복원한다.
+
+## 서버 스크립트를 바꿨을 때
+
+`korleaguer-deploy`·`korleaguer-backup`을 고쳤으면 서버에 다시 설치한다. 배포 워크플로는 이 파일을 바꾸지 못한다
+(배포 키는 배포 명령 하나만 실행할 수 있게 묶여 있다). 내 컴퓨터의 이 저장소 폴더에서:
+
+```bash
+scp deploy/korleaguer-deploy 내계정@pigeon.ddns.net:/tmp/korleaguer-deploy && ssh -t 내계정@pigeon.ddns.net \
+  'sudo install -m 755 /tmp/korleaguer-deploy /usr/local/bin/korleaguer-deploy && rm /tmp/korleaguer-deploy && echo 설치 완료'
+```
+
+`compose.yaml`·`Caddyfile`을 고쳤으면 `server-setup.sh`를 다시 실행한다(위 "처음 한 번"의 2번).
 
 ## 백업·복원
 
@@ -121,7 +133,7 @@ docker compose logs -f api
 sudo -iu deploy
 cd /srv/korleaguer
 korleaguer-backup manual                           # 지금 백업
-gunzip -c backups/korleaguer-…-before-0.2.0.sql.gz \
+gunzip -c backups/korleaguer-…-before-sha-1a2b3c4.sql.gz \
   | docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot "$MYSQL_DATABASE"'
 ```
 
@@ -139,10 +151,10 @@ docker compose exec api sh -c 'curl -s -X POST -H "X-Admin-Token: $KORLEAGUER_AD
 
 ## 알아 둘 것
 
-- **DB 구조를 바꾸는 배포:** 새 API가 Flyway로 DB를 바꾸는 동안 옛 API도 잠깐 같이 돈다. 그래서 바뀐 구조가 옛 버전에서도 돌아가게 한다(열·표 추가는 먼저, 지우기는 다음 배포에서).
+- **DB 구조를 바꾸는 배포:** 새 API가 Flyway로 DB를 바꾸는 동안 옛 API도 잠깐 같이 돈다. 그래서 바뀐 구조가 옛 코드에서도 돌아가게 한다(열·표 추가는 먼저, 지우기는 다음 배포에서).
 - **API가 겹쳐 뜨는 동안:** 수십 초 동안 두 API가 함께 떠 있어 수집이 한 번 겹칠 수 있다. 같은 경기·기록은 DB의 유일 제약이 막고, 실패한 수집은 다음 실행(12분 뒤)에 다시 한다.
 - **서버 설정 파일이 바뀌면**(`compose.yaml`, `Caddyfile`, 스크립트): 이 폴더를 서버에 다시 복사하고 `server-setup.sh`를 다시 실행한 뒤,
   deploy 계정으로 `cd /srv/korleaguer && docker compose up -d caddy mysql && docker compose restart caddy`
   (Caddy는 시작할 때만 Caddyfile을 읽어서, 설정이 같으면 `up`만으로는 다시 읽지 않는다).
 - **No-IP 무료 주소**는 30일마다 확인하지 않으면 만료된다.
-- **GHCR:** 지금은 컨테이너 이미지 저장·전송이 무료다(바뀌면 1개월 전에 알려 준다). 오래된 버전은 GitHub 조직의 Packages에서 지울 수 있다.
+- **GHCR:** 지금은 컨테이너 이미지 저장·전송이 무료다(바뀌면 1개월 전에 알려 준다). 오래된 이미지는 GitHub 조직의 Packages에서 지울 수 있다.
