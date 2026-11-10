@@ -13,6 +13,9 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
 
     Optional<Appearance> findByPlayerAndGame(Player player, Game game);
 
+    /** 선수가 가장 늦게 시작한 경기에 뛴 기록(그때의 팀을 알 때 쓴다) */
+    Optional<Appearance> findFirstByPlayerOrderByGameStartTimeUtcDesc(Player player);
+
     /** 주어진 선수들의 기록 중 경기가 [from, to) 사이에 시작한 것 */
     @Query("""
             select a from Appearance a
@@ -38,6 +41,7 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
     /**
      * 선발·교체를 아직 모르는 기록이 있는 굳은(settled) 경기 중, 박스스코어로 채워 보지 않은 경기(최근 경기부터).
      * 지난 경기를 뒤에서 천천히 채울 때 쓴다. 굳기 전 경기는 경기 갱신·재확인에서 박스스코어를 받을 때 채운다.
+     * 채워 본 경기라도 그 뒤 시즌 백필로 새 기록이 생기면 다시 채워 보지 않은 경기가 된다(IngestWriter.saveGameLog).
      */
     @Query("""
             select distinct g from Appearance a

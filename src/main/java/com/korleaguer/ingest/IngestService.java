@@ -100,22 +100,33 @@ public class IngestService {
      *   <li>명단 선수 줄 만들기</li>
      *   <li>오늘 아직 안 받은 선수의 정보·이동 기록</li>
      *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필</li>
-     *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신, 끝난 경기 재확인</li>
+     *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
      * </ol>
      */
     @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE}, allEntries = true)
     public IngestLog catchUp(boolean refreshGames) {
+        return catchUp(refreshGames, false);
+    }
+
+    /**
+     * 따라잡기에 lookAhead면 앞 일정 보기(하루 한 번 앞으로 7일 일정)를 더한다.
+     * 스케줄이 비시즌일 때 이것으로 포스트시즌처럼 새로 잡힌 경기를 보고 시즌 중으로 돌아온다.
+     */
+    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE}, allEntries = true)
+    public IngestLog catchUp(boolean refreshGames, boolean lookAhead) {
         return run(IngestKind.SCHEDULED, steps -> {
             ensureRoster();
             steps.add(() -> playersStep(false));
             steps.add(() -> gameIngest.backfillSeason(withoutSeason(players.findByMlbIdIsNotNull()), season));
             if (refreshGames) {
-                LocalDate today = gameIngest.usDate(clock.instant());
-                steps.add(() -> gameIngest.refreshGames(today.minusDays(1), today, false));
+                steps.add(gameIngest::refreshRecent);
                 steps.add(gameIngest::recheckFinals);
             }
             steps.add(() -> gameIngest.fillLineups(LINEUP_GAMES_PER_RUN));
+            if (lookAhead) {
+                steps.add(gameIngest::lookAhead);
+            }
         });
     }
 
@@ -130,7 +141,10 @@ public class IngestService {
         });
     }
 
-    /** 이번 시즌 경기가 지금 앞뒤 며칠 안에 있는지. 없으면 비시즌으로 보고 경기 갱신을 하지 않는다. */
+    /**
+     * 이번 시즌 경기가 지금 앞뒤 며칠 안에 있는지(DB만 본다). 없으면 비시즌으로 보고 경기 갱신을 하지 않고,
+     * 스케줄이 하루 한 번 앞 일정만 받는다(catchUp의 lookAhead).
+     */
     public boolean inSeason(Instant now) {
         return gameIngest.hasGamesAround(now, SEASON_MARGIN_DAYS);
     }

@@ -9,7 +9,6 @@ import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.Role;
-import com.korleaguer.domain.Team;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -141,16 +140,16 @@ public class MyPlayersService {
         return List.copyOf(unique);
     }
 
-    /** 요청한 순서대로, 있는 선수만. 팀은 현재 소속(없으면 null)이다. */
+    /** 요청한 순서대로, 있는 선수만. 팀은 지금 소속(소속이 끝났으면 마지막 소속, 없으면 null)이다. */
     private List<RosterMember> members(List<Long> requested) {
         Map<Long, Player> found = players.findAllById(requested).stream()
                 .collect(Collectors.toMap(Player::getId, Function.identity()));
-        Map<Long, Team> teamByPlayer = affiliations.findAllCurrent().stream()
+        Map<Long, Affiliation> affiliationByPlayer = affiliations.findAllLatest().stream()
                 .filter(a -> found.containsKey(a.getPlayer().getId()))
-                .collect(Collectors.toMap(a -> a.getPlayer().getId(), Affiliation::getTeam));
+                .collect(Collectors.toMap(a -> a.getPlayer().getId(), Function.identity()));
         return requested.stream()
                 .filter(found::containsKey)
-                .map(id -> new RosterMember(found.get(id), teamByPlayer.get(id)))
+                .map(id -> RosterMember.of(found.get(id), affiliationByPlayer.get(id)))
                 .toList();
     }
 

@@ -8,7 +8,9 @@ import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
+import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
+import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
@@ -32,6 +34,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,8 +47,9 @@ class IngestWriterProfileTest {
     private final PlayerRepository players = mock(PlayerRepository.class);
     private final TeamRepository teams = mock(TeamRepository.class);
     private final AffiliationRepository affiliations = mock(AffiliationRepository.class);
+    private final AppearanceRepository appearances = mock(AppearanceRepository.class);
     private final IngestWriter writer = new IngestWriter(teams, players, affiliations, mock(GameRepository.class),
-            mock(AppearanceRepository.class), mock(PlayerMoveRepository.class), mock(PlayerSeasonRepository.class),
+            appearances, mock(PlayerMoveRepository.class), mock(PlayerSeasonRepository.class),
             mock(MinorSeasonRepository.class));
     private final Player player = new Player("이정후");
 
@@ -57,7 +61,7 @@ class IngestWriterProfileTest {
         when(players.findById(1L)).thenReturn(Optional.of(player));
         when(teams.findById(any())).thenReturn(Optional.empty());
         when(teams.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(affiliations.findByPlayerAndEndDateIsNull(player)).thenReturn(Optional.empty());
+        when(affiliations.findByPlayer(player)).thenReturn(Optional.empty());
         logs.start();
         writerLog.addAppender(logs);
     }
@@ -98,13 +102,47 @@ class IngestWriterProfileTest {
     }
 
     @Test
-    void noTeamRemovesCurrentAffiliation() {
+    void noTeamKeepsLastTeamAsEnded() {
+        // FA가 되어도 소속 줄을 지우지 않는다. 끝난 날만 남기고 팀(마지막 소속)은 그대로 둔다.
         Affiliation current = new Affiliation(player, new Team(137L), TODAY.minusDays(30));
-        when(affiliations.findByPlayerAndEndDateIsNull(player)).thenReturn(Optional.of(current));
+        when(affiliations.findByPlayer(player)).thenReturn(Optional.of(current));
 
         save(person("1998-08-20", null));
 
-        verify(affiliations).delete(current);
+        verify(affiliations, never()).delete(any());
+        assertThat(current.isEnded()).isTrue();
+        assertThat(current.getEndDate()).isEqualTo(TODAY);
+        assertThat(current.getTeam().getMlbTeamId()).isEqualTo(137L);
+        assertThat(player.getLevelTeamName()).isNull();
+    }
+
+    @Test
+    void teamAgainReopensEndedAffiliation() {
+        // FA였다가 다른 구단과 계약하면 같은 줄이 다시 지금 소속이 된다(선수마다 한 줄).
+        Affiliation ended = new Affiliation(player, new Team(137L), TODAY.minusDays(30));
+        ended.end(TODAY.minusDays(3));
+        when(affiliations.findByPlayer(player)).thenReturn(Optional.of(ended));
+
+        save(person("1998-08-20", new MlbTeam(135L, "San Diego Padres", null, null, null)));
+
+        verify(affiliations, never()).save(any());
+        assertThat(ended.isEnded()).isFalse();
+        assertThat(ended.getTeam().getMlbTeamId()).isEqualTo(135L);
+    }
+
+    @Test
+    void noTeamAndNoAffiliationKeepsLastPlayedTeam() {
+        // 소속 줄이 없는데(처음부터 FA 등) 뛴 기록이 있으면 마지막으로 뛴 경기의 팀을 끝난 소속으로 남긴다.
+        Appearance last = new Appearance(player, new Game(7001L));
+        last.update(new Team(144L), null, null);
+        when(appearances.findFirstByPlayerOrderByGameStartTimeUtcDesc(player)).thenReturn(Optional.of(last));
+
+        save(person("1998-08-20", null));
+
+        ArgumentCaptor<Affiliation> saved = ArgumentCaptor.forClass(Affiliation.class);
+        verify(affiliations).save(saved.capture());
+        assertThat(saved.getValue().getTeam().getMlbTeamId()).isEqualTo(144L);
+        assertThat(saved.getValue().getEndDate()).isEqualTo(TODAY);
     }
 
     @Test

@@ -41,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -106,7 +107,8 @@ public class IngestWriter {
 
     /**
      * 선수 한 명의 MLB 정보(프로필·지금 소속)와 단계·이동 기록을 한 트랜잭션으로 저장한다.
-     * 지금 소속은 MLB 구단이다. 마이너 팀에 있으면 그 팀의 MLB 구단(parentOrgId)으로, 소속이 없으면 소속 줄을 지운다.
+     * 지금 소속은 MLB 구단이다. 마이너 팀에 있으면 그 팀의 MLB 구단(parentOrgId)으로 둔다.
+     * MLB 구단 소속이 없으면(FA 등) 소속 줄을 지우지 않고 끝난 날을 남긴다(마지막 소속으로 화면에 남는다).
      * 이동 기록은 MLB 이동 기록 번호로 upsert하므로 같은 줄을 다시 받아도 늘지 않는다.
      *
      * @param teamLevels 팀 번호 → 단계. 모르는 팀은 넣지 않는다.
@@ -193,6 +195,11 @@ public class IngestWriter {
             seasons.find(player.getId(), season).ifPresentOrElse(
                     marker -> marker.refetched(now),
                     () -> seasons.save(new PlayerSeason(player, season, now)));
+            // 처음 받을 때 이미 MLB 구단 소속이 없던 선수(FA 등)는 선수 정보 단계에서 남길 팀이 없었다.
+            // 방금 저장한 기록의 마지막 팀을 끝난 소속으로 남겨 홈 시즌 성적에 보이게 한다.
+            if (player.getLevelCheckedAt() != null && affiliations.findByPlayer(player).isEmpty()) {
+                keepLastPlayedTeam(player, LocalDate.ofInstant(now, ZoneOffset.UTC));
+            }
         }
         if (skippedLines > 0) {
             log.warn("skipped {} gameLog lines (game not in schedule or missing values)", skippedLines);
@@ -296,8 +303,13 @@ public class IngestWriter {
                 skipped++;
                 continue;
             }
-            Appearance appearance = appearances.findByPlayerAndGame(player, game)
-                    .orElseGet(() -> new Appearance(player, game));
+            Optional<Appearance> existing = appearances.findByPlayerAndGame(player, game);
+            Appearance appearance = existing.orElseGet(() -> new Appearance(player, game));
+            if (existing.isEmpty()) {
+                // 새 기록은 선발·교체를 모른다. 이미 채워 본 경기여도(다른 우리 선수 때문에) 다시 채우게 한다
+                // (나중에 명단에 들어온 선수의 시즌 백필 등). 안 그러면 fillLineups가 이 경기를 다시 보지 않는다.
+                game.markLineupsUnchecked();
+            }
             appearance.update(saveTeam(team), hit == null ? null : toBatting(hit.stat()),
                     pitch == null ? null : toPitching(pitch.stat()));
             appearances.save(appearance);
@@ -335,9 +347,11 @@ public class IngestWriter {
 
     private void saveAffiliation(Player player, MlbTeam current, LocalDate today) {
         Long clubId = clubId(current);
-        Optional<Affiliation> existing = affiliations.findByPlayerAndEndDateIsNull(player);
+        Optional<Affiliation> existing = affiliations.findByPlayer(player);
         if (clubId == null) {
-            existing.ifPresent(affiliations::delete);
+            // 소속이 없어졌으면(FA 등) 줄을 지우지 않고 끝난 날만 남긴다. 시즌 기록이 있는 선수가 홈에서 빠지지 않게 한다.
+            // 끝난 소속의 구단 경기는 결장·마지막 경기일로 보지 않고(RosterMember.majorTeam) 경기 갱신에서도 뺀다(findAllCurrent).
+            existing.ifPresentOrElse(a -> a.end(today), () -> keepLastPlayedTeam(player, today));
             return;
         }
         Team team = teams.findById(clubId).orElseGet(() -> new Team(clubId));
@@ -348,6 +362,15 @@ public class IngestWriter {
         }
         Team saved = teams.save(team);
         existing.ifPresentOrElse(a -> a.changeTeam(saved), () -> affiliations.save(new Affiliation(player, saved, today)));
+    }
+
+    // 소속 줄이 없는 선수의 마지막으로 뛴 경기의 팀을 끝난 소속으로 남긴다. 뛴 기록이 없으면 남기지 않는다.
+    private void keepLastPlayedTeam(Player player, LocalDate today) {
+        appearances.findFirstByPlayerOrderByGameStartTimeUtcDesc(player).ifPresent(last -> {
+            Affiliation affiliation = new Affiliation(player, last.getTeam(), today);
+            affiliation.end(today);
+            affiliations.save(affiliation);
+        });
     }
 
     // MLB 구단이면 그 번호, 마이너 팀이면 그 팀의 MLB 구단 번호. 둘 다 아니면 null
