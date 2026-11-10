@@ -118,7 +118,8 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 이동 기록 기간: 지난 시즌 1월 1일 ~ 이번 시즌 12월 31일
   - 팀 단계: `sport.id` 1 = MLB, 11~16 = 마이너. MLB 30개 구단은 묻지 않고, 나머지 팀은 한 번 물어 앱이 떠 있는 동안 기억한다.
 - 저장: `player.level`(`MLB`/`MINORS`, 소속이 없거나 모르면 null)·`level_team_name`(MLB가 준 지금 팀 이름)·`level_checked_at`, 이동 기록 표 `player_move`(MLB 이동 기록 번호로 upsert, 받은 줄은 모두 저장, 양쪽 팀 번호·이름·단계).
-- `GET /api/players`·`GET /api/my`의 선수: `level`(`"MLB"`/`"MINORS"`/null), `levelTeam`(MLB가 준 지금 팀 이름, 예: `"St. Paul Saints"`, 확인 전이면 null).
+- `GET /api/players`·`GET /api/my`·`GET /api/players/{id}`의 선수: `level`(`"MLB"`/`"MINORS"`/null), `levelTeam`(MLB가 준 지금 팀 이름, 예: `"St. Paul Saints"`, 확인 전이면 null), `freeAgent`.
+- FA(`freeAgent`): MLB의 지금 소속(`currentTeam`)은 FA를 선언해도 바로 비지 않으므로 이동 기록으로 정한다. 마지막 FA 선언(`DFA`, Declared Free Agency)이나 방출(`REL`) 뒤에 새 팀이 생기는 기록이 없으면 FA다. 뒤 날짜 기록은 FA 선언·방출·상태 변경(`SC`)·출장 정지(`SU`)·등번호(`NUM`) 말고 모두 새 팀으로 보고, 같은 날 기록은 계약(`SFA`·`SGN`·"Signed")만 새 팀으로 본다(같은 날 아웃라이트를 거부하고 FA를 선언하는 경우). FA면 `level`·`levelTeam`은 null, 소속 줄은 끝난 것으로 남아 팀 칸에는 마지막 팀이 보인다. 한국 팀 등 MLB 밖 계약은 MLB 기록에 없어서 FA까지만 안다. 저장: `player.free_agent`(V7).
 - `GET /api/players/{id}`의 `moves`(최신순): `{ date, typeCode, labelKo, fromTeam, toTeam, toLevel }`
   - `labelKo`: OPT 마이너 강등(옵션), CU·SE 메이저 콜업, OUT 마이너 이관(아웃라이트), DES 지명 할당(DFA), TR 트레이드, SFA·SGN·"Signed" 계약, DFA(Declared Free Agency) FA 선언, REL 방출, CLW 웨이버 클레임, SU 출장 정지, ASG 재활 경기 배정·스프링캠프 초청·팀 배정. 표에 없으면 영어 `typeDesc` 그대로.
   - 선수 상태 변경(SC)은 설명 글에 부상자 명단(등재·해제·이동)이나 출장 정지가 있을 때만 남기고 나머지("roster status changed", 그냥 "activated")는 뺀다. MLB가 같은 날 같은 내용을 두 번 준 줄도 하나만 남긴다.
@@ -154,7 +155,7 @@ com.korleaguer
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 
-- DB 스키마: `src/main/resources/db/migration/V1__init.sql`(MySQL 8 문법, H2 MySQL 모드에서도 그대로 돈다). 시각은 `datetime(6)`에 UTC로 저장하고(`hibernate.jdbc.time_zone=UTC`, Instant는 TIMESTAMP로) 응답에서만 한국 시간으로 바꾼다. 외래 키는 표 단위로 적는다(MySQL은 열 옆의 `references`를 무시한다). 소속(`affiliation`)은 선수마다 한 줄(`unique (player_id)`).
+- DB 스키마: `src/main/resources/db/migration/V1__init.sql`(MySQL 8 문법, H2 MySQL 모드에서도 그대로 돈다)과 `V7__player_free_agent.sql`(FA, V2~V6은 V1에 합쳐 없다). 시각은 `datetime(6)`에 UTC로 저장하고(`hibernate.jdbc.time_zone=UTC`, Instant는 TIMESTAMP로) 응답에서만 한국 시간으로 바꾼다. 외래 키는 표 단위로 적는다(MySQL은 열 옆의 `references`를 무시한다). 소속(`affiliation`)은 선수마다 한 줄(`unique (player_id)`).
 - 운영 DB 연결: `SPRING_DATASOURCE_URL`(예: `jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC`)·`SPRING_DATASOURCE_USERNAME`·`SPRING_DATASOURCE_PASSWORD` 환경변수로 덮어쓴다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수 응답을 메모리(Caffeine)에 60초 캐시하고, 수집이 끝나면 비운다(나중에 Redis로 바꿀 자리). 내 선수 응답은 캐시하지 않는다.
