@@ -44,23 +44,24 @@ public final class MlbFixtures {
     public static MlbGameLogSplit batting(long personId, MlbTeam team, MlbScheduleGame game, int atBats, int hits) {
         return new MlbGameLogSplit(game.season(), game.officialDate(), game.gameType(), null, null, team, null,
                 new MlbGameLogSplit.GameRef(game.gamePk()), MlbPerson.of(personId, null, null),
-                hittingStat(atBats, hits));
+                hittingStat(atBats, hits), null);
     }
 
     /** 게임 목록에 없는 경기의 타격 gameLog 한 줄 */
     public static MlbGameLogSplit batting(long personId, MlbTeam team, long gamePk, String season, int atBats, int hits) {
         return new MlbGameLogSplit(season, season + "-08-01", "R", null, null, team, null,
-                new MlbGameLogSplit.GameRef(gamePk), MlbPerson.of(personId, null, null), hittingStat(atBats, hits));
+                new MlbGameLogSplit.GameRef(gamePk), MlbPerson.of(personId, null, null), hittingStat(atBats, hits),
+                null);
     }
 
     public static MlbStat hittingStat(int atBats, int hits) {
         return new MlbStat(1, null, atBats, 0, hits, 0, 0, 0, 0, 0, 0, 0, 0, 0, atBats, hits,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
     }
 
     public static MlbStat pitchingStat(int outs, int hits, int runs, int earnedRuns) {
         return new MlbStat(1, 0, null, runs, hits, null, null, 0, null, 0, 1, null, null, null, null, null,
-                outs, null, earnedRuns, 15, 0, 0, 0);
+                outs, null, earnedRuns, 15, 0, 0, 0, 0, 0);
     }
 
     /** 우리 선수 한 명이 한 편에 있는 박스스코어. batting·pitching 중 null인 쪽은 빈 기록이다. */
@@ -68,7 +69,7 @@ public final class MlbFixtures {
                                        String battingOrder, MlbStat batting, MlbStat pitching,
                                        List<Long> pitchers, int awayRuns, int homeRuns) {
         MlbStat empty = new MlbStat(null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null);
         MlbBoxscore.Player line = new MlbBoxscore.Player(MlbPerson.of(personId, null, null), battingOrder,
                 new MlbBoxscore.GameStatus(battingOrder != null && !battingOrder.endsWith("00")),
                 new MlbBoxscore.Stats(batting == null ? empty : batting, pitching == null ? empty : pitching));
@@ -82,6 +83,6 @@ public final class MlbFixtures {
 
     private static MlbStat runs(int runs) {
         return new MlbStat(null, null, null, runs, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
     }
 }

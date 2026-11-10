@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 김하성 기록으로 7001을 먼저 채우고, 다음 따라잡기에서 이정후 시즌을 받는다.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:lineup-refill-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:lineup-refill-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=김하성",
         "roster.baseball[0].mlb-id=673490",
         "roster.baseball[1].name-ko=이정후",

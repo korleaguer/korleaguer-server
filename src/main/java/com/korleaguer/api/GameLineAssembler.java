@@ -1,6 +1,6 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
@@ -49,14 +49,14 @@ class GameLineAssembler {
     private final GameRepository games;
     private final AppearanceRepository appearances;
     private final RosterProfiles profiles;
-    private final int season;
+    private final CurrentSeason currentSeason;
 
     GameLineAssembler(GameRepository games, AppearanceRepository appearances, RosterProfiles profiles,
-                      KorleaguerProperties properties) {
+                      CurrentSeason currentSeason) {
         this.games = games;
         this.appearances = appearances;
         this.profiles = profiles;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
     }
 
     /** [from, to) 사이에 시작한 경기의 한 줄 기록. 선수 순서대로, 같은 선수는 최신 경기부터. */
@@ -66,7 +66,9 @@ class GameLineAssembler {
         }
         List<Long> playerIds = members.stream().map(m -> m.player().getId()).toList();
         List<Appearance> played = appearances.findWithGameBetween(playerIds, from, to);
-        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady);
+        // 뛴 기간(결장 줄을 붙일 팀)은 이 기간이 속한 시즌 기록으로 정한다. 부르는 쪽이 정한 기간과 시즌이 어긋나지 않는다.
+        int season = currentSeason.seasonAt(to.minusMillis(1));
+        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady, season);
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
                 .map(stint -> stint.team().getMlbTeamId())
@@ -99,9 +101,26 @@ class GameLineAssembler {
         return lines;
     }
 
+    /**
+     * 한 팀의 기간 안 경기 전부를 그 선수의 줄로(뛴 경기는 기록, 안 뛴 경기는 결장). lines()와 달리 그 팀에서 처음 뛴 날
+     * 전 경기도 결장이다. 그 팀에 있던 기간(복귀·콜업 뒤)을 부르는 쪽이 정할 때만 쓴다. 최신 경기부터.
+     */
+    List<GameLine> teamLines(Player player, Team team, Instant from, Instant to) {
+        if (!from.isBefore(to)) {
+            return List.of();
+        }
+        Map<Long, Appearance> mine = appearances.findWithGameBetween(List.of(player.getId()), from, to).stream()
+                .collect(Collectors.toMap(a -> a.getGame().getGamePk(), a -> a, (a, b) -> a));
+        return games.findTeamGamesBetween(List.of(team.getMlbTeamId()), from, to).stream()
+                .filter(game -> COUNTED_SEASON_TYPES.contains(game.getSeasonType()))
+                .map(game -> line(player, team, game, mine.get(game.getGamePk()), true))
+                .sorted(Comparator.comparing(GameLine::startTimeKst).reversed())
+                .toList();
+    }
+
     /** 선수마다 결장 줄을 붙일 수 있는 (팀, 기간) 목록 */
     private Map<Long, List<Stint>> stintsByPlayer(List<RosterMember> members, List<Long> playerIds,
-                                                  boolean statsReady) {
+                                                  boolean statsReady, int season) {
         if (!statsReady) {
             // 기록이 없으니 뛴 기간을 알 수 없다. 지금 소속 팀 경기 전부에 "기록 없음"을 단다.
             return members.stream()
@@ -182,7 +201,7 @@ class GameLineAssembler {
                 played ? appearance.getLineup() : null);
     }
 
-    private static GameBatting batting(Batting b) {
+    static GameBatting batting(Batting b) {
         if (b == null) {
             return null;
         }
@@ -190,7 +209,7 @@ class GameLineAssembler {
                 orZero(b.walks()), orZero(b.stolenBases()));
     }
 
-    private static GamePitching pitching(Pitching p) {
+    static GamePitching pitching(Pitching p) {
         if (p == null) {
             return null;
         }

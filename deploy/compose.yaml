@@ -1,0 +1,74 @@
+# 코리거 운영 구성(서버의 /srv/korleaguer/compose.yaml). 원본은 korleaguer-server 저장소의 deploy/ 폴더다.
+# - caddy: 80·443만 밖으로 연다. HTTPS 인증서를 자동으로 받고 web으로 넘긴다.
+# - web(Next.js) → api(Spring Boot) → mysql. api·mysql은 밖으로 포트를 열지 않는다(Docker 내부망에서만).
+# 이미지 태그(API_TAG·WEB_TAG)는 같은 폴더의 .env에 있고, 배포 스크립트(korleaguer-deploy)가 바꾼다.
+# web·api는 배포 때 잠깐 두 개가 겹쳐 뜨므로 container_name과 호스트 포트를 두지 않는다.
+name: korleaguer
+
+# 컨테이너 로그는 서비스마다 10MB × 3개까지만 남긴다(Docker 기본값은 무제한이라 SD 카드가 찰 수 있다).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2.10
+    logging: *logging
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      # 접속 주소. 인증서를 받으려면 밖에서 80·443으로 들어와야 한다. 아직이면 .env에서 ":80"으로 둔다(http만).
+      SITE_ADDRESS: ${SITE_ADDRESS:-pigeon.ddns.net}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # 인증서. 지우면 다시 발급받는다(발급 횟수 제한 주의)
+      - caddy_config:/config
+
+  web:
+    image: ghcr.io/korleaguer/korleaguer-web:${WEB_TAG:-unset}
+    logging: *logging
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:8080
+    mem_limit: 512m
+
+  api:
+    image: ghcr.io/korleaguer/korleaguer-server:${API_TAG:-unset}
+    logging: *logging
+    restart: unless-stopped
+    env_file: api.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC
+      SPRING_DATASOURCE_USERNAME: korleaguer
+    # 새 요청은 받지 않고 하던 요청을 끝낸 뒤 내려간다(Spring graceful shutdown)
+    stop_grace_period: 30s
+    mem_limit: 768m
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    logging: *logging
+    restart: unless-stopped
+    env_file: mysql.env
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 768m
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mysql_data:

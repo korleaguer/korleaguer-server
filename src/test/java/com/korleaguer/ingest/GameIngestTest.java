@@ -3,9 +3,10 @@ package com.korleaguer.ingest;
 import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameLogSplit;
-import com.korleaguer.client.MlbMinorGames;
+import com.korleaguer.client.MlbMinorGameLog;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
+import com.korleaguer.client.MlbSeason;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
@@ -44,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 김하성(ATL) 한 명, ATL 홈 경기 두 개(7001: 8/9, 7002: 8/10 미국 날짜)로 본다.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:game-ingest-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:game-ingest-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=김하성",
         "roster.baseball[0].mlb-id=673490"
 })
@@ -116,9 +117,9 @@ class GameIngestTest {
         }
 
         @Override
-        public MlbMinorGames getMinorGames(long personId, int season) {
+        public MlbMinorGameLog getMinorGameLog(long personId, int season) {
             requests++;
-            return delegate.getMinorGames(personId, season);
+            return delegate.getMinorGameLog(personId, season);
         }
 
         @Override
@@ -138,6 +139,12 @@ class GameIngestTest {
             requests++;
             boxscoresAsked.add(gamePk);
             return delegate.getBoxscore(gamePk);
+        }
+
+        @Override
+        public MlbSeason getSeason(int season) {
+            requests++;
+            return delegate.getSeason(season);
         }
 
         @Override

@@ -4,9 +4,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
 
-/** application.properties 의 korleaguer.* 설정 */
+/**
+ * application.properties 의 korleaguer.* 설정
+ * <p>
+ * season: 시즌을 이 값으로 고정한다(테스트·수동 고정용). 비워 두면(null) MLB 정규시즌 개막일로 그때그때 정한다(CurrentSeason).
+ */
 @ConfigurationProperties("korleaguer")
-public record KorleaguerProperties(int season, String dataSource, Ingest ingest, Admin admin, Images images, Mlb mlb) {
+public record KorleaguerProperties(Integer season, String dataSource, Ingest ingest, Admin admin, Images images,
+                                   Mlb mlb) {
 
     /**
      * scheduleEnabled: 자동 수집(스케줄과 앱 시작 때 따라잡기)을 켤지.

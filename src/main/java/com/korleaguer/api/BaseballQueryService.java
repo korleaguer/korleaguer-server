@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
 import com.korleaguer.config.AppConfig;
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
-import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
@@ -41,7 +41,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** DB를 읽어 화면용 응답을 만든다. 홈과 선수 응답은 60초 캐시하고, 수집이 끝나면 IngestService가 비운다. */
+/**
+ * DB를 읽어 화면용 응답을 만든다. 홈과 선수 응답은 60초 캐시하고, 수집이 끝나면 IngestService가 비운다.
+ * 시즌은 응답을 만들 때마다 CurrentSeason에 한 번 묻는다(개막일이 지나면 다시 띄우지 않아도 새 시즌을 보인다).
+ */
 @Service
 @Transactional(readOnly = true)
 public class BaseballQueryService {
@@ -58,14 +61,14 @@ public class BaseballQueryService {
     private final RecentGamesFinder recentGames;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
-    private final int season;
+    private final CurrentSeason currentSeason;
     private final Clock clock;
 
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
                                 AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
                                 MinorSeasonRepository minorSeasons, GameLineAssembler gameLines,
-                                RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode, KorleaguerProperties properties,
-                                Clock clock) {
+                                RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode,
+                                CurrentSeason currentSeason, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -76,23 +79,24 @@ public class BaseballQueryService {
         this.recentGames = recentGames;
         this.profiles = profiles;
         this.dataMode = dataMode;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
         this.clock = clock;
     }
 
     @Cacheable(AppConfig.HOME_CACHE)
     public HomeResponse home() {
         Instant now = clock.instant();
+        int season = currentSeason.current();
         boolean statsAvailable = statsAvailable();
         List<RosterMember> roster = roster();
-        RankingMinimums ranking = RankingMinimums.of(teamGamesPlayed(roster));
+        RankingMinimums ranking = RankingMinimums.of(teamGamesPlayed(roster, season));
 
         List<HitterSeason> hitters = List.of();
         List<PitcherSeason> pitchers = List.of();
         if (statsAvailable && !roster.isEmpty()) {
             List<Long> ids = roster.stream().map(m -> m.player().getId()).toList();
-            Map<Long, List<Appearance>> byPlayer = regularSeason(ids);
-            Map<Long, MinorSeason> minors = minorSeasonsOf(ids);
+            Map<Long, List<Appearance>> byPlayer = regularSeason(ids, season);
+            Map<Long, MinorSeason> minors = minorSeasonsOf(ids, season);
             // 올해 주로 메이저에서 뛴 선수 먼저(주로 마이너면 맨 아래), 그 안에서 순위 기준을 채운 선수 먼저,
             // 그 안에서 타율(투수는 평균자책점) 순
             hitters = roster.stream()
@@ -118,7 +122,7 @@ public class BaseballQueryService {
     }
 
     /** 선수 번호 → 이번 시즌 마이너 출전 경기 수. 아직 받지 않은 선수는 빠진다. */
-    private Map<Long, MinorSeason> minorSeasonsOf(List<Long> playerIds) {
+    private Map<Long, MinorSeason> minorSeasonsOf(List<Long> playerIds, int season) {
         return minorSeasons.findAll(playerIds, season).stream()
                 .collect(Collectors.toMap(m -> m.getPlayer().getId(), m -> m));
     }
@@ -132,7 +136,7 @@ public class BaseballQueryService {
     }
 
     /** 시즌이 얼마나 지났는지: 메이저에 있는 선수들의 구단 중 이번 정규시즌에 끝난 경기가 가장 많은 구단의 경기 수 */
-    private int teamGamesPlayed(List<RosterMember> roster) {
+    private int teamGamesPlayed(List<RosterMember> roster, int season) {
         return (int) roster.stream()
                 .map(RosterMember::majorTeam)
                 .filter(Objects::nonNull)
@@ -158,12 +162,13 @@ public class BaseballQueryService {
         Player player = players.findById(id).orElseThrow(() -> new PlayerNotFoundException(id));
         RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
         Team team = member.team();
+        int season = currentSeason.current();
         boolean statsAvailable = statsAvailable();
 
         HitterSeason hitting = null;
         PitcherSeason pitching = null;
         if (statsAvailable) {
-            List<Appearance> mine = seasonOf(regularSeason(List.of(player.getId())), player);
+            List<Appearance> mine = seasonOf(regularSeason(List.of(player.getId()), season), player);
             MinorSeason minor = minorSeasons.find(player.getId(), season).orElse(null);
             if (player.role() == Role.PITCHER) {
                 pitching = SeasonStats.pitcher(player, profiles.photoUrl(player), team, mine, pitchingGames(minor));
@@ -187,7 +192,7 @@ public class BaseballQueryService {
                 BirthDates.age(player.getBirthDate(), player.getAge(), KoreanTime.kstDate(now)),
                 BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
                 BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
-                player.getLevel(), player.getLevelTeamName());
+                player.getLevel(), player.getLevelTeamName(), player.isFreeAgent());
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())));
     }
@@ -229,7 +234,7 @@ public class BaseballQueryService {
                 .toList();
     }
 
-    private Map<Long, List<Appearance>> regularSeason(Collection<Long> playerIds) {
+    private Map<Long, List<Appearance>> regularSeason(Collection<Long> playerIds, int season) {
         return appearances.findSeason(playerIds, season, REGULAR_SEASON).stream()
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
     }

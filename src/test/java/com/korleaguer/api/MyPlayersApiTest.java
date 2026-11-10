@@ -54,10 +54,12 @@ class MyPlayersApiTest {
                 .andExpect(jsonPath("$.season").value(2026))
                 .andExpect(jsonPath("$.generatedAt").value("2026-11-01T11:00:00Z"))
                 .andExpect(jsonPath("$.days").value(7))
-                // 맨 위 기간은 최근 7일, isFallback은 한 명이라도 당겼는지
+                // 맨 위 기간은 최근 7일. 맨 위 isFallback은 '마지막으로 뛴 날까지' 기간을 보이는 카드가 있는지인데,
+                // 11월에는 두 카드 모두 시즌 끝(시즌 합계)이라 기간을 보이지 않는다. 카드의 기간은 그대로 당겨 둔다.
                 .andExpect(jsonPath("$.fromKst").value("2026-10-26"))
                 .andExpect(jsonPath("$.toKst").value("2026-11-01"))
-                .andExpect(jsonPath("$.isFallback").value(true))
+                .andExpect(jsonPath("$.isFallback").value(false))
+                .andExpect(jsonPath("$.players[0].basis").value("SEASON"))
                 .andExpect(jsonPath("$.players", hasSize(2)))
                 .andExpect(jsonPath("$.players[0].fromKst").value("2026-09-21"))
                 .andExpect(jsonPath("$.players[0].toKst").value("2026-09-27"))

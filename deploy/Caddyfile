@@ -1,0 +1,18 @@
+# 코리거 리버스 프록시. 주소(SITE_ADDRESS)는 compose의 환경변수다.
+# 도메인이면 HTTPS 인증서를 자동으로 받고 http는 https로 넘긴다. ":80"이면 http만.
+
+# 앞에 서버의 nginx가 있으면(서버 안쪽 주소로 들어온다) 그 nginx가 붙인 X-Forwarded-For·Proto를 믿고 그대로 넘긴다.
+{
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy web:3000 {
+		# web을 바꾸는 동안 접속이 끊기면 30초까지 다시 시도한다(502 대신 잠깐 기다림)
+		lb_try_duration 30s
+		lb_try_interval 500ms
+	}
+}

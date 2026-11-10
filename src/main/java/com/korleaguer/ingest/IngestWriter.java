@@ -2,9 +2,11 @@ package com.korleaguer.ingest;
 
 import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbGameLogSplit;
+import com.korleaguer.client.MlbMinorGameLog;
 import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
+import com.korleaguer.client.MlbSeason;
 import com.korleaguer.client.MlbStat;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
@@ -17,6 +19,8 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Lineup;
+import com.korleaguer.domain.MinorGameLog;
+import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeason;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Pitching;
@@ -26,6 +30,8 @@ import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeason;
 import com.korleaguer.domain.PlayerSeasonRepository;
+import com.korleaguer.domain.SeasonDates;
+import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
 import com.korleaguer.support.BaseballMath;
@@ -73,10 +79,13 @@ public class IngestWriter {
     private final PlayerMoveRepository moves;
     private final PlayerSeasonRepository seasons;
     private final MinorSeasonRepository minorSeasons;
+    private final MinorGameLogRepository minorGameLogs;
+    private final SeasonDatesRepository seasonDates;
 
     public IngestWriter(TeamRepository teams, PlayerRepository players, AffiliationRepository affiliations,
                         GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves,
-                        PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons) {
+                        PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons,
+                        MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates) {
         this.teams = teams;
         this.players = players;
         this.affiliations = affiliations;
@@ -85,6 +94,8 @@ public class IngestWriter {
         this.moves = moves;
         this.seasons = seasons;
         this.minorSeasons = minorSeasons;
+        this.minorGameLogs = minorGameLogs;
+        this.seasonDates = seasonDates;
     }
 
     /**
@@ -124,8 +135,12 @@ public class IngestWriter {
         player.updateProfile(birthDate(player.getNameKo(), person.birthDate()), person.height(),
                 person.weight() == null ? null : String.valueOf(person.weight()), batsThrows(person),
                 person.primaryNumber(), debutYear(person.mlbDebutDate()), person.currentAge());
-        MlbTeam current = person.currentTeam();
-        player.updateLevel(level, current == null ? null : current.name(), checkedAt);
+        // MLB '지금 소속'은 FA를 선언해도 바로 비지 않는다. 이동 기록상 FA면 지금 소속이 없는 선수처럼 둔다
+        // (단계·팀 이름 없음, 소속 줄은 끝난 것으로 남아 마지막 팀으로 보인다).
+        boolean freeAgent = FreeAgency.isFreeAgent(transactions);
+        MlbTeam current = freeAgent ? null : person.currentTeam();
+        player.updateLevel(freeAgent ? null : level, current == null ? null : current.name(), checkedAt);
+        player.updateFreeAgent(freeAgent);
         saveAffiliation(player, current, today);
 
         int saved = 0;
@@ -148,11 +163,58 @@ public class IngestWriter {
     }
 
     /** 선수의 시즌 마이너 출전 경기 수를 새 값으로 덮어쓴다. */
-    public void saveMinorGames(long playerId, int season, MlbMinorGames games, Instant fetchedAt) {
+    /**
+     * 선수의 한 시즌 마이너 경기별 기록을 새로 받은 것으로 통째로 바꾸고, 마이너 경기 수(MinorSeason)도 그 기록으로 센다.
+     * 같은 경기(gamePk)의 타격·투구는 한 줄로 합친다. 마이너가 아닌 줄(sport.id 11~16 밖)·번호나 날짜가 없는 줄은 건너뛴다.
+     */
+    public void saveMinorGameLog(long playerId, int season, MlbMinorGameLog log, Instant fetchedAt) {
+        MlbMinorGames counts = log.counts();
         MinorSeason row = minorSeasons.find(playerId, season)
                 .orElseGet(() -> new MinorSeason(players.getReferenceById(playerId), season));
-        row.update(games.hitting(), games.pitching(), fetchedAt);
+        row.update(counts.hitting(), counts.pitching(), fetchedAt);
         minorSeasons.save(row);
+
+        minorGameLogs.deleteSeason(playerId, season);
+        Player player = players.getReferenceById(playerId);
+        Map<Long, MinorGameLog> byGame = new LinkedHashMap<>();
+        log.hitting().forEach(split -> minorLine(byGame, player, season, split)
+                .ifPresent(line -> line.updateBatting(toBatting(split.stat()))));
+        log.pitching().forEach(split -> minorLine(byGame, player, season, split)
+                .ifPresent(line -> line.updatePitching(toPitching(split.stat()), split.stat() == null ? null
+                        : split.stat().holds(), split.stat() == null ? null : split.stat().blownSaves())));
+        minorGameLogs.saveAll(byGame.values());
+    }
+
+    /** 마이너 경기 한 줄(같은 경기면 이미 만든 줄). 마이너가 아니거나 번호·날짜가 없으면 빈 값 */
+    private static Optional<MinorGameLog> minorLine(Map<Long, MinorGameLog> byGame, Player player, int season,
+                                                    MlbGameLogSplit split) {
+        LocalDate gameDate = date(split.date());
+        if (!MlbMinorGameLog.isMinors(split) || split.gamePk() == null || gameDate == null) {
+            return Optional.empty();
+        }
+        MinorGameLog line = byGame.computeIfAbsent(split.gamePk(), pk -> new MinorGameLog(player, season, pk));
+        line.updateGame(gameDate, split.sport().abbreviation(), teamName(split.team()), teamName(split.opponent()),
+                split.isHome(), split.isWin());
+        return Optional.of(line);
+    }
+
+    /**
+     * 시즌 날짜를 새 값으로 덮어쓴다. 정규시즌 개막일·종료일을 읽지 못하면 저장하지 않는다(지난 값을 둔다).
+     *
+     * @return 저장했으면 true
+     */
+    public boolean saveSeasonDates(int season, MlbSeason source, Instant fetchedAt) {
+        LocalDate start = date(source.regularSeasonStartDate());
+        LocalDate end = date(source.regularSeasonEndDate());
+        if (start == null || end == null) {
+            log.warn("[season] {}: unreadable regular season dates '{}' ~ '{}', keep the last value", season,
+                    source.regularSeasonStartDate(), source.regularSeasonEndDate());
+            return false;
+        }
+        SeasonDates row = seasonDates.findById(season).orElseGet(() -> new SeasonDates(season));
+        row.update(start, end, date(source.postSeasonEndDate()), fetchedAt);
+        seasonDates.save(row);
+        return true;
     }
 
     /**

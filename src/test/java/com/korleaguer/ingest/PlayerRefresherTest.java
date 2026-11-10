@@ -6,11 +6,14 @@ import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
+import com.korleaguer.config.CurrentSeason;
+import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.SeasonDatesRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -97,8 +100,9 @@ class PlayerRefresherTest {
     @BeforeEach
     void setUp() {
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of(lee, go));
-        refresher = new PlayerRefresher(client, players, writer, minorSeasons, PROPERTIES,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        refresher = new PlayerRefresher(client, players, writer, minorSeasons,
+                new CurrentSeason(PROPERTIES, DataMode.MLB, mock(SeasonDatesRepository.class), clock), clock);
     }
 
     @Test
@@ -188,8 +192,8 @@ class PlayerRefresherTest {
         assertThat(askedPeople).isEmpty();
         assertThat(askedRanges).isEmpty();
         assertThat(client.requestCount()).isEqualTo(1);
-        verify(writer).saveMinorGames(eq(5L), eq(2026), any(), eq(NOW));
-        verify(writer, never()).saveMinorGames(eq(1L), anyInt(), any(), any());
+        verify(writer).saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW));
+        verify(writer, never()).saveMinorGameLog(eq(1L), anyInt(), any(), any());
         assertThat(result.checked()).isZero();
     }
 

@@ -33,6 +33,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
  * - gamelog-pitching-808970.json: /api/v1/people/808970/stats?stats=gameLog&group=pitching&season=2026
  * - schedule-137-119-2026.json: /api/v1/schedule?sportId=1&teamId=137,119&season=2026 (경기 몇 개만 남김)
  * - boxscore-823165.json: /api/v1/game/823165/boxscore (선수 몇 명과 쓰는 칸만 남김)
+ * - season-2027.json: /api/v1/seasons/2027?sportId=1 (날짜 칸 몇 개만 남김)
  */
 class HttpMlbClientTest {
 
@@ -122,23 +123,35 @@ class HttpMlbClientTest {
     }
 
     @Test
-    void readsMinorGamesFromTeamLinesOnly() {
-        // 실제 응답(2026 고우석, 줄여서 저장): 투구는 트리플A 단계 합계 27 + 팀별 19·8 + 더블A 8 + 마이너 전체 35.
-        // 팀별 줄만 더해 35경기, 타격은 팀 줄 하나 9경기
-        server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("stats=season"),
+    void readsMinorGameLogForHittingAndPitchingAtOnce() {
+        // 실제 응답(2026 고우석, 경기 몇 개만 남겨 저장): 투구 3경기(트리플A 2·더블A 1), 타격 1경기.
+        // 경기마다 단계(sport)와 홀드가 온다.
+        server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("stats=gameLog"),
                         containsString("group=hitting,pitching"), containsString("leagueListId=milb_all"),
                         containsString("season=2026"))))
-                .andRespond(withSuccess(fixture("season-minors-808970.json"), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(fixture("gamelog-minors-808970.json"), MediaType.APPLICATION_JSON));
 
-        assertThat(client.getMinorGames(808970, 2026)).isEqualTo(new MlbMinorGames(9, 35));
+        MlbMinorGameLog log = client.getMinorGameLog(808970, 2026);
+
+        assertThat(log.pitching()).hasSize(3);
+        assertThat(log.hitting()).hasSize(1);
+        assertThat(log.counts()).isEqualTo(new MlbMinorGames(1, 3));
+        MlbGameLogSplit first = log.pitching().getFirst();
+        assertThat(first.date()).isEqualTo("2026-03-29");
+        assertThat(first.sportId()).isEqualTo(11L);
+        assertThat(first.sport().abbreviation()).isEqualTo("AAA");
+        assertThat(first.team().name()).isEqualTo("Toledo Mud Hens");
+        assertThat(first.stat().holds()).isEqualTo(1);
+        assertThat(first.stat().outs()).isEqualTo(1);
+        assertThat(log.pitching().get(1).sport().abbreviation()).isEqualTo("AA");
     }
 
     @Test
-    void minorGamesAreZeroWhenNoMinorLines() {
+    void minorGameLogIsEmptyWhenNoMinorGames() {
         server.expect(requestTo(containsString("/api/v1/people/808982/stats")))
                 .andRespond(withSuccess("{\"stats\":[]}", MediaType.APPLICATION_JSON));
 
-        assertThat(client.getMinorGames(808982, 2026)).isEqualTo(MlbMinorGames.NONE);
+        assertThat(client.getMinorGameLog(808982, 2026)).isEqualTo(MlbMinorGameLog.NONE);
     }
 
     @Test
@@ -241,6 +254,28 @@ class HttpMlbClientTest {
         assertThat(team.abbreviation()).isEqualTo("STP");
         assertThat(team.sportId()).isEqualTo(11L);
         assertThat(team.parentOrgId()).isEqualTo(142L);
+    }
+
+    @Test
+    void readsSeasonDates() {
+        server.expect(requestTo("http://mlb.test/api/v1/seasons/2027?sportId=1"))
+                .andRespond(withSuccess(fixture("season-2027.json"), MediaType.APPLICATION_JSON));
+
+        MlbSeason season = client.getSeason(2027);
+
+        assertThat(season.seasonId()).isEqualTo("2027");
+        assertThat(season.regularSeasonStartDate()).isEqualTo("2027-03-25");
+        assertThat(season.regularSeasonEndDate()).isEqualTo("2027-09-26");
+        assertThat(season.postSeasonEndDate()).isEqualTo("2027-10-31");
+    }
+
+    @Test
+    void unannouncedSeasonIsNull() {
+        // 아직 발표되지 않은 해는 200에 빈 목록이 온다(2031로 확인, 2026-11-10).
+        server.expect(requestTo("http://mlb.test/api/v1/seasons/2031?sportId=1"))
+                .andRespond(withSuccess("{\"copyright\":\"...\",\"seasons\":[]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.getSeason(2031)).isNull();
     }
 
     @Test

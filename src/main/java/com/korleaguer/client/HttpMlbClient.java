@@ -8,6 +8,7 @@ import org.springframework.web.util.UriBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -86,45 +87,31 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
-    public MlbMinorGames getMinorGames(long personId, int season) {
-        MlbResponses.SeasonStats body = get("people/" + personId + "/stats season minors",
+    public MlbMinorGameLog getMinorGameLog(long personId, int season) {
+        MlbResponses.GameLogGroups body = get("people/" + personId + "/stats gameLog minors",
                 uri -> uri.path("/api/v1/people/{id}/stats")
-                        .queryParam("stats", "season")
+                        .queryParam("stats", "gameLog")
                         .queryParam("group", "hitting,pitching")
                         .queryParam("season", season)
                         .queryParam("leagueListId", "milb_all")
                         .build(personId),
-                MlbResponses.SeasonStats.class);
+                MlbResponses.GameLogGroups.class);
         if (body == null || body.stats() == null) {
-            return MlbMinorGames.NONE;
+            return MlbMinorGameLog.NONE;
         }
-        int hitting = 0;
-        int pitching = 0;
-        for (MlbResponses.SeasonGroup group : body.stats()) {
+        List<MlbGameLogSplit> hitting = new ArrayList<>();
+        List<MlbGameLogSplit> pitching = new ArrayList<>();
+        for (MlbResponses.GameLogGroup group : body.stats()) {
+            if (group.splits() == null) {
+                continue;
+            }
             if ("hitting".equals(group.groupName())) {
-                hitting += teamGames(group);
+                hitting.addAll(group.splits());
             } else if ("pitching".equals(group.groupName())) {
-                pitching += teamGames(group);
+                pitching.addAll(group.splits());
             }
         }
-        return new MlbMinorGames(hitting, pitching);
-    }
-
-    /**
-     * 팀별 줄의 경기 수만 더한다. 단계 합계·마이너 전체 합계 줄은 팀이 없어서 빠지므로 두 번 세지 않는다.
-     * 트리플A ~ 루키(sport.id 11~16, Level.fromSportId와 같은 범위)만 센다.
-     */
-    private static int teamGames(MlbResponses.SeasonGroup group) {
-        if (group.splits() == null) {
-            return 0;
-        }
-        return group.splits().stream()
-                .filter(split -> split.team() != null && split.team().id() != null)
-                .filter(split -> split.sport() != null && split.sport().id() != null
-                        && split.sport().id() >= 11 && split.sport().id() <= 16)
-                .mapToInt(split -> split.stat() == null || split.stat().gamesPlayed() == null
-                        ? 0 : split.stat().gamesPlayed())
-                .sum();
+        return new MlbMinorGameLog(hitting, pitching);
     }
 
     @Override
@@ -157,6 +144,16 @@ public class HttpMlbClient implements MlbClient {
         return get("game/" + gamePk + "/boxscore",
                 uri -> uri.path("/api/v1/game/{gamePk}/boxscore").build(gamePk),
                 MlbBoxscore.class);
+    }
+
+    @Override
+    public MlbSeason getSeason(int season) {
+        MlbResponses.Seasons body = get("seasons/" + season,
+                uri -> uri.path("/api/v1/seasons/{season}")
+                        .queryParam("sportId", MLB)
+                        .build(season),
+                MlbResponses.Seasons.class);
+        return body == null || body.seasons() == null || body.seasons().isEmpty() ? null : body.seasons().getFirst();
     }
 
     @Override

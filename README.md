@@ -2,7 +2,8 @@
 
 한국 MLB 선수 6명의 최근 경기 한 줄 기록과 2026 시즌 성적을 JSON으로 준다. 화면([korleaguer-web](https://github.com/korleaguer/korleaguer-web))이 이 API를 부른다.
 
-- Java 21, Spring Boot 4.1.2, H2 파일 DB(`./data/korleaguer`, PostgreSQL 호환 모드), Flyway
+- Java 21, Spring Boot 4.1.2, Flyway
+- DB: 운영은 MySQL 8.4(서버의 Docker, `deploy/`). 로컬 실행과 테스트는 Docker 없이 돌도록 H2를 MySQL 모드로 쓴다(로컬 파일 `./data/korleaguer-mysql`). 실제 MySQL 확인은 `MySqlCompatibilityTest`(Testcontainers, Docker가 있을 때만)가 맡는다.
 - 데이터 출처: MLB 공식 Stats API(`statsapi.mlb.com`, 키 없음). 경기·선수 기록·선수 정보·이동 기록을 모두 여기서 받는다(경기는 메이저만, 마이너는 시즌 출전 경기 수만).
 
 ## 실행
@@ -21,9 +22,8 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)   # Java 21 경로
 KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 ```
 
-> **DB를 다시 만든다(2026-11-10, `V4__mlb_source.sql`, 이슈 #11).** balldontlie 번호로 저장하던 표를 지우고 MLB 번호(gamePk, 팀 번호, 선수 번호)로 다시 만든다.
-> 배포 전이라 이전 데이터(샘플)는 버리고, 띄우면 다시 받는다. `data/` 폴더는 지우지 않아도 된다.
-> (2026-11-01 이전에 띄운 DB라면 V1 체크섬 오류가 나므로 그때는 `data/`를 지운다.)
+> **DB를 MySQL로 바꿨다(2026-11-10, 이슈 #25).** 배포 전이라 예전 마이그레이션 V1~V6을 지금 모양 그대로 `V1__init.sql` 하나로 합쳤다(MySQL 문법).
+> 로컬 DB 파일도 `./data/korleaguer-mysql`로 새로 만든다. 예전 `./data/korleaguer*` 파일은 더 쓰지 않으니 지워도 된다(띄우면 MLB에서 다시 받는다).
 > 샘플 모드와 MLB 모드는 같은 DB 파일을 쓴다. 모드를 바꿀 때는 `data/` 폴더를 지운다(다른 쪽 데이터가 남는다).
 
 ## 환경변수
@@ -36,6 +36,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_ADMIN_TOKEN` | 관리용 엔드포인트 토큰. 없으면 관리용 엔드포인트는 전부 막힌다 |
 | `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트와 선수 페이지에서 시즌 받기만 MLB를 부른다 |
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
+| `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
 
 > **MLB 이용 고지:** 응답에 붙는 MLB 저작권 안내(`gdx.mlb.com/components/copyright.txt`)는 "개인적·비상업적·대량이 아닌 사용(individual, non-commercial, non-bulk use)"만 허락한다.
 > 이 사이트는 개인적·비상업적으로 쓴다(사용자 결정, 2026-11-10). 대량 수집이 되지 않도록 요청은 1초에 1회 이하, 필요한 것만 받고, 받은 것은 DB에 두고 다시 받지 않는다.
@@ -46,7 +47,8 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 화면용 API(`/api/**`)는 DB만 읽는다. MLB는 수집기(`ingest`)만 부른다. 같은 화면을 몇 번 열어도 MLB 요청은 늘지 않는다.
 
 - **요청 예절:** 1초에 1회 이하, `User-Agent: korleaguer/0.1`, 연결 5초·읽기 10초 제한, 다시 시도하지 않는다(실패한 건은 다음 수집 때 다시). 403/429가 오면 그 실행의 남은 단계는 건너뛴다(`BLOCKED`).
-- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 출전 경기 수 `people/{id}/stats?stats=season&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번, 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
+- **시즌 날짜(개막 전까지 하루 한 번):** `seasons/{year}?sportId=1` 올해(미국 날짜) 1번. 지금 시즌은 올해 정규시즌 개막일만으로 정해지므로(`season_dates`), 1월 1일부터 올해 개막일 전날까지만 묻고 개막한 뒤에는 묻지 않는다(1년에 80여 번). 발표 전인 해는 저장하지 않고, 시즌을 고정했으면(`KORLEAGUER_SEASON`, 샘플 모드) 묻지 않는다.
+- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 경기별 기록 `people/{id}/stats?stats=gameLog&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번(그 시즌 전체를 받아 `minor_game_log`를 통째로 바꾸고, 마이너 경기 수도 여기서 센다), 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
@@ -106,19 +108,26 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - `ids`: 쉼표로 이은 선수 id. 겹치면 처음 것만 남기고 1~20개여야 한다. 응답 `players`는 요청한 순서이고, 없는 id는 조용히 뺀다.
 - `days`: 7·14·30 중 하나(기본 7).
 - 규칙에 안 맞으면(ids 없음·숫자 아님·21개 이상, days가 다른 값) 400 `{"error":"..."}`이다.
-- 기간: 선수마다 정한다(`players[].fromKst`~`toKst`). 보통은 한국 날짜로 오늘까지 `days`일이다. 최근 `days`일에 구단 경기(메이저에 있을 때)도 본인 출전도 없으면(구단 시즌이 끝났거나 마이너에 있음) 그 선수가 마지막으로 뛴 날까지 `days`일로 당긴다(`players[].isFallback: true`). 시즌 중 구단은 경기하는데 본인이 빠졌으면(부상·벤치) 당기지 않고 결장 줄을 그대로 보인다. 맨 위 `fromKst`~`toKst`는 오늘까지 `days`일이고, 맨 위 `isFallback`은 한 명이라도 당겼으면 `true`다.
+- 기간: 선수마다 정한다(`players[].fromKst`~`toKst`). 보통은 한국 날짜로 오늘까지 `days`일이다. 최근 `days`일에 구단 경기(메이저에 있을 때)도 본인 출전도 없으면(구단 시즌이 끝났거나 마이너에 있음) 그 선수가 마지막으로 뛴 날까지 `days`일로 당긴다(`players[].isFallback: true`). 시즌 중 구단은 경기하는데 본인이 빠졌으면(부상·벤치) 당기지 않고 결장 줄을 그대로 보인다. 맨 위 `fromKst`~`toKst`는 오늘까지 `days`일이고, 맨 위 `isFallback`은 마지막으로 뛴 날까지 당긴 기간을 보이는 카드(`basis`가 `LAST_PLAYED`, 또는 마지막 재활 경기까지 당긴 `REHAB`)가 한 장이라도 있으면 `true`다.
 - `hitting`(타자)·`pitching`(투수): 기간 안에 뛴 경기 합계와 시즌(정규시즌) 타율 `seasonAvg`·평균자책점 `seasonEra`. 평균자책점·아웃·자책점은 아웃 수를 아는 경기만 센다.
 - `streak`: 이번 시즌 최근 경기부터 이어진 연속 기록. 타자는 안타 경기(타수도 안타도 없는 경기는 건너뜀), 투수는 무실점 등판.
 - 조합이 사람마다 달라 캐시하지 않는다.
 - 경기 한 줄(`games`, 홈·선수 응답의 경기 줄도 같다)에는 그래프용 숫자 `batting`(타수·안타·홈런·타점·볼넷·도루)·`pitching`(아웃·이닝·실점·자책·탈삼진·승패세)이 붙는다. 뛴 경기에 그 기록이 있을 때만 나오고, 결장·경기 전이면 null이다.
 - 경기 한 줄의 `lineup`(`pitching` 다음)은 `"STARTER"`(선발) / `"SUB"`(교체)다. 뛰지 않았거나 아직 모르면 null이다(위 "받는 전략"의 선발·교체).
+- 최근 폼 요약(이슈 #33). 판정('좋음'·'주춤')은 만들지 않고 사실만 준다.
+  - `status`: 상태 배지. 메이저에서 평소대로 뛰면 null. `kind`는 `IL`(부상자 명단) · `RETURNED`(복귀, 7일 안) · `CALLED_UP`(콜업, 7일 안) · `MINORS` · `MINORS_IL` · `SUSPENDED`(출장 정지) · `DFA`(지명 할당) · `FA` · `SEASON_OVER`(정규시즌이 끝났고, 메이저 팀이 더 경기하지 않으며(포스트시즌이 아니며), 본인도 3일 넘게 경기 없음). `since`·`days`는 시작한 미국 날짜와 며칠째(부상자 명단은 소급 등재일, 10일→60일 이동은 처음 오른 날), `level`·`teamName`은 마이너 단계 약어·팀(새 팀에서 아직 안 뛰었으면 단계는 null, 메이저 부상자 명단에서 재활 경기 중이면 재활 팀), `lastGameDate`·`lastGameLevel`은 FA·시즌 끝일 때 마지막 경기. 이동 기록을 최신부터 보며 정하고, 메이저·마이너 여부는 선수 정보의 지금 단계를 믿는다. 국가대표 등 메이저·마이너 팀이 아닌 곳의 활성화는 건너뛰고, 콜업과 같은 날 붙은 활성화는 콜업으로 본다. 지명 할당 뒤 트레이드·클레임·계약·방출이 있으면 지명 할당은 끝난 것으로 본다. 복귀·콜업·강등이 이번 정규시즌 개막 전이면(지난 시즌·스프링캠프) 배지도 '복귀 후' 같은 기간도 없다.
+  - `play`: 출전 줄(메이저에 있을 때만). 타자는 `recent`(지금 단계 기간이 시작된 뒤 팀의 끝난 경기 최근 10개, 오래된 것부터 `STARTER`·`SUB`·`PLAYED`·`ABSENT`. 복귀·콜업 뒤면 그날부터 팀 경기를 모두 세서 그 팀에서 처음 뛰기 전 경기도 결장이다)와 `after`(10개가 안 되고 복귀·콜업 뒤면 `RETURNED`·`CALLED_UP`), 투수는 `appearances14`(최근 14일 등판)·`daysSinceLast`.
+  - `fact`: 한 줄 소식 `{tone: HOT|COLD, text}`. 연속 안타 5경기↑, 연속 무안타 4경기↑(2타석 이상 경기만), 최근 10경기 2홈런↑·멀티히트 3번↑, 연속 무실점 등판 3번↑, 최근 5번 등판 중 무실점 4번↑·실점 3번↑. 연속 기록은 시즌 전체, 최근 경기는 지금 단계 기간에서 센다(다 차지 않으면 "복귀 후 6경기"). 끝난 경기만 센다(진행 중 경기는 끝나면 반영). 재활 경기 카드에는 없다. 마이너면 앞에 "트리플A " 등. FA·시즌 끝이면 시즌 최장 연속 기록.
+  - `basis`·`level`: 큰 숫자·막대(`hitting`·`pitching`·`games`)가 어떤 기간·단계인지. `RECENT`(오늘까지) · `LAST_PLAYED`(마지막으로 뛴 날까지) · `BEFORE_INJURY`(메이저 부상자 명단이면 이번 시즌 마지막 출전까지) · `REHAB`(메이저 부상자 명단에 오른 뒤 마이너 재활 경기를 뛰었으면 그 재활 경기: 오늘까지, 없으면 마지막 재활 경기까지 `days`일, 시즌 비교 값 없음) · `SEASON`(FA·시즌 끝: `seasonTotals`를 쓴다) · `NONE`(이번 시즌 경기가 없거나 새 마이너 팀에서 아직 안 뜀). 마이너에 있으면 마이너 경기별 기록으로 채우고 `level`은 `AAA` 등이다. 마이너 경기는 미국 날짜만 있어 한국 날짜로는 다음 날 08:00으로 보고, 점수 없이 결과(W/L)만 있다.
+  - `seasonTotals`: FA·시즌 끝일 때 `{season, primary, mlb, minors}`. `primary`는 메이저 20경기 이상이거나 메이저가 더 많으면 `MLB`, 아니면 `MINORS`.
 
 ### 메이저/마이너와 이동 기록(MLB 공식 Stats API)
 - 위 "받는 전략"의 선수 정보·이동 기록 단계에서 하루(UTC 날짜)에 한 번 받는다. 실패한 선수는 다음 수집 때 다시 묻는다.
   - 이동 기록 기간: 지난 시즌 1월 1일 ~ 이번 시즌 12월 31일
   - 팀 단계: `sport.id` 1 = MLB, 11~16 = 마이너. MLB 30개 구단은 묻지 않고, 나머지 팀은 한 번 물어 앱이 떠 있는 동안 기억한다.
 - 저장: `player.level`(`MLB`/`MINORS`, 소속이 없거나 모르면 null)·`level_team_name`(MLB가 준 지금 팀 이름)·`level_checked_at`, 이동 기록 표 `player_move`(MLB 이동 기록 번호로 upsert, 받은 줄은 모두 저장, 양쪽 팀 번호·이름·단계).
-- `GET /api/players`·`GET /api/my`의 선수: `level`(`"MLB"`/`"MINORS"`/null), `levelTeam`(MLB가 준 지금 팀 이름, 예: `"St. Paul Saints"`, 확인 전이면 null).
+- `GET /api/players`·`GET /api/my`·`GET /api/players/{id}`의 선수: `level`(`"MLB"`/`"MINORS"`/null), `levelTeam`(MLB가 준 지금 팀 이름, 예: `"St. Paul Saints"`, 확인 전이면 null), `freeAgent`.
+- FA(`freeAgent`): MLB의 지금 소속(`currentTeam`)은 FA를 선언해도 바로 비지 않으므로 이동 기록으로 정한다. 마지막 FA 선언(`DFA`, Declared Free Agency)이나 방출(`REL`) 뒤에 새 팀이 생기는 기록이 없으면 FA다. 뒤 날짜 기록은 FA 선언·방출·상태 변경(`SC`)·출장 정지(`SU`)·등번호(`NUM`) 말고 모두 새 팀으로 보고, 같은 날 기록은 계약(`SFA`·`SGN`·"Signed")만 새 팀으로 본다(같은 날 아웃라이트를 거부하고 FA를 선언하는 경우). FA면 `level`·`levelTeam`은 null, 소속 줄은 끝난 것으로 남아 팀 칸에는 마지막 팀이 보인다. 한국 팀 등 MLB 밖 계약은 MLB 기록에 없어서 FA까지만 안다. 저장: `player.free_agent`(V7).
 - `GET /api/players/{id}`의 `moves`(최신순): `{ date, typeCode, labelKo, fromTeam, toTeam, toLevel }`
   - `labelKo`: OPT 마이너 강등(옵션), CU·SE 메이저 콜업, OUT 마이너 이관(아웃라이트), DES 지명 할당(DFA), TR 트레이드, SFA·SGN·"Signed" 계약, DFA(Declared Free Agency) FA 선언, REL 방출, CLW 웨이버 클레임, SU 출장 정지, ASG 재활 경기 배정·스프링캠프 초청·팀 배정. 표에 없으면 영어 `typeDesc` 그대로.
   - 선수 상태 변경(SC)은 설명 글에 부상자 명단(등재·해제·이동)이나 출장 정지가 있을 때만 남기고 나머지("roster status changed", 그냥 "activated")는 뺀다. MLB가 같은 날 같은 내용을 두 번 준 줄도 하나만 남긴다.
@@ -130,6 +139,16 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 지금 소속 팀이 마지막 기록의 팀이면 마지막 출전 뒤 경기도 결장으로 본다. 단 마이너에 있거나 소속이 끝난(FA 등) 선수는 마지막 출전에서 끝낸다(그 구단 경기는 결장으로도 마지막 경기일로도 보지 않고, 경기 갱신에서도 뺀다).
   - 이적 전 팀의 이적 뒤 경기, 첫 출전 전 경기는 줄을 만들지 않는다(시범경기는 저장하지 않는다).
 - 그 선수의 시즌을 아직 받지 않았으면 기록이 하나도 없으므로 결장 줄도 만들지 않는다.
+
+## 배포
+
+develop에 병합되면 Actions(`.github/workflows/deploy.yml`)가 테스트 → 이미지(`Dockerfile`, GHCR `ghcr.io/korleaguer/korleaguer-server:sha-<커밋>`) →
+SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾸기(끊김 없이, 새 것이 정상이 안 되면 옛 것 유지)까지 알아서 한다(지속 배포, 버전 번호 없이 커밋 해시로 구분). 서버 구성(Caddy·web·api·MySQL),
+처음 준비, 되돌리기, 백업은 [`deploy/README.md`](deploy/README.md).
+
+```bash
+docker build -t korleaguer-server:local .   # 이미지만 만들어 보기
+```
 
 ## 구조
 
@@ -144,7 +163,8 @@ com.korleaguer
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 
-- DB 스키마: 지금 모양은 `src/main/resources/db/migration/V4__mlb_source.sql`(V1~V3 위에서 표를 MLB 번호로 다시 만든다)과 `V5__appearance_lineup.sql`(선발·교체), `V6__minor_season.sql`(시즌 마이너 출전 경기 수). 시각은 UTC로 저장하고 응답에서만 한국 시간으로 바꾼다.
+- DB 스키마: `src/main/resources/db/migration/V1__init.sql`(MySQL 8 문법, H2 MySQL 모드에서도 그대로 돈다)과 `V7__player_free_agent.sql`(FA, V2~V6은 V1에 합쳐 없다). 시각은 `datetime(6)`에 UTC로 저장하고(`hibernate.jdbc.time_zone=UTC`, Instant는 TIMESTAMP로) 응답에서만 한국 시간으로 바꾼다. 외래 키는 표 단위로 적는다(MySQL은 열 옆의 `references`를 무시한다). 소속(`affiliation`)은 선수마다 한 줄(`unique (player_id)`).
+- 운영 DB 연결: `SPRING_DATASOURCE_URL`(예: `jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC`)·`SPRING_DATASOURCE_USERNAME`·`SPRING_DATASOURCE_PASSWORD` 환경변수로 덮어쓴다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수 응답을 메모리(Caffeine)에 60초 캐시하고, 수집이 끝나면 비운다(나중에 Redis로 바꿀 자리). 내 선수 응답은 캐시하지 않는다.
 - H2 콘솔: 기본은 꺼져 있다. `local` 프로필로 띄우면 `http://localhost:8080/h2-console`이 열린다.
