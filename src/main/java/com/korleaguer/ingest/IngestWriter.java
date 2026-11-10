@@ -283,8 +283,13 @@ public class IngestWriter {
                 skipped++;
                 continue;
             }
-            Appearance appearance = appearances.findByPlayerAndGame(player, game)
-                    .orElseGet(() -> new Appearance(player, game));
+            Optional<Appearance> existing = appearances.findByPlayerAndGame(player, game);
+            Appearance appearance = existing.orElseGet(() -> new Appearance(player, game));
+            if (existing.isEmpty()) {
+                // 새 기록은 선발·교체를 모른다. 이미 채워 본 경기여도(다른 우리 선수 때문에) 다시 채우게 한다
+                // (나중에 명단에 들어온 선수의 시즌 백필 등). 안 그러면 fillLineups가 이 경기를 다시 보지 않는다.
+                game.markLineupsUnchecked();
+            }
             appearance.update(saveTeam(team), hit == null ? null : toBatting(hit.stat()),
                     pitch == null ? null : toPitching(pitch.stat()));
             appearances.save(appearance);
