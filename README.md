@@ -36,7 +36,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_ADMIN_TOKEN` | 관리용 엔드포인트 토큰. 없으면 관리용 엔드포인트는 전부 막힌다 |
 | `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트와 선수 페이지에서 시즌 받기만 MLB를 부른다 |
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
-| `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
+| `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
 
 > **MLB 이용 고지:** 응답에 붙는 MLB 저작권 안내(`gdx.mlb.com/components/copyright.txt`)는 "개인적·비상업적·대량이 아닌 사용(individual, non-commercial, non-bulk use)"만 허락한다.
 > 이 사이트는 개인적·비상업적으로 쓴다(사용자 결정, 2026-11-10). 대량 수집이 되지 않도록 요청은 1초에 1회 이하, 필요한 것만 받고, 받은 것은 DB에 두고 다시 받지 않는다.
@@ -47,7 +47,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 화면용 API(`/api/**`)는 DB만 읽는다. MLB는 수집기(`ingest`)만 부른다. 같은 화면을 몇 번 열어도 MLB 요청은 늘지 않는다.
 
 - **요청 예절:** 1초에 1회 이하, `User-Agent: korleaguer/0.1`, 연결 5초·읽기 10초 제한, 다시 시도하지 않는다(실패한 건은 다음 수집 때 다시). 403/429가 오면 그 실행의 남은 단계는 건너뛴다(`BLOCKED`).
-- **시즌 날짜(하루 한 번):** `seasons/{year}?sportId=1` 올해·내년 2번. 정규시즌 개막일로 지금 시즌을 정한다(`season_dates`). 발표 전인 해는 저장하지 않고, 시즌을 고정했으면(`KORLEAGUER_SEASON`) 묻지 않는다.
+- **시즌 날짜(개막 전까지 하루 한 번):** `seasons/{year}?sportId=1` 올해(미국 날짜) 1번. 지금 시즌은 올해 정규시즌 개막일만으로 정해지므로(`season_dates`), 1월 1일부터 올해 개막일 전날까지만 묻고 개막한 뒤에는 묻지 않는다(1년에 80여 번). 발표 전인 해는 저장하지 않고, 시즌을 고정했으면(`KORLEAGUER_SEASON`, 샘플 모드) 묻지 않는다.
 - **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 출전 경기 수 `people/{id}/stats?stats=season&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번, 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.

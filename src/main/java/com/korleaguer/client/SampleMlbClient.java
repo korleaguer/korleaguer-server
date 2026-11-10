@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class SampleMlbClient implements MlbClient {
 
     private static final String SAMPLE_PATH = "sample/mlb.json";
+    /** 샘플 데이터의 경기·기록이 있는 시즌. 샘플 모드는 시즌을 이 값으로 고정한다(CurrentSeason) */
+    public static final int SEASON = 2026;
 
     private final Data data;
     private final AtomicLong requestCount = new AtomicLong();

@@ -31,7 +31,7 @@ class CurrentSeasonTest {
 
     @Test
     void fixedSeasonWins() {
-        CurrentSeason season = new CurrentSeason(properties(2025), seasonDates, clock);
+        CurrentSeason season = new CurrentSeason(properties(2025), DataMode.MLB, seasonDates, clock);
 
         assertThat(season.current()).isEqualTo(2025);
         assertThat(season.isFixed()).isTrue();
@@ -48,10 +48,41 @@ class CurrentSeasonTest {
     }
 
     @Test
+    void sampleModeStaysOnTheSampleSeason() {
+        // 샘플 데이터에는 2026 경기만 있다. 날짜가 지나도 샘플 화면이 비지 않게 2026으로 고정한다.
+        clock.set(Instant.parse("2027-06-01T12:00:00Z"));
+        CurrentSeason season = new CurrentSeason(AUTO, DataMode.SAMPLE, seasonDates, clock);
+
+        assertThat(season.current()).isEqualTo(2026);
+        assertThat(season.seasonAt(Instant.parse("2027-05-01T12:00:00Z"))).isEqualTo(2026);
+        assertThat(season.isFixed()).isTrue();
+        verifyNoInteractions(seasonDates);
+        // korleaguer.season을 정했으면 샘플 모드여도 그 값이다.
+        assertThat(new CurrentSeason(properties(2025), DataMode.SAMPLE, seasonDates, clock).current()).isEqualTo(2025);
+    }
+
+    @Test
+    void seasonAtFollowsTheWindowsOwnDate() {
+        stored(2026, "2026-03-25");
+        stored(2027, "2027-03-25");
+        CurrentSeason season = new CurrentSeason(AUTO, DataMode.MLB, seasonDates, clock);
+
+        // 개막 이틀 뒤(2027). 마지막으로 뛴 기간이 지난 9월이면 그 기간은 2026 시즌이다.
+        clock.set(Instant.parse("2027-03-27T16:00:00Z"));
+        assertThat(season.seasonAt(Instant.parse("2026-09-27T23:00:00Z"))).isEqualTo(2026);
+        assertThat(season.seasonAt(Instant.parse("2027-03-26T16:00:00Z"))).isEqualTo(2027);
+
+        // 개막 전날 미국 저녁(한국은 개막일 아침): '최근 N일' 끝(한국 내일 0시)은 아직 오지 않았으니 지금 시즌(2026)이다.
+        clock.set(Instant.parse("2027-03-24T23:00:00Z"));
+        assertThat(season.current()).isEqualTo(2026);
+        assertThat(season.seasonAt(Instant.parse("2027-03-25T14:59:59Z"))).isEqualTo(2026);
+    }
+
+    @Test
     void stays2026UntilOpeningDay2027() {
         stored(2026, "2026-03-25");
         stored(2027, "2027-03-25");
-        CurrentSeason season = new CurrentSeason(AUTO, seasonDates, clock);
+        CurrentSeason season = new CurrentSeason(AUTO, DataMode.MLB, seasonDates, clock);
         assertThat(season.isFixed()).isFalse();
 
         // 2026-11-10: 올해 개막일이 지났다.
@@ -71,7 +102,7 @@ class CurrentSeasonTest {
     void usesStoredOpeningDayNotTheFallback() {
         // 개막일이 3월 20일보다 이르면(해외 개막전 등) 그날부터 새 시즌이다.
         stored(2027, "2027-03-18");
-        CurrentSeason season = new CurrentSeason(AUTO, seasonDates, clock);
+        CurrentSeason season = new CurrentSeason(AUTO, DataMode.MLB, seasonDates, clock);
 
         clock.set(Instant.parse("2027-03-18T16:00:00Z"));
         assertThat(season.current()).isEqualTo(2027);
@@ -80,7 +111,7 @@ class CurrentSeasonTest {
     @Test
     void fallsBackToMarch20WhenOpeningDayIsUnknown() {
         when(seasonDates.findById(anyInt())).thenReturn(Optional.empty());
-        CurrentSeason season = new CurrentSeason(AUTO, seasonDates, clock);
+        CurrentSeason season = new CurrentSeason(AUTO, DataMode.MLB, seasonDates, clock);
 
         clock.set(Instant.parse("2027-03-20T03:59:59Z")); // 미국 동부 3/19
         assertThat(season.current()).isEqualTo(2026);
@@ -94,7 +125,7 @@ class CurrentSeasonTest {
     @Test
     void remembersForAFewMinutesThenAsksTheDbAgain() {
         stored(2026, "2026-03-25");
-        CurrentSeason season = new CurrentSeason(AUTO, seasonDates, clock);
+        CurrentSeason season = new CurrentSeason(AUTO, DataMode.MLB, seasonDates, clock);
 
         season.current();
         clock.advance(Duration.ofMinutes(4));

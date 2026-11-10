@@ -66,7 +66,9 @@ class GameLineAssembler {
         }
         List<Long> playerIds = members.stream().map(m -> m.player().getId()).toList();
         List<Appearance> played = appearances.findWithGameBetween(playerIds, from, to);
-        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady);
+        // 뛴 기간(결장 줄을 붙일 팀)은 이 기간이 속한 시즌 기록으로 정한다. 부르는 쪽이 정한 기간과 시즌이 어긋나지 않는다.
+        int season = currentSeason.seasonAt(to.minusMillis(1));
+        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady, season);
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
                 .map(stint -> stint.team().getMlbTeamId())
@@ -101,16 +103,14 @@ class GameLineAssembler {
 
     /** 선수마다 결장 줄을 붙일 수 있는 (팀, 기간) 목록 */
     private Map<Long, List<Stint>> stintsByPlayer(List<RosterMember> members, List<Long> playerIds,
-                                                  boolean statsReady) {
+                                                  boolean statsReady, int season) {
         if (!statsReady) {
             // 기록이 없으니 뛴 기간을 알 수 없다. 지금 소속 팀 경기 전부에 "기록 없음"을 단다.
             return members.stream()
                     .filter(m -> m.team() != null)
                     .collect(Collectors.toMap(m -> m.player().getId(), m -> List.of(new Stint(m.team(), null, null))));
         }
-        // 뛴 기간은 지금 시즌 기록으로 정한다.
-        Map<Long, List<Appearance>> byPlayer = appearances.findSeason(playerIds, currentSeason.current(),
-                        COUNTED_SEASON_TYPES)
+        Map<Long, List<Appearance>> byPlayer = appearances.findSeason(playerIds, season, COUNTED_SEASON_TYPES)
                 .stream()
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
         return members.stream().collect(Collectors.toMap(

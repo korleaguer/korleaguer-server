@@ -29,11 +29,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 시즌 날짜 받기: 올해·내년을 하루 한 번, 발표 전인 해, 실패한 해만 다시, 403/429 중단, 시즌을 고정하면 묻지 않음 */
+/**
+ * 시즌 날짜 받기: 올해 날짜만, 올해 개막일 전까지 하루 한 번. 개막한 뒤·오늘 받은 뒤엔 묻지 않음,
+ * 발표 전인 해, 실패하면 다음 실행에 다시, 403/429 중단, 시즌을 고정하면 묻지 않음
+ */
 class SeasonDatesRefresherTest {
 
-    // 미국 동부로는 11/9 밤이다(올해 = 2026).
-    private static final Instant NOW = Instant.parse("2026-11-10T03:00:00Z");
+    // 미국 동부 2027-01-15 07:00. 올해(2027) 개막일 전이고 아직 받지 않았다.
+    private static final Instant NOW = Instant.parse("2027-01-15T12:00:00Z");
     private static final MlbSeason SEASON_2026 = new MlbSeason("2026", "2026-03-25", "2026-09-27", "2026-10-28");
     private static final MlbSeason SEASON_2027 = new MlbSeason("2027", "2027-03-25", "2027-09-26", "2027-10-31");
 
@@ -58,33 +61,44 @@ class SeasonDatesRefresherTest {
     }
 
     @Test
-    void storesThisYearAndNextYearOncePerUtcDay() {
-        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2026·2027");
-        assertThat(asked).containsExactly(2026, 2027);
-        verify(writer).saveSeasonDates(2026, SEASON_2026, NOW);
+    void asksOnlyThisYearOncePerUtcDayBeforeOpeningDay() {
+        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
+        assertThat(asked).containsExactly(2027);
         verify(writer).saveSeasonDates(2027, SEASON_2027, NOW);
         // 새 개막일을 바로 쓰도록 지금 시즌이 기억한 값을 버린다.
         verify(currentSeason).forget();
 
         // 같은 날(UTC) 다시 돌면 묻지 않는다.
-        clock.advance(Duration.ofHours(12));
+        clock.advance(Duration.ofHours(10));
         assertThat(refresher.refresh()).isEmpty();
-        assertThat(asked).hasSize(2);
+        assertThat(asked).hasSize(1);
 
-        // 다음 날(UTC) 다시 묻는다.
-        clock.set(Instant.parse("2026-11-11T00:00:00Z"));
+        // 다음 날(UTC): 개막 전에는 MLB가 날짜를 바꿀 수 있어 다시 받는다.
+        when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, NOW.toString())));
+        clock.set(Instant.parse("2027-01-16T00:00:00Z"));
         refresher.refresh();
-        assertThat(asked).containsExactly(2026, 2027, 2026, 2027);
+        assertThat(asked).containsExactly(2027, 2027);
     }
 
     @Test
-    void yearsAlreadyFetchedTodayAreNotAskedAfterRestart() {
-        // 앱을 다시 띄운 상황: 2026은 오늘 받았고 2027은 어제 받았다.
-        when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, "2026-11-10T00:30:00Z")));
-        when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, "2026-11-09T23:59:00Z")));
+    void noRequestsOnceThisYearsSeasonHasOpened() {
+        // 2026-11-10: 올해(2026) 개막일이 지났고 날짜는 오래전에 받았다. 내년 날짜는 결정을 바꾸지 못하니 묻지 않는다.
+        clock.set(Instant.parse("2026-11-10T03:00:00Z"));
+        when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, "2026-01-02T00:00:00Z")));
 
-        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
-        assertThat(asked).containsExactly(2027);
+        assertThat(refresher.refresh()).isEmpty();
+        clock.set(Instant.parse("2026-12-31T12:00:00Z"));
+        assertThat(refresher.refresh()).isEmpty();
+        assertThat(asked).isEmpty();
+    }
+
+    @Test
+    void yearFetchedTodayIsNotAskedAfterRestart() {
+        // 앱을 다시 띄운 상황: 2027은 오늘(UTC) 이미 받았다.
+        when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, "2027-01-15T00:30:00Z")));
+
+        assertThat(refresher.refresh()).isEmpty();
+        assertThat(asked).isEmpty();
     }
 
     @Test
@@ -92,35 +106,34 @@ class SeasonDatesRefresherTest {
         client = client(List.of(SEASON_2026));
         refresher = new SeasonDatesRefresher(client, seasonDates, writer, currentSeason, clock);
 
-        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2026, 발표 전 2027");
+        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 발표 전 2027");
         verify(writer, never()).saveSeasonDates(eq(2027), any(), any());
 
         clock.advance(Duration.ofHours(1));
         assertThat(refresher.refresh()).isEmpty();
-        assertThat(asked).containsExactly(2026, 2027);
+        assertThat(asked).containsExactly(2027);
     }
 
     @Test
-    void failedYearIsAskedAgainNextRunWithoutBreakingIt() {
+    void failureIsAskedAgainNextRun() {
         failYears = Set.of(2027);
 
-        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2026, 실패 1개");
-        verify(writer).saveSeasonDates(2026, SEASON_2026, NOW);
+        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 실패 2027");
+        verify(writer, never()).saveSeasonDates(anyInt(), any(), any());
 
-        // 다음 실행(12분 뒤): 2026은 오늘 받았으니 2027만 다시 묻는다.
-        when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, NOW.toString())));
+        // 다음 실행(12분 뒤) 다시 묻는다.
         failYears = Set.of();
         clock.advance(Duration.ofMinutes(12));
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
-        assertThat(asked).containsExactly(2026, 2027, 2027);
+        assertThat(asked).containsExactly(2027, 2027);
     }
 
     @Test
     void blockedStopsTheRun() {
-        blockYears = Set.of(2026);
+        blockYears = Set.of(2027);
 
         assertThatThrownBy(() -> refresher.refresh()).isInstanceOf(MlbBlockedException.class);
-        assertThat(asked).containsExactly(2026);
+        assertThat(asked).containsExactly(2027);
         verify(writer, never()).saveSeasonDates(anyInt(), any(), any());
     }
 
