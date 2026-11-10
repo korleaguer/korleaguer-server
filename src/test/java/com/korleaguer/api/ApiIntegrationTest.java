@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -74,6 +75,9 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.recent.lines[0].batting.hits").value(2))
                 .andExpect(jsonPath("$.recent.lines[0].batting.homeRuns").value(1))
                 .andExpect(jsonPath("$.recent.lines[0].pitching").doesNotExist())
+                .andExpect(jsonPath("$.recent.lines[0].lineup").value("STARTER"))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '고우석')].lineup").value(contains("SUB")))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].lineup").value(contains(nullValue())))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].batting").value(contains(nullValue())))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].played").value(contains(false)))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].summary").value(contains("결장")))
@@ -250,6 +254,14 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.games[1].gameId").value(5002))
                 .andExpect(jsonPath("$.games[1].played").value(false))
                 .andExpect(jsonPath("$.games[1].summary").value("결장"));
+    }
+
+    @Test
+    void lineupPerGame() throws Exception {
+        // 김혜성: 2003 결장(null), 2002 선발, 2001 교체(타순 901)
+        mockMvc.perform(get("/api/players/2"))
+                .andExpect(jsonPath("$.games[*].gameId").value(contains(2003, 2002, 2001)))
+                .andExpect(jsonPath("$.games[*].lineup").value(contains(nullValue(), is("STARTER"), is("SUB"))));
     }
 
     @Test

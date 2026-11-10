@@ -115,7 +115,8 @@ class CatchUpGapTest {
 
         // 마지막으로 끝난 경기(7001)의 날부터 오늘까지 일정 1번, 결과를 못 받은 경기만 박스스코어로 받는다.
         assertThat(client.takeSchedulesAsked()).containsExactly("2026-08-06~2026-08-14");
-        assertThat(client.takeBoxscoresAsked()).containsExactlyInAnyOrder(7002L, 7003L, 7004L, 7005L);
+        // 7001은 선발·교체를 모르는 지난 경기라 선발·교체 채우기(fillLineups)로 한 번 받는다.
+        assertThat(client.takeBoxscoresAsked()).containsExactlyInAnyOrder(7001L, 7002L, 7003L, 7004L, 7005L);
         for (long gamePk : List.of(7002L, 7003L, 7004L, 7005L)) {
             assertThat(stored(gamePk).getStatusState()).isEqualTo("final");
             assertThat(appearances.findByPlayersAndGames(List.of(1L), List.of(gamePk))).hasSize(1);

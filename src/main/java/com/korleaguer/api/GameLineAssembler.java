@@ -178,7 +178,8 @@ class GameLineAssembler {
                 played,
                 summary,
                 played ? batting(appearance.getBatting()) : null,
-                played ? pitching(appearance.getPitching()) : null);
+                played ? pitching(appearance.getPitching()) : null,
+                played ? appearance.getLineup() : null);
     }
 
     private static GameBatting batting(Batting b) {

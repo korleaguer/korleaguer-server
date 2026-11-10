@@ -88,7 +88,8 @@ class OffSeasonLookAheadTest {
         scheduler.tick();
         // 앞으로 7일 일정(미국 날짜 9/30~10/7)을 한 번 받아 7201을 DB에 넣는다.
         assertThat(client.takeSchedulesAsked()).containsExactly("2026-09-30~2026-10-07");
-        assertThat(client.takeBoxscoresAsked()).isEmpty();
+        // 박스스코어는 선발·교체를 모르는 지난 경기 7001만 선발·교체 채우기(fillLineups)로 한 번 받는다.
+        assertThat(client.takeBoxscoresAsked()).containsExactly(7001L);
         assertThat(games.findById(7201L)).isPresent();
 
         // 같은 날(UTC) 다시 깨어나면 앞 일정을 또 받지 않는다(비시즌에는 하루 1번).

@@ -2,6 +2,8 @@ package com.korleaguer.domain;
 
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -35,6 +37,10 @@ public class Appearance {
     @Embedded
     private Pitching pitching;
 
+    // 선발·교체. 박스스코어로 정하며 모르면 null이다.
+    @Enumerated(EnumType.STRING)
+    private Lineup lineup;
+
     protected Appearance() {
     }
 
@@ -47,6 +53,10 @@ public class Appearance {
         this.team = team;
         this.batting = batting;
         this.pitching = pitching;
+    }
+
+    public void updateLineup(Lineup lineup) {
+        this.lineup = lineup;
     }
 
     public Long getId() {
@@ -73,5 +83,10 @@ public class Appearance {
     /** 투구 기록이 하나도 없으면 null */
     public Pitching getPitching() {
         return pitching;
+    }
+
+    /** 선발(STARTER)·교체(SUB). 모르면 null */
+    public Lineup getLineup() {
+        return lineup;
     }
 }
