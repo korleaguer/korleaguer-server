@@ -13,6 +13,9 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
 
     Optional<Appearance> findByPlayerAndGame(Player player, Game game);
 
+    /** 선수가 가장 늦게 시작한 경기에 뛴 기록(그때의 팀을 알 때 쓴다) */
+    Optional<Appearance> findFirstByPlayerOrderByGameStartTimeUtcDesc(Player player);
+
     /** 주어진 선수들의 기록 중 경기가 [from, to) 사이에 시작한 것 */
     @Query("""
             select a from Appearance a
