@@ -158,6 +158,7 @@ public class GameIngest {
     /**
      * 선발·교체를 아직 모르는 지난 경기(굳은 경기)를 최근 것부터 limit개까지 박스스코어로 채운다.
      * 한 경기는 한 번만 받는다(못 정한 선수가 있어도 다시 받지 않는다). 기록은 건드리지 않는다.
+     * 단 그 뒤 시즌 백필로 그 경기에 새 기록이 생기면 다시 채울 경기가 된다(IngestWriter.saveGameLog).
      */
     public String fillLineups(int limit) {
         List<Game> targets = appearances.findGamesMissingLineups(PageRequest.of(0, limit));
