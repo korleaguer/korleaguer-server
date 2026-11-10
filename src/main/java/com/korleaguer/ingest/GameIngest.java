@@ -29,6 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -40,7 +41,8 @@ import java.util.stream.Stream;
  *   <li>시즌 백필: 선수마다 gameLog 2번(타격·투구) + 그 선수들의 지금 팀·뛴 팀의 시즌 일정 1번 + 끝난 포스트시즌 경기 박스스코어
  *       (gameLog는 정규시즌만 준다).</li>
  *   <li>경기 갱신: 우리 팀들(마이너에 있는 선수의 MLB 구단은 뺀다)의 미국 날짜 [from, to] 일정을 받고,
- *       진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.</li>
+ *       진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.
+ *       따라잡기는 보통 어제·오늘을, 갱신이 며칠 밀렸으면 밀린 날부터 오늘까지(최대 14일 전) 받는다.</li>
  *   <li>끝난 경기 재확인: 끝난 뒤 3일 동안 하루 한 번 박스스코어로 다시 받고, 그 뒤에는 settled로 두어 다시 받지 않는다.</li>
  * </ul>
  * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 건만 건너뛴다.
@@ -50,6 +52,8 @@ public class GameIngest {
 
     /** 미국 날짜(경기 공식 날짜)를 정할 때 쓰는 시간대 */
     public static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
+    /** 따라잡기 경기 갱신이 밀렸을 때 거슬러 올라가는 최대 날 수 */
+    static final int MAX_CATCH_UP_DAYS = 14;
 
     private static final Logger log = LoggerFactory.getLogger(GameIngest.class);
 
@@ -134,7 +138,45 @@ public class GameIngest {
      * forceFinals면 그 기간의 끝난 경기를 settled여도 다시 받는다(관리용).
      */
     public String refreshGames(LocalDate from, LocalDate to, boolean forceFinals) {
+        return refreshGames(trackedTeamIds(), from, to, forceFinals);
+    }
+
+    /**
+     * 따라잡기용 경기 갱신. 보통은 미국 날짜 어제·오늘을 받는다.
+     * 서버가 멈췄거나 MLB가 막아(403/429) 며칠 갱신을 못 했으면 밀린 날부터 오늘까지를 일정 한 번으로 받는다.
+     * 밀린 날은 아래 중 이른 날이다(최대 MAX_CATCH_UP_DAYS일 전까지).
+     * <ul>
+     *   <li>시작했는데 아직 끝남·연기·취소가 아닌 우리 팀 경기가 있는 날(결과를 못 받은 경기)</li>
+     *   <li>우리 팀의 마지막으로 끝난 경기가 있는 날(그 뒤 날짜의 일정을 못 받았을 수 있다.
+     *       포스트시즌 경기는 그날 일정을 받을 때에야 DB에 들어온다)</li>
+     * </ul>
+     */
+    public String refreshRecent() {
         List<Long> teamIds = trackedTeamIds();
+        if (teamIds.isEmpty()) {
+            return "";
+        }
+        Instant now = clock.instant();
+        LocalDate today = usDate(now);
+        LocalDate from = catchUpFrom(teamIds, today, now);
+        String message = refreshGames(teamIds, from, today, false);
+        return from.isBefore(today.minusDays(1)) ? from + "부터 " + message : message;
+    }
+
+    // 어제, 결과를 못 받은 경기의 날, 마지막으로 끝난 경기의 날 중 가장 이른 날. 단 MAX_CATCH_UP_DAYS일 전보다 앞으로는 가지 않는다.
+    private LocalDate catchUpFrom(List<Long> teamIds, LocalDate today, Instant now) {
+        Optional<Instant> unfinished = games.findFirstUnfinishedStartTime(teamIds,
+                now.minus(Duration.ofDays(MAX_CATCH_UP_DAYS)), now);
+        Optional<Instant> lastFinal = games.findLastFinalStartTime(teamIds, now);
+        LocalDate from = Stream.of(unfinished, lastFinal)
+                .flatMap(Optional::stream)
+                .map(this::usDate)
+                .reduce(today.minusDays(1), (a, b) -> a.isBefore(b) ? a : b);
+        LocalDate oldest = today.minusDays(MAX_CATCH_UP_DAYS);
+        return from.isBefore(oldest) ? oldest : from;
+    }
+
+    private String refreshGames(List<Long> teamIds, LocalDate from, LocalDate to, boolean forceFinals) {
         if (teamIds.isEmpty()) {
             return "";
         }

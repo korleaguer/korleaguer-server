@@ -52,6 +52,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
 - **경기 갱신(시즌 중):** 우리 선수 팀들의 오늘·어제(미국 동부 날짜) 일정을 받고(1번), 진행 중인 경기와 다시 확인할 때가 된 끝난 경기만 `game/{gamePk}/boxscore`로 받는다.
   - 한국 시간 01:00~16:00(미국 경기 시간대)에는 12분마다, 그 밖에는 1시간마다(정각 근처 실행만).
+  - 서버가 멈췄거나 MLB가 막아(403/429) 며칠 갱신을 못 했으면, 결과를 못 받은 경기(시작했는데 끝남·연기·취소가 아님)나 마지막으로 끝난 경기가 있는 날부터 오늘까지를 한 번에 받는다(일정 요청은 그대로 1번, 최대 14일 전까지). 그보다 오래 멈췄으면 `/admin/ingest/season`으로 시즌을 다시 받는다.
   - 끝난 경기는 끝난 직후 한 번, 그 뒤 하루(UTC 날짜)에 한 번 다시 받는다. 시작한 지 3일이 지나면 `settled`로 두고 다시 받지 않는다(기록 정정 대비).
   - 시즌 중 판단: 우리 팀 경기가 앞뒤 3일 안에 있으면 시즌 중이다. 비시즌에는 선수 정보·이동 기록만 하루 한 번 받는다.
 - **경기 상태 값(`gameStatus`, DB `status_state`):** MLB `abstractGameState`/`codedGameState`/`detailedState`를 `scheduled`·`in_progress`·`final`·`postponed`·`canceled`·`delayed`·`suspended`로 바꾼다(`support.GameStatuses`). 그 밖은 MLB 값을 소문자로.

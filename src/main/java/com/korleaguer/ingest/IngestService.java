@@ -98,7 +98,7 @@ public class IngestService {
      *   <li>명단 선수 줄 만들기</li>
      *   <li>오늘 아직 안 받은 선수의 정보·이동 기록</li>
      *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필</li>
-     *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신, 끝난 경기 재확인</li>
+     *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      * </ol>
      */
     @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE}, allEntries = true)
@@ -108,8 +108,7 @@ public class IngestService {
             steps.add(() -> playersStep(false));
             steps.add(() -> gameIngest.backfillSeason(withoutSeason(players.findByMlbIdIsNotNull()), season));
             if (refreshGames) {
-                LocalDate today = gameIngest.usDate(clock.instant());
-                steps.add(() -> gameIngest.refreshGames(today.minusDays(1), today, false));
+                steps.add(gameIngest::refreshRecent);
                 steps.add(gameIngest::recheckFinals);
             }
         });
