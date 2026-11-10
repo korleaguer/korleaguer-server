@@ -19,10 +19,11 @@ import java.util.regex.Pattern;
  * '내 선수' 카드의 상태 배지를 이동 기록과 선수 정보로 정한다(이슈 #33). 오늘(미국 날짜) 지금 상태만 본다.
  * <ol>
  *   <li>FA(선수 정보의 freeAgent, FreeAgency가 정함)가 가장 먼저다. since는 마지막 FA 선언·방출 날.</li>
- *   <li>정규시즌이 끝났고 3일 넘게 경기가 없으면 시즌 끝(포스트시즌을 뛰는 선수는 평소대로 둔다).</li>
+ *   <li>정규시즌이 끝났고, 메이저 팀이 더 경기하지 않으며(포스트시즌이 아니며), 본인도 3일 넘게 경기가 없으면 시즌 끝.</li>
  *   <li>그 밖에는 이동 기록을 최신부터 보며, 지금 상태를 정하는 첫 기록으로 정한다(decide).
  *       등번호·트레이드·계약·클레임처럼 상태를 정하지 않는 기록은 건너뛴다.</li>
  *   <li>메이저인지 마이너인지는 선수 정보의 지금 단계(level)를 믿는다. 이동 기록은 '언제부터'를 정하는 데 쓴다.</li>
+ *   <li>복귀·콜업·강등이 이번 정규시즌 개막 전이면(지난 시즌·스프링캠프) 배지도 '복귀 후'·'콜업 후'·'강등 후'도 없다.</li>
  * </ol>
  */
 final class CardStatuses {
@@ -33,6 +34,9 @@ final class CardStatuses {
     static final int SEASON_OVER_AFTER_DAYS = 3;
 
     private static final Set<String> BECOMES_FREE_AGENT = Set.of("DFA", "REL");
+    /** 다른 팀으로 옮기거나 팀을 떠나는 기록(트레이드·웨이버 클레임·계약·방출·FA 선언). 그 전의 지명 할당은 끝난 일이다 */
+    private static final Set<String> CHANGES_TEAM = Set.of("TR", "CLW", "SFA", "SGN", "REL", "DFA");
+    private static final Set<String> CALL_UP = Set.of("CU", "SE");
     private static final Pattern RETROACTIVE = Pattern.compile("retroactive to ([A-Z][a-z]+ \\d{1,2}, \\d{4})");
     private static final DateTimeFormatter LONG_DATE = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH);
 
@@ -63,14 +67,24 @@ final class CardStatuses {
     }
 
     /**
-     * @param movesNewestFirst 이동 기록(최신부터)
-     * @param lastGame         본인 마지막 경기(메이저·마이너 중 늦은 것, 없으면 null)
-     * @param minor            지금 마이너 팀(마이너 경기가 없으면 null)
-     * @param usToday          오늘(미국 날짜)
-     * @param seasonEnded      이번 시즌 정규시즌이 끝났는지
+     * 판단 기준 날짜와 시즌 사정.
+     *
+     * @param usDate      오늘(미국 날짜)
+     * @param seasonStart 이번 시즌 정규시즌 개막일(미국 날짜)
+     * @param seasonEnded 이번 시즌 정규시즌이 끝났는지
+     * @param teamPlaying 지금 메이저 팀이 아직 경기하는지(최근 3일 안에 경기했거나 앞으로 경기가 잡혀 있음: 포스트시즌 등)
+     */
+    record Today(LocalDate usDate, LocalDate seasonStart, boolean seasonEnded, boolean teamPlaying) {
+    }
+
+    /**
+     * @param allMovesNewestFirst 이동 기록(최신부터)
+     * @param lastGame            본인 마지막 경기(메이저·마이너 중 늦은 것, 없으면 null)
+     * @param minor               지금 마이너 팀(마이너 경기가 없으면 null)
      */
     static Resolved resolve(Player player, List<PlayerMove> allMovesNewestFirst, LastGame lastGame, MinorSpot minor,
-                            LocalDate usToday, boolean seasonEnded) {
+                            Today today) {
+        LocalDate usToday = today.usDate();
         // 오늘 뒤 날짜로 잡힌 기록(예정된 이동)은 아직 일어나지 않은 일이라 보지 않는다.
         List<PlayerMove> movesNewestFirst = allMovesNewestFirst.stream()
                 .filter(m -> m.getMoveDate() == null || !m.getMoveDate().isAfter(usToday))
@@ -84,7 +98,8 @@ final class CardStatuses {
                     .orElse(null);
             return new Resolved(status("FA", since, usToday, null, null, lastGame), null, Start.OTHER);
         }
-        if (seasonEnded && (lastGame == null
+        // 포스트시즌 명단에 든 선수는 본인 경기가 며칠 없어도(팀이 쉬는 날·첫 출전 전) 시즌 끝이 아니다.
+        if (today.seasonEnded() && !today.teamPlaying() && (lastGame == null
                 || lastGame.date().isBefore(usToday.minusDays(SEASON_OVER_AFTER_DAYS)))) {
             return new Resolved(status("SEASON_OVER", null, usToday, null, null, lastGame), null, Start.OTHER);
         }
@@ -116,8 +131,16 @@ final class CardStatuses {
                     : sentDown == null ? null : sentDown.getMoveDate();
             boolean fromMajors = decision.kind() == Kind.SENT_DOWN ? decision.fromMajors()
                     : sentDown != null && Set.of("OPT", "OUT").contains(code(sentDown));
-            return new Resolved(status("MINORS", since, usToday, minorLevel, minorTeam, null), since,
-                    fromMajors ? Start.SENT_DOWN : Start.OTHER);
+            MyPlayersResponse.CardStatus badge = status("MINORS", since, usToday, minorLevel, minorTeam, null);
+            // 개막 전(지난 시즌·겨울)에 내려갔으면 이번 시즌 마이너 경기 전부가 한 기간이다.
+            if (since == null || since.isBefore(today.seasonStart())) {
+                return new Resolved(badge, null, Start.OTHER);
+            }
+            return new Resolved(badge, since, fromMajors ? Start.SENT_DOWN : Start.OTHER);
+        }
+        // 개막 전(지난 시즌·스프링캠프)의 복귀·콜업은 이번 시즌 이야기가 아니다.
+        if (decision.date() == null || decision.date().isBefore(today.seasonStart())) {
+            return new Resolved(null, null, Start.OTHER);
         }
         if (decision.kind() == Kind.RETURNED || decision.kind() == Kind.ACTIVATED) {
             MyPlayersResponse.CardStatus badge = decision.kind() == Kind.RETURNED && recent(decision.date(), usToday)
@@ -157,13 +180,16 @@ final class CardStatuses {
      * 지금 상태를 정하는 첫 기록(최신부터).
      * <ul>
      *   <li>부상자 명단(SC, 'injured list'): 해제면 복귀, 등재·이동이면 부상(이동이면 처음 오른 날까지 거슬러 간다).
-     *       마이너 팀 기록이거나 7일 명단이면 마이너 부상자 명단이다.</li>
-     *   <li>그 밖의 활성화(SC 'activated'·'reinstated', 출장 정지 해제): 다시 뛸 수 있게 됨</li>
+     *       마이너 팀 기록이면 마이너 부상자 명단이다(메이저 뇌진탕 7일 명단은 메이저다).</li>
+     *   <li>그 밖의 활성화(SC 'activated'·'reinstated', 출장 정지 해제): 다시 뛸 수 있게 됨. 메이저·마이너 팀이 아닌 곳
+     *       (국가대표 등, 단계 없음)의 활성화는 건너뛰고, 같은 날 콜업이 있으면 콜업으로 본다(콜업 때 '활성화'가 함께 붙는다).</li>
      *   <li>출장 정지(SU), 지명 할당(DES), 콜업(CU)·계약 선택(SE), 강등(OPT 옵션·OUT 아웃라이트·재활 아닌 마이너 배정 ASG)</li>
+     *   <li>지명 할당보다 새로운 트레이드·클레임·계약·방출이 있으면 지명 할당은 끝났다(새 팀에서 평소대로).</li>
      *   <li>재활 경기 배정(ASG 'rehab')은 부상 중이므로 건너뛰고 더 오래된 부상자 명단 기록을 본다.</li>
      * </ul>
      */
     private static Decision decide(List<PlayerMove> movesNewestFirst) {
+        boolean changedTeam = false;
         for (int i = 0; i < movesNewestFirst.size(); i++) {
             PlayerMove move = movesNewestFirst.get(i);
             String text = text(move);
@@ -171,20 +197,23 @@ final class CardStatuses {
             switch (code(move)) {
                 case "SC" -> {
                     if (text.contains("injured list")) {
-                        boolean minors = move.getToLevel() == Level.MINORS || text.contains("7-day");
+                        boolean minors = move.getToLevel() == Level.MINORS;
                         if (text.contains("activated") || text.contains("reinstated")) {
                             return new Decision(Kind.RETURNED, date, minors, false);
                         }
                         return new Decision(Kind.INJURED, placementDate(movesNewestFirst, i), minors, false);
                     }
-                    if (text.contains("activated") || text.contains("reinstated")) {
-                        return Decision.of(Kind.ACTIVATED, date);
+                    if ((text.contains("activated") || text.contains("reinstated")) && move.getToLevel() != null) {
+                        return Decision.of(calledUpOn(movesNewestFirst, date) ? Kind.CALLED_UP : Kind.ACTIVATED, date);
                     }
                 }
                 case "SU" -> {
                     return Decision.of(text.contains("reinstated") ? Kind.ACTIVATED : Kind.SUSPENDED, date);
                 }
                 case "DES" -> {
+                    if (changedTeam) {
+                        return Decision.NONE;
+                    }
                     return Decision.of(Kind.DESIGNATED, date);
                 }
                 case "CU", "SE" -> {
@@ -200,10 +229,19 @@ final class CardStatuses {
                 }
                 default -> {
                     // 등번호·트레이드·계약·클레임·FA 선언·방출(그 뒤 계약함): 다음 기록을 본다
+                    if (CHANGES_TEAM.contains(code(move))) {
+                        changedTeam = true;
+                    }
                 }
             }
         }
         return Decision.NONE;
+    }
+
+    /** 그날 콜업(CU)·계약 선택(SE) 기록이 있나 */
+    private static boolean calledUpOn(List<PlayerMove> movesNewestFirst, LocalDate date) {
+        return date != null && movesNewestFirst.stream()
+                .anyMatch(m -> date.equals(m.getMoveDate()) && CALL_UP.contains(code(m)));
     }
 
     /**

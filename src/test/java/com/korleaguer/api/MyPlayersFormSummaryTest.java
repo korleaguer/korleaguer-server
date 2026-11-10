@@ -65,7 +65,7 @@ class MyPlayersFormSummaryTest {
                 .andExpect(jsonPath("$.players[0].pitching.games").value(1))
                 .andExpect(jsonPath("$.players[0].pitching.era").value(0.0))
                 .andExpect(jsonPath("$.players[0].games.length()").value(1))
-                .andExpect(jsonPath("$.players[0].games[0].teamKo").value("샘플 트리플A 팀"))
+                .andExpect(jsonPath("$.players[0].games[0].teamKo").value("St. Paul Saints"))
                 .andExpect(jsonPath("$.players[0].games[0].startTimeKst").value("2026-09-21T08:00:00+09:00"))
                 .andExpect(jsonPath("$.players[0].games[0].played").value(true))
                 .andExpect(jsonPath("$.players[0].fact.tone").value("HOT"))

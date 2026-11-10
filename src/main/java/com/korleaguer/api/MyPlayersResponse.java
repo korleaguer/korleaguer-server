@@ -8,7 +8,8 @@ import java.util.List;
 
 /**
  * GET /api/my(내 선수). 기간은 선수마다 한국 날짜 [fromKst, toKst]의 days일이다(MyPlayer).
- * 맨 위 fromKst·toKst는 오늘까지 days일이고, isFallback은 한 명이라도 기간을 당겼으면 true다.
+ * 맨 위 fromKst·toKst는 오늘까지 days일이고, isFallback은 마지막으로 뛴 날까지 당긴 기간을 보이는 카드(basis LAST_PLAYED,
+ * 또는 마지막 재활 경기까지 당긴 REHAB)가 한 장이라도 있으면 true다.
  * players는 요청한 순서이고, 없는 id는 빠진다.
  */
 public record MyPlayersResponse(
@@ -50,13 +51,15 @@ public record MyPlayersResponse(
 
     /**
      * 카드의 큰 숫자·막대(hitting·pitching·games)가 어떤 기간인지. level은 그 기록의 단계다(MLB 또는 마이너 약어 AAA·AA 등).
-     * RECENT: 오늘까지 days일, LAST_PLAYED: 마지막으로 뛴 날까지 days일, BEFORE_INJURY: 다치기 전(부상자 명단에 오르기 전) days일,
-     * SEASON: 비시즌·FA라 기간 대신 시즌 합계(seasonTotals), NONE: 보여 줄 기록이 없음(이번 시즌 경기가 아직 없음 등)
+     * RECENT: 오늘까지 days일, LAST_PLAYED: 마지막으로 뛴 날까지 days일, BEFORE_INJURY: 다치기 전(메이저 부상자 명단에 오르기 전) days일,
+     * REHAB: 메이저 부상자 명단에 오른 뒤 뛴 마이너 재활 경기(오늘까지, 없으면 마지막 재활 경기까지 days일. isFallback이 그 구분이고
+     * 시즌 비교 값은 없다), SEASON: 비시즌·FA라 기간 대신 시즌 합계(seasonTotals), NONE: 보여 줄 기록이 없음(이번 시즌 경기가 아직 없음 등)
      */
     public enum Basis {
         RECENT,
         LAST_PLAYED,
         BEFORE_INJURY,
+        REHAB,
         SEASON,
         NONE
     }

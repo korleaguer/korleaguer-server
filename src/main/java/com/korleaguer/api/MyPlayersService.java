@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -49,8 +50,9 @@ import java.util.stream.Collectors;
  *   <li>기간 합계는 기간 안에 뛴 경기(경기 한 줄에서 played=true인 경기)로 센다.</li>
  *   <li>시즌 타율·평균자책점은 선수 페이지와 같은 정규시즌 값이다.</li>
  *   <li>최근 폼 요약(이슈 #33): 상태 배지(CardStatuses), 출전 줄·한 줄 소식(FormFacts)을 붙인다.
- *       부상자 명단(메이저)이면 기간을 이번 시즌 마지막 출전까지로 당기고(다치기 전), 마이너에 있으면 큰 숫자·막대를
- *       마이너 기록으로 채우며, FA·시즌 끝이면 시즌 합계(메이저·마이너)를 준다.</li>
+ *       부상자 명단(메이저)이면 기간을 이번 시즌 마지막 출전까지로 당기고(다치기 전), 오른 뒤 마이너 재활 경기를 뛰었으면
+ *       재활 경기를 보이며, 마이너에 있으면 큰 숫자·막대를 마이너 기록으로 채우고, FA·시즌 끝이면 시즌 합계(메이저·마이너)를
+ *       준다. 상태·소식은 끝난 경기로만 정한다(진행 중 경기의 중간 기록으로 바뀌지 않게).</li>
  * </ul>
  * 선수 조합이 사람마다 달라 캐시하지 않는다(부를 때마다 DB를 읽는다).
  */
@@ -117,20 +119,27 @@ public class MyPlayersService {
         boolean loadStats = statsAvailable && !members.isEmpty();
 
         // 최근 폼 요약 재료: 이번 시즌 메이저 출전(정규+포스트, 오래된 것부터)·마이너 경기·이동 기록으로 상태를 정한다.
-        // 지금 뒤의 경기는 보지 않는다(경기 줄과 같은 기준).
+        // 끝난 경기만 본다(진행 중 경기의 중간 기록으로 연속 기록 소식이 사라지거나 미리 붙지 않게, 출전 줄과 같은 기준).
         Map<Long, List<Appearance>> majorSeason = loadStats ? oldestFirst(byPlayer(
                 appearances.findSeason(ids(members), season, STREAK_SEASON_TYPES).stream()
-                        .filter(a -> !a.getGame().getStartTimeUtc().isAfter(now))
+                        .filter(a -> !a.getGame().getStartTimeUtc().isAfter(now) && a.getGame().isFinal())
                         .toList())) : Map.of();
         Map<Long, List<MinorGameLog>> minorSeason = loadStats ? minorGameLogs.findSeason(ids(members), season).stream()
                 .filter(g -> !g.getGameDate().isAfter(usToday))
                 .collect(Collectors.groupingBy(g -> g.getPlayer().getId())) : Map.of();
-        boolean seasonEnded = seasonEnded(season, usToday);
+        SeasonSpan span = seasonSpan(season);
+        boolean seasonEnded = usToday.isAfter(span.end());
+        Map<Long, Boolean> teamPlaying = new HashMap<>();
         Map<Long, CardStatuses.Resolved> statuses = new HashMap<>();
         for (RosterMember member : members) {
             long id = member.player().getId();
+            Team major = member.majorTeam();
+            // 정규시즌이 끝난 뒤에만 본다: 메이저 팀이 아직 경기하면(포스트시즌) 본인 경기가 며칠 없어도 시즌 끝이 아니다.
+            boolean playing = seasonEnded && major != null
+                    && teamPlaying.computeIfAbsent(major.getMlbTeamId(), teamId -> teamStillPlaying(teamId, now));
+            CardStatuses.Today day = new CardStatuses.Today(usToday, span.start(), seasonEnded, playing);
             statuses.put(id, resolveStatus(member.player(), majorSeason.getOrDefault(id, List.of()),
-                    minorSeason.getOrDefault(id, List.of()), usToday, seasonEnded));
+                    minorSeason.getOrDefault(id, List.of()), day));
         }
 
         // 기간은 선수마다 정하고, 같은 기간인 선수끼리 묶어 한 번에 읽는다.
@@ -186,7 +195,10 @@ public class MyPlayersService {
                             seasonByPlayer.getOrDefault(id, List.of()));
                 })
                 .toList();
-        boolean anyFallback = periods.values().stream().anyMatch(Period::fallback);
+        // 기간을 마지막으로 뛴 날까지 당긴 카드가 있는지(웹이 안내 한 줄을 띄운다). 카드가 실제로 보이는 기간으로 정한다
+        // (마이너 카드는 마이너 기간, 부상자 명단 카드는 '다치기 전'이라 따로 적는다, 시즌 합계 카드는 기간이 없다).
+        boolean anyFallback = result.stream().anyMatch(p -> p.basis() == MyPlayersResponse.Basis.LAST_PLAYED
+                || (p.basis() == MyPlayersResponse.Basis.REHAB && p.isFallback()));
         return new MyPlayersResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
                 days, recent.fromKst(), recent.toKst(), anyFallback, result);
     }
@@ -342,8 +354,9 @@ public class MyPlayersService {
                 return new MyPlayersResponse.MyPlayer(summary, range.fromKst(), range.toKst(), range.fallback(), null,
                         null, streak, List.of(), status, null, fact, MyPlayersResponse.Basis.NONE, null, null);
             }
-            MyPlayersResponse.Basis basis = "MINORS_IL".equals(kind) ? MyPlayersResponse.Basis.BEFORE_INJURY
-                    : window.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED : MyPlayersResponse.Basis.RECENT;
+            // 마이너 부상자 명단은 오른 날을 믿기 어려워(배지에도 날수를 붙이지 않는다) "다치기 전"이라 하지 않는다.
+            MyPlayersResponse.Basis basis = window.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED
+                    : MyPlayersResponse.Basis.RECENT;
             return new MyPlayersResponse.MyPlayer(summary, window.fromKst(), window.toKst(), window.fallback(),
                     pitcher ? null : MinorRecords.hitting(window.games(), minor),
                     pitcher ? MinorRecords.pitching(window.games(), minor) : null, streak,
@@ -351,15 +364,29 @@ public class MyPlayersService {
                     window.games().getLast().getLevel(), null);
         }
 
-        // 메이저
-        boolean injured = "IL".equals(kind);
-        MyPlayersResponse.Basis basis = injured
-                ? (card.majorSeason().isEmpty() ? MyPlayersResponse.Basis.NONE : MyPlayersResponse.Basis.BEFORE_INJURY)
-                : range.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED : MyPlayersResponse.Basis.RECENT;
+        // 메이저(부상자 명단 포함)
         List<FormFacts.GameStat> stint = since(majorStats, card.resolved().stintStart());
         MyPlayersResponse.Fact fact = pitcher
                 ? FormFacts.pitcher(majorStats, stint, "", card.resolved().start())
                 : FormFacts.hitter(majorStats, stint, "", card.resolved().start());
+        boolean injured = "IL".equals(kind);
+        // 부상자 명단에 오른 뒤 마이너 재활 경기를 뛰었으면 재활 경기를 보여 준다(기획 4-1). 팀·단계는 마지막 재활 경기다.
+        MinorWindow rehab = injured ? rehabWindow(card.minorSeason(), status.since(), today, days) : null;
+        if (rehab != null) {
+            MinorGameLog last = rehab.games().getLast();
+            MyPlayersResponse.CardStatus withTeam = new MyPlayersResponse.CardStatus(status.kind(), status.since(),
+                    status.days(), last.getLevel(), last.getTeamName(), status.lastGameDate(), status.lastGameLevel());
+            // 재활 경기는 단계도 몸 상태도 달라 시즌 기록과 견주지 않는다(시즌 비교 값 없음).
+            // 한 줄 소식도 없다: 다치기 전 메이저 소식('9경기 연속 무안타')을 재활 숫자 옆에 두면 지금 일처럼 읽힌다.
+            return new MyPlayersResponse.MyPlayer(summary, rehab.fromKst(), rehab.toKst(), rehab.fallback(),
+                    pitcher ? null : MinorRecords.hitting(rehab.games(), List.of()),
+                    pitcher ? MinorRecords.pitching(rehab.games(), List.of()) : null, streak,
+                    MinorRecords.lines(player, profiles.photoUrl(player), rehab.games()), withTeam, null, null,
+                    MyPlayersResponse.Basis.REHAB, last.getLevel(), null);
+        }
+        MyPlayersResponse.Basis basis = injured
+                ? (card.majorSeason().isEmpty() ? MyPlayersResponse.Basis.NONE : MyPlayersResponse.Basis.BEFORE_INJURY)
+                : range.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED : MyPlayersResponse.Basis.RECENT;
         MyPlayersResponse.Play play = null;
         if (status == null || "RETURNED".equals(kind) || "CALLED_UP".equals(kind)) {
             play = pitcher ? FormFacts.pitcherPlay(majorStats, usToday)
@@ -377,7 +404,7 @@ public class MyPlayersService {
     }
 
     private CardStatuses.Resolved resolveStatus(Player player, List<Appearance> majorSeason,
-                                                List<MinorGameLog> minorSeason, LocalDate usToday, boolean seasonEnded) {
+                                                List<MinorGameLog> minorSeason, CardStatuses.Today today) {
         CardStatuses.LastGame lastMajor = majorSeason.isEmpty() ? null : new CardStatuses.LastGame(
                 LocalDate.ofInstant(majorSeason.getLast().getGame().getStartTimeUtc(), GameIngest.US_EASTERN), "MLB");
         CardStatuses.LastGame lastMinor = minorSeason.isEmpty() ? null : new CardStatuses.LastGame(
@@ -388,18 +415,39 @@ public class MyPlayersService {
         String teamName = player.getLevel() == Level.MINORS && player.getLevelTeamName() != null
                 ? player.getLevelTeamName()
                 : minorSeason.isEmpty() ? player.getLevelTeamName() : minorSeason.getLast().getTeamName();
-        CardStatuses.MinorSpot minor = new CardStatuses.MinorSpot(
-                minorSeason.isEmpty() ? null : minorSeason.getLast().getLevel(), teamName);
-        return CardStatuses.resolve(player, moves.findNewestFirst(player.getId()), lastGame, minor, usToday,
-                seasonEnded);
+        // 단계는 지금 팀에서 뛴 마지막 경기로 정한다. 새 팀에서 아직 안 뛰었으면 단계를 모른다(배지는 '마이너'만).
+        MinorGameLog lastLog = minorSeason.isEmpty() ? null : minorSeason.getLast();
+        String level = lastLog != null && Objects.equals(lastLog.getTeamName(), teamName) ? lastLog.getLevel() : null;
+        return CardStatuses.resolve(player, moves.findNewestFirst(player.getId()), lastGame,
+                new CardStatuses.MinorSpot(level, teamName), today);
     }
 
-    /** 이번 시즌 정규시즌이 끝났는지(미국 날짜). 시즌 날짜를 아직 못 받았으면 9월 30일로 본다. */
-    private boolean seasonEnded(int season, LocalDate usToday) {
-        LocalDate end = seasonDates.findById(season)
-                .map(SeasonDates::getRegularSeasonEnd)
-                .orElse(LocalDate.of(season, 9, 30));
-        return usToday.isAfter(end);
+    /** 이번 시즌 정규시즌 개막일·마지막 날(미국 날짜) */
+    private record SeasonSpan(LocalDate start, LocalDate end) {
+    }
+
+    /** 시즌 날짜를 아직 못 받았으면 3월 1일 ~ 9월 30일로 본다. */
+    private SeasonSpan seasonSpan(int season) {
+        Optional<SeasonDates> dates = seasonDates.findById(season);
+        LocalDate start = dates.map(SeasonDates::getRegularSeasonStart).orElse(LocalDate.of(season, 3, 1));
+        LocalDate end = dates.map(SeasonDates::getRegularSeasonEnd).orElse(LocalDate.of(season, 9, 30));
+        return new SeasonSpan(start, end);
+    }
+
+    /** 메이저 팀이 아직 경기하는지: 최근 3일 안에 경기했거나 앞으로 2주 안에 경기가 잡혀 있다(포스트시즌 등). */
+    private boolean teamStillPlaying(long teamId, Instant now) {
+        return games.findTeamGamesBetween(List.of(teamId),
+                        now.minus(CardStatuses.SEASON_OVER_AFTER_DAYS, ChronoUnit.DAYS), now.plus(14, ChronoUnit.DAYS))
+                .stream()
+                .anyMatch(game -> !"canceled".equals(game.getStatusState()));
+    }
+
+    /** 부상자 명단에 오른 날(since, 미국 날짜)부터 뛴 마이너 재활 경기의 기간. 재활 경기가 없으면 null */
+    private static MinorWindow rehabWindow(List<MinorGameLog> minor, LocalDate since, LocalDate today, int days) {
+        if (since == null) {
+            return null;
+        }
+        return minorWindow(minor.stream().filter(g -> !g.getGameDate().isBefore(since)).toList(), today, days);
     }
 
     private static boolean isKind(CardStatuses.Resolved resolved, String kind) {
@@ -414,16 +462,23 @@ public class MyPlayersService {
     /**
      * 출전 줄에 쓸 팀의 끝난 경기(오래된 것부터 최근 10개). 지금 단계 기간이 시작된 날(stintStart, 미국 날짜) 뒤,
      * 그리고 최근 30일 안에서만 본다(부상자 명단·마이너에 있던 동안의 팀 경기를 결장으로 세지 않게).
+     * 복귀·콜업 뒤면 그날부터 팀 경기를 모두 센다(콜업 당일처럼 그 팀에서 처음 뛰기 전 경기도 결장).
+     * 그 밖에는 경기 줄처럼 그 팀에서 처음 뛴 날부터 센다(트레이드로 온 선수의 새 팀 예전 경기를 결장으로 세지 않게).
      */
     private List<GameLine> teamGames(RosterMember member, LocalDate stintStart, Instant now) {
         Instant from = now.minus(30, ChronoUnit.DAYS);
-        if (stintStart != null) {
+        Team team = member.majorTeam();
+        List<GameLine> lines;
+        if (stintStart != null && team != null) {
             Instant start = stintStart.atStartOfDay(GameIngest.US_EASTERN).toInstant();
             if (start.isAfter(from)) {
                 from = start;
             }
+            lines = gameLines.teamLines(member.player(), team, from, now);
+        } else {
+            lines = gameLines.lines(List.of(member), from, now, true);
         }
-        List<GameLine> finals = gameLines.lines(List.of(member), from, now, true).stream()
+        List<GameLine> finals = lines.stream()
                 .filter(line -> Game.STATUS_FINAL.equals(line.gameStatus()))
                 .toList();
         return finals.subList(0, Math.min(FormFacts.RECENT_GAMES, finals.size())).reversed();
