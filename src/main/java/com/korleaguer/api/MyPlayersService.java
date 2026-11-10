@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
-import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
@@ -59,13 +59,13 @@ public class MyPlayersService {
     private final BaseballQueryService queryService;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
-    private final int season;
+    private final CurrentSeason currentSeason;
     private final Clock clock;
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
                             AppearanceRepository appearances, GameRepository games, GameLineAssembler gameLines,
                             BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
-                            KorleaguerProperties properties, Clock clock) {
+                            CurrentSeason currentSeason, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -74,7 +74,7 @@ public class MyPlayersService {
         this.queryService = queryService;
         this.profiles = profiles;
         this.dataMode = dataMode;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
         this.clock = clock;
     }
 
@@ -91,6 +91,7 @@ public class MyPlayersService {
 
         Instant now = clock.instant();
         LocalDate today = KoreanTime.kstDate(now);
+        int season = currentSeason.current();
         boolean statsAvailable = queryService.statsAvailable();
         List<RosterMember> members = members(requested);
 
@@ -118,9 +119,16 @@ public class MyPlayersService {
             }
         });
 
-        // 연속 기록은 이번 시즌 기록으로 센다.
-        Map<Long, List<Appearance>> seasonByPlayer = loadStats
-                ? byPlayer(appearances.findSeason(ids(members), season, STREAK_SEASON_TYPES)) : Map.of();
+        // 연속 기록·시즌 비교는 카드 기간이 속한 시즌 기록으로 센다.
+        // 개막 직후 지난 시즌 끝으로 당긴 카드는 지난 시즌과 비교한다(새 시즌은 아직 기록이 없다).
+        Map<Long, List<Appearance>> seasonByPlayer = new HashMap<>();
+        if (loadStats) {
+            Map<Integer, List<RosterMember>> bySeason = groups.entrySet().stream()
+                    .collect(Collectors.groupingBy(e -> currentSeason.seasonAt(e.getKey().to().minusMillis(1)),
+                            Collectors.flatMapping(e -> e.getValue().stream(), Collectors.toList())));
+            bySeason.forEach((cardSeason, group) -> seasonByPlayer.putAll(
+                    byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES))));
+        }
 
         List<MyPlayersResponse.MyPlayer> result = members.stream()
                 .map(m -> {

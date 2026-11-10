@@ -1,6 +1,6 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
@@ -49,14 +49,14 @@ class GameLineAssembler {
     private final GameRepository games;
     private final AppearanceRepository appearances;
     private final RosterProfiles profiles;
-    private final int season;
+    private final CurrentSeason currentSeason;
 
     GameLineAssembler(GameRepository games, AppearanceRepository appearances, RosterProfiles profiles,
-                      KorleaguerProperties properties) {
+                      CurrentSeason currentSeason) {
         this.games = games;
         this.appearances = appearances;
         this.profiles = profiles;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
     }
 
     /** [from, to) 사이에 시작한 경기의 한 줄 기록. 선수 순서대로, 같은 선수는 최신 경기부터. */
@@ -66,7 +66,9 @@ class GameLineAssembler {
         }
         List<Long> playerIds = members.stream().map(m -> m.player().getId()).toList();
         List<Appearance> played = appearances.findWithGameBetween(playerIds, from, to);
-        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady);
+        // 뛴 기간(결장 줄을 붙일 팀)은 이 기간이 속한 시즌 기록으로 정한다. 부르는 쪽이 정한 기간과 시즌이 어긋나지 않는다.
+        int season = currentSeason.seasonAt(to.minusMillis(1));
+        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady, season);
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
                 .map(stint -> stint.team().getMlbTeamId())
@@ -101,7 +103,7 @@ class GameLineAssembler {
 
     /** 선수마다 결장 줄을 붙일 수 있는 (팀, 기간) 목록 */
     private Map<Long, List<Stint>> stintsByPlayer(List<RosterMember> members, List<Long> playerIds,
-                                                  boolean statsReady) {
+                                                  boolean statsReady, int season) {
         if (!statsReady) {
             // 기록이 없으니 뛴 기간을 알 수 없다. 지금 소속 팀 경기 전부에 "기록 없음"을 단다.
             return members.stream()

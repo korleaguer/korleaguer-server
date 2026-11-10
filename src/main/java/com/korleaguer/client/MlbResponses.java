@@ -65,6 +65,11 @@ public final class MlbResponses {
     public record Schedule(List<ScheduleDate> dates) {
     }
 
+    /** /api/v1/seasons/{year}. 아직 발표되지 않은 해면 빈 목록이다. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Seasons(List<MlbSeason> seasons) {
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ScheduleDate(String date, List<MlbScheduleGame> games) {
     }

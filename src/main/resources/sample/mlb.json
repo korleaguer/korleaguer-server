@@ -1,5 +1,5 @@
 {
-  "_comment": "샘플 모드(테스트·오프라인)용 MLB 공식 API 응답과 같은 모양의 데이터. 경기·기록·이동 기록은 지어낸 값이며 실제 기록이 아니다. 선수·팀 번호만 실제 MLB 번호를 쓰고, gamePk는 지어낸 번호다. minorGames는 선수 번호 → 그 시즌 마이너 출전 경기 수(타격·투구)다. boxscores에는 우리 선수 줄만 둔다(상대·선발 투수 번호 99xxxxx는 지어낸 번호).",
+  "_comment": "샘플 모드(테스트·오프라인)용 MLB 공식 API 응답과 같은 모양의 데이터. 경기·기록·이동 기록은 지어낸 값이며 실제 기록이 아니다. 선수·팀 번호만 실제 MLB 번호를 쓰고, gamePk는 지어낸 번호다. minorGames는 선수 번호 → 그 시즌 마이너 출전 경기 수(타격·투구)다. boxscores에는 우리 선수 줄만 둔다(상대·선발 투수 번호 99xxxxx는 지어낸 번호). seasons(시즌 날짜)만 MLB가 발표한 실제 날짜다.",
   "people": [
     {"id": 808982, "fullName": "Jung Hoo Lee", "primaryNumber": "51", "birthDate": "1998-08-20", "birthCity": "Nagoya", "birthCountry": "Japan", "height": "6' 2\"", "weight": 190, "active": true, "primaryPosition": {"code": "8", "name": "Outfielder", "type": "Outfielder", "abbreviation": "CF"}, "batSide": {"code": "L", "description": "Left"}, "pitchHand": {"code": "R", "description": "Right"}, "mlbDebutDate": "2024-04-01", "currentTeam": {"id": 137, "name": "San Francisco Giants"}},
     {"id": 808975, "fullName": "Hyeseong Kim", "primaryNumber": "6", "birthDate": "1999-01-27", "birthCity": "Goyang", "birthCountry": "South Korea", "height": "5' 10\"", "weight": 175, "active": true, "primaryPosition": {"code": "4", "name": "Second Base", "type": "Infielder", "abbreviation": "2B"}, "batSide": {"code": "L", "description": "Left"}, "pitchHand": {"code": "R", "description": "Right"}, "mlbDebutDate": "2025-04-01", "currentTeam": {"id": 119, "name": "Los Angeles Dodgers"}},
@@ -58,6 +58,10 @@
   "pitchingLogs": [
     {"season": "2026", "date": "2026-09-25", "gameType": "R", "isHome": true, "isWin": true, "team": {"id": 142, "name": "Minnesota Twins"}, "opponent": {"id": 118, "name": "Kansas City Royals"}, "game": {"gamePk": 4002}, "player": {"id": 808970, "fullName": "Woo-Suk Go"}, "stat": {"gamesPlayed": 1, "gamesStarted": 0, "outs": 3, "inningsPitched": "1.0", "hits": 1, "runs": 0, "earnedRuns": 0, "baseOnBalls": 0, "strikeOuts": 2, "homeRuns": 0, "numberOfPitches": 16, "wins": 0, "losses": 0, "saves": 1}},
     {"season": "2026", "date": "2026-09-26", "gameType": "R", "isHome": true, "isWin": false, "team": {"id": 142, "name": "Minnesota Twins"}, "opponent": {"id": 118, "name": "Kansas City Royals"}, "game": {"gamePk": 4003}, "player": {"id": 808970, "fullName": "Woo-Suk Go"}, "stat": {"gamesPlayed": 1, "gamesStarted": 0, "outs": null, "inningsPitched": "0.2", "hits": 2, "runs": 2, "earnedRuns": 2, "baseOnBalls": 1, "strikeOuts": 0, "homeRuns": 0, "numberOfPitches": 21, "wins": 0, "losses": 1, "saves": 0}}
+  ],
+  "seasons": [
+    {"seasonId": "2026", "regularSeasonStartDate": "2026-03-25", "regularSeasonEndDate": "2026-09-27", "postSeasonEndDate": "2026-10-28"},
+    {"seasonId": "2027", "regularSeasonStartDate": "2027-03-25", "regularSeasonEndDate": "2027-09-26", "postSeasonEndDate": "2027-10-31"}
   ],
   "minorGames": {
     "678225": {"hitting": 20, "pitching": 0},

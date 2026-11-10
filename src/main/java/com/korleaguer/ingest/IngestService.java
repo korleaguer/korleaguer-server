@@ -3,7 +3,7 @@ package com.korleaguer.ingest;
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.config.AppConfig;
-import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
@@ -32,6 +32,7 @@ import java.util.function.Supplier;
  * - 한 번에 하나만 돈다. 이미 도는 중이면 IngestAlreadyRunningException을 던진다.
  * - 단계마다 받은 것을 저장한다. MLB가 403/429로 거절하면 그 실행의 남은 단계는 건너뛰고 BLOCKED로 끝난다.
  * - mlb와 sample이 같은 코드를 탄다(MlbClient 구현만 다르다).
+ * - 시즌은 단계가 돌 때 CurrentSeason에 묻는다(개막일이 지나면 다시 띄우지 않아도 새 시즌을 받는다).
  */
 @Service
 public class IngestService {
@@ -45,27 +46,30 @@ public class IngestService {
     private final MlbClient client;
     private final IngestWriter writer;
     private final PlayerRefresher playerRefresher;
+    private final SeasonDatesRefresher seasonDatesRefresher;
     private final GameIngest gameIngest;
     private final PlayerRepository players;
     private final PlayerSeasonRepository seasons;
     private final IngestLogRepository ingestLogs;
     private final RosterProperties roster;
-    private final int season;
+    private final CurrentSeason currentSeason;
     private final Clock clock;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher, GameIngest gameIngest,
-                         PlayerRepository players, PlayerSeasonRepository seasons, IngestLogRepository ingestLogs,
-                         RosterProperties roster, KorleaguerProperties properties, Clock clock) {
+    public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher,
+                         SeasonDatesRefresher seasonDatesRefresher, GameIngest gameIngest, PlayerRepository players,
+                         PlayerSeasonRepository seasons, IngestLogRepository ingestLogs, RosterProperties roster,
+                         CurrentSeason currentSeason, Clock clock) {
         this.client = client;
         this.writer = writer;
         this.playerRefresher = playerRefresher;
+        this.seasonDatesRefresher = seasonDatesRefresher;
         this.gameIngest = gameIngest;
         this.players = players;
         this.seasons = seasons;
         this.ingestLogs = ingestLogs;
         this.roster = roster;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
         this.clock = clock;
     }
 
@@ -98,8 +102,9 @@ public class IngestService {
      * 따라잡기(스케줄과 앱 시작 때). 필요한 것만 받는다.
      * <ol>
      *   <li>명단 선수 줄 만들기</li>
+     *   <li>오늘 아직 안 받은 시즌 날짜(올해·내년, 하루 한 번. 지금 시즌을 정할 때 쓴다)</li>
      *   <li>오늘 아직 안 받은 선수의 정보·이동 기록</li>
-     *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필</li>
+     *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필(개막일이 지나 시즌이 바뀌면 새 시즌을 받는다)</li>
      *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
      * </ol>
@@ -117,8 +122,12 @@ public class IngestService {
     public IngestLog catchUp(boolean refreshGames, boolean lookAhead) {
         return run(IngestKind.SCHEDULED, steps -> {
             ensureRoster();
+            steps.add(seasonDatesRefresher::refresh);
             steps.add(() -> playersStep(false));
-            steps.add(() -> gameIngest.backfillSeason(withoutSeason(players.findByMlbIdIsNotNull()), season));
+            steps.add(() -> {
+                int season = currentSeason.current();
+                return gameIngest.backfillSeason(withoutSeason(players.findByMlbIdIsNotNull(), season), season);
+            });
             if (refreshGames) {
                 steps.add(gameIngest::refreshRecent);
                 steps.add(gameIngest::recheckFinals);
@@ -136,7 +145,10 @@ public class IngestService {
         return run(IngestKind.PLAYER_SEASON, steps -> {
             Player player = players.findById(playerId).orElse(null);
             if (player != null && player.getMlbId() != null) {
-                steps.add(() -> gameIngest.backfillSeason(withoutSeason(List.of(player)), season));
+                steps.add(() -> {
+                    int season = currentSeason.current();
+                    return gameIngest.backfillSeason(withoutSeason(List.of(player), season), season);
+                });
             }
         });
     }
@@ -151,7 +163,7 @@ public class IngestService {
 
     /** 선수의 이번 시즌을 받았는지 */
     public boolean hasSeason(long playerId) {
-        return seasons.exists(playerId, season);
+        return seasons.exists(playerId, currentSeason.current());
     }
 
     private void ensureRoster() {
@@ -168,7 +180,7 @@ public class IngestService {
         return result.describe();
     }
 
-    private List<Player> withoutSeason(List<Player> candidates) {
+    private List<Player> withoutSeason(List<Player> candidates, int season) {
         return candidates.stream().filter(p -> !seasons.exists(p.getId(), season)).toList();
     }
 
