@@ -115,7 +115,7 @@ chmod 640 "$DEPLOY_DIR/.env"
 install -m 755 "$HERE/korleaguer-deploy" /usr/local/bin/korleaguer-deploy
 install -m 755 "$HERE/korleaguer-backup" /usr/local/bin/korleaguer-backup
 cat > /etc/cron.d/korleaguer-backup <<EOF
-# 코리거 DB 매일 백업(최근 14개 보관)
+# 코리거 DB 매일 백업(매일 백업 14개, 배포 전·수동 백업 5개를 따로 보관)
 30 4 * * * ${DEPLOY_USER} /usr/local/bin/korleaguer-backup >> ${DEPLOY_DIR}/backups/backup.log 2>&1
 EOF
 chmod 644 /etc/cron.d/korleaguer-backup

@@ -1,27 +1,46 @@
-# GitHub Release를 만들면(published, prerelease 제외) API 이미지를 만들어 GHCR에 올리고 서버에 배포한다.
-# 수동 실행(Run workflow)에 버전을 넣으면 이미지를 새로 만들지 않고 그 버전을 다시 배포한다(롤백).
+# 지속 배포: develop에 병합(푸시)되면 사람 손 없이 서버까지 나간다.
+#   테스트(ci.yml) → 이미지(GHCR, 이름표는 커밋 해시 sha-1a2b3c4) → 서버 무중단 교체(deploy/korleaguer-deploy)
+#   → 성공하면 main을 배포한 커밋에 맞춘다.
+# 배포는 커밋 해시로 구분한다(따로 버전 번호를 두지 않는다). 배포 기록은 Actions의 deploy 실행 목록이다.
+# 새 컨테이너가 정상(healthy)이 안 되면 서버는 옛 것을 그대로 둔다. 다만 SSH가 끊겨 job이 실패해도 서버는 교체를
+# 끝까지 하므로, 빨간불이어도 이미 새 커밋일 수 있다(서버의 /srv/korleaguer/deploy.log로 확인).
+# 실패하면 고친 뒤 다시 병합하거나 그 실행을 '다시 실행'한다. 다시 실행은 그 커밋이 아직 develop 끝일 때만 배포한다
+# (그 뒤 커밋들이 배포하지 않는 파일만 바꿨으면 괜찮다. 그 사이 더 새 커밋이 나갔을 수 있어서다).
+# 배포 단계가 시작된 뒤 실행을 취소해도 서버는 교체를 끝까지 한다(실행은 '취소됨', main은 맞추지 않는다).
+# 문서·테스트만 바뀐 푸시(*.md, deploy/, src/test/)는 배포하지 않는다.
+# 되돌리기: Actions → deploy → Run workflow에 되돌릴 커밋(예 1a2b3c4)을 넣으면 그 커밋의 이미지로 다시 배포한다
+# (서버에 최근 3개 이미지가 있고, 그보다 오래된 것은 GHCR에서 받는다). 되돌리기는 main을 옮기지 않는다.
+# 되돌리기 실행은 '다시 실행'하지 않는다(그 사이 나간 새 배포를 덮지 않게 막는다). 다시 하려면 Run workflow로 새로 건다.
 #
 # 필요한 값(저장소 Settings → Secrets and variables → Actions). 자세한 준비는 deploy/README.md.
 #   secret   DEPLOY_SSH_KEY       배포 계정용 SSH 개인키(이 저장소 전용, 서버에서는 'api 배포'만 할 수 있게 묶여 있다)
 #   variable DEPLOY_HOST          서버 주소(예: pigeon.ddns.net)
 #   variable DEPLOY_KNOWN_HOSTS   서버 호스트 키 한 줄(server-setup.sh가 출력). 처음 보는 서버에는 접속하지 않는다
 #   variable DEPLOY_PORT          SSH 포트(없으면 22)
-#   variable DEPLOY_PLATFORM      서버 CPU(linux/amd64 또는 linux/arm64, 없으면 linux/amd64)
+#   variable DEPLOY_PLATFORM      서버 CPU(linux/amd64 또는 linux/arm64, 없으면 linux/amd64). arm64면 ARM 러너에서 바로 만든다
 name: deploy
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [develop]
+    paths-ignore:
+      - '**/*.md'
+      - 'deploy/**'
+      - 'src/test/**'
+      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
     inputs:
-      version:
-        description: 다시 배포할 버전(예 0.2.0). GHCR에 이미 있는 이미지를 쓴다
+      commit:
+        description: 되돌리거나 다시 배포할 커밋(예 1a2b3c4). 이 워크플로가 그 커밋으로 만든 이미지가 있어야 한다
         required: true
 
-# 이 저장소의 배포는 한 번에 하나씩. 서버에서도 두 저장소의 배포가 겹치지 않게 잠근다.
+# 배포는 한 번에 하나씩, 도는 중인 배포는 끊지 않는다. 기다리는 실행은 취소하지 않고 기다리기 시작한 순서대로 돈다
+# (queue: max, 최대 100개). 그래서 병합마다 그 커밋이 차례로 나가고, 되돌리기도 뒤에 온 병합에 밀려 취소되지 않는다.
+# 서버에서도 두 저장소의 배포가 겹치지 않게 잠근다(korleaguer-deploy).
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -30,22 +49,28 @@ env:
   IMAGE: ghcr.io/korleaguer/korleaguer-server
 
 jobs:
+  test:
+    name: 테스트
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+
   build:
     name: 이미지 만들기
-    if: github.event_name == 'release' && !github.event.release.prerelease
+    needs: test
     runs-on: ${{ vars.DEPLOY_PLATFORM == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: 버전 확인
+      - name: 이미지 이름표(커밋 해시)
+        id: tag
         run: |
-          [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "릴리스 태그가 버전 형식(v0.2.0)이 아닙니다: $TAG"; exit 1; }
-        env:
-          TAG: ${{ github.event.release.tag_name }}
+          echo "value=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -55,15 +80,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 태그: 0.2.0(버전), sha-abc1234(커밋). 배포에는 버전만 쓰고 latest는 쓰지 않는다.
+      # 이름표는 sha-1a2b3c4 하나다. latest는 쓰지 않는다(무엇이 나가 있는지 늘 커밋으로 안다).
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
-            type=sha,format=short,prefix=sha-
+            type=raw,value=${{ steps.tag.outputs.value }}
 
+      # SBOM(이미지에 든 패키지 목록)과 출처 증명(어느 커밋·워크플로가 만들었나)을 이미지와 함께 올린다.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -71,30 +96,69 @@ jobs:
           platforms: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     name: 서버에 배포
     needs: build
-    # 릴리스면 이미지를 만든 뒤, 수동 실행이면 이미지 만들기를 건너뛰고 바로 배포한다.
-    if: always() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.build.result == 'skipped'))
+    # 병합이면 이미지를 만든 뒤, 수동 실행(되돌리기)이면 테스트·이미지 만들기를 건너뛰고 바로 배포한다.
+    # 실행을 취소하면 배포하지 않는다(배포 단계가 이미 시작됐으면 서버는 교체를 끝까지 한다).
+    if: ${{ !cancelled() && ((github.event_name == 'push' && needs.build.result == 'success') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
       packages: read
     steps:
-      - name: 배포할 버전
-        id: version
+      # '다시 실행'(같은 실행의 두 번째 시도부터)이 그 사이 나간 새 배포를 옛 코드로 덮지 않게 한다.
+      # - 병합 배포: 이 커밋이 아직 develop 끝이거나, 그 뒤 커밋들이 배포하지 않는 파일(IGNORED)만 바꿨을 때만 배포한다.
+      # - 되돌리기(수동 실행): 다시 실행하지 않는다. Run workflow로 새로 건다.
+      - name: 다시 실행이면 최신 커밋인지 확인
+        if: github.run_attempt != '1'
         run: |
-          version="${INPUT_VERSION:-$TAG}"
-          version="${version#v}"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "버전 형식(0.2.0)이 아닙니다: $version"; exit 1; }
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "::error::되돌리기(수동 실행)는 다시 실행하지 않습니다(그 사이 나간 새 배포를 덮을 수 있어서). Actions → deploy → Run workflow로 새로 거세요"
+            exit 1
+          fi
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/develop" -q .sha)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "develop 끝이 이 커밋이라 다시 배포합니다"
+            exit 0
+          fi
+          cmp="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${tip}")"
+          changed="$(jq -r '.files[] | .filename, (.previous_filename // empty)' <<< "$cmp")"
+          code="$(grep -vE "$IGNORED" <<< "$changed" || true)"
+          if [ "$(jq -r .status <<< "$cmp")" = ahead ] && [ "$(jq '.files | length' <<< "$cmp")" -lt 300 ] && [ -z "$code" ]; then
+            echo "develop 끝(${tip::7})까지 배포하지 않는 파일만 바뀌어 이 커밋을 다시 배포합니다"
+            exit 0
+          fi
+          echo "::error::이 커밋(${GITHUB_SHA::7}) 뒤로 배포되는 커밋이 develop에 있어(끝 ${tip::7}) 다시 실행으로는 배포하지 않습니다. 이 커밋을 꼭 내야 하면 deploy를 Run workflow로 실행하고 commit에 ${GITHUB_SHA::7}을 넣으세요"
+          exit 1
         env:
-          INPUT_VERSION: ${{ inputs.version }}
-          TAG: ${{ github.event.release.tag_name }}
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          # 배포하지 않는 파일. 위 on.push.paths-ignore와 같게 유지한다.
+          IGNORED: '\.md$|^deploy/|^src/test/|^\.github/ISSUE_TEMPLATE/'
+
+      - name: 배포할 이미지
+        id: tag
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            commit="$(printf '%s' "${INPUT_COMMIT#sha-}" | tr 'A-F' 'a-f')"
+            [[ "$commit" =~ ^[0-9a-f]{7,40}$ ]] || { echo "커밋 해시(예 1a2b3c4)가 아닙니다: $INPUT_COMMIT"; exit 1; }
+            tag="sha-${commit:0:7}"
+          else
+            tag="$BUILT_TAG"
+          fi
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+          echo "배포할 이미지: ${IMAGE}:${tag}"
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          BUILT_TAG: ${{ needs.build.outputs.tag }}
 
       - name: SSH 준비
         run: |
@@ -111,21 +175,57 @@ jobs:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
 
-      # 서버는 이 키로 'korleaguer-deploy api'만 실행한다. 보내는 명령은 버전뿐이고,
+      # 서버는 이 키로 'korleaguer-deploy api'만 실행한다. 보내는 명령은 이미지 이름표뿐이고,
       # 표준입력으로 이 job의 임시 토큰(packages:read)을 넘겨 GHCR에서 이미지를 받게 한다(job이 끝나면 만료).
+      # 서버가 새 컨테이너를 옛 것과 겹쳐 띄워 healthy가 되면 바꾸고, 안 되면 옛 것을 그대로 둔다(바꾸기 전 DB 백업).
       - name: 배포
         run: |
           printf '%s\n%s\n' "$GITHUB_ACTOR" "$GHCR_TOKEN" | ssh \
             -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
             -o ConnectTimeout=20 -o ServerAliveInterval=15 \
-            "deploy@${DEPLOY_HOST}" "$VERSION"
+            "deploy@${DEPLOY_HOST}" "$TAG"
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
-          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.tag.outputs.value }}
 
       - name: SSH 키 지우기
         if: always()
         run: rm -f ~/.ssh/deploy_key
+
+      - name: 요약
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "### API 되돌리기 배포 완료: ${TAG} (main은 옮기지 않는다)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### API 배포 완료: ${TAG}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ steps.tag.outputs.value }}
+
+  main:
+    name: main을 배포한 커밋에 맞추기
+    needs: deploy
+    if: github.event_name == 'push' && needs.deploy.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # main은 '병합으로 마지막에 배포한 코드'다. 배포한 커밋을 main에 병합해 둔다(이미 들어 있으면 그대로).
+      # 되돌리기(수동 실행)는 main을 옮기지 않는다(강제 푸시를 하지 않는다). 그때 서버의 커밋은 deploy 실행 목록이 정답이다.
+      # 병합에 실패하면 이 job만 빨간불로 끝낸다(경고만 남기면 아무도 못 본다). 배포는 이미 끝났으니 main만 맞추면 된다
+      # (그냥 두어도 다음 병합 배포가 main을 함께 맞춘다).
+      - name: main에 병합
+        run: |
+          if ! gh api -X POST "repos/${GITHUB_REPOSITORY}/merges" \
+            -f base=main -f head="$GITHUB_SHA" \
+            -f commit_message="chore(deploy): ${GITHUB_SHA::7} 배포를 main에 반영" --silent; then
+            echo "::error::main에 병합하지 못했습니다. 배포는 끝났으니 main만 직접 맞추세요"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
