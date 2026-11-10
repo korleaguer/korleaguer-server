@@ -70,6 +70,9 @@ location / {
 ```
 
 바꾼 뒤 `sudo nginx -t && sudo systemctl reload nginx`. HTTPS 인증서는 nginx(certbot)가 그대로 맡는다.
+Caddyfile은 사설 대역(서버 안쪽)에서 온 nginx의 `X-Forwarded-For`·`X-Forwarded-Proto`를 믿도록 되어 있어 실제 접속자 IP와 https 여부가 web·api까지 전달된다.
+
+로그 상한(`logging`)은 컨테이너를 새로 만들 때 적용된다. web·api는 배포 때마다 새로 만들어지고, caddy·mysql은 `docker compose up -d`로 바뀐 설정이 적용된다.
 
 ### 4. GitHub에 값 넣기(두 저장소 각각)
 
