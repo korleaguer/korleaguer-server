@@ -6,6 +6,7 @@ import com.korleaguer.client.MlbGameLogSplit;
 import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
+import com.korleaguer.client.MlbSeason;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
@@ -138,6 +139,12 @@ class GameIngestTest {
             requests++;
             boxscoresAsked.add(gamePk);
             return delegate.getBoxscore(gamePk);
+        }
+
+        @Override
+        public MlbSeason getSeason(int season) {
+            requests++;
+            return delegate.getSeason(season);
         }
 
         @Override

@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
-import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
@@ -59,13 +59,13 @@ public class MyPlayersService {
     private final BaseballQueryService queryService;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
-    private final int season;
+    private final CurrentSeason currentSeason;
     private final Clock clock;
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
                             AppearanceRepository appearances, GameRepository games, GameLineAssembler gameLines,
                             BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
-                            KorleaguerProperties properties, Clock clock) {
+                            CurrentSeason currentSeason, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -74,7 +74,7 @@ public class MyPlayersService {
         this.queryService = queryService;
         this.profiles = profiles;
         this.dataMode = dataMode;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
         this.clock = clock;
     }
 
@@ -91,6 +91,7 @@ public class MyPlayersService {
 
         Instant now = clock.instant();
         LocalDate today = KoreanTime.kstDate(now);
+        int season = currentSeason.current();
         boolean statsAvailable = queryService.statsAvailable();
         List<RosterMember> members = members(requested);
 

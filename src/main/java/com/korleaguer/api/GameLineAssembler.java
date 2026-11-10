@@ -1,6 +1,6 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
@@ -49,14 +49,14 @@ class GameLineAssembler {
     private final GameRepository games;
     private final AppearanceRepository appearances;
     private final RosterProfiles profiles;
-    private final int season;
+    private final CurrentSeason currentSeason;
 
     GameLineAssembler(GameRepository games, AppearanceRepository appearances, RosterProfiles profiles,
-                      KorleaguerProperties properties) {
+                      CurrentSeason currentSeason) {
         this.games = games;
         this.appearances = appearances;
         this.profiles = profiles;
-        this.season = properties.season();
+        this.currentSeason = currentSeason;
     }
 
     /** [from, to) 사이에 시작한 경기의 한 줄 기록. 선수 순서대로, 같은 선수는 최신 경기부터. */
@@ -108,7 +108,9 @@ class GameLineAssembler {
                     .filter(m -> m.team() != null)
                     .collect(Collectors.toMap(m -> m.player().getId(), m -> List.of(new Stint(m.team(), null, null))));
         }
-        Map<Long, List<Appearance>> byPlayer = appearances.findSeason(playerIds, season, COUNTED_SEASON_TYPES)
+        // 뛴 기간은 지금 시즌 기록으로 정한다.
+        Map<Long, List<Appearance>> byPlayer = appearances.findSeason(playerIds, currentSeason.current(),
+                        COUNTED_SEASON_TYPES)
                 .stream()
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
         return members.stream().collect(Collectors.toMap(

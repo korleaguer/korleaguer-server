@@ -160,6 +160,16 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
+    public MlbSeason getSeason(int season) {
+        MlbResponses.Seasons body = get("seasons/" + season,
+                uri -> uri.path("/api/v1/seasons/{season}")
+                        .queryParam("sportId", MLB)
+                        .build(season),
+                MlbResponses.Seasons.class);
+        return body == null || body.seasons() == null || body.seasons().isEmpty() ? null : body.seasons().getFirst();
+    }
+
+    @Override
     public long requestCount() {
         return requestCount.get();
     }

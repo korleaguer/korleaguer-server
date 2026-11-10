@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbGameLogSplit;
 import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
+import com.korleaguer.client.MlbSeason;
 import com.korleaguer.client.MlbStat;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
@@ -26,6 +27,8 @@ import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeason;
 import com.korleaguer.domain.PlayerSeasonRepository;
+import com.korleaguer.domain.SeasonDates;
+import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
 import com.korleaguer.support.BaseballMath;
@@ -73,10 +76,12 @@ public class IngestWriter {
     private final PlayerMoveRepository moves;
     private final PlayerSeasonRepository seasons;
     private final MinorSeasonRepository minorSeasons;
+    private final SeasonDatesRepository seasonDates;
 
     public IngestWriter(TeamRepository teams, PlayerRepository players, AffiliationRepository affiliations,
                         GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves,
-                        PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons) {
+                        PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons,
+                        SeasonDatesRepository seasonDates) {
         this.teams = teams;
         this.players = players;
         this.affiliations = affiliations;
@@ -85,6 +90,7 @@ public class IngestWriter {
         this.moves = moves;
         this.seasons = seasons;
         this.minorSeasons = minorSeasons;
+        this.seasonDates = seasonDates;
     }
 
     /**
@@ -157,6 +163,25 @@ public class IngestWriter {
                 .orElseGet(() -> new MinorSeason(players.getReferenceById(playerId), season));
         row.update(games.hitting(), games.pitching(), fetchedAt);
         minorSeasons.save(row);
+    }
+
+    /**
+     * 시즌 날짜를 새 값으로 덮어쓴다. 정규시즌 개막일·종료일을 읽지 못하면 저장하지 않는다(지난 값을 둔다).
+     *
+     * @return 저장했으면 true
+     */
+    public boolean saveSeasonDates(int season, MlbSeason source, Instant fetchedAt) {
+        LocalDate start = date(source.regularSeasonStartDate());
+        LocalDate end = date(source.regularSeasonEndDate());
+        if (start == null || end == null) {
+            log.warn("[season] {}: unreadable regular season dates '{}' ~ '{}', keep the last value", season,
+                    source.regularSeasonStartDate(), source.regularSeasonEndDate());
+            return false;
+        }
+        SeasonDates row = seasonDates.findById(season).orElseGet(() -> new SeasonDates(season));
+        row.update(start, end, date(source.postSeasonEndDate()), fetchedAt);
+        seasonDates.save(row);
+        return true;
     }
 
     /**

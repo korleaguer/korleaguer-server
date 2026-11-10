@@ -6,11 +6,13 @@ import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.SeasonDatesRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -97,8 +99,9 @@ class PlayerRefresherTest {
     @BeforeEach
     void setUp() {
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of(lee, go));
-        refresher = new PlayerRefresher(client, players, writer, minorSeasons, PROPERTIES,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        refresher = new PlayerRefresher(client, players, writer, minorSeasons,
+                new CurrentSeason(PROPERTIES, mock(SeasonDatesRepository.class), clock), clock);
     }
 
     @Test

@@ -33,6 +33,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
  * - gamelog-pitching-808970.json: /api/v1/people/808970/stats?stats=gameLog&group=pitching&season=2026
  * - schedule-137-119-2026.json: /api/v1/schedule?sportId=1&teamId=137,119&season=2026 (경기 몇 개만 남김)
  * - boxscore-823165.json: /api/v1/game/823165/boxscore (선수 몇 명과 쓰는 칸만 남김)
+ * - season-2027.json: /api/v1/seasons/2027?sportId=1 (날짜 칸 몇 개만 남김)
  */
 class HttpMlbClientTest {
 
@@ -241,6 +242,28 @@ class HttpMlbClientTest {
         assertThat(team.abbreviation()).isEqualTo("STP");
         assertThat(team.sportId()).isEqualTo(11L);
         assertThat(team.parentOrgId()).isEqualTo(142L);
+    }
+
+    @Test
+    void readsSeasonDates() {
+        server.expect(requestTo("http://mlb.test/api/v1/seasons/2027?sportId=1"))
+                .andRespond(withSuccess(fixture("season-2027.json"), MediaType.APPLICATION_JSON));
+
+        MlbSeason season = client.getSeason(2027);
+
+        assertThat(season.seasonId()).isEqualTo("2027");
+        assertThat(season.regularSeasonStartDate()).isEqualTo("2027-03-25");
+        assertThat(season.regularSeasonEndDate()).isEqualTo("2027-09-26");
+        assertThat(season.postSeasonEndDate()).isEqualTo("2027-10-31");
+    }
+
+    @Test
+    void unannouncedSeasonIsNull() {
+        // 아직 발표되지 않은 해는 200에 빈 목록이 온다(2031로 확인, 2026-11-10).
+        server.expect(requestTo("http://mlb.test/api/v1/seasons/2031?sportId=1"))
+                .andRespond(withSuccess("{\"copyright\":\"...\",\"seasons\":[]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.getSeason(2031)).isNull();
     }
 
     @Test
