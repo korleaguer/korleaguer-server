@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 지금 메이저에 있어도(시즌 중 콜업) 시즌 경기 수로 정하고, 순위 기준을 채웠어도 기준을 못 채운 메이저 선수보다 아래다.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:mainly-minors;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:mainly-minors;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=가타자",
         "roster.baseball[0].mlb-id=900001",
         "roster.baseball[1].name-ko=나타자",

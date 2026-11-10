@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 명단 값(photoUrl, mlbUrl, careerKo)은 나온다. 선수 페이지를 열어도 오류 없이 DB에 있는 것만 준다.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:unmatched-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:unmatched-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=모르는선수",
         "roster.baseball[0].mlb-id=111111",
         "roster.baseball[0].career-ko=테스트 소속 (2020–2024)"

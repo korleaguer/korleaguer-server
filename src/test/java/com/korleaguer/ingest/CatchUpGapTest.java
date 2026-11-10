@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 김하성(ATL) 한 명. 8/10 18:00Z에 앱이 뜨며 시즌을 받았고(7001은 끝남, 7002~7004는 경기 전), 8/14 18:00Z까지 멈췄다.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:catch-up-gap-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:catch-up-gap-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=김하성",
         "roster.baseball[0].mlb-id=673490"
 })

@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 7201은 앱이 시즌을 받은 9/30에는 일정에 없었다(포스트시즌 경기는 대진이 정해진 뒤 잡힌다).
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:look-ahead-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:look-ahead-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=김하성",
         "roster.baseball[0].mlb-id=673490"
 })

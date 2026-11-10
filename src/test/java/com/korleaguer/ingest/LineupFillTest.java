@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 끝난 경기마다 박스스코어를 한 번만 받고, 기록(타격·투구 숫자)은 건드리지 않는다.
  */
 @SpringBootTest(properties =
-        "spring.datasource.url=jdbc:h2:mem:lineup-fill-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
+        "spring.datasource.url=jdbc:h2:mem:lineup-fill-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @ActiveProfiles("test")
 class LineupFillTest {
 

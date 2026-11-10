@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 앱이 뜰 때(2026-11-01) 따라잡기 수집이 한 번 돈다.
  */
 @SpringBootTest(properties =
-        "spring.datasource.url=jdbc:h2:mem:moves-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
+        "spring.datasource.url=jdbc:h2:mem:moves-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class PlayerMovesIngestTest {

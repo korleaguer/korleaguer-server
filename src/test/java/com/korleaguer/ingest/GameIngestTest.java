@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 김하성(ATL) 한 명, ATL 홈 경기 두 개(7001: 8/9, 7002: 8/10 미국 날짜)로 본다.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:game-ingest-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:game-ingest-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=김하성",
         "roster.baseball[0].mlb-id=673490"
 })
