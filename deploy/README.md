@@ -47,6 +47,30 @@ sudo ./server-setup.sh \
   아직 안 되면 서버의 `/srv/korleaguer/.env`에서 `SITE_ADDRESS=:80`으로 두면 http로만 뜬다.
 - SSH: GitHub Actions가 22번으로 들어온다(공유기 22 → 서버). 다른 포트면 `DEPLOY_PORT`를 넣는다.
 
+### 3-1. 서버에 이미 nginx가 80·443을 쓰고 있을 때
+
+Caddy는 서버 안쪽 주소에만 열고, 기존 nginx(인증서 포함)가 그쪽으로 넘기게 한다. `/srv/korleaguer/.env`:
+
+```
+SITE_ADDRESS=:80
+HTTP_PORT=127.0.0.1:8088
+HTTPS_PORT=127.0.0.1:8443
+```
+
+nginx 사이트 설정의 `location /`(예: `/etc/nginx/conf.d/korleaguer.conf`):
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8088;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+바꾼 뒤 `sudo nginx -t && sudo systemctl reload nginx`. HTTPS 인증서는 nginx(certbot)가 그대로 맡는다.
+
 ### 4. GitHub에 값 넣기(두 저장소 각각)
 
 ```bash
