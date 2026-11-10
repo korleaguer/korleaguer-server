@@ -103,6 +103,15 @@ public class IngestService {
      */
     @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE}, allEntries = true)
     public IngestLog catchUp(boolean refreshGames) {
+        return catchUp(refreshGames, false);
+    }
+
+    /**
+     * 따라잡기에 lookAhead면 앞 일정 보기(하루 한 번 앞으로 7일 일정)를 더한다.
+     * 스케줄이 비시즌일 때 이것으로 포스트시즌처럼 새로 잡힌 경기를 보고 시즌 중으로 돌아온다.
+     */
+    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE}, allEntries = true)
+    public IngestLog catchUp(boolean refreshGames, boolean lookAhead) {
         return run(IngestKind.SCHEDULED, steps -> {
             ensureRoster();
             steps.add(() -> playersStep(false));
@@ -110,6 +119,9 @@ public class IngestService {
             if (refreshGames) {
                 steps.add(gameIngest::refreshRecent);
                 steps.add(gameIngest::recheckFinals);
+            }
+            if (lookAhead) {
+                steps.add(gameIngest::lookAhead);
             }
         });
     }
@@ -125,7 +137,10 @@ public class IngestService {
         });
     }
 
-    /** 이번 시즌 경기가 지금 앞뒤 며칠 안에 있는지. 없으면 비시즌으로 보고 경기 갱신을 하지 않는다. */
+    /**
+     * 이번 시즌 경기가 지금 앞뒤 며칠 안에 있는지(DB만 본다). 없으면 비시즌으로 보고 경기 갱신을 하지 않고,
+     * 스케줄이 하루 한 번 앞 일정만 받는다(catchUp의 lookAhead).
+     */
     public boolean inSeason(Instant now) {
         return gameIngest.hasGamesAround(now, SEASON_MARGIN_DAYS);
     }
