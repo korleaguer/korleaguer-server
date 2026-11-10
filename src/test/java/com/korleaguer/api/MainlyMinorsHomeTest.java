@@ -26,6 +26,7 @@ import static com.korleaguer.client.MlbFixtures.game;
 import static com.korleaguer.client.MlbFixtures.hitter;
 import static com.korleaguer.client.MlbFixtures.team;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
@@ -97,6 +98,20 @@ class MainlyMinorsHomeTest {
                 .andExpect(jsonPath("$.hitters[2].games").value(3))
                 .andExpect(jsonPath("$.hitters[2].minorGames").value(40))
                 .andExpect(jsonPath("$.hitters[2].mainlyMinors").value(true));
+    }
+
+    @Test
+    void minorSeasonIsSeparate() throws Exception {
+        // 마이너 시즌 성적(이슈 #37): 마이너 경기별 기록을 더한 것, 마이너 경기 많은 순. 메이저 줄에는 단계가 없다
+        mockMvc.perform(get("/api/home"))
+                .andExpect(jsonPath("$.minorHitters[*].nameKo").value(contains("나타자", "다타자")))
+                .andExpect(jsonPath("$.minorHitters[0].games").value(40))
+                .andExpect(jsonPath("$.minorHitters[0].levelKo").value("트리플A"))
+                .andExpect(jsonPath("$.minorHitters[0].teamKo").value("샘플 트리플A 팀"))
+                .andExpect(jsonPath("$.minorHitters[0].mainlyMinors").value(false))
+                .andExpect(jsonPath("$.minorHitters[1].games").value(1))
+                .andExpect(jsonPath("$.minorPitchers").isEmpty())
+                .andExpect(jsonPath("$.hitters[0].levelKo").value(nullValue()));
     }
 
     @Test
