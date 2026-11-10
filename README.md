@@ -65,7 +65,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 
 | 경로 | 설명 |
 |---|---|
-| `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(타자 타율순, 투수 평균자책점순) |
+| `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`) |
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
@@ -77,6 +77,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 
 관리용은 `X-Admin-Token` 헤더가 필요하다. MLB 요청이 1초에 1회라 시즌 다시 받기는 몇십 초 걸릴 수 있다.
 수집은 한 번에 하나만 돈다. 도는 중에 또 부르면 409 `{"error":"ingest already running"}`이다.
+순위 기준(`ranking`)은 표본이 아주 적은 선수가 타율·OPS·평균자책점 1위가 되지 않게 거르는 최소값이다. 규정타석(팀 경기 수 × 3.1)보다 느슨하게 타자는 팀 경기 수 × 0.5타석(최소 10), 투수는 팀 경기 수 × 0.2이닝(최소 5이닝)이다. 팀 경기 수(`teamGames`)는 메이저에 있는 우리 선수 구단 중 이번 정규시즌에 끝난 경기가 가장 많은 구단의 경기 수다.
 응답의 `dataMode`는 `"mlb"` / `"sample"`이고, `statsAvailable`은 늘 `true`다(화면 호환 때문에 남긴 필드).
 
 ```bash
