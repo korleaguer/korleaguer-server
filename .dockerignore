@@ -1,0 +1,11 @@
+# 이미지 빌드에 필요 없는 것(로컬 DB, 빌드 결과, IDE 파일, Git)
+.git
+.github
+.gradle
+build
+data
+deploy
+*.md
+.idea
+*.iml
+.vscode
