@@ -25,12 +25,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -42,9 +44,11 @@ import java.util.stream.Stream;
  *   <li>시즌 백필: 선수마다 gameLog 2번(타격·투구) + 그 선수들의 지금 팀·뛴 팀의 시즌 일정 1번 + 끝난 포스트시즌 경기 박스스코어
  *       (gameLog는 정규시즌만 준다).</li>
  *   <li>경기 갱신: 우리 팀들(마이너에 있는 선수의 MLB 구단은 뺀다)의 미국 날짜 [from, to] 일정을 받고,
- *       진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.</li>
+ *       진행 중이거나 다시 확인할 때가 된 경기만 박스스코어로 받는다.
+ *       따라잡기는 보통 어제·오늘을, 갱신이 며칠 밀렸으면 밀린 날부터 오늘까지(최대 14일 전) 받는다.</li>
  *   <li>끝난 경기 재확인: 끝난 뒤 3일 동안 하루 한 번 박스스코어로 다시 받고, 그 뒤에는 settled로 두어 다시 받지 않는다.</li>
  *   <li>선발·교체: 박스스코어를 받는 경기는 그때 같이 채우고, 지난 경기는 fillLineups로 조금씩 채운다.</li>
+ *   <li>앞 일정 보기(비시즌): 하루 한 번 앞으로 7일 일정만 받아 저장한다(포스트시즌 경기가 잡혔는지 보려고).</li>
  * </ul>
  * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 건만 건너뛴다.
  */
@@ -53,6 +57,10 @@ public class GameIngest {
 
     /** 미국 날짜(경기 공식 날짜)를 정할 때 쓰는 시간대 */
     public static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
+    /** 따라잡기 경기 갱신이 밀렸을 때 거슬러 올라가는 최대 날 수 */
+    static final int MAX_CATCH_UP_DAYS = 14;
+    /** 비시즌에 미리 받아 보는 일정 범위(미국 날짜 오늘부터 며칠 뒤까지) */
+    static final int LOOK_AHEAD_DAYS = 7;
 
     private static final Logger log = LoggerFactory.getLogger(GameIngest.class);
 
@@ -63,6 +71,8 @@ public class GameIngest {
     private final GameRepository games;
     private final AppearanceRepository appearances;
     private final Clock clock;
+    // 앞 일정을 마지막으로 받은 날(UTC 날짜). 앱이 떠 있는 동안만 기억한다.
+    private volatile LocalDate lookedAheadOn;
 
     public GameIngest(MlbClient client, IngestWriter writer, PlayerRepository players,
                       AffiliationRepository affiliations, GameRepository games, AppearanceRepository appearances,
@@ -140,7 +150,45 @@ public class GameIngest {
      * forceFinals면 그 기간의 끝난 경기를 settled여도 다시 받는다(관리용).
      */
     public String refreshGames(LocalDate from, LocalDate to, boolean forceFinals) {
+        return refreshGames(trackedTeamIds(), from, to, forceFinals);
+    }
+
+    /**
+     * 따라잡기용 경기 갱신. 보통은 미국 날짜 어제·오늘을 받는다.
+     * 서버가 멈췄거나 MLB가 막아(403/429) 며칠 갱신을 못 했으면 밀린 날부터 오늘까지를 일정 한 번으로 받는다.
+     * 밀린 날은 아래 중 이른 날이다(최대 MAX_CATCH_UP_DAYS일 전까지).
+     * <ul>
+     *   <li>시작했는데 아직 끝남·연기·취소가 아닌 우리 팀 경기가 있는 날(결과를 못 받은 경기)</li>
+     *   <li>우리 팀의 마지막으로 끝난 경기가 있는 날(그 뒤 날짜의 일정을 못 받았을 수 있다.
+     *       포스트시즌 경기는 그날 일정을 받을 때에야 DB에 들어온다)</li>
+     * </ul>
+     */
+    public String refreshRecent() {
         List<Long> teamIds = trackedTeamIds();
+        if (teamIds.isEmpty()) {
+            return "";
+        }
+        Instant now = clock.instant();
+        LocalDate today = usDate(now);
+        LocalDate from = catchUpFrom(teamIds, today, now);
+        String message = refreshGames(teamIds, from, today, false);
+        return from.isBefore(today.minusDays(1)) ? from + "부터 " + message : message;
+    }
+
+    // 어제, 결과를 못 받은 경기의 날, 마지막으로 끝난 경기의 날 중 가장 이른 날. 단 MAX_CATCH_UP_DAYS일 전보다 앞으로는 가지 않는다.
+    private LocalDate catchUpFrom(List<Long> teamIds, LocalDate today, Instant now) {
+        Optional<Instant> unfinished = games.findFirstUnfinishedStartTime(teamIds,
+                now.minus(Duration.ofDays(MAX_CATCH_UP_DAYS)), now);
+        Optional<Instant> lastFinal = games.findLastFinalStartTime(teamIds, now);
+        LocalDate from = Stream.of(unfinished, lastFinal)
+                .flatMap(Optional::stream)
+                .map(this::usDate)
+                .reduce(today.minusDays(1), (a, b) -> a.isBefore(b) ? a : b);
+        LocalDate oldest = today.minusDays(MAX_CATCH_UP_DAYS);
+        return from.isBefore(oldest) ? oldest : from;
+    }
+
+    private String refreshGames(List<Long> teamIds, LocalDate from, LocalDate to, boolean forceFinals) {
         if (teamIds.isEmpty()) {
             return "";
         }
@@ -158,6 +206,7 @@ public class GameIngest {
     /**
      * 선발·교체를 아직 모르는 지난 경기(굳은 경기)를 최근 것부터 limit개까지 박스스코어로 채운다.
      * 한 경기는 한 번만 받는다(못 정한 선수가 있어도 다시 받지 않는다). 기록은 건드리지 않는다.
+     * 단 그 뒤 시즌 백필로 그 경기에 새 기록이 생기면 다시 채울 경기가 된다(IngestWriter.saveGameLog).
      */
     public String fillLineups(int limit) {
         List<Game> targets = appearances.findGamesMissingLineups(PageRequest.of(0, limit));
@@ -190,6 +239,28 @@ public class GameIngest {
         List<Game> due = games.findUnsettledFinals().stream().filter(g -> g.needsBoxscore(now)).toList();
         int boxscores = boxscores(due, now);
         return boxscores == 0 ? "" : "끝난 경기 재확인 " + boxscores + "개";
+    }
+
+    /**
+     * 비시즌(DB에 앞뒤 며칠 우리 팀 경기가 없음)에 부른다. 하루(UTC 날짜)에 한 번, 우리 팀들의 오늘부터 LOOK_AHEAD_DAYS일 뒤까지
+     * 일정을 받아(1번) 저장한다. 포스트시즌 경기는 그날 일정을 받을 때에야 DB에 들어오므로, 라운드 사이 쉬는 날이 길면
+     * (디비전 시리즈 전, 월드시리즈 전) DB만 봐서는 시즌 중으로 돌아오지 못한다. 여기서 받은 경기가 앞뒤 며칠 안에 들면
+     * 다음 실행부터 시즌 중으로 본다.
+     */
+    public String lookAhead() {
+        Instant now = clock.instant();
+        LocalDate utcToday = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        if (utcToday.equals(lookedAheadOn)) {
+            return "";
+        }
+        List<Long> teamIds = trackedTeamIds();
+        if (teamIds.isEmpty()) {
+            return "";
+        }
+        LocalDate today = usDate(now);
+        List<Long> saved = writer.saveGames(client.getSchedule(teamIds, today, today.plusDays(LOOK_AHEAD_DAYS)), now);
+        lookedAheadOn = utcToday;
+        return "앞으로 " + LOOK_AHEAD_DAYS + "일 경기 " + (saved.isEmpty() ? "없음" : saved.size() + "개");
     }
 
     /** 우리 팀들의 경기가 now 앞뒤 days일 안에 있는지(시즌 중인지) */
@@ -234,6 +305,7 @@ public class GameIngest {
     }
 
     // 지금 메이저에 있는(또는 단계를 모르는) 선수들의 소속 팀. 마이너 선수의 MLB 구단 경기는 갱신하지 않는다.
+    // 소속이 끝난 선수(FA 등)의 마지막 구단도 findAllCurrent에서 빠지므로 갱신하지 않는다.
     private List<Long> trackedTeamIds() {
         return affiliations.findAllCurrent().stream()
                 .filter(a -> a.getPlayer().getLevel() != Level.MINORS)

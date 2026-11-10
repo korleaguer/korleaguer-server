@@ -30,7 +30,7 @@ public record PlayerSummary(
         Level level,
         String levelTeam) {
 
-    /** team은 현재 소속(없으면 null), todayKst는 나이를 셀 한국 날짜다. */
+    /** team은 지금 소속(소속이 끝났으면 마지막 소속, 없으면 null), todayKst는 나이를 셀 한국 날짜다. */
     static PlayerSummary of(Player p, String photoUrl, Team team, LocalDate todayKst) {
         return new PlayerSummary(p.getId(), p.getNameKo(), photoUrl, p.getNameEn(), p.role(),
                 p.getPosition(), PositionNames.korean(p.getPosition()), TeamLabels.korean(team),

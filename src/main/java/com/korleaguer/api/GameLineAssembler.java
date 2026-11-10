@@ -33,7 +33,8 @@ import java.util.stream.Collectors;
  *     <ul>
  *       <li>선수 기록을 받은 상태: 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기까지.
  *           단 지금 소속 팀이 마지막 기록의 팀과 같으면 끝을 열어 둔다(마지막 출전 뒤 경기도 결장으로 보인다).
- *           지금 마이너에 있는 선수(level=MINORS)는 끝을 열지 않는다(마이너로 간 뒤의 메이저 경기는 결장이 아니다).</li>
+ *           지금 마이너에 있는 선수(level=MINORS)는 끝을 열지 않는다(마이너로 간 뒤의 메이저 경기는 결장이 아니다).
+ *           소속이 끝난 선수(FA 등)도 같다(마지막 소속 구단의 그 뒤 경기는 결장이 아니다).</li>
  *       <li>선수 기록을 받지 못한 상태: 지금 소속 팀 경기 전부. summary는 "기록 없음"이다.</li>
  *     </ul>
  *   </li>
@@ -117,7 +118,8 @@ class GameLineAssembler {
     }
 
     /**
-     * @param currentTeam 지금 소속 팀. 마이너에 있는 선수는 null로 넘긴다(메이저 팀의 그 뒤 경기를 결장으로 보지 않는다).
+     * @param currentTeam 지금 소속 팀. 마이너에 있거나 소속이 끝난(FA 등) 선수는 null로 넘긴다
+     *                    (메이저 팀의 그 뒤 경기를 결장으로 보지 않는다).
      */
     static List<Stint> stints(List<Appearance> seasonAppearances, Team currentTeam) {
         if (seasonAppearances.isEmpty()) {
