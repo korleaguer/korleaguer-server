@@ -8,6 +8,7 @@ import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Level;
+import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -45,6 +47,7 @@ class PlayerRefresherTest {
 
     private final PlayerRepository players = mock(PlayerRepository.class);
     private final IngestWriter writer = mock(IngestWriter.class);
+    private final MinorSeasonRepository minorSeasons = mock(MinorSeasonRepository.class);
     private final Player go = player(5L, "고우석", 808970L);
     private final Player lee = player(1L, "이정후", 808982L);
     private final List<Long> askedTeams = new ArrayList<>();
@@ -94,7 +97,8 @@ class PlayerRefresherTest {
     @BeforeEach
     void setUp() {
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of(lee, go));
-        refresher = new PlayerRefresher(client, players, writer, PROPERTIES, Clock.fixed(NOW, ZoneOffset.UTC));
+        refresher = new PlayerRefresher(client, players, writer, minorSeasons, PROPERTIES,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -162,11 +166,31 @@ class PlayerRefresherTest {
     void nothingToDoMakesNoRequest() {
         go.updateLevel(Level.MINORS, "St. Paul Saints", NOW);
         lee.updateLevel(Level.MLB, "San Francisco Giants", NOW);
+        when(minorSeasons.findPlayerIdsFetchedSince(2026, TODAY.atStartOfDay(ZoneOffset.UTC).toInstant()))
+                .thenReturn(List.of(1L, 5L));
 
         PlayerRefresher.Result result = refresher.refresh(false);
 
         assertThat(client.requestCount()).isZero();
         assertThat(result.describe()).isEmpty();
+    }
+
+    @Test
+    void minorGamesOnlyWhenPlayerCheckedButMinorsNotFetchedToday() {
+        // 배포 직후처럼 선수 정보는 오늘 받았는데 고우석의 마이너 경기 수는 오늘 것이 없다
+        go.updateLevel(Level.MINORS, "St. Paul Saints", NOW);
+        lee.updateLevel(Level.MLB, "San Francisco Giants", NOW);
+        when(minorSeasons.findPlayerIdsFetchedSince(2026, TODAY.atStartOfDay(ZoneOffset.UTC).toInstant()))
+                .thenReturn(List.of(1L));
+
+        PlayerRefresher.Result result = refresher.refresh(false);
+
+        assertThat(askedPeople).isEmpty();
+        assertThat(askedRanges).isEmpty();
+        assertThat(client.requestCount()).isEqualTo(1);
+        verify(writer).saveMinorGames(eq(5L), eq(2026), any(), eq(NOW));
+        verify(writer, never()).saveMinorGames(eq(1L), anyInt(), any(), any());
+        assertThat(result.checked()).isZero();
     }
 
     @Test

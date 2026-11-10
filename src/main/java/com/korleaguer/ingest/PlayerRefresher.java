@@ -9,6 +9,7 @@ import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Level;
+import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.support.MlbTeams;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -35,7 +37,8 @@ import java.util.stream.Stream;
  *   <li>MLB 선수 번호(명단의 mlb-id)가 있는 선수만 본다.</li>
  *   <li>선수마다 하루(UTC 날짜)에 한 번만 받는다(force면 무조건). 실패한 선수는 확인 시각을 남기지 않아 다음 수집 때 다시 묻는다.</li>
  *   <li>선수 정보는 한 번에 여러 명을 묻는다(people?personIds=...). 이동 기록은 선수마다 한 번, 지난 시즌 1월 1일 ~ 이번 시즌 12월 31일.</li>
- *   <li>이번 시즌 마이너 출전 경기 수도 선수마다 한 번 묻는다. 이것만 실패하면(403/429 제외) 선수 정보는 저장하고 지난 값을 둔다.</li>
+ *   <li>이번 시즌 마이너 출전 경기 수도 선수마다 한 번 묻는다. 이것만 실패하면(403/429 제외) 선수 정보는 저장하고 지난 값을 둔다.
+ *       오늘 받은 마이너 경기 수가 없는 선수는 선수 정보를 이미 받았어도 그것만 다음 수집 때 다시 묻는다.</li>
  *   <li>팀 단계(sport.id)는 MLB 30개 구단이면 묻지 않고, 나머지 팀은 한 번 물어 앱이 떠 있는 동안 기억한다.</li>
  *   <li>403/429면 이번 실행에서 MLB를 더 부르지 않는다. 다른 오류는 그 선수만 건너뛴다.</li>
  * </ul>
@@ -48,31 +51,59 @@ public class PlayerRefresher {
     private final MlbClient client;
     private final PlayerRepository players;
     private final IngestWriter writer;
+    private final MinorSeasonRepository minorSeasons;
     private final Clock clock;
     private final int season;
     // 팀 번호 → 단계(모르는 팀이면 빈 값). 조회에 실패한 팀은 넣지 않는다.
     private final Map<Long, Optional<Level>> teamLevels = new ConcurrentHashMap<>();
 
     public PlayerRefresher(MlbClient client, PlayerRepository players, IngestWriter writer,
-                           KorleaguerProperties properties, Clock clock) {
+                           MinorSeasonRepository minorSeasons, KorleaguerProperties properties, Clock clock) {
         this.client = client;
         this.players = players;
         this.writer = writer;
+        this.minorSeasons = minorSeasons;
         this.season = properties.season();
         this.clock = clock;
     }
 
-    /** 오늘 아직 확인하지 않은 선수만(force면 전부) 새로 받는다. */
+    /**
+     * 오늘 아직 확인하지 않은 선수만(force면 전부) 새로 받는다.
+     * 선수 정보는 오늘 받았지만 마이너 출전 경기 수는 오늘 받지 못한 선수(배포 직후, 그 요청만 실패)는 마이너 경기 수만 다시 묻는다.
+     */
     public Result refresh(boolean force) {
         long requestsBefore = client.requestCount();
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
-        List<Player> due = players.findByMlbIdIsNotNull().stream()
+        List<Player> all = players.findByMlbIdIsNotNull();
+        List<Player> due = all.stream()
                 .filter(p -> force || !checkedOn(p, today))
                 .toList();
-        if (due.isEmpty()) {
+        Set<Long> minorsFresh = Set.copyOf(
+                minorSeasons.findPlayerIdsFetchedSince(season, today.atStartOfDay(ZoneOffset.UTC).toInstant()));
+        List<Player> minorsOnly = all.stream()
+                .filter(p -> !due.contains(p) && !minorsFresh.contains(p.getId()))
+                .toList();
+        if (due.isEmpty() && minorsOnly.isEmpty()) {
             return new Result(0, 0, false, 0);
         }
+
+        Result result = due.isEmpty() ? new Result(0, 0, false, 0) : refreshPlayers(due, now, today);
+        if (!result.blocked()) {
+            for (Player player : minorsOnly) {
+                try {
+                    refreshMinorGames(player, now);
+                } catch (MlbBlockedException e) {
+                    log.warn("[mlb] stop calling MLB for this run: {}", e.getMessage());
+                    return new Result(result.checked(), result.failed(), true, client.requestCount() - requestsBefore);
+                }
+            }
+        }
+        return new Result(result.checked(), result.failed(), result.blocked(), client.requestCount() - requestsBefore);
+    }
+
+    /** 선수 정보·이동 기록·마이너 경기 수를 받는다. requests는 여기서 세지 않는다(0). */
+    private Result refreshPlayers(List<Player> due, Instant now, LocalDate today) {
         Map<Long, MlbPerson> people;
         try {
             people = client.getPeople(due.stream().map(Player::getMlbId).toList()).stream()
@@ -80,10 +111,10 @@ public class PlayerRefresher {
                     .collect(Collectors.toMap(MlbPerson::id, Function.identity(), (a, b) -> a));
         } catch (MlbBlockedException e) {
             log.warn("[mlb] stop calling MLB for this run: {}", e.getMessage());
-            return new Result(0, 0, true, client.requestCount() - requestsBefore);
+            return new Result(0, 0, true, 0);
         } catch (MlbApiException e) {
             log.warn("[mlb] people request failed, will retry next ingest ({})", e.getMessage());
-            return new Result(0, due.size(), false, client.requestCount() - requestsBefore);
+            return new Result(0, due.size(), false, 0);
         }
 
         int checked = 0;
@@ -101,13 +132,13 @@ public class PlayerRefresher {
                 checked++;
             } catch (MlbBlockedException e) {
                 log.warn("[mlb] stop calling MLB for this run: {}", e.getMessage());
-                return new Result(checked, failed, true, client.requestCount() - requestsBefore);
+                return new Result(checked, failed, true, 0);
             } catch (MlbApiException e) {
                 log.warn("[mlb] {}: skip, will retry next ingest ({})", player.getNameKo(), e.getMessage());
                 failed++;
             }
         }
-        return new Result(checked, failed, false, client.requestCount() - requestsBefore);
+        return new Result(checked, failed, false, 0);
     }
 
     private void refresh(Player player, MlbPerson person, Instant now, LocalDate today) {
