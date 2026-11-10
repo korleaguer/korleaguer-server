@@ -16,8 +16,10 @@ import java.time.ZonedDateTime;
  * <ul>
  *   <li>늘: 오늘 안 받은 선수 정보·이동 기록(하루 한 번), 아직 안 받은 선수 시즌 백필</li>
  *   <li>시즌 중(앞뒤 3일 안에 우리 팀 경기가 있음): 경기 시간대(한국 시간 01:00~16:00)에는 깨어날 때마다,
- *       그 밖에는 매시 정각 근처(분이 12 미만)에만 오늘·어제 경기 갱신과 끝난 경기 재확인</li>
- *   <li>비시즌: 경기는 받지 않는다.</li>
+ *       그 밖에는 매시 정각 근처(분이 12 미만)에만 오늘·어제 경기 갱신(밀렸으면 밀린 날부터)과 끝난 경기 재확인</li>
+ *   <li>비시즌: 경기 갱신은 하지 않고, 하루(UTC 날짜) 한 번 앞으로 7일 일정만 받는다(1번).
+ *       포스트시즌 경기는 그날 일정을 받을 때에야 DB에 들어오므로, 라운드 사이 쉬는 날이 길어 비시즌으로 넘어가도
+ *       여기서 다음 경기를 보고 시즌 중으로 돌아온다.</li>
  * </ul>
  */
 @Component
@@ -38,7 +40,8 @@ public class IngestScheduler {
     public void tick() {
         Instant now = clock.instant();
         try {
-            ingestService.catchUp(ingestService.inSeason(now) && gameTime(now));
+            boolean inSeason = ingestService.inSeason(now);
+            ingestService.catchUp(inSeason && gameTime(now), !inSeason);
         } catch (IngestAlreadyRunningException e) {
             log.info("skip scheduled ingest: another ingest is running");
         }

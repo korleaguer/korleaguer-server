@@ -28,6 +28,18 @@ public interface GameRepository extends JpaRepository<Game, Long> {
             """)
     Optional<Instant> findLastFinalStartTime(Collection<Long> teamIds, Instant now);
 
+    /**
+     * 주어진 팀들의 경기 중 [from, to) 사이에 시작했는데 아직 끝나지 않은 것으로 남은 경기(끝남·연기·취소가 아님) 중
+     * 가장 이른 시작 시각. 갱신이 밀려 결과를 못 받은 경기를 찾을 때 쓴다.
+     */
+    @Query("""
+            select min(g.startTimeUtc) from Game g
+            where (g.homeTeam.mlbTeamId in :teamIds or g.awayTeam.mlbTeamId in :teamIds)
+              and g.startTimeUtc >= :from and g.startTimeUtc < :to
+              and g.statusState not in ('final', 'postponed', 'canceled')
+            """)
+    Optional<Instant> findFirstUnfinishedStartTime(Collection<Long> teamIds, Instant from, Instant to);
+
     /** 주어진 팀들의 한 시즌 경기 중 seasonType(regular, postseason) 경기 */
     @Query("""
             select g from Game g

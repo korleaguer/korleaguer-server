@@ -3,7 +3,6 @@ package com.korleaguer.api;
 import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
-import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
@@ -81,7 +80,7 @@ public class BaseballQueryService {
     public HomeResponse home() {
         Instant now = clock.instant();
         boolean statsAvailable = statsAvailable();
-        List<RosterMember> roster = currentRoster();
+        List<RosterMember> roster = roster();
         RankingMinimums ranking = RankingMinimums.of(teamGamesPlayed(roster));
 
         List<HitterSeason> hitters = List.of();
@@ -123,7 +122,7 @@ public class BaseballQueryService {
 
     /** MLB에서 받기 전인 선수도 포함한다(영어 이름·포지션·팀·나이·등번호가 null). */
     public List<PlayerSummary> players() {
-        Map<Long, Team> teamByPlayer = currentRoster().stream()
+        Map<Long, Team> teamByPlayer = roster().stream()
                 .collect(Collectors.toMap(m -> m.player().getId(), RosterMember::team));
         LocalDate today = KoreanTime.kstDate(clock.instant());
         return players.findAll(Sort.by("id")).stream()
@@ -134,7 +133,8 @@ public class BaseballQueryService {
     @Cacheable(cacheNames = AppConfig.PLAYER_CACHE, key = "#id")
     public PlayerPageResponse player(long id) {
         Player player = players.findById(id).orElseThrow(() -> new PlayerNotFoundException(id));
-        Team team = affiliations.findByPlayerAndEndDateIsNull(player).map(Affiliation::getTeam).orElse(null);
+        RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
+        Team team = member.team();
         boolean statsAvailable = statsAvailable();
 
         HitterSeason hitting = null;
@@ -152,7 +152,7 @@ public class BaseballQueryService {
         Instant seasonStart = LocalDate.of(season, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant seasonEnd = LocalDate.of(season + 1, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant now = clock.instant();
-        List<GameLine> games = gameLines.lines(List.of(new RosterMember(player, team)), seasonStart,
+        List<GameLine> games = gameLines.lines(List.of(member), seasonStart,
                 now.isBefore(seasonEnd) ? now : seasonEnd, statsAvailable);
 
         PlayerPageResponse.PlayerInfo info = new PlayerPageResponse.PlayerInfo(
@@ -198,9 +198,10 @@ public class BaseballQueryService {
         return true;
     }
 
-    private List<RosterMember> currentRoster() {
-        return affiliations.findAllCurrent().stream()
-                .map(a -> new RosterMember(a.getPlayer(), a.getTeam()))
+    // 소속 줄이 있는 선수들. 소속이 끝난 선수(FA 등)도 마지막 소속으로 넣는다(시즌 기록이 홈에서 빠지지 않게).
+    private List<RosterMember> roster() {
+        return affiliations.findAllLatest().stream()
+                .map(a -> RosterMember.of(a.getPlayer(), a))
                 .toList();
     }
 

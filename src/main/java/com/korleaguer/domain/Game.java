@@ -50,6 +50,7 @@ public class Game {
     private Instant checkedAt;
     private boolean settled;
     // 선발·교체를 박스스코어로 한 번 채워 봤다(끝난 경기만). 지난 경기를 뒤에서 채울 때 다시 받지 않는다.
+    // 그 뒤 선발·교체를 모르는 새 기록이 생기면(시즌 백필) 다시 false가 된다.
     private boolean lineupsChecked;
 
     protected Game() {
@@ -122,6 +123,11 @@ public class Game {
         if (isFinal()) {
             lineupsChecked = true;
         }
+    }
+
+    /** 선발·교체를 모르는 기록이 새로 생겼다. 지난 경기를 뒤에서 채울 때 이 경기를 다시 받게 한다. */
+    public void markLineupsUnchecked() {
+        lineupsChecked = false;
     }
 
     public boolean isFinal() {
