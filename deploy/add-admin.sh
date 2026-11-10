@@ -58,14 +58,25 @@ if [ "$REMOVE" = 1 ]; then
     rm -f "$home/.ssh/authorized_keys"
     usermod --expiredate 1 --comment "$MARK" "$ADMIN_USER"
     rm -f "$sudoers"
+    # 돌던 것을 끝낸다. 로그인 세션을 통째로 끝내야 그 계정이 sudo로 띄운 root 프로세스(sudo -i 등)까지 끝난다.
+    # pkill은 유효 UID(-u)와 실제 UID(-U) 둘 다로 한 번 더 끝낸다.
+    loginctl terminate-user "$ADMIN_USER" 2> /dev/null || true
     pkill -KILL -u "$ADMIN_USER" 2> /dev/null || true
+    pkill -KILL -U "$ADMIN_USER" 2> /dev/null || true
     sleep 1
     if ! userdel -r "$ADMIN_USER"; then
-      echo "계정을 지우지 못했습니다. 키와 sudo 권한은 지웠고 계정은 만료시켜 접속할 수 없습니다. 잠시 뒤 다시 실행하세요" >&2
+      if getent passwd "$ADMIN_USER" > /dev/null; then
+        echo "계정을 지우지 못했습니다. 키와 sudo 권한은 지웠고 계정은 만료시켜 접속할 수 없습니다. 잠시 뒤 다시 실행하세요" >&2
+      else
+        echo "계정은 지웠지만 홈 폴더(${home})를 다 지우지 못했습니다. 확인하고 직접 지우세요" >&2
+      fi
       exit 1
     fi
   else
     rm -f "$sudoers"
+    if [ -e "/home/${ADMIN_USER}" ]; then
+      echo "참고: 계정은 없지만 /home/${ADMIN_USER}가 남아 있습니다. 확인하고 직접 지우세요" >&2
+    fi
   fi
   echo "관리용 계정 ${ADMIN_USER}를 지웠습니다"
   exit 0
