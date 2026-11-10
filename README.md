@@ -132,6 +132,16 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 이적 전 팀의 이적 뒤 경기, 첫 출전 전 경기는 줄을 만들지 않는다(시범경기는 저장하지 않는다).
 - 그 선수의 시즌을 아직 받지 않았으면 기록이 하나도 없으므로 결장 줄도 만들지 않는다.
 
+## 배포
+
+GitHub Release를 만들면 Actions(`.github/workflows/deploy.yml`)가 이미지(`Dockerfile`)를 만들어 GHCR(`ghcr.io/korleaguer/korleaguer-server`)에 올리고,
+SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾼다(끊김 없이, 실패하면 옛 버전 유지). 서버 구성(Caddy·web·api·MySQL),
+처음 준비, 되돌리기, 백업은 [`deploy/README.md`](deploy/README.md).
+
+```bash
+docker build -t korleaguer-server:local .   # 이미지만 만들어 보기
+```
+
 ## 구조
 
 ```

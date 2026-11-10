@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# 코리거 배포 스크립트(서버의 /usr/local/bin/korleaguer-deploy). GitHub Actions가 SSH로 부른다.
+#
+# 배포 계정의 authorized_keys가 키마다 이 스크립트와 서비스를 고정한다:
+#   restrict,command="/usr/local/bin/korleaguer-deploy api" ssh-ed25519 AAAA... gha-korleaguer-server
+# 그래서 키가 새어도 정해진 서비스를 재배포하는 것 말고는 할 수 없다.
+# Actions가 보낸 명령(SSH_ORIGINAL_COMMAND)은 배포할 버전("0.2.0")만 받는다.
+# 표준입력 두 줄: GHCR 사용자 이름, 그 배포 job의 임시 토큰(GITHUB_TOKEN, packages:read).
+# 토큰은 임시 폴더에서 docker login에만 쓰고 바로 지운다. 서버에 오래 남는 토큰은 없다.
+#
+# 순서: 이미지 받기 → mysql·caddy가 떠 있게 → (api면) DB 백업 → 새 컨테이너를 옛 것과 겹쳐 띄움
+#       → 새 것이 healthy면 옛 것을 내림. 새 것이 healthy가 안 되면 새 것을 지우고 태그를 되돌린다(옛 것은 계속 돈다).
+# 직접 실행(서버에서 재배포·롤백): korleaguer-deploy api 0.2.0 (이미지가 이미 있으면 KORLEAGUER_SKIP_PULL=1)
+set -euo pipefail
+
+DEPLOY_DIR="${KORLEAGUER_DIR:-/srv/korleaguer}"
+SERVICE="${1:-}"
+VERSION="${SSH_ORIGINAL_COMMAND:-${2:-}}"
+HEALTH_TIMEOUT="${KORLEAGUER_HEALTH_TIMEOUT:-240}"
+BACKUP_BIN="${KORLEAGUER_BACKUP_BIN:-/usr/local/bin/korleaguer-backup}"
+KEEP_IMAGES=3
+
+log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
+fail() { log "실패: $*" >&2; exit 1; }
+
+case "$SERVICE" in
+  api) TAG_VAR=API_TAG; IMAGE=ghcr.io/korleaguer/korleaguer-server ;;
+  web) TAG_VAR=WEB_TAG; IMAGE=ghcr.io/korleaguer/korleaguer-web ;;
+  *) fail "서비스는 api 또는 web이어야 합니다: '${SERVICE}'" ;;
+esac
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "버전 형식(예: 0.2.0)이 아닙니다: '${VERSION}'"
+
+cd "$DEPLOY_DIR"
+[ -f compose.yaml ] || fail "${DEPLOY_DIR}/compose.yaml이 없습니다(서버 준비 스크립트를 먼저 실행하세요)"
+touch .env
+
+# SSH가 중간에 끊겨도(Actions 취소, 네트워크) 배포를 끝까지 마친다: 끊김 신호(HUP)와 끊긴 출력(PIPE)을 무시하고,
+# 모든 출력을 deploy.log에 남기면서 SSH로도 보낸다(tee는 SSH 쪽이 끊겨도 로그 파일에는 계속 쓴다).
+trap '' HUP PIPE
+if tee --help 2>&1 | grep -q -- '--output-error'; then
+  exec > >(tee --output-error=warn-nopipe -a "$DEPLOY_DIR/deploy.log") 2>&1
+else
+  exec > >(tee -a "$DEPLOY_DIR/deploy.log") 2>&1
+fi
+
+# 두 저장소의 배포가 겹치지 않게 한 번에 하나만 돈다.
+if command -v flock > /dev/null; then
+  exec 9> "$DEPLOY_DIR/.deploy.lock"
+  flock -w 600 9 || fail "다른 배포가 10분 안에 끝나지 않았습니다"
+fi
+
+compose() { docker compose "$@"; }
+
+current_tag() { grep -E "^${TAG_VAR}=" .env | tail -n 1 | cut -d= -f2- || true; }
+
+set_tag() {
+  local value="$1"
+  sed -i.bak -E "/^${TAG_VAR}=/d" .env && rm -f .env.bak
+  if [ -n "$value" ]; then
+    printf '%s=%s\n' "$TAG_VAR" "$value" >> .env
+  fi
+}
+
+# 컨테이너가 healthy가 될 때까지 기다린다. 헬스체크가 없으면 running이면 된다.
+wait_healthy() {
+  local id="$1" deadline=$((SECONDS + HEALTH_TIMEOUT)) status
+  while :; do
+    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2> /dev/null || echo gone)"
+    case "$status" in
+      healthy) return 0 ;;
+      running) docker inspect -f '{{if .State.Health}}x{{end}}' "$id" | grep -q x || return 0 ;;
+      unhealthy | exited | dead | gone) return 1 ;;
+    esac
+    [ "$SECONDS" -ge "$deadline" ] && return 1
+    sleep 3
+  done
+}
+
+# 새 컨테이너를 옛 컨테이너와 겹쳐 띄우고, 새 것이 healthy면 옛 것을 내린다.
+rollout() {
+  local svc="$1" old new count
+  old="$(compose ps -q "$svc" | sort)"
+  if [ -z "$old" ]; then
+    compose up -d --no-deps "$svc"
+    new="$(compose ps -q "$svc")"
+    if ! wait_healthy "$new"; then
+      docker logs --tail 80 "$new" >&2 || true
+      return 1
+    fi
+    return 0
+  fi
+  count="$(printf '%s\n' "$old" | wc -l | tr -d ' ')"
+  compose up -d --no-deps --no-recreate --scale "${svc}=$((count + 1))" "$svc"
+  new="$(comm -13 <(printf '%s\n' "$old") <(compose ps -q "$svc" | sort))"
+  [ -n "$new" ] || { log "새 컨테이너를 찾지 못했습니다"; return 1; }
+  log "새 컨테이너 ${new:0:12}가 healthy가 되기를 기다립니다(최대 ${HEALTH_TIMEOUT}초)"
+  if ! wait_healthy "$new"; then
+    docker logs --tail 80 "$new" >&2 || true
+    docker rm -f $new > /dev/null
+    return 1
+  fi
+  log "옛 컨테이너를 내립니다: $(printf '%s ' $old | cut -c1-12)"
+  docker stop --time 30 $old > /dev/null
+  docker rm $old > /dev/null
+}
+
+previous="$(current_tag)"
+log "배포 시작: ${SERVICE} ${previous:-없음} → ${VERSION}"
+
+# 1) 이미지 받기. 로그인 정보는 임시 폴더에만 두고 바로 지운다.
+if [ "${KORLEAGUER_SKIP_PULL:-0}" != 1 ]; then
+  IFS= read -r ghcr_user || true
+  IFS= read -r ghcr_token || true
+  [ -n "${ghcr_user:-}" ] && [ -n "${ghcr_token:-}" ] || fail "표준입력으로 GHCR 사용자와 토큰을 받지 못했습니다"
+  login_dir="$(mktemp -d)"
+  trap 'rm -rf "$login_dir"' EXIT
+  printf '%s' "$ghcr_token" | DOCKER_CONFIG="$login_dir" docker login ghcr.io -u "$ghcr_user" --password-stdin > /dev/null
+  unset ghcr_token
+  DOCKER_CONFIG="$login_dir" docker pull --quiet "${IMAGE}:${VERSION}" > /dev/null || fail "이미지를 받지 못했습니다: ${IMAGE}:${VERSION}"
+  rm -rf "$login_dir"
+fi
+docker image inspect "${IMAGE}:${VERSION}" > /dev/null 2>&1 || fail "서버에 이미지가 없습니다: ${IMAGE}:${VERSION}"
+
+# 2) 기반 서비스(DB, 리버스 프록시)가 떠 있게 한다. 이미 떠 있으면 그대로다.
+compose up -d --no-deps --wait mysql
+compose up -d --no-deps caddy
+
+# 3) API를 바꾸기 전에 DB를 백업한다(새 버전이 DB 구조를 바꿀 수 있어서).
+if [ "$SERVICE" = api ]; then
+  "$BACKUP_BIN" "before-${VERSION}" || fail "DB 백업에 실패해 배포를 멈춥니다"
+fi
+
+# 4) 바꾸기. 실패하면 태그를 되돌린다(옛 컨테이너는 그대로 돈다).
+set_tag "$VERSION"
+if ! rollout "$SERVICE"; then
+  set_tag "$previous"
+  fail "${SERVICE} ${VERSION}이 정상 상태가 되지 않아 되돌렸습니다(${previous:-없음} 유지)"
+fi
+
+# 5) 이 서비스의 오래된 이미지는 최근 ${KEEP_IMAGES}개만 남긴다(롤백용). 쓰고 있는 이미지는 지워지지 않는다.
+docker image ls "$IMAGE" --format '{{.Repository}}:{{.Tag}}' | tail -n +$((KEEP_IMAGES + 1)) | xargs -r docker image rm > /dev/null 2>&1 || true
+
+log "배포 완료: ${SERVICE} ${VERSION}"

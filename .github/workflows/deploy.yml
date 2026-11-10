@@ -1,0 +1,131 @@
+# GitHub Release를 만들면(published, prerelease 제외) API 이미지를 만들어 GHCR에 올리고 서버에 배포한다.
+# 수동 실행(Run workflow)에 버전을 넣으면 이미지를 새로 만들지 않고 그 버전을 다시 배포한다(롤백).
+#
+# 필요한 값(저장소 Settings → Secrets and variables → Actions). 자세한 준비는 deploy/README.md.
+#   secret   DEPLOY_SSH_KEY       배포 계정용 SSH 개인키(이 저장소 전용, 서버에서는 'api 배포'만 할 수 있게 묶여 있다)
+#   variable DEPLOY_HOST          서버 주소(예: pigeon.ddns.net)
+#   variable DEPLOY_KNOWN_HOSTS   서버 호스트 키 한 줄(server-setup.sh가 출력). 처음 보는 서버에는 접속하지 않는다
+#   variable DEPLOY_PORT          SSH 포트(없으면 22)
+#   variable DEPLOY_PLATFORM      서버 CPU(linux/amd64 또는 linux/arm64, 없으면 linux/amd64)
+name: deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 다시 배포할 버전(예 0.2.0). GHCR에 이미 있는 이미지를 쓴다
+        required: true
+
+# 이 저장소의 배포는 한 번에 하나씩. 서버에서도 두 저장소의 배포가 겹치지 않게 잠근다.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/korleaguer/korleaguer-server
+
+jobs:
+  build:
+    name: 이미지 만들기
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ${{ vars.DEPLOY_PLATFORM == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 버전 확인
+        run: |
+          [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "릴리스 태그가 버전 형식(v0.2.0)이 아닙니다: $TAG"; exit 1; }
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 태그: 0.2.0(버전), sha-abc1234(커밋). 배포에는 버전만 쓰고 latest는 쓰지 않는다.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
+            type=sha,format=short,prefix=sha-
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: 서버에 배포
+    needs: build
+    # 릴리스면 이미지를 만든 뒤, 수동 실행이면 이미지 만들기를 건너뛰고 바로 배포한다.
+    if: always() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.build.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: 배포할 버전
+        id: version
+        run: |
+          version="${INPUT_VERSION:-$TAG}"
+          version="${version#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "버전 형식(0.2.0)이 아닙니다: $version"; exit 1; }
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG: ${{ github.event.release.tag_name }}
+
+      - name: SSH 준비
+        run: |
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "DEPLOY_SSH_KEY·DEPLOY_HOST·DEPLOY_KNOWN_HOSTS를 먼저 등록하세요(deploy/README.md)"
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+
+      # 서버는 이 키로 'korleaguer-deploy api'만 실행한다. 보내는 명령은 버전뿐이고,
+      # 표준입력으로 이 job의 임시 토큰(packages:read)을 넘겨 GHCR에서 이미지를 받게 한다(job이 끝나면 만료).
+      - name: 배포
+        run: |
+          printf '%s\n%s\n' "$GITHUB_ACTOR" "$GHCR_TOKEN" | ssh \
+            -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 \
+            "deploy@${DEPLOY_HOST}" "$VERSION"
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          VERSION: ${{ steps.version.outputs.value }}
+
+      - name: SSH 키 지우기
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
