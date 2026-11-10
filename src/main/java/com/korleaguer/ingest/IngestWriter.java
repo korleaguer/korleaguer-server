@@ -2,6 +2,7 @@ package com.korleaguer.ingest;
 
 import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbGameLogSplit;
+import com.korleaguer.client.MlbMinorGameLog;
 import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
@@ -18,6 +19,8 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Lineup;
+import com.korleaguer.domain.MinorGameLog;
+import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeason;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Pitching;
@@ -76,12 +79,13 @@ public class IngestWriter {
     private final PlayerMoveRepository moves;
     private final PlayerSeasonRepository seasons;
     private final MinorSeasonRepository minorSeasons;
+    private final MinorGameLogRepository minorGameLogs;
     private final SeasonDatesRepository seasonDates;
 
     public IngestWriter(TeamRepository teams, PlayerRepository players, AffiliationRepository affiliations,
                         GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves,
                         PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons,
-                        SeasonDatesRepository seasonDates) {
+                        MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates) {
         this.teams = teams;
         this.players = players;
         this.affiliations = affiliations;
@@ -90,6 +94,7 @@ public class IngestWriter {
         this.moves = moves;
         this.seasons = seasons;
         this.minorSeasons = minorSeasons;
+        this.minorGameLogs = minorGameLogs;
         this.seasonDates = seasonDates;
     }
 
@@ -158,11 +163,39 @@ public class IngestWriter {
     }
 
     /** 선수의 시즌 마이너 출전 경기 수를 새 값으로 덮어쓴다. */
-    public void saveMinorGames(long playerId, int season, MlbMinorGames games, Instant fetchedAt) {
+    /**
+     * 선수의 한 시즌 마이너 경기별 기록을 새로 받은 것으로 통째로 바꾸고, 마이너 경기 수(MinorSeason)도 그 기록으로 센다.
+     * 같은 경기(gamePk)의 타격·투구는 한 줄로 합친다. 마이너가 아닌 줄(sport.id 11~16 밖)·번호나 날짜가 없는 줄은 건너뛴다.
+     */
+    public void saveMinorGameLog(long playerId, int season, MlbMinorGameLog log, Instant fetchedAt) {
+        MlbMinorGames counts = log.counts();
         MinorSeason row = minorSeasons.find(playerId, season)
                 .orElseGet(() -> new MinorSeason(players.getReferenceById(playerId), season));
-        row.update(games.hitting(), games.pitching(), fetchedAt);
+        row.update(counts.hitting(), counts.pitching(), fetchedAt);
         minorSeasons.save(row);
+
+        minorGameLogs.deleteSeason(playerId, season);
+        Player player = players.getReferenceById(playerId);
+        Map<Long, MinorGameLog> byGame = new LinkedHashMap<>();
+        log.hitting().forEach(split -> minorLine(byGame, player, season, split)
+                .ifPresent(line -> line.updateBatting(toBatting(split.stat()))));
+        log.pitching().forEach(split -> minorLine(byGame, player, season, split)
+                .ifPresent(line -> line.updatePitching(toPitching(split.stat()), split.stat() == null ? null
+                        : split.stat().holds(), split.stat() == null ? null : split.stat().blownSaves())));
+        minorGameLogs.saveAll(byGame.values());
+    }
+
+    /** 마이너 경기 한 줄(같은 경기면 이미 만든 줄). 마이너가 아니거나 번호·날짜가 없으면 빈 값 */
+    private static Optional<MinorGameLog> minorLine(Map<Long, MinorGameLog> byGame, Player player, int season,
+                                                    MlbGameLogSplit split) {
+        LocalDate gameDate = date(split.date());
+        if (!MlbMinorGameLog.isMinors(split) || split.gamePk() == null || gameDate == null) {
+            return Optional.empty();
+        }
+        MinorGameLog line = byGame.computeIfAbsent(split.gamePk(), pk -> new MinorGameLog(player, season, pk));
+        line.updateGame(gameDate, split.sport().abbreviation(), teamName(split.team()), teamName(split.opponent()),
+                split.isHome(), split.isWin());
+        return Optional.of(line);
     }
 
     /**

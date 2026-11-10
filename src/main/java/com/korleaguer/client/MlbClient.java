@@ -27,8 +27,8 @@ public interface MlbClient {
     /** 선수의 한 시즌 경기별 기록(정규시즌). 한 번에 시즌 전 경기가 온다. */
     List<MlbGameLogSplit> getGameLog(long personId, Group group, int season);
 
-    /** 선수의 한 시즌 마이너리그(트리플A ~ 루키) 출전 경기 수. 타격·투구를 한 번에 묻는다. */
-    MlbMinorGames getMinorGames(long personId, int season);
+    /** 선수의 한 시즌 마이너리그(트리플A ~ 루키) 경기별 기록(정규시즌). 타격·투구를 한 번에 묻는다. */
+    MlbMinorGameLog getMinorGameLog(long personId, int season);
 
     /** 팀들의 한 시즌 메이저 일정(시범경기·포스트시즌 포함). 점수와 상태도 들어 있다. */
     List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season);
