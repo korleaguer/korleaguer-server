@@ -36,6 +36,8 @@ public class Player {
     private Level level;
     private String levelTeamName;
     private Instant levelCheckedAt;
+    // MLB 이동 기록상 FA(마지막 FA 선언 뒤 새 팀 기록 없음). 그러면 level·levelTeamName은 null이다.
+    private boolean freeAgent;
 
     protected Player() {
     }
@@ -143,5 +145,13 @@ public class Player {
 
     public Instant getLevelCheckedAt() {
         return levelCheckedAt;
+    }
+
+    public void updateFreeAgent(boolean freeAgent) {
+        this.freeAgent = freeAgent;
+    }
+
+    public boolean isFreeAgent() {
+        return freeAgent;
     }
 }

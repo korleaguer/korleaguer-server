@@ -124,8 +124,12 @@ public class IngestWriter {
         player.updateProfile(birthDate(player.getNameKo(), person.birthDate()), person.height(),
                 person.weight() == null ? null : String.valueOf(person.weight()), batsThrows(person),
                 person.primaryNumber(), debutYear(person.mlbDebutDate()), person.currentAge());
-        MlbTeam current = person.currentTeam();
-        player.updateLevel(level, current == null ? null : current.name(), checkedAt);
+        // MLB '지금 소속'은 FA를 선언해도 바로 비지 않는다. 이동 기록상 FA면 지금 소속이 없는 선수처럼 둔다
+        // (단계·팀 이름 없음, 소속 줄은 끝난 것으로 남아 마지막 팀으로 보인다).
+        boolean freeAgent = FreeAgency.isFreeAgent(transactions);
+        MlbTeam current = freeAgent ? null : person.currentTeam();
+        player.updateLevel(freeAgent ? null : level, current == null ? null : current.name(), checkedAt);
+        player.updateFreeAgent(freeAgent);
         saveAffiliation(player, current, today);
 
         int saved = 0;
