@@ -10,7 +10,10 @@ import jakarta.persistence.ManyToOne;
 
 import java.time.LocalDate;
 
-/** 선수의 소속 이력. endDate가 null이면 현재 소속이다. */
+/**
+ * 선수의 소속. MVP는 이력을 쌓지 않고 선수마다 한 줄만 고쳐 쓴다.
+ * endDate가 null이면 지금 소속이고, 소속이 끝났으면(FA 등) 끝난 날이 들어 있는 마지막 소속이다(줄은 지우지 않는다).
+ */
 @Entity
 public class Affiliation {
 
@@ -39,9 +42,22 @@ public class Affiliation {
         this.startDate = startDate;
     }
 
-    // MVP는 이력을 쌓지 않고 현재 팀 한 줄만 고쳐 쓴다.
+    /** 지금 소속 팀으로 고친다. 소속이 끝났던 줄이면(FA였다가 계약) 다시 지금 소속이 된다. */
     public void changeTeam(Team team) {
         this.team = team;
+        this.endDate = null;
+    }
+
+    /** 소속이 끝났다(FA 등). 이미 끝났으면 처음 끝난 날을 그대로 둔다. */
+    public void end(LocalDate date) {
+        if (endDate == null) {
+            endDate = date;
+        }
+    }
+
+    /** 소속이 끝났는지(FA 등). 끝났으면 team은 마지막 소속이다. */
+    public boolean isEnded() {
+        return endDate != null;
     }
 
     public Long getId() {

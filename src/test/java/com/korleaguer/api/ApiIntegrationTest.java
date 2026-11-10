@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ApiIntegrationTest {
 
     private static final String PHOTO_PREFIX = "https://img.mlbstatic.com/mlb-photos/image/upload/"
-            + "d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/";
-    private static final String PHOTO_SUFFIX = "/headshot/67/current";
+            + "d_people:generic:headshot:silo:current.png/w_360,q_auto:best,f_auto/v1/people/";
+    private static final String PHOTO_SUFFIX = "/headshot/silo/current";
     private static final String JUNG_HOO_PHOTO = PHOTO_PREFIX + "808982" + PHOTO_SUFFIX;
 
     @Autowired
@@ -69,23 +70,49 @@ class ApiIntegrationTest {
                         .value(contains(PHOTO_PREFIX + "808970" + PHOTO_SUFFIX)))
                 .andExpect(jsonPath("$.recent.lines[0].result").value("W"))
                 .andExpect(jsonPath("$.recent.lines[0].summary").value("4타수 2안타(2루타 1) 1홈런 2타점 1볼넷"))
+                // 같은 경기 숫자(그래프용)
+                .andExpect(jsonPath("$.recent.lines[0].batting.atBats").value(4))
+                .andExpect(jsonPath("$.recent.lines[0].batting.hits").value(2))
+                .andExpect(jsonPath("$.recent.lines[0].batting.homeRuns").value(1))
+                .andExpect(jsonPath("$.recent.lines[0].pitching").doesNotExist())
+                .andExpect(jsonPath("$.recent.lines[0].lineup").value("STARTER"))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '고우석')].lineup").value(contains("SUB")))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].lineup").value(contains(nullValue())))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].batting").value(contains(nullValue())))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].played").value(contains(false)))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].summary").value(contains("결장")))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '고우석')].summary")
                         .value(contains("⅔이닝 2피안타 2실점(2자책) 1볼넷 · 패")))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '고우석')].pitching.outs").value(contains(2)))
+                .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '고우석')].pitching.loss").value(contains(true)))
+                // 3경기 × 0.5 = 2타석이지만 최소 10타석, 아웃은 최소 15(5이닝)
+                .andExpect(jsonPath("$.ranking.teamGames").value(3))
+                .andExpect(jsonPath("$.ranking.minPlateAppearances").value(10))
+                .andExpect(jsonPath("$.ranking.minOuts").value(15))
+                .andExpect(jsonPath("$.ranking.minInningsText").value("5"))
                 .andExpect(jsonPath("$.hitters", hasSize(5)))
-                // 타율 높은 순: 김혜성 7타수 3안타(.429)가 이정후(.417)보다 앞선다.
-                .andExpect(jsonPath("$.hitters[0].nameKo").value("김혜성"))
-                .andExpect(jsonPath("$.hitters[0].avg").value(0.429))
-                .andExpect(jsonPath("$.hitters[0].teamAbbr").value("LAD"))
-                .andExpect(jsonPath("$.hitters[0].photoUrl").value(PHOTO_PREFIX + "808975" + PHOTO_SUFFIX))
+                // 순위 기준(10타석)을 채운 선수 먼저 타율 순, 못 채운 선수는 그 뒤에 타율 순.
+                // 김혜성(8타석 .429)은 타율이 가장 높아도 기준을 채운 이정후(14타석 .417) 뒤로 간다.
+                .andExpect(jsonPath("$.hitters[*].nameKo").value(contains("이정후", "송성문", "김하성", "김혜성", "배지환")))
+                .andExpect(jsonPath("$.hitters[0].plateAppearances").value(14))
+                .andExpect(jsonPath("$.hitters[3].plateAppearances").value(8))
+                .andExpect(jsonPath("$.hitters[3].avg").value(0.429))
+                .andExpect(jsonPath("$.hitters[3].teamAbbr").value("LAD"))
+                .andExpect(jsonPath("$.hitters[3].photoUrl").value(PHOTO_PREFIX + "808975" + PHOTO_SUFFIX))
+                // 마이너 경기 수(샘플은 지어낸 값): 김혜성 2 < 메이저 경기라 주로 메이저, 배지환은 주로 마이너
+                .andExpect(jsonPath("$.hitters[3].minorGames").value(2))
+                .andExpect(jsonPath("$.hitters[3].mainlyMinors").value(false))
+                .andExpect(jsonPath("$.hitters[4].minorGames").value(20))
+                .andExpect(jsonPath("$.hitters[4].mainlyMinors").value(true))
                 .andExpect(jsonPath("$.pitchers", hasSize(1)))
                 .andExpect(jsonPath("$.pitchers[0].nameKo").value("고우석"))
                 .andExpect(jsonPath("$.pitchers[0].teamAbbr").value("MIN"))
                 .andExpect(jsonPath("$.pitchers[0].photoUrl").value(PHOTO_PREFIX + "808970" + PHOTO_SUFFIX))
                 .andExpect(jsonPath("$.pitchers[0].outs").value(5))
                 .andExpect(jsonPath("$.pitchers[0].inningsText").value("1⅔"))
-                .andExpect(jsonPath("$.pitchers[0].era").value(10.8));
+                .andExpect(jsonPath("$.pitchers[0].era").value(10.8))
+                .andExpect(jsonPath("$.pitchers[0].minorGames").value(12))
+                .andExpect(jsonPath("$.pitchers[0].mainlyMinors").value(true));
     }
 
     @Test
@@ -116,18 +143,71 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$[0].jersey").value("51"))
                 .andExpect(jsonPath("$[4].nameKo").value("고우석"))
                 .andExpect(jsonPath("$[4].role").value("PITCHER"))
-                .andExpect(jsonPath("$[4].positionKo").value("구원투수"))
+                // MLB 주 포지션은 투수(P)만 알려 준다(선발·구원 구분 없음).
+                .andExpect(jsonPath("$[4].positionKo").value("투수"))
                 .andExpect(jsonPath("$[4].jersey").value(nullValue()));
     }
 
     @Test
-    void jungHooIsMatchedEvenThoughBornInJapan() throws Exception {
-        // 샘플의 출생지는 Nagoya, Japan. 한국 출생이 아니어도 이름이 정확히 같으면 매칭된다.
+    void playersListHasLevel() throws Exception {
+        // 샘플 MLB 데이터(sample/mlb.json): 고우석만 마이너(St. Paul Saints, 트리플A), 나머지는 메이저
+        mockMvc.perform(get("/api/players"))
+                .andExpect(jsonPath("$[0].level").value("MLB"))
+                .andExpect(jsonPath("$[0].levelTeam").value("San Francisco Giants"))
+                .andExpect(jsonPath("$[4].nameKo").value("고우석"))
+                .andExpect(jsonPath("$[4].level").value("MINORS"))
+                .andExpect(jsonPath("$[4].levelTeam").value("St. Paul Saints"))
+                // 마이너 팀에 있으면 소속(teamAbbr)은 그 팀의 MLB 구단이다.
+                .andExpect(jsonPath("$[4].teamAbbr").value("MIN"))
+                .andExpect(jsonPath("$[*].level").value(contains("MLB", "MLB", "MLB", "MLB", "MINORS", "MLB")));
+    }
+
+    @Test
+    void playerPageMoves() throws Exception {
+        // 고우석: 상태 변경 줄(roster status changed)은 빠지고 최신순 4줄
+        mockMvc.perform(get("/api/players/5"))
+                // 선수 페이지도 목록과 같이 지금 단계를 준다.
+                .andExpect(jsonPath("$.player.level").value("MINORS"))
+                .andExpect(jsonPath("$.player.levelTeam").value("St. Paul Saints"))
+                .andExpect(jsonPath("$.moves", hasSize(4)))
+                .andExpect(jsonPath("$.moves[*].date").value(contains("2026-10-06", "2026-10-02", "2026-09-20", "2026-03-24")))
+                .andExpect(jsonPath("$.moves[0].typeCode").value("OUT"))
+                .andExpect(jsonPath("$.moves[0].labelKo").value("마이너 이관(아웃라이트)"))
+                .andExpect(jsonPath("$.moves[0].fromTeam").value("미네소타"))
+                .andExpect(jsonPath("$.moves[0].toTeam").value("St. Paul Saints"))
+                .andExpect(jsonPath("$.moves[0].toLevel").value("MINORS"))
+                .andExpect(jsonPath("$.moves[1].labelKo").value("지명 할당(DFA)"))
+                .andExpect(jsonPath("$.moves[1].fromTeam").value(nullValue()))
+                .andExpect(jsonPath("$.moves[1].toTeam").value("미네소타"))
+                .andExpect(jsonPath("$.moves[1].toLevel").value("MLB"))
+                .andExpect(jsonPath("$.moves[2].labelKo").value("메이저 콜업"))
+                .andExpect(jsonPath("$.moves[2].fromTeam").value("St. Paul Saints"))
+                .andExpect(jsonPath("$.moves[3].labelKo").value("마이너 강등(옵션)"));
+
+        // 부상자 명단 등재·해제(상태 변경 줄 중 남기는 것)
+        mockMvc.perform(get("/api/players/2"))
+                .andExpect(jsonPath("$.moves[*].labelKo").value(contains("부상자 명단 해제", "부상자 명단 등재")))
+                .andExpect(jsonPath("$.moves[0].toTeam").value("LA 다저스"));
+        // 트레이드: 양쪽 다 MLB 구단이면 한글 이름
+        mockMvc.perform(get("/api/players/6"))
+                .andExpect(jsonPath("$.moves[0].labelKo").value("트레이드"))
+                .andExpect(jsonPath("$.moves[0].fromTeam").value("피츠버그"))
+                .andExpect(jsonPath("$.moves[0].toTeam").value("밀워키"));
+        // 이동 기록이 없으면 빈 목록
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(jsonPath("$.moves", hasSize(0)));
+    }
+
+    @Test
+    void playerInfoComesFromMlbPeople() throws Exception {
+        // 샘플 MLB 선수 정보: 출생지 Nagoya, Japan(birthCity, birthCountry), 주 포지션 CF
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.player.nameEn").value("Jung Hoo Lee"))
                 .andExpect(jsonPath("$.player.birthPlace").value("Nagoya, Japan"))
                 .andExpect(jsonPath("$.player.teamAbbr").value("SF"))
+                .andExpect(jsonPath("$.player.teamEn").value("San Francisco Giants"))
+                .andExpect(jsonPath("$.player.position").value("Center Fielder"))
                 .andExpect(jsonPath("$.hitting.photoUrl").value(JUNG_HOO_PHOTO));
     }
 
@@ -147,8 +227,8 @@ class ApiIntegrationTest {
     }
 
     @Test
-    void usStyleBirthDateAndMissingJersey() throws Exception {
-        // 고우석: dob "8/6/1998"(미국식), 등번호 없음
+    void pitcherProfileWithoutJersey() throws Exception {
+        // 고우석: 등번호(primaryNumber) 없음, 키 5' 11", 몸무게 198
         mockMvc.perform(get("/api/players/5"))
                 .andExpect(jsonPath("$.player.birthDate").value("1998-08-06"))
                 .andExpect(jsonPath("$.player.age").value(28))
@@ -171,7 +251,7 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.player.nameKo").value("고우석"))
                 .andExpect(jsonPath("$.player.teamEn").value("Minnesota Twins"))
                 .andExpect(jsonPath("$.player.teamAbbr").value("MIN"))
-                .andExpect(jsonPath("$.player.positionKo").value("구원투수"))
+                .andExpect(jsonPath("$.player.positionKo").value("투수"))
                 .andExpect(jsonPath("$.player.birthPlace").value("Incheon, South Korea"))
                 .andExpect(jsonPath("$.hitting").doesNotExist())
                 .andExpect(jsonPath("$.pitching.saves").value(1))
@@ -192,6 +272,14 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void lineupPerGame() throws Exception {
+        // 김혜성: 2003 결장(null), 2002 선발, 2001 교체(타순 901)
+        mockMvc.perform(get("/api/players/2"))
+                .andExpect(jsonPath("$.games[*].gameId").value(contains(2003, 2002, 2001)))
+                .andExpect(jsonPath("$.games[*].lineup").value(contains(nullValue(), is("STARTER"), is("SUB"))));
+    }
+
+    @Test
     void unknownPlayerIs404() throws Exception {
         mockMvc.perform(get("/api/players/999999"))
                 .andExpect(status().isNotFound())
@@ -200,13 +288,13 @@ class ApiIntegrationTest {
 
     @Test
     void adminNeedsToken() throws Exception {
-        mockMvc.perform(post("/admin/ingest/daily").param("date", "2026-09-26"))
+        mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26"))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(post("/admin/ingest/daily").param("date", "2026-09-26")
+        mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26")
                         .header("X-Admin-Token", "test-admin-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.kind").value("DAILY"))
+                .andExpect(jsonPath("$.kind").value("GAMES"))
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
     }
 

@@ -1,0 +1,113 @@
+{
+  "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "stats": [
+    {
+      "type": {
+        "displayName": "season"
+      },
+      "group": {
+        "displayName": "hitting"
+      },
+      "splits": [
+        {
+          "season": "2026",
+          "stat": {
+            "gamesPlayed": 9,
+            "gamesPitched": null
+          },
+          "team": {
+            "id": 1960,
+            "name": "St. Paul Saints"
+          },
+          "sport": {
+            "id": 11,
+            "abbreviation": "AAA"
+          },
+          "gameType": "R"
+        }
+      ]
+    },
+    {
+      "type": {
+        "displayName": "season"
+      },
+      "group": {
+        "displayName": "pitching"
+      },
+      "splits": [
+        {
+          "season": "2026",
+          "stat": {
+            "gamesPlayed": 27,
+            "gamesPitched": 27
+          },
+          "sport": {
+            "id": 11,
+            "abbreviation": "AAA"
+          },
+          "gameType": "R"
+        },
+        {
+          "season": "2026",
+          "stat": {
+            "gamesPlayed": 19,
+            "gamesPitched": 19
+          },
+          "team": {
+            "id": 512,
+            "name": "Toledo Mud Hens"
+          },
+          "sport": {
+            "id": 11,
+            "abbreviation": "AAA"
+          },
+          "gameType": "R"
+        },
+        {
+          "season": "2026",
+          "stat": {
+            "gamesPlayed": 8,
+            "gamesPitched": 8
+          },
+          "team": {
+            "id": 1960,
+            "name": "St. Paul Saints"
+          },
+          "sport": {
+            "id": 11,
+            "abbreviation": "AAA"
+          },
+          "gameType": "R"
+        },
+        {
+          "season": "2026",
+          "stat": {
+            "gamesPlayed": 8,
+            "gamesPitched": 8
+          },
+          "team": {
+            "id": 106,
+            "name": "Erie SeaWolves"
+          },
+          "sport": {
+            "id": 12,
+            "abbreviation": "AA"
+          },
+          "gameType": "R"
+        },
+        {
+          "season": "2026",
+          "stat": {
+            "gamesPlayed": 35,
+            "gamesPitched": 35
+          },
+          "sport": {
+            "id": 21,
+            "abbreviation": "Minors"
+          },
+          "gameType": "R"
+        }
+      ]
+    }
+  ]
+}

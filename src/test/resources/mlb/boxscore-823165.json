@@ -1,0 +1,2278 @@
+{
+ "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+ "teams": {
+  "away": {
+   "team": {
+    "id": 119,
+    "name": "Los Angeles Dodgers",
+    "link": "/api/v1/teams/119",
+    "abbreviation": "LAD"
+   },
+   "teamStats": {
+    "batting": {
+     "runs": 4,
+     "hits": 9
+    }
+   },
+   "players": {
+    "ID669257": {
+     "person": {
+      "id": 669257,
+      "fullName": "Will Smith",
+      "link": "/api/v1/people/669257"
+     },
+     "jerseyNumber": "16",
+     "position": {
+      "code": "2",
+      "name": "Catcher",
+      "type": "Catcher",
+      "abbreviation": "C"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "300",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "2",
+       "name": "Catcher",
+       "type": "Catcher",
+       "abbreviation": "C"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "1-3 | K, R",
+       "gamesPlayed": 1,
+       "flyOuts": 1,
+       "groundOuts": 0,
+       "airOuts": 1,
+       "runs": 1,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 3,
+       "totalBases": 1,
+       "rbi": 0,
+       "leftOnBase": 1,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID687221": {
+     "person": {
+      "id": 687221,
+      "fullName": "Dalton Rushing",
+      "link": "/api/v1/people/687221"
+     },
+     "position": {
+      "code": "11",
+      "name": "Pinch Hitter",
+      "type": "Hitter",
+      "abbreviation": "PH"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "301",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "11",
+       "name": "Pinch Hitter",
+       "type": "Hitter",
+       "abbreviation": "PH"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "note": "a-",
+       "summary": "0-1 | K",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 0,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 1,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 1,
+       "totalBases": 0,
+       "rbi": 0,
+       "leftOnBase": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID669373": {
+     "person": {
+      "id": 669373,
+      "fullName": "Tarik Skubal",
+      "link": "/api/v1/people/669373"
+     },
+     "jerseyNumber": "29",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": true,
+      "isSubstitute": false
+     },
+     "stats": {
+      "batting": {},
+      "pitching": {}
+     }
+    },
+    "ID681911": {
+     "person": {
+      "id": 681911,
+      "fullName": "Alex Vesia",
+      "link": "/api/v1/people/681911"
+     },
+     "jerseyNumber": "51",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "1.0 IP, 0 ER, 2 K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 1,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 2,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 13,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 3,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 13,
+       "balls": 4,
+       "strikes": 9,
+       "strikePercentage": ".690",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 0,
+       "gamesFinished": 0,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID656945": {
+     "person": {
+      "id": 656945,
+      "fullName": "Tanner Scott",
+      "link": "/api/v1/people/656945"
+     },
+     "jerseyNumber": "66",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": true,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "note": "(S, 25)",
+       "summary": "1.0 IP, 0 ER, 2 K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 1,
+       "groundOuts": 0,
+       "airOuts": 1,
+       "runs": 0,
+       "doubles": 1,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 2,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 4,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 14,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 1,
+       "saveOpportunities": 1,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 4,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 14,
+       "balls": 2,
+       "strikes": 12,
+       "strikePercentage": ".860",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 0,
+       "gamesFinished": 1,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID663460": {
+     "person": {
+      "id": 663460,
+      "fullName": "Kris Bubic",
+      "link": "/api/v1/people/663460"
+     },
+     "jerseyNumber": "40",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "note": "(H, 2)",
+       "summary": "1.0 IP, 0 ER, K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 2,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 4,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 12,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 1,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 4,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 12,
+       "balls": 1,
+       "strikes": 11,
+       "strikePercentage": ".920",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 0,
+       "gamesFinished": 0,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID676439": {
+     "person": {
+      "id": 676439,
+      "fullName": "Hunter Feduccia",
+      "link": "/api/v1/people/676439"
+     },
+     "jerseyNumber": "46",
+     "position": {
+      "code": "2",
+      "name": "Catcher",
+      "type": "Catcher",
+      "abbreviation": "C"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "302",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "2",
+       "name": "Catcher",
+       "type": "Catcher",
+       "abbreviation": "C"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "0-1",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 1,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 0,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 1,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 1,
+       "totalBases": 0,
+       "rbi": 0,
+       "leftOnBase": 1,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID660271": {
+     "person": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "link": "/api/v1/people/660271"
+     },
+     "jerseyNumber": "17",
+     "position": {
+      "code": "10",
+      "name": "Designated Hitter",
+      "type": "Hitter",
+      "abbreviation": "DH"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "200",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "10",
+       "name": "Designated Hitter",
+       "type": "Hitter",
+       "abbreviation": "DH"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "1-5 | 2 K",
+       "gamesPlayed": 1,
+       "flyOuts": 1,
+       "groundOuts": 1,
+       "airOuts": 1,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 2,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 5,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 5,
+       "totalBases": 1,
+       "rbi": 0,
+       "leftOnBase": 1,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID623465": {
+     "person": {
+      "id": 623465,
+      "fullName": "Evan Phillips",
+      "link": "/api/v1/people/623465"
+     },
+     "jerseyNumber": "59",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "note": "(W, 3-2)(BS, 3)",
+       "summary": "1.0 IP, ER, K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 1,
+       "groundOuts": 0,
+       "airOuts": 2,
+       "runs": 1,
+       "doubles": 1,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 15,
+       "inningsPitched": "1.0",
+       "wins": 1,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 1,
+       "holds": 0,
+       "blownSaves": 1,
+       "earnedRuns": 1,
+       "battersFaced": 4,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 15,
+       "balls": 4,
+       "strikes": 11,
+       "strikePercentage": ".730",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 1,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 0,
+       "runsScoredPer9": "9.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 1,
+       "passedBall": 0,
+       "popOuts": 1,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID605141": {
+     "person": {
+      "id": 605141,
+      "fullName": "Mookie Betts",
+      "link": "/api/v1/people/605141"
+     },
+     "jerseyNumber": "50",
+     "position": {
+      "code": "6",
+      "name": "Shortstop",
+      "type": "Infielder",
+      "abbreviation": "SS"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "100",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "6",
+       "name": "Shortstop",
+       "type": "Infielder",
+       "abbreviation": "SS"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "1-5 | HR, K, RBI",
+       "gamesPlayed": 1,
+       "flyOuts": 2,
+       "groundOuts": 0,
+       "airOuts": 3,
+       "runs": 1,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 1,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 5,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 5,
+       "totalBases": 4,
+       "rbi": 1,
+       "leftOnBase": 4,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "5.00",
+       "popOuts": 0,
+       "lineOuts": 1
+      },
+      "pitching": {}
+     }
+    },
+    "ID669743": {
+     "person": {
+      "id": 669743,
+      "fullName": "Alex Call",
+      "link": "/api/v1/people/669743"
+     },
+     "jerseyNumber": "12",
+     "position": {
+      "code": "7",
+      "name": "Outfielder",
+      "type": "Outfielder",
+      "abbreviation": "LF"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "401",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "7",
+       "name": "Outfielder",
+       "type": "Outfielder",
+       "abbreviation": "LF"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "0-1",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 1,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 0,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 1,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 1,
+       "totalBases": 0,
+       "rbi": 0,
+       "leftOnBase": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID605483": {
+     "person": {
+      "id": 605483,
+      "fullName": "Blake Snell",
+      "link": "/api/v1/people/605483"
+     },
+     "jerseyNumber": "7",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "4.0 IP, ER, 3 K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 1,
+       "flyOuts": 5,
+       "groundOuts": 3,
+       "airOuts": 5,
+       "runs": 1,
+       "doubles": 2,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 3,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 5,
+       "hitByPitch": 0,
+       "atBats": 15,
+       "caughtStealing": 0,
+       "stolenBases": 2,
+       "stolenBasePercentage": "1.000",
+       "numberOfPitches": 77,
+       "inningsPitched": "4.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 1,
+       "battersFaced": 16,
+       "outs": 12,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 77,
+       "balls": 27,
+       "strikes": 50,
+       "strikePercentage": ".650",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 0,
+       "runsScoredPer9": "2.25",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 1,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID592779": {
+     "person": {
+      "id": 592779,
+      "fullName": "Brock Stewart",
+      "link": "/api/v1/people/592779"
+     },
+     "jerseyNumber": "41",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "note": "(H, 9)",
+       "summary": "1.0 IP, ER, K, BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 1,
+       "airOuts": 1,
+       "runs": 1,
+       "doubles": 0,
+       "triples": 1,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 1,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 4,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 18,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 1,
+       "blownSaves": 0,
+       "earnedRuns": 1,
+       "battersFaced": 5,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 18,
+       "balls": 8,
+       "strikes": 10,
+       "strikePercentage": ".560",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 0,
+       "runsScoredPer9": "9.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 1,
+       "lineOuts": 0
+      }
+     }
+    }
+   },
+   "batters": [
+    605141,
+    660271,
+    669257,
+    687221,
+    676439,
+    606192,
+    669743,
+    663656,
+    500743,
+    681624,
+    571771,
+    669242,
+    605483,
+    681911,
+    663460,
+    592779,
+    623465,
+    656945
+   ],
+   "pitchers": [
+    605483,
+    681911,
+    663460,
+    592779,
+    623465,
+    656945
+   ],
+   "bench": [
+    518692,
+    571970
+   ],
+   "bullpen": [
+    621242,
+    676263,
+    607192,
+    808963,
+    669373,
+    595014,
+    680736,
+    808967
+   ]
+  },
+  "home": {
+   "team": {
+    "id": 137,
+    "name": "San Francisco Giants",
+    "link": "/api/v1/teams/137",
+    "abbreviation": "SF"
+   },
+   "teamStats": {
+    "batting": {
+     "runs": 3,
+     "hits": 9
+    }
+   },
+   "players": {
+    "ID813841": {
+     "person": {
+      "id": 813841,
+      "fullName": "Jonah Cox",
+      "link": "/api/v1/people/813841"
+     },
+     "jerseyNumber": "53",
+     "position": {
+      "code": "4",
+      "name": "Second Base",
+      "type": "Infielder",
+      "abbreviation": "2B"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "100",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "4",
+       "name": "Second Base",
+       "type": "Infielder",
+       "abbreviation": "2B"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "1-4 | 2B, K, R",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 2,
+       "airOuts": 0,
+       "runs": 1,
+       "doubles": 1,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 4,
+       "caughtStealing": 0,
+       "stolenBases": 1,
+       "stolenBasePercentage": "1.000",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 4,
+       "totalBases": 2,
+       "rbi": 0,
+       "leftOnBase": 1,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID681916": {
+     "person": {
+      "id": 681916,
+      "fullName": "Dylan Smith",
+      "link": "/api/v1/people/681916"
+     },
+     "jerseyNumber": "66",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": true,
+      "isSubstitute": false
+     },
+     "stats": {
+      "batting": {},
+      "pitching": {}
+     }
+    },
+    "ID701474": {
+     "person": {
+      "id": 701474,
+      "fullName": "Duncan Davitt",
+      "link": "/api/v1/people/701474"
+     },
+     "jerseyNumber": "76",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "0.2 IP, 2 ER, 2 K, BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 0,
+       "airOuts": 0,
+       "runs": 2,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 2,
+       "baseOnBalls": 1,
+       "intentionalWalks": 0,
+       "hits": 3,
+       "hitByPitch": 0,
+       "atBats": 5,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 23,
+       "inningsPitched": "0.2",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 2,
+       "battersFaced": 6,
+       "outs": 2,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 23,
+       "balls": 8,
+       "strikes": 15,
+       "strikePercentage": ".650",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 0,
+       "runsScoredPer9": "27.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID683363": {
+     "person": {
+      "id": 683363,
+      "fullName": "Matt Wilkinson",
+      "link": "/api/v1/people/683363"
+     },
+     "jerseyNumber": "71",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "3.0 IP, ER, 2 K, BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 1,
+       "flyOuts": 5,
+       "groundOuts": 1,
+       "airOuts": 6,
+       "runs": 1,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 1,
+       "strikeOuts": 2,
+       "baseOnBalls": 1,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 10,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 37,
+       "inningsPitched": "3.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 1,
+       "battersFaced": 11,
+       "outs": 9,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 37,
+       "balls": 16,
+       "strikes": 21,
+       "strikePercentage": ".570",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 0,
+       "runsScoredPer9": "3.00",
+       "homeRunsPer9": "3.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 1,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID701852": {
+     "person": {
+      "id": 701852,
+      "fullName": "Drew Cavanaugh",
+      "link": "/api/v1/people/701852"
+     },
+     "jerseyNumber": "61",
+     "position": {
+      "code": "2",
+      "name": "Catcher",
+      "type": "Catcher",
+      "abbreviation": "C"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "801",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "11",
+       "name": "Pinch Hitter",
+       "type": "Hitter",
+       "abbreviation": "PH"
+      },
+      {
+       "code": "2",
+       "name": "Catcher",
+       "type": "Catcher",
+       "abbreviation": "C"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "note": "c-",
+       "summary": "2-2 | 3B, 2B, RBI",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 0,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 1,
+       "triples": 1,
+       "homeRuns": 0,
+       "strikeOuts": 0,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 2,
+       "hitByPitch": 0,
+       "atBats": 2,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 2,
+       "totalBases": 5,
+       "rbi": 1,
+       "leftOnBase": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID682674": {
+     "person": {
+      "id": 682674,
+      "fullName": "Victor Bericoto",
+      "link": "/api/v1/people/682674"
+     },
+     "jerseyNumber": "78",
+     "position": {
+      "code": "10",
+      "name": "Designated Hitter",
+      "type": "Hitter",
+      "abbreviation": "DH"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "300",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "10",
+       "name": "Designated Hitter",
+       "type": "Hitter",
+       "abbreviation": "DH"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "1-4 | 2B, K",
+       "gamesPlayed": 1,
+       "flyOuts": 1,
+       "groundOuts": 1,
+       "airOuts": 1,
+       "runs": 0,
+       "doubles": 1,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 4,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 4,
+       "totalBases": 2,
+       "rbi": 0,
+       "leftOnBase": 1,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID805345": {
+     "person": {
+      "id": 805345,
+      "fullName": "Trent Harris",
+      "link": "/api/v1/people/805345"
+     },
+     "jerseyNumber": "68",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "note": "(L, 0-1)",
+       "summary": "1.0 IP, ER, 0 K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 2,
+       "airOuts": 1,
+       "runs": 1,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 1,
+       "strikeOuts": 0,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 2,
+       "hitByPitch": 0,
+       "atBats": 5,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 16,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 1,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 1,
+       "battersFaced": 5,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 16,
+       "balls": 6,
+       "strikes": 10,
+       "strikePercentage": ".630",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 1,
+       "runsScoredPer9": "9.00",
+       "homeRunsPer9": "9.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 1
+      }
+     }
+    },
+    "ID671345": {
+     "person": {
+      "id": 671345,
+      "fullName": "Jason Foley",
+      "link": "/api/v1/people/671345"
+     },
+     "jerseyNumber": "64",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "1.0 IP, 0 ER, K, BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 1,
+       "airOuts": 1,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 1,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 22,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 4,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 22,
+       "balls": 10,
+       "strikes": 12,
+       "strikePercentage": ".550",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 0,
+       "gamesFinished": 0,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 1
+      }
+     }
+    },
+    "ID693313": {
+     "person": {
+      "id": 693313,
+      "fullName": "Carson Seymour",
+      "link": "/api/v1/people/693313"
+     },
+     "jerseyNumber": "77",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "1.0 IP, 0 ER, K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 2,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 10,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 3,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 10,
+       "balls": 3,
+       "strikes": 7,
+       "strikePercentage": ".700",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 0,
+       "gamesFinished": 0,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID687551": {
+     "person": {
+      "id": 687551,
+      "fullName": "Drew Gilbert",
+      "link": "/api/v1/people/687551"
+     },
+     "jerseyNumber": "0",
+     "position": {
+      "code": "8",
+      "name": "Outfielder",
+      "type": "Outfielder",
+      "abbreviation": "CF"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "601",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "11",
+       "name": "Pinch Hitter",
+       "type": "Hitter",
+       "abbreviation": "PH"
+      },
+      {
+       "code": "8",
+       "name": "Outfielder",
+       "type": "Outfielder",
+       "abbreviation": "CF"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "note": "a-",
+       "summary": "0-0 | BB, R",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 0,
+       "airOuts": 0,
+       "runs": 1,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 0,
+       "baseOnBalls": 1,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 0,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 1,
+       "totalBases": 0,
+       "rbi": 0,
+       "leftOnBase": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID663941": {
+     "person": {
+      "id": 663941,
+      "fullName": "Tristan Beck",
+      "link": "/api/v1/people/663941"
+     },
+     "jerseyNumber": "43",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "1.1 IP, 0 ER, 2 K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 2,
+       "groundOuts": 0,
+       "airOuts": 2,
+       "runs": 0,
+       "doubles": 1,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 2,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 3,
+       "hitByPitch": 0,
+       "atBats": 7,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 24,
+       "inningsPitched": "1.1",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 7,
+       "outs": 4,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 24,
+       "balls": 8,
+       "strikes": 16,
+       "strikePercentage": ".670",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 1,
+       "gamesFinished": 0,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 3,
+       "inheritedRunnersScored": 1,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID666808": {
+     "person": {
+      "id": 666808,
+      "fullName": "Camilo Doval",
+      "link": "/api/v1/people/666808"
+     },
+     "jerseyNumber": "57",
+     "position": {
+      "code": "1",
+      "name": "Pitcher",
+      "type": "Pitcher",
+      "abbreviation": "P"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "1",
+       "name": "Pitcher",
+       "type": "Pitcher",
+       "abbreviation": "P"
+      }
+     ],
+     "stats": {
+      "batting": {},
+      "pitching": {
+       "summary": "1.0 IP, 0 ER, 3 K, 0 BB",
+       "gamesPlayed": 1,
+       "gamesStarted": 0,
+       "flyOuts": 0,
+       "groundOuts": 0,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 3,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "numberOfPitches": 16,
+       "inningsPitched": "1.0",
+       "wins": 0,
+       "losses": 0,
+       "saves": 0,
+       "saveOpportunities": 0,
+       "holds": 0,
+       "blownSaves": 0,
+       "earnedRuns": 0,
+       "battersFaced": 3,
+       "outs": 3,
+       "gamesPitched": 1,
+       "completeGames": 0,
+       "shutouts": 0,
+       "pitchesThrown": 16,
+       "balls": 6,
+       "strikes": 10,
+       "strikePercentage": ".630",
+       "hitBatsmen": 0,
+       "balks": 0,
+       "wildPitches": 0,
+       "pickoffs": 0,
+       "rbi": 0,
+       "gamesFinished": 0,
+       "runsScoredPer9": "0.00",
+       "homeRunsPer9": "0.00",
+       "inheritedRunners": 0,
+       "inheritedRunnersScored": 0,
+       "catchersInterference": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "passedBall": 0,
+       "popOuts": 0,
+       "lineOuts": 0
+      }
+     }
+    },
+    "ID806367": {
+     "person": {
+      "id": 806367,
+      "fullName": "Turner Hill",
+      "link": "/api/v1/people/806367"
+     },
+     "jerseyNumber": "52",
+     "position": {
+      "code": "7",
+      "name": "Outfielder",
+      "type": "Outfielder",
+      "abbreviation": "LF"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "200",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": false
+     },
+     "allPositions": [
+      {
+       "code": "8",
+       "name": "Outfielder",
+       "type": "Outfielder",
+       "abbreviation": "CF"
+      },
+      {
+       "code": "7",
+       "name": "Outfielder",
+       "type": "Outfielder",
+       "abbreviation": "LF"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "summary": "1-3 | 2B, K, RBI",
+       "gamesPlayed": 1,
+       "flyOuts": 2,
+       "groundOuts": 0,
+       "airOuts": 2,
+       "runs": 1,
+       "doubles": 1,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 1,
+       "hitByPitch": 0,
+       "atBats": 3,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 4,
+       "totalBases": 2,
+       "rbi": 1,
+       "leftOnBase": 0,
+       "sacBunts": 0,
+       "sacFlies": 1,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID691785": {
+     "person": {
+      "id": 691785,
+      "fullName": "Marcelo Mayer",
+      "link": "/api/v1/people/691785"
+     },
+     "jerseyNumber": "7",
+     "position": {
+      "code": "5",
+      "name": "Third Base",
+      "type": "Infielder",
+      "abbreviation": "3B"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "701",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "11",
+       "name": "Pinch Hitter",
+       "type": "Hitter",
+       "abbreviation": "PH"
+      },
+      {
+       "code": "5",
+       "name": "Third Base",
+       "type": "Infielder",
+       "abbreviation": "3B"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "note": "b-",
+       "summary": "0-2",
+       "gamesPlayed": 1,
+       "flyOuts": 1,
+       "groundOuts": 1,
+       "airOuts": 1,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 0,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 2,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 2,
+       "totalBases": 0,
+       "rbi": 0,
+       "leftOnBase": 1,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    },
+    "ID678545": {
+     "person": {
+      "id": 678545,
+      "fullName": "Osleivis Basabe",
+      "link": "/api/v1/people/678545"
+     },
+     "jerseyNumber": "39",
+     "position": {
+      "code": "11",
+      "name": "Pinch Hitter",
+      "type": "Hitter",
+      "abbreviation": "PH"
+     },
+     "status": {
+      "code": "A",
+      "description": "Active"
+     },
+     "battingOrder": "602",
+     "gameStatus": {
+      "isCurrentBatter": false,
+      "isCurrentPitcher": false,
+      "isOnBench": false,
+      "isSubstitute": true
+     },
+     "allPositions": [
+      {
+       "code": "11",
+       "name": "Pinch Hitter",
+       "type": "Hitter",
+       "abbreviation": "PH"
+      }
+     ],
+     "stats": {
+      "batting": {
+       "note": "d-",
+       "summary": "0-1 | K",
+       "gamesPlayed": 1,
+       "flyOuts": 0,
+       "groundOuts": 0,
+       "airOuts": 0,
+       "runs": 0,
+       "doubles": 0,
+       "triples": 0,
+       "homeRuns": 0,
+       "strikeOuts": 1,
+       "baseOnBalls": 0,
+       "intentionalWalks": 0,
+       "hits": 0,
+       "hitByPitch": 0,
+       "atBats": 1,
+       "caughtStealing": 0,
+       "stolenBases": 0,
+       "stolenBasePercentage": ".---",
+       "groundIntoDoublePlay": 0,
+       "groundIntoTriplePlay": 0,
+       "plateAppearances": 1,
+       "totalBases": 0,
+       "rbi": 0,
+       "leftOnBase": 0,
+       "sacBunts": 0,
+       "sacFlies": 0,
+       "catchersInterference": 0,
+       "pickoffs": 0,
+       "atBatsPerHomeRun": "-.--",
+       "popOuts": 0,
+       "lineOuts": 0
+      },
+      "pitching": {}
+     }
+    }
+   },
+   "batters": [
+    813841,
+    806367,
+    682674,
+    815589,
+    695391,
+    668800,
+    687551,
+    678545,
+    694376,
+    691785,
+    814154,
+    701852,
+    683766,
+    683363,
+    701474,
+    663941,
+    693313,
+    666808,
+    671345,
+    805345
+   ],
+   "pitchers": [
+    683363,
+    701474,
+    663941,
+    693313,
+    666808,
+    671345,
+    805345
+   ],
+   "bench": [
+    687529
+   ],
+   "bullpen": [
+    656529,
+    669270,
+    675920,
+    683627,
+    694738,
+    694820,
+    681916
+   ]
+  }
+ }
+}

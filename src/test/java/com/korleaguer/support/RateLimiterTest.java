@@ -42,4 +42,16 @@ class RateLimiterTest {
 
         assertThat(now[0] - before).isGreaterThanOrEqualTo(MINUTE);
     }
+
+    @Test
+    void oneRequestPerSecondWindowSpacesRequests() {
+        RateLimiter perSecond = new RateLimiter(1, Duration.ofSeconds(1), () -> now[0], nanos -> now[0] += nanos);
+        List<Long> sentAt = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            perSecond.acquire();
+            sentAt.add(now[0]);
+        }
+
+        assertThat(sentAt).containsExactly(0L, SECOND, 2 * SECOND);
+    }
 }

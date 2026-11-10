@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 /**
- * 관리용 수집 엔드포인트. X-Admin-Token 검사는 AdminTokenInterceptor가 한다.
- * 실제 모드에서는 요청 수 제한(분당 5회) 때문에 끝날 때까지 몇 분 걸릴 수 있다.
+ * 관리용 수집 엔드포인트(MLB 공식 Stats API). X-Admin-Token 검사는 AdminTokenInterceptor가 한다.
+ * MLB 요청은 1초에 1회라 시즌 다시 받기는 끝날 때까지 몇십 초 걸릴 수 있다.
  * 수집이 이미 도는 중이면 409 {"error":"ingest already running"}을 돌려준다(ApiExceptionHandler).
  */
 @RestController
@@ -26,18 +26,27 @@ public class AdminController {
         this.ingestService = ingestService;
     }
 
-    @PostMapping("/resolve-players")
-    public IngestLogResponse resolvePlayers() {
-        return IngestLogResponse.from(ingestService.resolvePlayers());
+    /** 명단 선수의 프로필·지금 팀·단계·이동 기록을 지금 다시 받는다. */
+    @PostMapping("/ingest/players")
+    public IngestLogResponse ingestPlayers() {
+        return IngestLogResponse.from(ingestService.syncPlayers());
     }
 
+    /** 명단 선수 전원의 한 시즌(gameLog + 팀 일정 + 포스트시즌 박스스코어)을 다시 받는다. */
     @PostMapping("/ingest/season")
     public IngestLogResponse ingestSeason(@RequestParam @Min(2000) @Max(2100) int season) {
         return IngestLogResponse.from(ingestService.ingestSeason(season));
     }
 
-    @PostMapping("/ingest/daily")
-    public IngestLogResponse ingestDaily(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return IngestLogResponse.from(ingestService.ingestDaily(date));
+    /** 미국 날짜 date와 그 전날의 우리 팀 경기(일정 + 박스스코어)를 다시 받는다. */
+    @PostMapping("/ingest/games")
+    public IngestLogResponse ingestGames(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return IngestLogResponse.from(ingestService.ingestGames(date));
+    }
+
+    /** 스케줄이 하는 따라잡기를 지금 한 번 돈다(경기 갱신 포함). */
+    @PostMapping("/ingest/catch-up")
+    public IngestLogResponse catchUp() {
+        return IngestLogResponse.from(ingestService.catchUp(true));
     }
 }

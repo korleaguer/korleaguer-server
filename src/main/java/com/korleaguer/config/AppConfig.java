@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.Clock;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 캐시는 지금 메모리(Caffeine, 60초 만료)에 둔다. 설정은 application.properties의 spring.cache.*.
@@ -26,5 +28,11 @@ public class AppConfig {
     @Bean
     public Clock clock() {
         return Clock.systemUTC();
+    }
+
+    /** 뒤에서 도는 수집(앱 시작 때 따라잡기, 선수 페이지에서 시즌 받기). 앱이 내려갈 때 멈춘다. */
+    @Bean(destroyMethod = "shutdownNow")
+    public ExecutorService ingestExecutor() {
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 }

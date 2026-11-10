@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * 명단(baseball.yml)에 사람이 적은 값(MLB 선수 번호, 한국 시절 소속)과 거기서 만드는 사진·MLB 페이지 주소.
- * 한글 이름으로 명단의 줄을 찾으므로 balldontlie와 매칭 전인 선수도 값이 나올 수 있다.
+ * 한글 이름으로 명단의 줄을 찾으므로 MLB에서 선수 정보를 받기 전에도 값이 나올 수 있다.
  */
 @Component
 class RosterProfiles {

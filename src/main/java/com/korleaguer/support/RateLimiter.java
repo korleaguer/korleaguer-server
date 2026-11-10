@@ -7,30 +7,45 @@ import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
 
 /**
- * 분당 N회 요청 제한(슬라이딩 윈도우).
- * 최근 N번의 요청 시각을 기억하고, 가장 오래된 요청에서 61초(60초 + 여유 1초)가 지나야 다음 요청을 보낸다.
- * 그래서 어느 60초 구간을 잘라 봐도 요청은 N회 이하다.
+ * 구간당 N회 요청 제한(슬라이딩 윈도우). 기본 구간은 1분이다.
+ * 최근 N번의 요청 시각을 기억하고, 가장 오래된 요청에서 구간 길이(1분이면 60초 + 여유 1초)가 지나야 다음 요청을 보낸다.
+ * 그래서 어느 구간을 잘라 봐도 요청은 N회 이하다.
  * 여러 스레드가 동시에 부르면 synchronized 때문에 한 줄로 서서 차례를 기다린다.
  */
 public class RateLimiter {
 
-    private static final long WINDOW_NANOS = Duration.ofSeconds(61).toNanos();
+    private static final Duration MINUTE_WINDOW = Duration.ofSeconds(61);
 
     private final int limit;
+    private final long windowNanos;
     private final LongSupplier nanoTime;
     private final LongConsumer sleeper;
     private final Deque<Long> recent = new ArrayDeque<>();
 
     public RateLimiter(int requestsPerMinute) {
-        this(requestsPerMinute, System::nanoTime, RateLimiter::sleepNanos);
+        this(requestsPerMinute, MINUTE_WINDOW, System::nanoTime, RateLimiter::sleepNanos);
+    }
+
+    /** window 동안 limit회. 예: (1, 1초)면 요청 사이를 1초 이상 띄운다. */
+    public RateLimiter(int limit, Duration window) {
+        this(limit, window, System::nanoTime, RateLimiter::sleepNanos);
     }
 
     /** 시계와 잠자기를 바꿔 끼우는 생성자(테스트용) */
     public RateLimiter(int requestsPerMinute, LongSupplier nanoTime, LongConsumer sleeper) {
-        if (requestsPerMinute <= 0) {
-            throw new IllegalArgumentException("requestsPerMinute must be positive");
+        this(requestsPerMinute, MINUTE_WINDOW, nanoTime, sleeper);
+    }
+
+    /** 구간 길이까지 바꿔 끼우는 생성자(테스트용) */
+    public RateLimiter(int limit, Duration window, LongSupplier nanoTime, LongConsumer sleeper) {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be positive");
         }
-        this.limit = requestsPerMinute;
+        if (window.isZero() || window.isNegative()) {
+            throw new IllegalArgumentException("window must be positive");
+        }
+        this.limit = limit;
+        this.windowNanos = window.toNanos();
         this.nanoTime = nanoTime;
         this.sleeper = sleeper;
     }
@@ -38,18 +53,18 @@ public class RateLimiter {
     public synchronized void acquire() {
         while (true) {
             long now = nanoTime.getAsLong();
-            while (!recent.isEmpty() && now - recent.peekFirst() >= WINDOW_NANOS) {
+            while (!recent.isEmpty() && now - recent.peekFirst() >= windowNanos) {
                 recent.pollFirst();
             }
             if (recent.size() < limit) {
                 recent.addLast(now);
                 return;
             }
-            sleeper.accept(recent.peekFirst() + WINDOW_NANOS - now);
+            sleeper.accept(recent.peekFirst() + windowNanos - now);
         }
     }
 
-    /** 429를 받았을 때 남은 몫을 0으로 만든다. 다음 요청은 지금부터 한 구간(61초)을 기다린다. */
+    /** 429를 받았을 때 남은 몫을 0으로 만든다. 다음 요청은 지금부터 한 구간(1분이면 61초)을 기다린다. */
     public synchronized void drain() {
         long now = nanoTime.getAsLong();
         recent.clear();

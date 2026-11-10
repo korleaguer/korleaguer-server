@@ -2,7 +2,7 @@ package com.korleaguer.support;
 
 import java.util.Map;
 
-/** balldontlie position 값의 한글 이름. 표에 없으면 영어 원문을 그대로 쓴다. */
+/** 포지션 이름. MLB 주 포지션 약어를 영어 이름으로, 영어 이름을 한글로 바꾼다. 표에 없으면 받은 값을 그대로 쓴다. */
 public final class PositionNames {
 
     private static final Map<String, String> KOREAN = Map.ofEntries(
@@ -22,7 +22,33 @@ public final class PositionNames {
             Map.entry("Designated Hitter", "지명타자"),
             Map.entry("Two-Way Player", "투타겸업"));
 
+    // MLB primaryPosition.abbreviation → 영어 이름(KOREAN 표의 키)
+    private static final Map<String, String> ENGLISH_BY_MLB = Map.ofEntries(
+            Map.entry("P", "Pitcher"),
+            Map.entry("SP", "Starting Pitcher"),
+            Map.entry("RP", "Relief Pitcher"),
+            Map.entry("C", "Catcher"),
+            Map.entry("1B", "First Baseman"),
+            Map.entry("2B", "Second Baseman"),
+            Map.entry("3B", "Third Baseman"),
+            Map.entry("SS", "Shortstop"),
+            Map.entry("IF", "Infielder"),
+            Map.entry("LF", "Left Fielder"),
+            Map.entry("CF", "Center Fielder"),
+            Map.entry("RF", "Right Fielder"),
+            Map.entry("OF", "Outfielder"),
+            Map.entry("DH", "Designated Hitter"),
+            Map.entry("TWP", "Two-Way Player"));
+
     private PositionNames() {
+    }
+
+    /** MLB 주 포지션(약어, 이름) → 영어 이름. 예: (CF, Outfielder) → Center Fielder. 약어를 모르면 MLB 이름 그대로 */
+    public static String fromMlb(String abbreviation, String name) {
+        if (abbreviation == null) {
+            return name;
+        }
+        return ENGLISH_BY_MLB.getOrDefault(abbreviation, name);
     }
 
     public static String korean(String position) {

@@ -14,8 +14,8 @@ class RosterProfilesTest {
     private static final String TEMPLATE = "https://img.example.test/people/{mlbId}/headshot/current";
 
     private final RosterProperties roster = new RosterProperties(List.of(
-            new RosterProperties.Entry("이정후", List.of("Jung Hoo Lee"), null, 808982L, "넥센·키움 히어로즈 (2017–2023)"),
-            new RosterProperties.Entry("김하성", List.of("Ha-Seong Kim"), null, null, null)));
+            new RosterProperties.Entry("이정후", 808982L, "넥센·키움 히어로즈 (2017–2023)"),
+            new RosterProperties.Entry("김하성", null, null)));
 
     @Test
     void photoAndMlbLinkComeFromMlbId() {
@@ -63,8 +63,8 @@ class RosterProfilesTest {
     }
 
     private RosterProfiles profiles(boolean officialPhotos, String template) {
-        KorleaguerProperties properties = new KorleaguerProperties(2026, null, null, null, null,
-                new KorleaguerProperties.Images(officialPhotos, template));
+        KorleaguerProperties properties = new KorleaguerProperties(2026, null, null, null,
+                new KorleaguerProperties.Images(officialPhotos, template), null);
         return new RosterProfiles(roster, properties);
     }
 }
