@@ -69,22 +69,30 @@ Free 조직의 private 저장소는 Environment·조직 secret을 쓸 수 없어
 Git Flow의 release 단계 끝에서 `gh release create vX.Y.Z -R <저장소> --target main ...`로 Release를 만들면 배포된다
 (사람 계정으로 만든 Release여야 워크플로가 돈다). 처음에는 API(`korleaguer-server`)를 먼저, 그다음 웹을 배포한다.
 
-- 진행 상황: 저장소 Actions 탭의 `deploy`
-- 서버에서 보기: `cd /srv/korleaguer && docker compose ps`, `docker compose logs -f api`
+- 진행 상황: 저장소 Actions 탭의 `deploy`. 서버에도 `/srv/korleaguer/deploy.log`에 남는다(SSH가 중간에 끊겨도 배포는 끝까지 간다)
+- 서버에서 보기: 아래처럼 deploy 계정으로 들어가서 본다(`/srv/korleaguer`는 deploy 계정만 열 수 있다)
+
+```bash
+sudo -iu deploy
+cd /srv/korleaguer
+docker compose ps
+docker compose logs -f api
+```
 
 ## 되돌리기·직접 배포
 
 - GitHub: Actions → deploy → Run workflow → `version`에 이전 버전(예 `0.1.0`)
-- 서버에서 직접(이미지가 서버에 있을 때): `sudo -u deploy env KORLEAGUER_SKIP_PULL=1 korleaguer-deploy api 0.1.0`
+- 서버에서 직접(이미지가 서버에 있을 때): `sudo -iu deploy` 뒤 `KORLEAGUER_SKIP_PULL=1 korleaguer-deploy api 0.1.0`
 - DB 구조가 바뀐 배포를 되돌릴 때는 `backups/`의 `before-버전` 덤프로 함께 복원한다.
 
 ## 백업·복원
 
 ```bash
+sudo -iu deploy
 cd /srv/korleaguer
-sudo -u deploy korleaguer-backup manual            # 지금 백업
+korleaguer-backup manual                           # 지금 백업
 gunzip -c backups/korleaguer-…-before-0.2.0.sql.gz \
-  | sudo -u deploy docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot "$MYSQL_DATABASE"'
+  | docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot "$MYSQL_DATABASE"'
 ```
 
 백업은 서버 안에만 있으니 외장 디스크·클라우드로도 복사해 두는 것을 권한다.
@@ -94,14 +102,17 @@ gunzip -c backups/korleaguer-…-before-0.2.0.sql.gz \
 API는 밖에 열려 있지 않다. 서버에 SSH로 들어가 컨테이너 안에서 부른다(토큰은 `api.env`의 `KORLEAGUER_ADMIN_TOKEN`).
 
 ```bash
+sudo -iu deploy
 cd /srv/korleaguer
-sudo -u deploy docker compose exec api sh -c 'curl -s -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" http://localhost:8080/admin/ingest/players'
+docker compose exec api sh -c 'curl -s -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" http://localhost:8080/admin/ingest/players'
 ```
 
 ## 알아 둘 것
 
 - **DB 구조를 바꾸는 배포:** 새 API가 Flyway로 DB를 바꾸는 동안 옛 API도 잠깐 같이 돈다. 그래서 바뀐 구조가 옛 버전에서도 돌아가게 한다(열·표 추가는 먼저, 지우기는 다음 배포에서).
 - **API가 겹쳐 뜨는 동안:** 수십 초 동안 두 API가 함께 떠 있어 수집이 한 번 겹칠 수 있다. 같은 경기·기록은 DB의 유일 제약이 막고, 실패한 수집은 다음 실행(12분 뒤)에 다시 한다.
-- **서버 설정 파일이 바뀌면**(`compose.yaml`, `Caddyfile`, 스크립트): 이 폴더를 서버에 다시 복사하고 `server-setup.sh`를 다시 실행한 뒤 `cd /srv/korleaguer && sudo -u deploy docker compose up -d caddy mysql`.
+- **서버 설정 파일이 바뀌면**(`compose.yaml`, `Caddyfile`, 스크립트): 이 폴더를 서버에 다시 복사하고 `server-setup.sh`를 다시 실행한 뒤,
+  deploy 계정으로 `cd /srv/korleaguer && docker compose up -d caddy mysql && docker compose restart caddy`
+  (Caddy는 시작할 때만 Caddyfile을 읽어서, 설정이 같으면 `up`만으로는 다시 읽지 않는다).
 - **No-IP 무료 주소**는 30일마다 확인하지 않으면 만료된다.
 - **GHCR:** 지금은 컨테이너 이미지 저장·전송이 무료다(바뀌면 1개월 전에 알려 준다). 오래된 버전은 GitHub 조직의 Packages에서 지울 수 있다.
