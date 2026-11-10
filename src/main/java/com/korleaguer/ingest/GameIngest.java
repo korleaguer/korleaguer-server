@@ -264,6 +264,7 @@ public class GameIngest {
     }
 
     // 지금 메이저에 있는(또는 단계를 모르는) 선수들의 소속 팀. 마이너 선수의 MLB 구단 경기는 갱신하지 않는다.
+    // 소속이 끝난 선수(FA 등)의 마지막 구단도 findAllCurrent에서 빠지므로 갱신하지 않는다.
     private List<Long> trackedTeamIds() {
         return affiliations.findAllCurrent().stream()
                 .filter(a -> a.getPlayer().getLevel() != Level.MINORS)
