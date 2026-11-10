@@ -48,7 +48,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 
 - **요청 예절:** 1초에 1회 이하, `User-Agent: korleaguer/0.1`, 연결 5초·읽기 10초 제한, 다시 시도하지 않는다(실패한 건은 다음 수집 때 다시). 403/429가 오면 그 실행의 남은 단계는 건너뛴다(`BLOCKED`).
 - **시즌 날짜(개막 전까지 하루 한 번):** `seasons/{year}?sportId=1` 올해(미국 날짜) 1번. 지금 시즌은 올해 정규시즌 개막일만으로 정해지므로(`season_dates`), 1월 1일부터 올해 개막일 전날까지만 묻고 개막한 뒤에는 묻지 않는다(1년에 80여 번). 발표 전인 해는 저장하지 않고, 시즌을 고정했으면(`KORLEAGUER_SEASON`, 샘플 모드) 묻지 않는다.
-- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 출전 경기 수 `people/{id}/stats?stats=season&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번, 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
+- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 경기별 기록 `people/{id}/stats?stats=gameLog&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번(그 시즌 전체를 받아 `minor_game_log`를 통째로 바꾸고, 마이너 경기 수도 여기서 센다), 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
@@ -114,6 +114,12 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - 조합이 사람마다 달라 캐시하지 않는다.
 - 경기 한 줄(`games`, 홈·선수 응답의 경기 줄도 같다)에는 그래프용 숫자 `batting`(타수·안타·홈런·타점·볼넷·도루)·`pitching`(아웃·이닝·실점·자책·탈삼진·승패세)이 붙는다. 뛴 경기에 그 기록이 있을 때만 나오고, 결장·경기 전이면 null이다.
 - 경기 한 줄의 `lineup`(`pitching` 다음)은 `"STARTER"`(선발) / `"SUB"`(교체)다. 뛰지 않았거나 아직 모르면 null이다(위 "받는 전략"의 선발·교체).
+- 최근 폼 요약(이슈 #33). 판정('좋음'·'주춤')은 만들지 않고 사실만 준다.
+  - `status`: 상태 배지. 메이저에서 평소대로 뛰면 null. `kind`는 `IL`(부상자 명단) · `RETURNED`(복귀, 7일 안) · `CALLED_UP`(콜업, 7일 안) · `MINORS` · `MINORS_IL` · `SUSPENDED`(출장 정지) · `DFA`(지명 할당) · `FA` · `SEASON_OVER`(정규시즌이 끝났고 3일 넘게 경기 없음). `since`·`days`는 시작한 미국 날짜와 며칠째(부상자 명단은 소급 등재일, 10일→60일 이동은 처음 오른 날), `level`·`teamName`은 마이너 단계 약어·팀, `lastGameDate`·`lastGameLevel`은 FA·시즌 끝일 때 마지막 경기. 이동 기록을 최신부터 보며 정하고, 메이저·마이너 여부는 선수 정보의 지금 단계를 믿는다.
+  - `play`: 출전 줄(메이저에 있을 때만). 타자는 `recent`(지금 단계 기간이 시작된 뒤 팀의 끝난 경기 최근 10개, 오래된 것부터 `STARTER`·`SUB`·`PLAYED`·`ABSENT`)와 `after`(10개가 안 되고 복귀·콜업 뒤면 `RETURNED`·`CALLED_UP`), 투수는 `appearances14`(최근 14일 등판)·`daysSinceLast`.
+  - `fact`: 한 줄 소식 `{tone: HOT|COLD, text}`. 연속 안타 5경기↑, 연속 무안타 4경기↑(2타석 이상 경기만), 최근 10경기 2홈런↑·멀티히트 3번↑, 연속 무실점 등판 3번↑, 최근 5번 등판 중 무실점 4번↑·실점 3번↑. 연속 기록은 시즌 전체, 최근 경기는 지금 단계 기간에서 센다(다 차지 않으면 "복귀 후 6경기"). 마이너면 앞에 "트리플A " 등. FA·시즌 끝이면 시즌 최장 연속 기록.
+  - `basis`·`level`: 큰 숫자·막대(`hitting`·`pitching`·`games`)가 어떤 기간·단계인지. `RECENT`(오늘까지) · `LAST_PLAYED`(마지막으로 뛴 날까지) · `BEFORE_INJURY`(부상자 명단이면 이번 시즌 마지막 출전까지) · `SEASON`(FA·시즌 끝: `seasonTotals`를 쓴다) · `NONE`(이번 시즌 경기가 없거나 새 마이너 팀에서 아직 안 뜀). 마이너에 있으면 마이너 경기별 기록으로 채우고 `level`은 `AAA` 등이다. 마이너 경기는 미국 날짜만 있어 한국 날짜로는 다음 날 08:00으로 보고, 점수 없이 결과(W/L)만 있다.
+  - `seasonTotals`: FA·시즌 끝일 때 `{season, primary, mlb, minors}`. `primary`는 메이저 20경기 이상이거나 메이저가 더 많으면 `MLB`, 아니면 `MINORS`.
 
 ### 메이저/마이너와 이동 기록(MLB 공식 Stats API)
 - 위 "받는 전략"의 선수 정보·이동 기록 단계에서 하루(UTC 날짜)에 한 번 받는다. 실패한 선수는 다음 수집 때 다시 묻는다.
