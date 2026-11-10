@@ -18,7 +18,9 @@ final class SeasonStats {
     private SeasonStats() {
     }
 
-    static HitterSeason hitter(Player player, String photoUrl, Team team, List<Appearance> appearances) {
+    /** minorGames: 같은 시즌 마이너 출전 경기 수(모르거나 쓰지 않으면 0) */
+    static HitterSeason hitter(Player player, String photoUrl, Team team, List<Appearance> appearances,
+                               int minorGames) {
         List<Batting> lines = appearances.stream().map(Appearance::getBatting).filter(Objects::nonNull).toList();
         int atBats = sum(lines, Batting::atBats);
         int hits = sum(lines, Batting::hits);
@@ -34,6 +36,8 @@ final class SeasonStats {
                 TeamLabels.korean(team),
                 TeamLabels.abbreviation(team),
                 appearances.size(),
+                minorGames,
+                minorGames > appearances.size(),
                 lines.stream().mapToInt(Batting::plateAppearancesOrComputed).sum(),
                 atBats,
                 hits,
@@ -49,7 +53,9 @@ final class SeasonStats {
                 BaseballMath.ops(hits, walks, hitByPitch, atBats, sacFlies, totalBases));
     }
 
-    static PitcherSeason pitcher(Player player, String photoUrl, Team team, List<Appearance> appearances) {
+    /** minorGames: 같은 시즌 마이너 등판 경기 수(모르거나 쓰지 않으면 0) */
+    static PitcherSeason pitcher(Player player, String photoUrl, Team team, List<Appearance> appearances,
+                                 int minorGames) {
         List<Pitching> lines = appearances.stream().map(Appearance::getPitching).filter(Objects::nonNull).toList();
         List<Pitching> withOuts = withKnownOuts(lines);
         int outs = sum(withOuts, Pitching::pitchingOuts);
@@ -61,6 +67,8 @@ final class SeasonStats {
                 TeamLabels.korean(team),
                 TeamLabels.abbreviation(team),
                 appearances.size(),
+                minorGames,
+                minorGames > appearances.size(),
                 outs,
                 BaseballMath.inningsText(outs),
                 BaseballMath.era(sum(withOuts, Pitching::earnedRuns), outs),

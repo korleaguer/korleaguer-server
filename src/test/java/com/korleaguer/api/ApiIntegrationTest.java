@@ -99,13 +99,20 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.hitters[3].avg").value(0.429))
                 .andExpect(jsonPath("$.hitters[3].teamAbbr").value("LAD"))
                 .andExpect(jsonPath("$.hitters[3].photoUrl").value(PHOTO_PREFIX + "808975" + PHOTO_SUFFIX))
+                // 마이너 경기 수(샘플은 지어낸 값): 김혜성 2 < 메이저 경기라 주로 메이저, 배지환은 주로 마이너
+                .andExpect(jsonPath("$.hitters[3].minorGames").value(2))
+                .andExpect(jsonPath("$.hitters[3].mainlyMinors").value(false))
+                .andExpect(jsonPath("$.hitters[4].minorGames").value(20))
+                .andExpect(jsonPath("$.hitters[4].mainlyMinors").value(true))
                 .andExpect(jsonPath("$.pitchers", hasSize(1)))
                 .andExpect(jsonPath("$.pitchers[0].nameKo").value("고우석"))
                 .andExpect(jsonPath("$.pitchers[0].teamAbbr").value("MIN"))
                 .andExpect(jsonPath("$.pitchers[0].photoUrl").value(PHOTO_PREFIX + "808970" + PHOTO_SUFFIX))
                 .andExpect(jsonPath("$.pitchers[0].outs").value(5))
                 .andExpect(jsonPath("$.pitchers[0].inningsText").value("1⅔"))
-                .andExpect(jsonPath("$.pitchers[0].era").value(10.8));
+                .andExpect(jsonPath("$.pitchers[0].era").value(10.8))
+                .andExpect(jsonPath("$.pitchers[0].minorGames").value(12))
+                .andExpect(jsonPath("$.pitchers[0].mainlyMinors").value(true));
     }
 
     @Test

@@ -175,16 +175,17 @@ public class MyPlayersService {
 
     private static MyPlayersResponse.PeriodHitting hitting(RosterMember member, List<Appearance> period,
                                                            List<Appearance> regular) {
-        HitterSeason total = SeasonStats.hitter(member.player(), null, member.team(), period);
-        HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, member.team(), regular);
+        // 기간 합계에는 마이너 경기 수를 쓰지 않는다(0).
+        HitterSeason total = SeasonStats.hitter(member.player(), null, member.team(), period, 0);
+        HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodHitting(total.games(), total.atBats(), total.hits(), total.homeRuns(),
                 total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg());
     }
 
     private static MyPlayersResponse.PeriodPitching pitching(RosterMember member, List<Appearance> period,
                                                              List<Appearance> regular) {
-        PitcherSeason total = SeasonStats.pitcher(member.player(), null, member.team(), period);
-        PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, member.team(), regular);
+        PitcherSeason total = SeasonStats.pitcher(member.player(), null, member.team(), period, 0);
+        PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodPitching(total.games(), total.outs(), total.inningsText(),
                 SeasonStats.earnedRuns(period), total.era(), total.strikeouts(), total.wins(), total.losses(),
                 total.saves(), seasonTotal.era());
