@@ -18,6 +18,8 @@ KEEP_OTHER=5
 cd "$DEPLOY_DIR"
 mkdir -p backups
 file="backups/korleaguer-$(date +%Y%m%d-%H%M%S)-${LABEL}.sql.gz"
+# 덤프가 중간에 실패하면 쓰다 만 .tmp를 지운다(*.sql.gz가 아니라 아래 정리에 걸리지 않고 쌓이므로).
+trap 'rm -f "${file}.tmp"' EXIT
 
 docker compose exec -T mysql sh -c \
   'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --quick --no-tablespaces -uroot "$MYSQL_DATABASE"' \
