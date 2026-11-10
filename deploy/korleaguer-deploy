@@ -34,6 +34,15 @@ cd "$DEPLOY_DIR"
 [ -f compose.yaml ] || fail "${DEPLOY_DIR}/compose.yaml이 없습니다(서버 준비 스크립트를 먼저 실행하세요)"
 touch .env
 
+# SSH가 중간에 끊겨도(Actions 취소, 네트워크) 배포를 끝까지 마친다: 끊김 신호(HUP)와 끊긴 출력(PIPE)을 무시하고,
+# 모든 출력을 deploy.log에 남기면서 SSH로도 보낸다(tee는 SSH 쪽이 끊겨도 로그 파일에는 계속 쓴다).
+trap '' HUP PIPE
+if tee --help 2>&1 | grep -q -- '--output-error'; then
+  exec > >(tee --output-error=warn-nopipe -a "$DEPLOY_DIR/deploy.log") 2>&1
+else
+  exec > >(tee -a "$DEPLOY_DIR/deploy.log") 2>&1
+fi
+
 # 두 저장소의 배포가 겹치지 않게 한 번에 하나만 돈다.
 if command -v flock > /dev/null; then
   exec 9> "$DEPLOY_DIR/.deploy.lock"

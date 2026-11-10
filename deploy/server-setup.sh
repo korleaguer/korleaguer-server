@@ -143,14 +143,25 @@ chmod 600 "$keys_file"
 if [ "$HARDEN_SSH" = 1 ]; then
   say "SSH: 비밀번호 로그인·root 로그인 끄기"
   install -d /etc/ssh/sshd_config.d
-  cat > /etc/ssh/sshd_config.d/90-korleaguer.conf <<'EOF'
+  # sshd는 같은 설정이 여러 번 나오면 처음 값을 쓴다. 다른 파일(예: Ubuntu의 50-cloud-init.conf)보다 먼저 읽히게 00-으로 둔다.
+  rm -f /etc/ssh/sshd_config.d/90-korleaguer.conf
+  cat > /etc/ssh/sshd_config.d/00-korleaguer.conf <<'EOF'
 # 코리거 서버: SSH는 키로만 로그인한다
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
 EOF
+  grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d/\*\.conf' /etc/ssh/sshd_config \
+    || echo "주의: /etc/ssh/sshd_config에 sshd_config.d를 읽는 Include 줄이 없습니다. 직접 확인하세요" >&2
   sshd -t
   systemctl reload ssh 2> /dev/null || systemctl reload sshd
+  # 실제로 적용된 값을 확인한다(다른 설정이 이기면 멈춘다)
+  effective="$(sshd -T 2> /dev/null | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin) ')"
+  echo "$effective"
+  if echo "$effective" | grep -qvE ' no$'; then
+    echo "SSH 설정이 기대와 다릅니다(위 값 중 no가 아닌 것). /etc/ssh/sshd_config와 sshd_config.d를 확인하세요" >&2
+    exit 1
+  fi
 fi
 
 # 6) GitHub에 넣을 값
