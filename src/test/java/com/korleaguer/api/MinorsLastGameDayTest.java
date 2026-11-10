@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 그 날짜를 잡으면 홈에 빈 날짜가 뜬다(2026-11-10 실제 데이터에서 "10월 29일 경기"가 비어 보였다).
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:minors-last-day;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:minors-last-day;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "roster.baseball[0].name-ko=이정후",
         "roster.baseball[0].mlb-id=808982",
         "roster.baseball[1].name-ko=배지환",

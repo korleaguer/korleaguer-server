@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 선수 시즌을 아직 받지 않았을 때만 선수 페이지가 그 자리에서 한 번 받고, 그 뒤로는 다시 받지 않는다.
  */
 @SpringBootTest(properties =
-        "spring.datasource.url=jdbc:h2:mem:no-repeat-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
+        "spring.datasource.url=jdbc:h2:mem:no-repeat-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class NoRepeatCallsTest {

@@ -2,7 +2,8 @@
 
 한국 MLB 선수 6명의 최근 경기 한 줄 기록과 2026 시즌 성적을 JSON으로 준다. 화면([korleaguer-web](https://github.com/korleaguer/korleaguer-web))이 이 API를 부른다.
 
-- Java 21, Spring Boot 4.1.2, H2 파일 DB(`./data/korleaguer`, PostgreSQL 호환 모드), Flyway
+- Java 21, Spring Boot 4.1.2, Flyway
+- DB: 운영은 MySQL 8.4(서버의 Docker, `deploy/`). 로컬 실행과 테스트는 Docker 없이 돌도록 H2를 MySQL 모드로 쓴다(로컬 파일 `./data/korleaguer-mysql`). 실제 MySQL 확인은 `MySqlCompatibilityTest`(Testcontainers, Docker가 있을 때만)가 맡는다.
 - 데이터 출처: MLB 공식 Stats API(`statsapi.mlb.com`, 키 없음). 경기·선수 기록·선수 정보·이동 기록을 모두 여기서 받는다(경기는 메이저만, 마이너는 시즌 출전 경기 수만).
 
 ## 실행
@@ -21,9 +22,8 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)   # Java 21 경로
 KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 ```
 
-> **DB를 다시 만든다(2026-11-10, `V4__mlb_source.sql`, 이슈 #11).** balldontlie 번호로 저장하던 표를 지우고 MLB 번호(gamePk, 팀 번호, 선수 번호)로 다시 만든다.
-> 배포 전이라 이전 데이터(샘플)는 버리고, 띄우면 다시 받는다. `data/` 폴더는 지우지 않아도 된다.
-> (2026-11-01 이전에 띄운 DB라면 V1 체크섬 오류가 나므로 그때는 `data/`를 지운다.)
+> **DB를 MySQL로 바꿨다(2026-11-10, 이슈 #25).** 배포 전이라 예전 마이그레이션 V1~V6을 지금 모양 그대로 `V1__init.sql` 하나로 합쳤다(MySQL 문법).
+> 로컬 DB 파일도 `./data/korleaguer-mysql`로 새로 만든다. 예전 `./data/korleaguer*` 파일은 더 쓰지 않으니 지워도 된다(띄우면 MLB에서 다시 받는다).
 > 샘플 모드와 MLB 모드는 같은 DB 파일을 쓴다. 모드를 바꿀 때는 `data/` 폴더를 지운다(다른 쪽 데이터가 남는다).
 
 ## 환경변수
@@ -145,7 +145,8 @@ com.korleaguer
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 
-- DB 스키마: 지금 모양은 `src/main/resources/db/migration/V4__mlb_source.sql`(V1~V3 위에서 표를 MLB 번호로 다시 만든다)과 `V5__appearance_lineup.sql`(선발·교체), `V6__minor_season.sql`(시즌 마이너 출전 경기 수), `V7__player_free_agent.sql`(FA). 시각은 UTC로 저장하고 응답에서만 한국 시간으로 바꾼다.
+- DB 스키마: `src/main/resources/db/migration/V1__init.sql`(MySQL 8 문법, H2 MySQL 모드에서도 그대로 돈다)과 `V7__player_free_agent.sql`(FA, V2~V6은 V1에 합쳐 없다). 시각은 `datetime(6)`에 UTC로 저장하고(`hibernate.jdbc.time_zone=UTC`, Instant는 TIMESTAMP로) 응답에서만 한국 시간으로 바꾼다. 외래 키는 표 단위로 적는다(MySQL은 열 옆의 `references`를 무시한다). 소속(`affiliation`)은 선수마다 한 줄(`unique (player_id)`).
+- 운영 DB 연결: `SPRING_DATASOURCE_URL`(예: `jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC`)·`SPRING_DATASOURCE_USERNAME`·`SPRING_DATASOURCE_PASSWORD` 환경변수로 덮어쓴다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수 응답을 메모리(Caffeine)에 60초 캐시하고, 수집이 끝나면 비운다(나중에 Redis로 바꿀 자리). 내 선수 응답은 캐시하지 않는다.
 - H2 콘솔: 기본은 꺼져 있다. `local` 프로필로 띄우면 `http://localhost:8080/h2-console`이 열린다.

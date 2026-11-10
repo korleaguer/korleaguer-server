@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** korleaguer.images.official-photos=false면 photoUrl은 모두 null이고, MLB 공식 페이지 링크는 그대로 나온다. */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:photos-off-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:photos-off-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "korleaguer.images.official-photos=false"
 })
 @AutoConfigureMockMvc
