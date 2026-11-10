@@ -2,6 +2,7 @@ package com.korleaguer.api;
 
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Batting;
+import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
@@ -22,6 +23,37 @@ final class SeasonStats {
     static HitterSeason hitter(Player player, String photoUrl, Team team, List<Appearance> appearances,
                                int minorGames) {
         List<Batting> lines = appearances.stream().map(Appearance::getBatting).filter(Objects::nonNull).toList();
+        return hitter(player, photoUrl, TeamLabels.korean(team), TeamLabels.abbreviation(team), lines,
+                appearances.size(), minorGames, null);
+    }
+
+    /**
+     * 마이너 시즌 성적(이슈 #37): 그 시즌 마이너 경기별 기록을 메이저와 같은 계산으로 더한다.
+     * 팀·단계는 마지막 마이너 경기의 것이다. games가 비어 있으면 안 된다.
+     */
+    static HitterSeason minorHitter(Player player, String photoUrl, List<MinorGameLog> games) {
+        MinorGameLog last = latest(games);
+        List<Batting> lines = games.stream().map(MinorGameLog::getBatting).filter(Objects::nonNull).toList();
+        return hitter(player, photoUrl, last.getTeamName(), null, lines, games.size(), 0,
+                MinorRecords.levelKo(last.getLevel()));
+    }
+
+    /** 마이너 투수 시즌 성적. minorHitter와 같은 기준이다. */
+    static PitcherSeason minorPitcher(Player player, String photoUrl, List<MinorGameLog> games) {
+        MinorGameLog last = latest(games);
+        List<Pitching> lines = games.stream().map(MinorGameLog::getPitching).filter(Objects::nonNull).toList();
+        return pitcher(player, photoUrl, last.getTeamName(), null, lines, games.size(), 0,
+                MinorRecords.levelKo(last.getLevel()));
+    }
+
+    private static MinorGameLog latest(List<MinorGameLog> games) {
+        return games.stream()
+                .max(Comparator.comparing(MinorGameLog::getGameDate).thenComparing(MinorGameLog::getGamePk))
+                .orElseThrow();
+    }
+
+    private static HitterSeason hitter(Player player, String photoUrl, String teamKo, String teamAbbr,
+                                       List<Batting> lines, int games, int minorGames, String levelKo) {
         int atBats = sum(lines, Batting::atBats);
         int hits = sum(lines, Batting::hits);
         int walks = sum(lines, Batting::walks);
@@ -33,11 +65,11 @@ final class SeasonStats {
                 player.getId(),
                 player.getNameKo(),
                 photoUrl,
-                TeamLabels.korean(team),
-                TeamLabels.abbreviation(team),
-                appearances.size(),
+                teamKo,
+                teamAbbr,
+                games,
                 minorGames,
-                minorGames > appearances.size(),
+                minorGames > games,
                 lines.stream().mapToInt(Batting::plateAppearancesOrComputed).sum(),
                 atBats,
                 hits,
@@ -50,13 +82,20 @@ final class SeasonStats {
                 BaseballMath.avg(hits, atBats),
                 BaseballMath.obp(hits, walks, hitByPitch, atBats, sacFlies),
                 BaseballMath.slg(totalBases, atBats),
-                BaseballMath.ops(hits, walks, hitByPitch, atBats, sacFlies, totalBases));
+                BaseballMath.ops(hits, walks, hitByPitch, atBats, sacFlies, totalBases),
+                levelKo);
     }
 
     /** minorGames: 같은 시즌 마이너 등판 경기 수(모르거나 쓰지 않으면 0) */
     static PitcherSeason pitcher(Player player, String photoUrl, Team team, List<Appearance> appearances,
                                  int minorGames) {
         List<Pitching> lines = appearances.stream().map(Appearance::getPitching).filter(Objects::nonNull).toList();
+        return pitcher(player, photoUrl, TeamLabels.korean(team), TeamLabels.abbreviation(team), lines,
+                appearances.size(), minorGames, null);
+    }
+
+    private static PitcherSeason pitcher(Player player, String photoUrl, String teamKo, String teamAbbr,
+                                         List<Pitching> lines, int games, int minorGames, String levelKo) {
         List<Pitching> withOuts = withKnownOuts(lines);
         int outs = sum(withOuts, Pitching::pitchingOuts);
 
@@ -64,11 +103,11 @@ final class SeasonStats {
                 player.getId(),
                 player.getNameKo(),
                 photoUrl,
-                TeamLabels.korean(team),
-                TeamLabels.abbreviation(team),
-                appearances.size(),
+                teamKo,
+                teamAbbr,
+                games,
                 minorGames,
-                minorGames > appearances.size(),
+                minorGames > games,
                 outs,
                 BaseballMath.inningsText(outs),
                 BaseballMath.era(sum(withOuts, Pitching::earnedRuns), outs),
@@ -77,7 +116,8 @@ final class SeasonStats {
                 sum(lines, Pitching::saves),
                 sum(lines, Pitching::pitcherStrikeouts),
                 sum(lines, Pitching::walksAllowed),
-                sum(lines, Pitching::hitsAllowed));
+                sum(lines, Pitching::hitsAllowed),
+                levelKo);
     }
 
     /** 평균자책점에 넣는 자책점. 아웃 수를 모르는 경기는 뺀다(pitcher()의 era와 같은 기준). */

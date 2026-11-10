@@ -7,6 +7,8 @@ import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.MinorGameLog;
+import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeason;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
@@ -57,6 +59,7 @@ public class BaseballQueryService {
     private final GameRepository games;
     private final PlayerMoveRepository moves;
     private final MinorSeasonRepository minorSeasons;
+    private final MinorGameLogRepository minorGameLogs;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
     private final RosterProfiles profiles;
@@ -66,7 +69,8 @@ public class BaseballQueryService {
 
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
                                 AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
-                                MinorSeasonRepository minorSeasons, GameLineAssembler gameLines,
+                                MinorSeasonRepository minorSeasons, MinorGameLogRepository minorGameLogs,
+                                GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode,
                                 CurrentSeason currentSeason, Clock clock) {
         this.players = players;
@@ -75,6 +79,7 @@ public class BaseballQueryService {
         this.games = games;
         this.moves = moves;
         this.minorSeasons = minorSeasons;
+        this.minorGameLogs = minorGameLogs;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
         this.profiles = profiles;
@@ -93,6 +98,8 @@ public class BaseballQueryService {
 
         List<HitterSeason> hitters = List.of();
         List<PitcherSeason> pitchers = List.of();
+        List<HitterSeason> minorHitters = List.of();
+        List<PitcherSeason> minorPitchers = List.of();
         if (statsAvailable && !roster.isEmpty()) {
             List<Long> ids = roster.stream().map(m -> m.player().getId()).toList();
             Map<Long, List<Appearance>> byPlayer = regularSeason(ids, season);
@@ -115,10 +122,26 @@ public class BaseballQueryService {
                             .thenComparing((PitcherSeason p) -> !ranking.qualifies(p))
                             .thenComparing(PitcherSeason::era, Comparator.nullsLast(Comparator.naturalOrder())))
                     .toList();
+
+            // 마이너 시즌 성적(이슈 #37): 이번 시즌 마이너 경기가 있는 선수만, 마이너 경기 많은 순
+            Map<Long, List<MinorGameLog>> minorLogs = minorGameLogs.findSeason(ids, season).stream()
+                    .collect(Collectors.groupingBy(g -> g.getPlayer().getId()));
+            minorHitters = roster.stream()
+                    .filter(m -> m.player().role() == Role.HITTER && minorLogs.containsKey(m.player().getId()))
+                    .map(m -> SeasonStats.minorHitter(m.player(), profiles.photoUrl(m.player()),
+                            minorLogs.get(m.player().getId())))
+                    .sorted(Comparator.comparingInt(HitterSeason::games).reversed())
+                    .toList();
+            minorPitchers = roster.stream()
+                    .filter(m -> m.player().role() == Role.PITCHER && minorLogs.containsKey(m.player().getId()))
+                    .map(m -> SeasonStats.minorPitcher(m.player(), profiles.photoUrl(m.player()),
+                            minorLogs.get(m.player().getId())))
+                    .sorted(Comparator.comparingInt(PitcherSeason::games).reversed())
+                    .toList();
         }
 
         return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
-                recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers);
+                recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers, minorHitters, minorPitchers);
     }
 
     /** 선수 번호 → 이번 시즌 마이너 출전 경기 수. 아직 받지 않은 선수는 빠진다. */
