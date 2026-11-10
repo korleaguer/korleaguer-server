@@ -4,6 +4,8 @@ import com.korleaguer.client.BdlGame;
 import com.korleaguer.client.BdlPlayer;
 import com.korleaguer.client.BdlStats;
 import com.korleaguer.client.BdlTeam;
+import com.korleaguer.client.MlbTeam;
+import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
@@ -11,8 +13,11 @@ import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerMove;
+import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
@@ -28,12 +33,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * balldontlie 응답을 DB에 upsert(있으면 고치고 없으면 넣기)한다.
- * HTTP 호출은 느리므로 IngestService가 먼저 다 받아 오고, 저장만 여기서 트랜잭션으로 묶는다.
+ * balldontlie·MLB 응답을 DB에 upsert(있으면 고치고 없으면 넣기)한다.
+ * HTTP 호출은 느리므로 IngestService·MovesRefresher가 먼저 다 받아 오고, 저장만 여기서 트랜잭션으로 묶는다.
  */
 @Component
 @Transactional
@@ -46,14 +52,16 @@ public class IngestWriter {
     private final AffiliationRepository affiliations;
     private final GameRepository games;
     private final AppearanceRepository appearances;
+    private final PlayerMoveRepository moves;
 
     public IngestWriter(TeamRepository teams, PlayerRepository players, AffiliationRepository affiliations,
-                        GameRepository games, AppearanceRepository appearances) {
+                        GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves) {
         this.teams = teams;
         this.players = players;
         this.affiliations = affiliations;
         this.games = games;
         this.appearances = appearances;
+        this.moves = moves;
     }
 
     /** 매칭 전에도 선수 목록에 보이도록 한글 이름만 있는 줄을 만들어 둔다. */
@@ -103,6 +111,37 @@ public class IngestWriter {
                     result.skippedGames(), result.skippedStats());
         }
         return result;
+    }
+
+    /**
+     * 선수 한 명의 MLB 단계와 이동 기록을 한 트랜잭션으로 저장한다.
+     * 이동 기록은 MLB 이동 기록 번호로 upsert하므로 같은 줄을 다시 받아도 늘지 않는다.
+     * 번호가 없거나 날짜를 읽을 수 없는 줄은 건너뛴다.
+     *
+     * @param teamLevels 팀 번호 → 단계. 모르는 팀은 넣지 않는다.
+     * @return 저장한 이동 기록 수
+     */
+    public int saveLevelAndMoves(long playerId, Level level, String levelTeamName, Instant checkedAt,
+                                 List<MlbTransaction> transactions, Map<Long, Level> teamLevels) {
+        Player player = players.findById(playerId).orElseThrow();
+        player.updateLevel(level, levelTeamName, checkedAt);
+        int saved = 0;
+        for (MlbTransaction source : transactions) {
+            LocalDate date = moveDate(source.date());
+            if (source.id() == null || date == null) {
+                log.debug("skip MLB move with missing id or date: {} {}", source.id(), source.date());
+                continue;
+            }
+            PlayerMove move = moves.findById(source.id()).orElseGet(() -> new PlayerMove(source.id(), player));
+            Long fromId = teamId(source.fromTeam());
+            Long toId = teamId(source.toTeam());
+            move.update(player, date, source.typeCode(), source.typeDesc(), source.description(),
+                    fromId, teamName(source.fromTeam()), fromId == null ? null : teamLevels.get(fromId),
+                    toId, teamName(source.toTeam()), toId == null ? null : teamLevels.get(toId));
+            moves.save(move);
+            saved++;
+        }
+        return saved;
     }
 
     private boolean saveGame(BdlGame source) {
@@ -165,6 +204,25 @@ public class IngestWriter {
             log.warn("[player] {}: unreadable dob '{}', birth_date stays empty", nameKo, dob);
         }
         return birthDate;
+    }
+
+    private static LocalDate moveDate(String date) {
+        if (date == null) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(date.trim());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private static Long teamId(MlbTeam team) {
+        return team == null ? null : team.id();
+    }
+
+    private static String teamName(MlbTeam team) {
+        return team == null ? null : team.name();
     }
 
     private static boolean hasId(BdlTeam team) {

@@ -1,10 +1,13 @@
 package com.korleaguer.domain;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -28,6 +31,11 @@ public class Player {
     private String jersey;
     private Integer debutYear;
     private Integer age;
+    // MLB 공식 Stats API 값. 지금 단계(MLB/MINORS, 모르면 null), MLB가 알려 준 지금 팀 이름, 마지막 확인 시각
+    @Enumerated(EnumType.STRING)
+    private Level level;
+    private String levelTeamName;
+    private Instant levelCheckedAt;
 
     protected Player() {
     }
@@ -53,6 +61,12 @@ public class Player {
         this.jersey = jersey;
         this.debutYear = debutYear;
         this.age = age;
+    }
+
+    public void updateLevel(Level level, String levelTeamName, Instant checkedAt) {
+        this.level = level;
+        this.levelTeamName = levelTeamName;
+        this.levelCheckedAt = checkedAt;
     }
 
     public Role role() {
@@ -113,5 +127,17 @@ public class Player {
 
     public Integer getAge() {
         return age;
+    }
+
+    public Level getLevel() {
+        return level;
+    }
+
+    public String getLevelTeamName() {
+        return levelTeamName;
+    }
+
+    public Instant getLevelCheckedAt() {
+        return levelCheckedAt;
     }
 }
