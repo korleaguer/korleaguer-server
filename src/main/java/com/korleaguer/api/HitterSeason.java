@@ -8,6 +8,7 @@ public record HitterSeason(
         String teamKo,
         String teamAbbr,
         int games,
+        int plateAppearances,
         int atBats,
         int hits,
         int doubles,
