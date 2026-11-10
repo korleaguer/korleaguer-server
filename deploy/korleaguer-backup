@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# 코리거 DB 백업(서버의 /usr/local/bin/korleaguer-backup).
+# MySQL 컨테이너 안에서 mysqldump(--single-transaction, 서비스를 멈추지 않음)로 덤프해 gzip으로 저장한다.
+#   korleaguer-backup              # 매일 cron이 부른다(이름에 daily)
+#   korleaguer-backup before-0.2.0 # 배포 스크립트가 API를 바꾸기 전에 부른다
+# 저장: /srv/korleaguer/backups/korleaguer-날짜-이름.sql.gz, 최근 14개만 남긴다.
+# 복원: gunzip -c 파일 | docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot "$MYSQL_DATABASE"'
+# 서버 밖(외장 디스크·클라우드)으로도 복사해 두는 것을 권한다.
+set -euo pipefail
+
+DEPLOY_DIR="${KORLEAGUER_DIR:-/srv/korleaguer}"
+LABEL="${1:-daily}"
+KEEP=14
+
+[[ "$LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "백업 이름에는 영문·숫자·.-_만 씁니다: '$LABEL'" >&2; exit 1; }
+cd "$DEPLOY_DIR"
+mkdir -p backups
+file="backups/korleaguer-$(date +%Y%m%d-%H%M%S)-${LABEL}.sql.gz"
+
+docker compose exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --quick --no-tablespaces -uroot "$MYSQL_DATABASE"' \
+  | gzip > "${file}.tmp"
+mv "${file}.tmp" "$file"
+chmod 600 "$file"
+
+ls -1t backups/korleaguer-*.sql.gz | tail -n +$((KEEP + 1)) | xargs -r rm --
+echo "백업: ${DEPLOY_DIR}/${file}"
