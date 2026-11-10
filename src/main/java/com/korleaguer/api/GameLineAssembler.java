@@ -101,6 +101,23 @@ class GameLineAssembler {
         return lines;
     }
 
+    /**
+     * 한 팀의 기간 안 경기 전부를 그 선수의 줄로(뛴 경기는 기록, 안 뛴 경기는 결장). lines()와 달리 그 팀에서 처음 뛴 날
+     * 전 경기도 결장이다. 그 팀에 있던 기간(복귀·콜업 뒤)을 부르는 쪽이 정할 때만 쓴다. 최신 경기부터.
+     */
+    List<GameLine> teamLines(Player player, Team team, Instant from, Instant to) {
+        if (!from.isBefore(to)) {
+            return List.of();
+        }
+        Map<Long, Appearance> mine = appearances.findWithGameBetween(List.of(player.getId()), from, to).stream()
+                .collect(Collectors.toMap(a -> a.getGame().getGamePk(), a -> a, (a, b) -> a));
+        return games.findTeamGamesBetween(List.of(team.getMlbTeamId()), from, to).stream()
+                .filter(game -> COUNTED_SEASON_TYPES.contains(game.getSeasonType()))
+                .map(game -> line(player, team, game, mine.get(game.getGamePk()), true))
+                .sorted(Comparator.comparing(GameLine::startTimeKst).reversed())
+                .toList();
+    }
+
     /** 선수마다 결장 줄을 붙일 수 있는 (팀, 기간) 목록 */
     private Map<Long, List<Stint>> stintsByPlayer(List<RosterMember> members, List<Long> playerIds,
                                                   boolean statsReady, int season) {
@@ -184,7 +201,7 @@ class GameLineAssembler {
                 played ? appearance.getLineup() : null);
     }
 
-    private static GameBatting batting(Batting b) {
+    static GameBatting batting(Batting b) {
         if (b == null) {
             return null;
         }
@@ -192,7 +209,7 @@ class GameLineAssembler {
                 orZero(b.walks()), orZero(b.stolenBases()));
     }
 
-    private static GamePitching pitching(Pitching p) {
+    static GamePitching pitching(Pitching p) {
         if (p == null) {
             return null;
         }

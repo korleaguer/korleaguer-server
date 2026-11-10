@@ -15,6 +15,7 @@ import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.PlayerSeasonRepository;
 import com.korleaguer.domain.SeasonDatesRepository;
@@ -51,7 +52,7 @@ class IngestWriterProfileTest {
     private final AppearanceRepository appearances = mock(AppearanceRepository.class);
     private final IngestWriter writer = new IngestWriter(teams, players, affiliations, mock(GameRepository.class),
             appearances, mock(PlayerMoveRepository.class), mock(PlayerSeasonRepository.class),
-            mock(MinorSeasonRepository.class), mock(SeasonDatesRepository.class));
+            mock(MinorSeasonRepository.class), mock(MinorGameLogRepository.class), mock(SeasonDatesRepository.class));
     private final Player player = new Player("이정후");
 
     private final Logger writerLog = (Logger) LoggerFactory.getLogger(IngestWriter.class);

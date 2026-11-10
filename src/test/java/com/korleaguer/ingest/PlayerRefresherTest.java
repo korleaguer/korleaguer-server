@@ -192,8 +192,8 @@ class PlayerRefresherTest {
         assertThat(askedPeople).isEmpty();
         assertThat(askedRanges).isEmpty();
         assertThat(client.requestCount()).isEqualTo(1);
-        verify(writer).saveMinorGames(eq(5L), eq(2026), any(), eq(NOW));
-        verify(writer, never()).saveMinorGames(eq(1L), anyInt(), any(), any());
+        verify(writer).saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW));
+        verify(writer, never()).saveMinorGameLog(eq(1L), anyInt(), any(), any());
         assertThat(result.checked()).isZero();
     }
 

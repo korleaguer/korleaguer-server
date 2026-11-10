@@ -123,23 +123,35 @@ class HttpMlbClientTest {
     }
 
     @Test
-    void readsMinorGamesFromTeamLinesOnly() {
-        // 실제 응답(2026 고우석, 줄여서 저장): 투구는 트리플A 단계 합계 27 + 팀별 19·8 + 더블A 8 + 마이너 전체 35.
-        // 팀별 줄만 더해 35경기, 타격은 팀 줄 하나 9경기
-        server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("stats=season"),
+    void readsMinorGameLogForHittingAndPitchingAtOnce() {
+        // 실제 응답(2026 고우석, 경기 몇 개만 남겨 저장): 투구 3경기(트리플A 2·더블A 1), 타격 1경기.
+        // 경기마다 단계(sport)와 홀드가 온다.
+        server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("stats=gameLog"),
                         containsString("group=hitting,pitching"), containsString("leagueListId=milb_all"),
                         containsString("season=2026"))))
-                .andRespond(withSuccess(fixture("season-minors-808970.json"), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(fixture("gamelog-minors-808970.json"), MediaType.APPLICATION_JSON));
 
-        assertThat(client.getMinorGames(808970, 2026)).isEqualTo(new MlbMinorGames(9, 35));
+        MlbMinorGameLog log = client.getMinorGameLog(808970, 2026);
+
+        assertThat(log.pitching()).hasSize(3);
+        assertThat(log.hitting()).hasSize(1);
+        assertThat(log.counts()).isEqualTo(new MlbMinorGames(1, 3));
+        MlbGameLogSplit first = log.pitching().getFirst();
+        assertThat(first.date()).isEqualTo("2026-03-29");
+        assertThat(first.sportId()).isEqualTo(11L);
+        assertThat(first.sport().abbreviation()).isEqualTo("AAA");
+        assertThat(first.team().name()).isEqualTo("Toledo Mud Hens");
+        assertThat(first.stat().holds()).isEqualTo(1);
+        assertThat(first.stat().outs()).isEqualTo(1);
+        assertThat(log.pitching().get(1).sport().abbreviation()).isEqualTo("AA");
     }
 
     @Test
-    void minorGamesAreZeroWhenNoMinorLines() {
+    void minorGameLogIsEmptyWhenNoMinorGames() {
         server.expect(requestTo(containsString("/api/v1/people/808982/stats")))
                 .andRespond(withSuccess("{\"stats\":[]}", MediaType.APPLICATION_JSON));
 
-        assertThat(client.getMinorGames(808982, 2026)).isEqualTo(MlbMinorGames.NONE);
+        assertThat(client.getMinorGameLog(808982, 2026)).isEqualTo(MlbMinorGameLog.NONE);
     }
 
     @Test

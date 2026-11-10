@@ -93,8 +93,9 @@ class MinorsLastGameDayTest {
     void myPlayersFallbackIgnoresMinorsPlayersClub() throws Exception {
         // 내 선수는 선수마다 본인이 마지막으로 뛴 날까지다. 배지환은 밀워키의 9월 28일 경기가 아니라
         // 본인이 뛴 8월 2일(한국 날짜)까지다.
+        // (맨 위 isFallback은 '마지막으로 뛴 날까지' 기간을 보이는 카드가 있는지다. 시즌 끝·마이너 카드라 없다.)
         mockMvc.perform(get("/api/my").param("ids", "1,2").param("days", "7"))
-                .andExpect(jsonPath("$.isFallback").value(true))
+                .andExpect(jsonPath("$.isFallback").value(false))
                 .andExpect(jsonPath("$.players[0].toKst").value("2026-09-27"))
                 .andExpect(jsonPath("$.players[1].toKst").value("2026-08-02"))
                 .andExpect(jsonPath("$.players[1].games[*].gameId").value(contains(9101)));
