@@ -5,10 +5,12 @@
 # 새 컨테이너가 정상(healthy)이 안 되면 서버는 옛 것을 그대로 둔다. 다만 SSH가 끊겨 job이 실패해도 서버는 교체를
 # 끝까지 하므로, 빨간불이어도 이미 새 커밋일 수 있다(서버의 /srv/korleaguer/deploy.log로 확인).
 # 실패하면 고친 뒤 다시 병합하거나 그 실행을 '다시 실행'한다. 다시 실행은 그 커밋이 아직 develop 끝일 때만 배포한다
-# (그 사이 더 새 커밋이 나갔을 수 있어서다. 옛 커밋을 다시 내려면 아래 되돌리기를 쓴다).
+# (그 뒤 커밋들이 배포하지 않는 파일만 바꿨으면 괜찮다. 그 사이 더 새 커밋이 나갔을 수 있어서다).
+# 배포 단계가 시작된 뒤 실행을 취소해도 서버는 교체를 끝까지 한다(실행은 '취소됨', main은 맞추지 않는다).
 # 문서·테스트만 바뀐 푸시(*.md, deploy/, src/test/)는 배포하지 않는다.
 # 되돌리기: Actions → deploy → Run workflow에 되돌릴 커밋(예 1a2b3c4)을 넣으면 그 커밋의 이미지로 다시 배포한다
 # (서버에 최근 3개 이미지가 있고, 그보다 오래된 것은 GHCR에서 받는다). 되돌리기는 main을 옮기지 않는다.
+# 되돌리기 실행은 '다시 실행'하지 않는다(그 사이 나간 새 배포를 덮지 않게 막는다). 다시 하려면 Run workflow로 새로 건다.
 #
 # 필요한 값(저장소 Settings → Secrets and variables → Actions). 자세한 준비는 deploy/README.md.
 #   secret   DEPLOY_SSH_KEY       배포 계정용 SSH 개인키(이 저장소 전용, 서버에서는 'api 배포'만 할 수 있게 묶여 있다)
@@ -32,12 +34,13 @@ on:
         description: 되돌리거나 다시 배포할 커밋(예 1a2b3c4). 이 워크플로가 그 커밋으로 만든 이미지가 있어야 한다
         required: true
 
-# 배포는 한 번에 하나씩, 도는 중인 배포는 끊지 않는다. 기다리던 실행이 여럿이면 가장 새 것만 남고 나머지는 '취소됨'이 된다.
-# 그래서 되돌리기(수동 실행)를 걸어 둔 사이 병합이 들어오면 되돌리기가 취소될 수 있다(취소는 알림 메일이 없다). 취소됐으면 다시 건다.
+# 배포는 한 번에 하나씩, 도는 중인 배포는 끊지 않는다. 기다리는 실행은 취소하지 않고 기다리기 시작한 순서대로 돈다
+# (queue: max, 최대 100개). 그래서 병합마다 그 커밋이 차례로 나가고, 되돌리기도 뒤에 온 병합에 밀려 취소되지 않는다.
 # 서버에서도 두 저장소의 배포가 겹치지 않게 잠근다(korleaguer-deploy).
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -101,7 +104,8 @@ jobs:
   deploy:
     name: 서버에 배포
     needs: build
-    # 병합이면 이미지를 만든 뒤, 수동 실행(되돌리기)이면 테스트·이미지 만들기를 건너뛰고 바로 배포한다. 실행을 취소하면 배포하지 않는다.
+    # 병합이면 이미지를 만든 뒤, 수동 실행(되돌리기)이면 테스트·이미지 만들기를 건너뛰고 바로 배포한다.
+    # 실행을 취소하면 배포하지 않는다(배포 단계가 이미 시작됐으면 서버는 교체를 끝까지 한다).
     if: ${{ !cancelled() && ((github.event_name == 'push' && needs.build.result == 'success') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -109,19 +113,35 @@ jobs:
       contents: read
       packages: read
     steps:
-      # '다시 실행'(같은 실행의 두 번째 시도부터)은 이 커밋이 아직 develop 끝일 때만 배포한다.
-      # 옛 실행을 다시 돌려 그 사이 나간 새 코드를 옛 코드로 덮지 않게 한다. 옛 커밋을 내려면 되돌리기(수동 실행)를 쓴다.
+      # '다시 실행'(같은 실행의 두 번째 시도부터)이 그 사이 나간 새 배포를 옛 코드로 덮지 않게 한다.
+      # - 병합 배포: 이 커밋이 아직 develop 끝이거나, 그 뒤 커밋들이 배포하지 않는 파일(IGNORED)만 바꿨을 때만 배포한다.
+      # - 되돌리기(수동 실행): 다시 실행하지 않는다. Run workflow로 새로 건다.
       - name: 다시 실행이면 최신 커밋인지 확인
-        if: github.event_name == 'push' && github.run_attempt != '1'
+        if: github.run_attempt != '1'
         run: |
-          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/develop" -q .sha)"
-          if [ "$tip" != "$GITHUB_SHA" ]; then
-            echo "::error::develop 끝(${tip::7})이 이 커밋(${GITHUB_SHA::7})이 아니라서 다시 실행으로는 배포하지 않습니다. 이 커밋을 내려면 deploy를 수동 실행하고 commit에 ${GITHUB_SHA::7}을 넣으세요. 이 실행이 기다리던 더 새 배포를 취소했을 수 있으니 deploy 실행 목록도 확인하세요"
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "::error::되돌리기(수동 실행)는 다시 실행하지 않습니다(그 사이 나간 새 배포를 덮을 수 있어서). Actions → deploy → Run workflow로 새로 거세요"
             exit 1
           fi
-          echo "develop 끝이 이 커밋이라 다시 배포합니다"
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/develop" -q .sha)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "develop 끝이 이 커밋이라 다시 배포합니다"
+            exit 0
+          fi
+          cmp="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${tip}")"
+          changed="$(jq -r '.files[] | .filename, (.previous_filename // empty)' <<< "$cmp")"
+          code="$(grep -vE "$IGNORED" <<< "$changed" || true)"
+          if [ "$(jq -r .status <<< "$cmp")" = ahead ] && [ "$(jq '.files | length' <<< "$cmp")" -lt 300 ] && [ -z "$code" ]; then
+            echo "develop 끝(${tip::7})까지 배포하지 않는 파일만 바뀌어 이 커밋을 다시 배포합니다"
+            exit 0
+          fi
+          echo "::error::이 커밋(${GITHUB_SHA::7}) 뒤로 배포되는 커밋이 develop에 있어(끝 ${tip::7}) 다시 실행으로는 배포하지 않습니다. 이 커밋을 꼭 내야 하면 deploy를 Run workflow로 실행하고 commit에 ${GITHUB_SHA::7}을 넣으세요"
+          exit 1
         env:
+          EVENT: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
+          # 배포하지 않는 파일. 위 on.push.paths-ignore와 같게 유지한다.
+          IGNORED: '\.md$|^deploy/|^src/test/|^\.github/ISSUE_TEMPLATE/'
 
       - name: 배포할 이미지
         id: tag
@@ -197,7 +217,8 @@ jobs:
     steps:
       # main은 '병합으로 마지막에 배포한 코드'다. 배포한 커밋을 main에 병합해 둔다(이미 들어 있으면 그대로).
       # 되돌리기(수동 실행)는 main을 옮기지 않는다(강제 푸시를 하지 않는다). 그때 서버의 커밋은 deploy 실행 목록이 정답이다.
-      # 병합에 실패하면 이 job만 빨간불로 끝낸다(경고만 남기면 아무도 못 본다). 배포는 이미 끝났으니 main만 맞추면 된다.
+      # 병합에 실패하면 이 job만 빨간불로 끝낸다(경고만 남기면 아무도 못 본다). 배포는 이미 끝났으니 main만 맞추면 된다
+      # (그냥 두어도 다음 병합 배포가 main을 함께 맞춘다).
       - name: main에 병합
         run: |
           if ! gh api -X POST "repos/${GITHUB_REPOSITORY}/merges" \

@@ -101,8 +101,11 @@ API와 웹이 함께 바뀌는 변경은 API PR을 먼저 병합한다(웹은 �
 
 - 새 컨테이너가 정상(healthy)이 안 돼서 실패했으면 서버는 옛 것 그대로다.
 - SSH가 끊겨서 실패했으면 서버는 교체를 끝까지 하므로 이미 새 커밋일 수 있다. `deploy.log`(아래)로 확인한다. 웹은 공개 주소 `/healthz`가 주는 커밋으로도 본다.
-- 고친 뒤 다시 병합하거나 그 실행을 '다시 실행'한다. 다시 실행은 그 커밋이 아직 develop 끝일 때만 배포한다(그 사이 더 새 커밋이 나갔을 수 있어서 멈춘다). 옛 커밋을 다시 내려면 아래 되돌리기를 쓴다.
-- 'main을 배포한 커밋에 맞추기'만 빨간불이면 배포는 끝난 것이다. main만 맞추면 된다.
+- 고친 뒤 다시 병합하거나 그 실행을 '다시 실행'한다. 다시 실행은 그 커밋이 아직 develop 끝일 때만 배포한다. 그 뒤 커밋들이 배포하지 않는 파일(문서, `deploy/`, `src/test/`)만 바꿨으면 괜찮다. 더 새 코드가 develop에 있으면 멈춘다(옛 코드로 덮지 않게). 옛 커밋을 다시 내려면 아래 되돌리기를 쓴다.
+- 'main을 배포한 커밋에 맞추기'만 빨간불이면 배포는 끝난 것이다. 그냥 두면 다음 병합 배포가 main을 함께 맞춘다. 급하면 `gh api -X POST repos/<저장소>/merges -f base=main -f head=<커밋>`.
+- 배포 단계가 시작된 뒤 실행을 취소해도 서버는 교체를 끝까지 한다(실행은 '취소됨'으로 남고 main은 맞추지 않는다).
+
+병합이 이어지면 배포는 하나씩 차례로 돈다. 기다리는 실행은 취소되지 않고 기다리기 시작한 순서대로 나간다(최대 100개).
 
 - 진행 상황: 저장소 Actions 탭의 `deploy`. 서버에도 `/srv/korleaguer/deploy.log`에 남는다(SSH가 중간에 끊겨도 배포는 끝까지 간다)
 - 서버에서 보기: 아래처럼 deploy 계정으로 들어가서 본다(`/srv/korleaguer`는 deploy 계정만 열 수 있다)
@@ -117,7 +120,8 @@ docker compose logs -f api
 ## 되돌리기·직접 배포
 
 - GitHub: Actions → deploy → Run workflow → `commit`에 되돌릴 커밋(예 `1a2b3c4`, 그 저장소의 develop 커밋)
-  - 배포는 한 번에 하나씩이라, 앞 배포가 도는 동안 되돌리기는 기다린다. 그 사이 새 병합이 들어오면 되돌리기 실행이 '취소됨'으로 끝날 수 있다(알림 메일이 없다). 취소됐으면 다시 건다.
+  - 배포는 한 번에 하나씩이라, 앞 배포가 도는 동안 되돌리기는 차례를 기다린다(취소되지 않는다). 그 사이 들어온 병합은 되돌리기 뒤에 배포되니, 되돌린 상태를 지키려면 그동안 병합하지 않는다.
+  - 되돌리기 실행은 '다시 실행'하지 않는다(그 사이 나간 새 배포를 덮지 않게 워크플로가 막는다). 다시 하려면 Run workflow로 새로 건다.
   - 되돌리기는 main을 옮기지 않는다(강제 푸시를 하지 않는다). main은 '병합으로 마지막에 배포한 코드'로 남고, 지금 서버에 나가 있는 커밋은 deploy 실행 목록(웹은 `/healthz`도)이 정답이다. 다음 병합 배포 때 main이 다시 맞춰진다.
 - 서버에서 직접(이미지가 서버에 있을 때): `sudo -iu deploy` 뒤 `KORLEAGUER_SKIP_PULL=1 korleaguer-deploy api sha-1a2b3c4`
 - DB 구조가 바뀐 배포를 되돌릴 때는 `backups/`의 `before-sha-…` 덤프로 함께 복원한다.
@@ -128,9 +132,11 @@ docker compose logs -f api
 (배포 키는 배포 명령 하나만 실행할 수 있게 묶여 있다). 내 컴퓨터의 이 저장소 폴더에서:
 
 ```bash
-scp deploy/korleaguer-deploy deploy/korleaguer-backup 내계정@pigeon.ddns.net:/tmp/ && ssh -t 내계정@pigeon.ddns.net \
-  'cd /tmp && sudo install -m 755 korleaguer-deploy korleaguer-backup /usr/local/bin/ && rm korleaguer-deploy korleaguer-backup && echo 설치 완료'
+scp deploy/korleaguer-deploy deploy/korleaguer-backup 내계정@pigeon.ddns.net: && ssh -t 내계정@pigeon.ddns.net \
+  'sudo install -m 755 korleaguer-deploy korleaguer-backup /usr/local/bin/ && rm korleaguer-deploy korleaguer-backup && echo 설치 완료'
 ```
+
+(누구나 쓸 수 있는 `/tmp` 대신 내 홈 폴더를 거친다.) 관리용 계정(아래)이 있으면 Claude Code가 `ssh korleaguer-admin`으로 같은 일을 한다.
 
 `compose.yaml`·`Caddyfile`을 고쳤으면 `server-setup.sh`를 다시 실행한다(위 "처음 한 번"의 2번).
 
@@ -144,13 +150,13 @@ SSH 키로만 로그인되고 비밀번호 없는 sudo라, **서버의 root 권�
 - 만들기·키 바꾸기(`add-admin.sh`, 다시 실행해도 된다). 내 컴퓨터의 이 저장소 폴더에서:
 
 ```bash
-scp deploy/add-admin.sh ~/.ssh/korleaguer-admin.pub 내계정@pigeon.ddns.net:/tmp/ && ssh -t 내계정@pigeon.ddns.net \
-  'cd /tmp && sudo bash add-admin.sh --user claude --key-file korleaguer-admin.pub && rm -f add-admin.sh korleaguer-admin.pub'
+scp deploy/add-admin.sh ~/.ssh/korleaguer-admin.pub 내계정@pigeon.ddns.net: && ssh -t 내계정@pigeon.ddns.net \
+  'sudo bash add-admin.sh --user claude --key-file korleaguer-admin.pub && rm -f add-admin.sh korleaguer-admin.pub'
 ```
 
 - 이 스크립트는 자기가 만든 계정만 다룬다(계정 설명 `korleaguer-admin` 또는 전용 sudo 파일이 있는 계정). 사람·시스템 계정(UID 1000 미만),
   스크립트를 실행한 계정 자신을 주면 거절한다. 그래서 `claude` 계정을 바꾸거나 지울 때는 `ubuntu` 같은 다른 계정에서 실행한다.
-- 회수: 서버에서 `sudo bash add-admin.sh --user claude --remove`(키를 지우고 계정을 만료시켜 접속부터 막은 뒤 sudo 권한·계정·홈을 지운다). 내 컴퓨터에서는 키 두 파일,
+- 회수: 서버에서 `sudo bash add-admin.sh --user claude --remove`(키를 지우고 계정을 만료시켜 접속부터 막은 뒤, 로그인 세션과 그 계정이 sudo로 띄운 프로세스까지 끝내고 sudo 권한·계정·홈을 지운다). 내 컴퓨터에서는 키 두 파일,
   `~/.ssh/config`의 `korleaguer-admin` 묶음, 작업 폴더 `.claude/settings.local.json`의 허용 규칙을 지운다.
 
 ## 백업·복원
