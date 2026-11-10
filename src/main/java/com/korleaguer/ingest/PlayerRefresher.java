@@ -3,6 +3,7 @@ package com.korleaguer.ingest;
 import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
+import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
@@ -34,6 +35,7 @@ import java.util.stream.Stream;
  *   <li>MLB 선수 번호(명단의 mlb-id)가 있는 선수만 본다.</li>
  *   <li>선수마다 하루(UTC 날짜)에 한 번만 받는다(force면 무조건). 실패한 선수는 확인 시각을 남기지 않아 다음 수집 때 다시 묻는다.</li>
  *   <li>선수 정보는 한 번에 여러 명을 묻는다(people?personIds=...). 이동 기록은 선수마다 한 번, 지난 시즌 1월 1일 ~ 이번 시즌 12월 31일.</li>
+ *   <li>이번 시즌 마이너 출전 경기 수도 선수마다 한 번 묻는다. 이것만 실패하면(403/429 제외) 선수 정보는 저장하고 지난 값을 둔다.</li>
  *   <li>팀 단계(sport.id)는 MLB 30개 구단이면 묻지 않고, 나머지 팀은 한 번 물어 앱이 떠 있는 동안 기억한다.</li>
  *   <li>403/429면 이번 실행에서 MLB를 더 부르지 않는다. 다른 오류는 그 선수만 건너뛴다.</li>
  * </ul>
@@ -127,6 +129,21 @@ public class PlayerRefresher {
                     }
                 });
         writer.savePlayer(player.getId(), person, level, now, transactions, levels, today);
+        refreshMinorGames(player, now);
+    }
+
+    private void refreshMinorGames(Player player, Instant now) {
+        MlbMinorGames games;
+        try {
+            games = client.getMinorGames(player.getMlbId(), season);
+        } catch (MlbBlockedException e) {
+            throw e;
+        } catch (MlbApiException e) {
+            log.warn("[mlb] {}: minor games request failed, keep the last value ({})", player.getNameKo(),
+                    e.getMessage());
+            return;
+        }
+        writer.saveMinorGames(player.getId(), season, games, now);
     }
 
     /** 팀 단계. 팀이 없거나 모르면 null. 팀 조회가 실패하면(403/429 제외) 기억하지 않고 null이다. */

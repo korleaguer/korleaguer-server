@@ -122,6 +122,26 @@ class HttpMlbClientTest {
     }
 
     @Test
+    void readsMinorGamesFromTeamLinesOnly() {
+        // 실제 응답(2026 고우석, 줄여서 저장): 투구는 트리플A 단계 합계 27 + 팀별 19·8 + 더블A 8 + 마이너 전체 35.
+        // 팀별 줄만 더해 35경기, 타격은 팀 줄 하나 9경기
+        server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("stats=season"),
+                        containsString("group=hitting,pitching"), containsString("leagueListId=milb_all"),
+                        containsString("season=2026"))))
+                .andRespond(withSuccess(fixture("season-minors-808970.json"), MediaType.APPLICATION_JSON));
+
+        assertThat(client.getMinorGames(808970, 2026)).isEqualTo(new MlbMinorGames(9, 35));
+    }
+
+    @Test
+    void minorGamesAreZeroWhenNoMinorLines() {
+        server.expect(requestTo(containsString("/api/v1/people/808982/stats")))
+                .andRespond(withSuccess("{\"stats\":[]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.getMinorGames(808982, 2026)).isEqualTo(MlbMinorGames.NONE);
+    }
+
+    @Test
     void readsSeasonScheduleForSeveralTeams() {
         server.expect(requestTo(allOf(containsString("/api/v1/schedule"), containsString("sportId=1"),
                         containsString("teamId=119,137"), containsString("season=2026"))))

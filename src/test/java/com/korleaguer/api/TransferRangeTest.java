@@ -124,9 +124,9 @@ class TransferRangeTest {
                 .findFirst()
                 .orElseThrow();
 
-        // 선수 정보 1 + 이동 기록 1 + gameLog 2(타격·투구) + 시즌 일정 1(SD·ATL 한 번에)
+        // 선수 정보 1 + 이동 기록 1 + 마이너 경기 수 1 + gameLog 2(타격·투구) + 시즌 일정 1(SD·ATL 한 번에)
         // + 선발·교체 채우기 박스스코어 4(뛴 경기마다 한 번)
-        assertThat(startup.getRequestsUsed()).isEqualTo(9);
+        assertThat(startup.getRequestsUsed()).isEqualTo(10);
         assertThat(startup.getMessage()).contains("선수 기록 4개", "건너뛴 기록 1개");
     }
 }

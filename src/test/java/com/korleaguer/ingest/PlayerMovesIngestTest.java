@@ -134,9 +134,9 @@ class PlayerMovesIngestTest {
 
         IngestLog log = ingestService.catchUp(false);
 
-        // 선수 정보 1회(6명 한 번에) + 이동 기록 6회. 마이너 팀 단계는 어제 물어 기억하므로 다시 묻지 않는다.
-        // 시즌은 이미 받았으므로 다시 받지 않는다.
-        assertThat(client.requestCount() - before).isEqualTo(7);
+        // 선수 정보 1회(6명 한 번에) + 이동 기록 6회 + 마이너 경기 수 6회. 마이너 팀 단계는 어제 물어 기억하므로
+        // 다시 묻지 않는다. 시즌은 이미 받았으므로 다시 받지 않는다.
+        assertThat(client.requestCount() - before).isEqualTo(13);
         assertThat(log.getMessage()).isEqualTo("선수 정보·이동 기록 6명");
         assertThat(moves.count()).isEqualTo(10);
         assertThat(moves.findById(990105L).orElseThrow().getDescription())

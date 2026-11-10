@@ -86,6 +86,48 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
+    public MlbMinorGames getMinorGames(long personId, int season) {
+        MlbResponses.SeasonStats body = get("people/" + personId + "/stats season minors",
+                uri -> uri.path("/api/v1/people/{id}/stats")
+                        .queryParam("stats", "season")
+                        .queryParam("group", "hitting,pitching")
+                        .queryParam("season", season)
+                        .queryParam("leagueListId", "milb_all")
+                        .build(personId),
+                MlbResponses.SeasonStats.class);
+        if (body == null || body.stats() == null) {
+            return MlbMinorGames.NONE;
+        }
+        int hitting = 0;
+        int pitching = 0;
+        for (MlbResponses.SeasonGroup group : body.stats()) {
+            if ("hitting".equals(group.groupName())) {
+                hitting += teamGames(group);
+            } else if ("pitching".equals(group.groupName())) {
+                pitching += teamGames(group);
+            }
+        }
+        return new MlbMinorGames(hitting, pitching);
+    }
+
+    /**
+     * 팀별 줄의 경기 수만 더한다. 단계 합계·마이너 전체 합계 줄은 팀이 없어서 빠지므로 두 번 세지 않는다.
+     * 트리플A ~ 루키(sport.id 11~16, Level.fromSportId와 같은 범위)만 센다.
+     */
+    private static int teamGames(MlbResponses.SeasonGroup group) {
+        if (group.splits() == null) {
+            return 0;
+        }
+        return group.splits().stream()
+                .filter(split -> split.team() != null && split.team().id() != null)
+                .filter(split -> split.sport() != null && split.sport().id() != null
+                        && split.sport().id() >= 11 && split.sport().id() <= 16)
+                .mapToInt(split -> split.stat() == null || split.stat().gamesPlayed() == null
+                        ? 0 : split.stat().gamesPlayed())
+                .sum();
+    }
+
+    @Override
     public List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season) {
         if (teamIds.isEmpty()) {
             return List.of();
