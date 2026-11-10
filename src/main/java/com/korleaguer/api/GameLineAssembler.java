@@ -184,7 +184,7 @@ class GameLineAssembler {
                 played ? appearance.getLineup() : null);
     }
 
-    private static GameBatting batting(Batting b) {
+    static GameBatting batting(Batting b) {
         if (b == null) {
             return null;
         }
@@ -192,7 +192,7 @@ class GameLineAssembler {
                 orZero(b.walks()), orZero(b.stolenBases()));
     }
 
-    private static GamePitching pitching(Pitching p) {
+    static GamePitching pitching(Pitching p) {
         if (p == null) {
             return null;
         }
