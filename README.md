@@ -136,8 +136,8 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 
 ## 배포
 
-GitHub Release를 만들면 Actions(`.github/workflows/deploy.yml`)가 이미지(`Dockerfile`)를 만들어 GHCR(`ghcr.io/korleaguer/korleaguer-server`)에 올리고,
-SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾼다(끊김 없이, 실패하면 옛 버전 유지). 서버 구성(Caddy·web·api·MySQL),
+develop에 병합되면 Actions(`.github/workflows/deploy.yml`)가 테스트 → 버전 정하기 → 이미지(`Dockerfile`, GHCR `ghcr.io/korleaguer/korleaguer-server`) →
+SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾸기(끊김 없이, 실패하면 옛 버전 유지) → 태그·릴리스 노트까지 알아서 한다(지속 배포). 서버 구성(Caddy·web·api·MySQL),
 처음 준비, 되돌리기, 백업은 [`deploy/README.md`](deploy/README.md).
 
 ```bash

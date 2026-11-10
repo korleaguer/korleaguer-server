@@ -1,14 +1,16 @@
 # 코리거 배포(서버: pigeon.ddns.net)
 
-GitHub에서 Release를 만들면 GitHub Actions가 Docker 이미지를 만들어 GHCR(GitHub 이미지 저장소)에 올리고,
-SSH로 서버에 접속해 새 이미지로 바꾼다. 서버는 이 폴더의 `compose.yaml`로 4개 컨테이너를 띄운다.
+develop에 PR이 병합되면 GitHub Actions가 테스트하고, 버전을 정해 Docker 이미지를 만들어 GHCR(GitHub 이미지 저장소)에 올리고,
+SSH로 서버에 접속해 새 이미지로 바꾼다(지속 배포, 사람이 '배포'를 누르지 않는다). 서버는 이 폴더의 `compose.yaml`로 4개 컨테이너를 띄운다.
 
 ```
 인터넷 ─80/443→ caddy(HTTPS 인증서 자동) → web(Next.js) → api(Spring Boot) → mysql(MySQL 8.4)
                                                             api·mysql은 밖으로 포트를 열지 않는다
 ```
 
-- **배포 시작:** 저장소마다 Release(published, prerelease 제외). API는 `korleaguer-server`, 웹은 `korleaguer-web` Release로 따로 나간다.
+- **배포 시작:** 저장소마다 develop 병합(푸시). 문서·테스트만 바뀐 푸시는 건너뛴다. API는 `korleaguer-server`, 웹은 `korleaguer-web`에서 따로 나간다.
+- **순서:** 테스트(CI) → 버전 정하기(Conventional Commits) → 이미지(버전·커밋 태그, SBOM·출처 증명) → 서버 교체 → (웹) 공개 주소 `/healthz`가 새 버전을 주는지 확인 → 태그·릴리스 노트(`vX.Y.Z`) → main을 배포한 커밋에 맞춤.
+- **버전:** 마지막 `vX.Y.Z` 뒤 커밋 제목으로 정한다. 호환이 깨지는 변경(`type!:`)은 1.0.0 전에는 minor, `feat`은 minor, 그 밖은 patch. 배포가 실패하면 태그·릴리스를 남기지 않아 다음 시도가 같은 버전을 쓴다.
 - **끊김 없이 바꾸기:** 새 컨테이너를 옛 것과 겹쳐 띄우고 healthy가 되면 옛 것을 내린다. 새 것이 정상이 안 되면 지우고 옛 버전을 그대로 둔다.
 - **API 배포 전 DB 백업:** `backups/`에 `before-버전` 덤프. 매일 04:30에도 백업(최근 14개).
 - **되돌리기(롤백):** Actions → deploy → Run workflow에 이전 버전(예 `0.1.0`)을 넣는다. 서버에 최근 3개 버전 이미지가 남아 있다.
@@ -93,8 +95,9 @@ Free 조직의 private 저장소는 Environment·조직 secret을 쓸 수 없어
 
 ## 배포하기
 
-Git Flow의 release 단계 끝에서 `gh release create vX.Y.Z -R <저장소> --target main ...`로 Release를 만들면 배포된다
-(사람 계정으로 만든 Release여야 워크플로가 돈다). 처음에는 API(`korleaguer-server`)를 먼저, 그다음 웹을 배포한다.
+PR을 develop에 병합하면 끝이다. 워크플로가 버전을 정해 배포하고, 성공하면 `vX.Y.Z` 태그와 릴리스 노트(병합된 PR 제목)를 남긴다.
+API와 웹이 함께 바뀌는 변경은 API PR을 먼저 병합한다(웹은 옛 API에도 깨지지 않게 만든다).
+실패하면 Actions가 실패로 표시되고(메일 알림) 서버는 옛 버전 그대로다. 고친 뒤 다시 병합하거나 실패한 실행을 '다시 실행'한다.
 
 - 진행 상황: 저장소 Actions 탭의 `deploy`. 서버에도 `/srv/korleaguer/deploy.log`에 남는다(SSH가 중간에 끊겨도 배포는 끝까지 간다)
 - 서버에서 보기: 아래처럼 deploy 계정으로 들어가서 본다(`/srv/korleaguer`는 deploy 계정만 열 수 있다)
