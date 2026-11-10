@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 
-/** balldontlie 생년월일(dob) 읽기와 만 나이 계산 */
+/** 생년월일 읽기와 만 나이 계산 */
 public final class BirthDates {
 
     // 미국식 8/6/1998. 월·일이 한 자리여도 되고, 없는 날짜(2/30 등)는 읽지 않는다.

@@ -3,13 +3,9 @@ package com.korleaguer.api;
 import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
-import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
-import com.korleaguer.domain.IngestKind;
-import com.korleaguer.domain.IngestLogRepository;
-import com.korleaguer.domain.IngestStatus;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
@@ -51,7 +47,6 @@ public class BaseballQueryService {
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
     private final AppearanceRepository appearances;
-    private final IngestLogRepository ingestLogs;
     private final PlayerMoveRepository moves;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
@@ -61,14 +56,12 @@ public class BaseballQueryService {
     private final Clock clock;
 
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
-                                AppearanceRepository appearances, IngestLogRepository ingestLogs,
-                                PlayerMoveRepository moves, GameLineAssembler gameLines,
+                                AppearanceRepository appearances, PlayerMoveRepository moves, GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode, KorleaguerProperties properties,
                                 Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
-        this.ingestLogs = ingestLogs;
         this.moves = moves;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
@@ -82,7 +75,7 @@ public class BaseballQueryService {
     public HomeResponse home() {
         Instant now = clock.instant();
         boolean statsAvailable = statsAvailable();
-        List<RosterMember> roster = currentRoster();
+        List<RosterMember> roster = roster();
 
         List<HitterSeason> hitters = List.of();
         List<PitcherSeason> pitchers = List.of();
@@ -106,9 +99,9 @@ public class BaseballQueryService {
                 recentGames.find(roster, now, statsAvailable), hitters, pitchers);
     }
 
-    /** 매칭 전인 선수도 포함한다(영어 이름·포지션·팀·나이·등번호가 null). */
+    /** MLB에서 받기 전인 선수도 포함한다(영어 이름·포지션·팀·나이·등번호가 null). */
     public List<PlayerSummary> players() {
-        Map<Long, Team> teamByPlayer = currentRoster().stream()
+        Map<Long, Team> teamByPlayer = roster().stream()
                 .collect(Collectors.toMap(m -> m.player().getId(), RosterMember::team));
         LocalDate today = KoreanTime.kstDate(clock.instant());
         return players.findAll(Sort.by("id")).stream()
@@ -119,7 +112,8 @@ public class BaseballQueryService {
     @Cacheable(cacheNames = AppConfig.PLAYER_CACHE, key = "#id")
     public PlayerPageResponse player(long id) {
         Player player = players.findById(id).orElseThrow(() -> new PlayerNotFoundException(id));
-        Team team = affiliations.findByPlayerAndEndDateIsNull(player).map(Affiliation::getTeam).orElse(null);
+        RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
+        Team team = member.team();
         boolean statsAvailable = statsAvailable();
 
         HitterSeason hitting = null;
@@ -137,7 +131,7 @@ public class BaseballQueryService {
         Instant seasonStart = LocalDate.of(season, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant seasonEnd = LocalDate.of(season + 1, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant now = clock.instant();
-        List<GameLine> games = gameLines.lines(List.of(new RosterMember(player, team)), seasonStart,
+        List<GameLine> games = gameLines.lines(List.of(member), seasonStart,
                 now.isBefore(seasonEnd) ? now : seasonEnd, statsAvailable);
 
         PlayerPageResponse.PlayerInfo info = new PlayerPageResponse.PlayerInfo(
@@ -147,7 +141,8 @@ public class BaseballQueryService {
                 player.getBirthPlace(), player.getJersey(), player.getBirthDate(),
                 BirthDates.age(player.getBirthDate(), player.getAge(), KoreanTime.kstDate(now)),
                 BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
-                BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player));
+                BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
+                player.getLevel(), player.getLevelTeamName());
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())));
     }
@@ -175,22 +170,17 @@ public class BaseballQueryService {
     }
 
     /**
-     * 선수 기록을 받은 상태인지. 가장 최근에 끝난 시즌·하루치 수집이 기록까지 받았으면(SUCCESS) true다.
-     * 401/403으로 막혔거나(STATS_UNAVAILABLE) 아직 한 번도 끝나지 않았으면 false다.
-     * 경기와 기록은 한 트랜잭션으로 저장하므로, 수집이 도는 중에도 DB에는 지난번 수집 결과만 보인다.
-     * 내 선수 응답(MyPlayersService)도 이 값을 쓴다.
+     * 선수 기록을 받는 상태인지. MLB 공식 API(와 샘플)는 경기별 선수 기록을 늘 주므로 true다.
+     * 응답의 statsAvailable 필드는 화면 호환 때문에 남겨 둔다. 내 선수 응답(MyPlayersService)도 이 값을 쓴다.
      */
     boolean statsAvailable() {
-        return ingestLogs.findFirstByKindInAndStatusInOrderByIdDesc(
-                        List.of(IngestKind.SEASON, IngestKind.DAILY),
-                        List.of(IngestStatus.SUCCESS, IngestStatus.STATS_UNAVAILABLE))
-                .map(log -> log.getStatus() == IngestStatus.SUCCESS)
-                .orElse(false);
+        return true;
     }
 
-    private List<RosterMember> currentRoster() {
-        return affiliations.findAllCurrent().stream()
-                .map(a -> new RosterMember(a.getPlayer(), a.getTeam()))
+    // 소속 줄이 있는 선수들. 소속이 끝난 선수(FA 등)도 마지막 소속으로 넣는다(시즌 기록이 홈에서 빠지지 않게).
+    private List<RosterMember> roster() {
+        return affiliations.findAllLatest().stream()
+                .map(a -> RosterMember.of(a.getPlayer(), a))
                 .toList();
     }
 

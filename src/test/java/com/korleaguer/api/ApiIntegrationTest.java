@@ -124,7 +124,8 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$[0].jersey").value("51"))
                 .andExpect(jsonPath("$[4].nameKo").value("고우석"))
                 .andExpect(jsonPath("$[4].role").value("PITCHER"))
-                .andExpect(jsonPath("$[4].positionKo").value("구원투수"))
+                // MLB 주 포지션은 투수(P)만 알려 준다(선발·구원 구분 없음).
+                .andExpect(jsonPath("$[4].positionKo").value("투수"))
                 .andExpect(jsonPath("$[4].jersey").value(nullValue()));
     }
 
@@ -137,7 +138,7 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$[4].nameKo").value("고우석"))
                 .andExpect(jsonPath("$[4].level").value("MINORS"))
                 .andExpect(jsonPath("$[4].levelTeam").value("St. Paul Saints"))
-                // balldontlie의 현재 팀은 그대로다.
+                // 마이너 팀에 있으면 소속(teamAbbr)은 그 팀의 MLB 구단이다.
                 .andExpect(jsonPath("$[4].teamAbbr").value("MIN"))
                 .andExpect(jsonPath("$[*].level").value(contains("MLB", "MLB", "MLB", "MLB", "MINORS", "MLB")));
     }
@@ -146,6 +147,9 @@ class ApiIntegrationTest {
     void playerPageMoves() throws Exception {
         // 고우석: 상태 변경 줄(roster status changed)은 빠지고 최신순 4줄
         mockMvc.perform(get("/api/players/5"))
+                // 선수 페이지도 목록과 같이 지금 단계를 준다.
+                .andExpect(jsonPath("$.player.level").value("MINORS"))
+                .andExpect(jsonPath("$.player.levelTeam").value("St. Paul Saints"))
                 .andExpect(jsonPath("$.moves", hasSize(4)))
                 .andExpect(jsonPath("$.moves[*].date").value(contains("2026-10-06", "2026-10-02", "2026-09-20", "2026-03-24")))
                 .andExpect(jsonPath("$.moves[0].typeCode").value("OUT"))
@@ -176,13 +180,15 @@ class ApiIntegrationTest {
     }
 
     @Test
-    void jungHooIsMatchedEvenThoughBornInJapan() throws Exception {
-        // 샘플의 출생지는 Nagoya, Japan. 한국 출생이 아니어도 이름이 정확히 같으면 매칭된다.
+    void playerInfoComesFromMlbPeople() throws Exception {
+        // 샘플 MLB 선수 정보: 출생지 Nagoya, Japan(birthCity, birthCountry), 주 포지션 CF
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.player.nameEn").value("Jung Hoo Lee"))
                 .andExpect(jsonPath("$.player.birthPlace").value("Nagoya, Japan"))
                 .andExpect(jsonPath("$.player.teamAbbr").value("SF"))
+                .andExpect(jsonPath("$.player.teamEn").value("San Francisco Giants"))
+                .andExpect(jsonPath("$.player.position").value("Center Fielder"))
                 .andExpect(jsonPath("$.hitting.photoUrl").value(JUNG_HOO_PHOTO));
     }
 
@@ -202,8 +208,8 @@ class ApiIntegrationTest {
     }
 
     @Test
-    void usStyleBirthDateAndMissingJersey() throws Exception {
-        // 고우석: dob "8/6/1998"(미국식), 등번호 없음
+    void pitcherProfileWithoutJersey() throws Exception {
+        // 고우석: 등번호(primaryNumber) 없음, 키 5' 11", 몸무게 198
         mockMvc.perform(get("/api/players/5"))
                 .andExpect(jsonPath("$.player.birthDate").value("1998-08-06"))
                 .andExpect(jsonPath("$.player.age").value(28))
@@ -226,7 +232,7 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.player.nameKo").value("고우석"))
                 .andExpect(jsonPath("$.player.teamEn").value("Minnesota Twins"))
                 .andExpect(jsonPath("$.player.teamAbbr").value("MIN"))
-                .andExpect(jsonPath("$.player.positionKo").value("구원투수"))
+                .andExpect(jsonPath("$.player.positionKo").value("투수"))
                 .andExpect(jsonPath("$.player.birthPlace").value("Incheon, South Korea"))
                 .andExpect(jsonPath("$.hitting").doesNotExist())
                 .andExpect(jsonPath("$.pitching.saves").value(1))
@@ -255,13 +261,13 @@ class ApiIntegrationTest {
 
     @Test
     void adminNeedsToken() throws Exception {
-        mockMvc.perform(post("/admin/ingest/daily").param("date", "2026-09-26"))
+        mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26"))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(post("/admin/ingest/daily").param("date", "2026-09-26")
+        mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26")
                         .header("X-Admin-Token", "test-admin-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.kind").value("DAILY"))
+                .andExpect(jsonPath("$.kind").value("GAMES"))
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
     }
 

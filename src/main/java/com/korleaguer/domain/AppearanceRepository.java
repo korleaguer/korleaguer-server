@@ -12,6 +12,9 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
 
     Optional<Appearance> findByPlayerAndGame(Player player, Game game);
 
+    /** 선수가 가장 늦게 시작한 경기에 뛴 기록(그때의 팀을 알 때 쓴다) */
+    Optional<Appearance> findFirstByPlayerOrderByGameStartTimeUtcDesc(Player player);
+
     /** 주어진 선수들의 기록 중 경기가 [from, to) 사이에 시작한 것 */
     @Query("""
             select a from Appearance a
@@ -33,4 +36,19 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
               and g.season = :season and g.seasonType in :seasonTypes
             """)
     List<Appearance> findSeason(Collection<Long> playerIds, int season, Collection<String> seasonTypes);
+
+    /** 주어진 선수들의 기록 중 주어진 경기들 것 */
+    @Query("""
+            select a from Appearance a
+            where a.player.id in :playerIds and a.game.gamePk in :gamePks
+            """)
+    List<Appearance> findByPlayersAndGames(Collection<Long> playerIds, Collection<Long> gamePks);
+
+    /** 주어진 선수들이 뛴 경기 중 now까지 가장 늦게 시작한 경기의 시작 시각 */
+    @Query("""
+            select max(g.startTimeUtc) from Appearance a
+            join a.game g
+            where a.player.id in :playerIds and g.startTimeUtc <= :now
+            """)
+    Optional<Instant> findLastStartTime(Collection<Long> playerIds, Instant now);
 }

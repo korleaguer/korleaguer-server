@@ -6,11 +6,9 @@ import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
-import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.Role;
-import com.korleaguer.domain.Team;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +20,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -31,7 +27,7 @@ import java.util.stream.Collectors;
 /**
  * GET /api/my(내 선수). 고른 선수마다 기간 합계, 시즌 타율·평균자책점, 연속 기록, 경기 한 줄 기록을 모은다.
  * <ul>
- *   <li>기간: 한국 날짜로 오늘까지 days일. 고른 선수들 팀의 마지막 끝난 경기가 그보다 이르면(비시즌)
+ *   <li>기간: 한국 날짜로 오늘까지 days일. 고른 선수들의 마지막 경기일(LastGameDay)이 그보다 이르면(비시즌)
  *       마지막 경기일까지 days일로 바꾼다(isFallback=true).</li>
  *   <li>기간 합계는 기간 안에 뛴 경기(경기 한 줄에서 played=true인 경기)로 센다.</li>
  *   <li>시즌 타율·평균자책점은 선수 페이지와 같은 정규시즌 값이다.</li>
@@ -50,7 +46,7 @@ public class MyPlayersService {
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
     private final AppearanceRepository appearances;
-    private final GameRepository games;
+    private final LastGameDay lastGameDay;
     private final GameLineAssembler gameLines;
     private final BaseballQueryService queryService;
     private final RosterProfiles profiles;
@@ -59,13 +55,13 @@ public class MyPlayersService {
     private final Clock clock;
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
-                            AppearanceRepository appearances, GameRepository games, GameLineAssembler gameLines,
+                            AppearanceRepository appearances, LastGameDay lastGameDay, GameLineAssembler gameLines,
                             BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
                             KorleaguerProperties properties, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
-        this.games = games;
+        this.lastGameDay = lastGameDay;
         this.gameLines = gameLines;
         this.queryService = queryService;
         this.profiles = profiles;
@@ -91,7 +87,7 @@ public class MyPlayersService {
         List<RosterMember> members = members(requested);
 
         // 기간: 오늘까지 days일. 마지막 경기일이 그보다 이르면 마지막 경기일까지 days일.
-        LocalDate lastGameDay = lastGameDay(members, now);
+        LocalDate lastGameDay = this.lastGameDay.find(members, now).orElse(null);
         boolean fallback = lastGameDay != null && lastGameDay.isBefore(today.minusDays(days - 1));
         LocalDate toKst = fallback ? lastGameDay : today;
         LocalDate fromKst = toKst.minusDays(days - 1);
@@ -144,29 +140,17 @@ public class MyPlayersService {
         return List.copyOf(unique);
     }
 
-    /** 요청한 순서대로, 있는 선수만. 팀은 현재 소속(없으면 null)이다. */
+    /** 요청한 순서대로, 있는 선수만. 팀은 지금 소속(소속이 끝났으면 마지막 소속, 없으면 null)이다. */
     private List<RosterMember> members(List<Long> requested) {
         Map<Long, Player> found = players.findAllById(requested).stream()
                 .collect(Collectors.toMap(Player::getId, Function.identity()));
-        Map<Long, Team> teamByPlayer = affiliations.findAllCurrent().stream()
+        Map<Long, Affiliation> affiliationByPlayer = affiliations.findAllLatest().stream()
                 .filter(a -> found.containsKey(a.getPlayer().getId()))
-                .collect(Collectors.toMap(a -> a.getPlayer().getId(), Affiliation::getTeam));
+                .collect(Collectors.toMap(a -> a.getPlayer().getId(), Function.identity()));
         return requested.stream()
                 .filter(found::containsKey)
-                .map(id -> new RosterMember(found.get(id), teamByPlayer.get(id)))
+                .map(id -> RosterMember.of(found.get(id), affiliationByPlayer.get(id)))
                 .toList();
-    }
-
-    /** 선수들 현재 팀의 끝난 경기 중 가장 늦은 경기의 한국 날짜. 없으면 null */
-    private LocalDate lastGameDay(List<RosterMember> members, Instant now) {
-        List<Long> teamIds = members.stream()
-                .map(RosterMember::team)
-                .filter(Objects::nonNull)
-                .map(Team::getBdlTeamId)
-                .distinct()
-                .toList();
-        Optional<Instant> last = teamIds.isEmpty() ? Optional.empty() : games.findLastFinalStartTime(teamIds, now);
-        return last.map(KoreanTime::kstDate).orElse(null);
     }
 
     private MyPlayersResponse.MyPlayer myPlayer(RosterMember member, LocalDate today, boolean statsAvailable,

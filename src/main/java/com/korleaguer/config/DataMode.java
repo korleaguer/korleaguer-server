@@ -2,9 +2,10 @@ package com.korleaguer.config;
 
 import java.util.Locale;
 
+/** 데이터 출처. mlb: MLB 공식 Stats API(기본), sample: 네트워크 없이 샘플 데이터(테스트·오프라인) */
 public enum DataMode {
-    SAMPLE("sample"),
-    BDL("bdl");
+    MLB("mlb"),
+    SAMPLE("sample");
 
     private final String value;
 
@@ -12,25 +13,20 @@ public enum DataMode {
         this.value = value;
     }
 
-    /** API 응답의 dataMode 값("sample" / "bdl") */
+    /** API 응답의 dataMode 값("mlb" / "sample") */
     public String value() {
         return value;
     }
 
-    /** 설정이 비어 있으면 API 키가 있을 때 bdl, 없을 때 sample */
-    public static DataMode resolve(String configured, String apiKey) {
-        boolean hasKey = apiKey != null && !apiKey.isBlank();
+    /** korleaguer.data-source 값. 비어 있으면 mlb */
+    public static DataMode resolve(String configured) {
         if (configured == null || configured.isBlank()) {
-            return hasKey ? BDL : SAMPLE;
+            return MLB;
         }
-        DataMode mode = switch (configured.trim().toLowerCase(Locale.ROOT)) {
+        return switch (configured.trim().toLowerCase(Locale.ROOT)) {
+            case "mlb" -> MLB;
             case "sample" -> SAMPLE;
-            case "bdl" -> BDL;
-            default -> throw new IllegalStateException("korleaguer.data.mode must be 'sample' or 'bdl': " + configured);
+            default -> throw new IllegalStateException("korleaguer.data-source must be 'mlb' or 'sample': " + configured);
         };
-        if (mode == BDL && !hasKey) {
-            throw new IllegalStateException("korleaguer.data.mode=bdl requires the BALLDONTLIE_API_KEY environment variable");
-        }
-        return mode;
     }
 }

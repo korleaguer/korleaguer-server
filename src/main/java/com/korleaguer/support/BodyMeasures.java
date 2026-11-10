@@ -5,7 +5,7 @@ import java.math.RoundingMode;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** balldontlie 키(피트·인치)와 몸무게(파운드)를 cm·kg 정수로 바꾼다. 읽을 수 없으면 null. */
+/** MLB 키(피트·인치)와 몸무게(파운드)를 cm·kg 정수로 바꾼다. 읽을 수 없으면 null. */
 public final class BodyMeasures {
 
     private static final BigDecimal CM_PER_INCH = new BigDecimal("2.54");

@@ -1,0 +1,317 @@
+{
+ "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+ "people": [
+  {
+   "id": 808982,
+   "fullName": "Jung Hoo Lee",
+   "link": "/api/v1/people/808982",
+   "firstName": "Jung Hoo",
+   "lastName": "Lee",
+   "primaryNumber": "51",
+   "birthDate": "1998-08-20",
+   "currentAge": 28,
+   "birthCity": "Seoul",
+   "birthCountry": "Republic of Korea",
+   "height": "6' 0\"",
+   "weight": 196,
+   "active": true,
+   "currentTeam": {
+    "id": 137,
+    "name": "San Francisco Giants",
+    "link": "/api/v1/teams/137"
+   },
+   "primaryPosition": {
+    "code": "9",
+    "name": "Outfielder",
+    "type": "Outfielder",
+    "abbreviation": "RF"
+   },
+   "useName": "Jung Hoo",
+   "useLastName": "Lee",
+   "boxscoreName": "Lee, J",
+   "gender": "M",
+   "isPlayer": true,
+   "isVerified": true,
+   "pronunciation": "jung who",
+   "mlbDebutDate": "2024-03-28",
+   "batSide": {
+    "code": "L",
+    "description": "Left"
+   },
+   "pitchHand": {
+    "code": "R",
+    "description": "Right"
+   },
+   "nameFirstLast": "Jung Hoo Lee",
+   "nameSlug": "jung-hoo-lee-808982",
+   "firstLastName": "Jung Hoo Lee",
+   "lastFirstName": "Lee, Jung Hoo",
+   "lastInitName": "Lee, J",
+   "initLastName": "J Lee",
+   "fullFMLName": "J.H. Lee",
+   "fullLFMName": "J.H. Lee",
+   "strikeZoneTop": 3.22,
+   "strikeZoneBottom": 1.63
+  },
+  {
+   "id": 808975,
+   "fullName": "Hyeseong Kim",
+   "link": "/api/v1/people/808975",
+   "firstName": "Hyeseong",
+   "lastName": "Kim",
+   "primaryNumber": "6",
+   "birthDate": "1999-01-27",
+   "currentAge": 27,
+   "birthCity": "Goyang",
+   "birthCountry": "Republic of Korea",
+   "height": "5' 10\"",
+   "weight": 175,
+   "active": true,
+   "currentTeam": {
+    "id": 119,
+    "name": "Los Angeles Dodgers",
+    "link": "/api/v1/teams/119"
+   },
+   "primaryPosition": {
+    "code": "6",
+    "name": "Shortstop",
+    "type": "Infielder",
+    "abbreviation": "SS"
+   },
+   "useName": "Hyeseong",
+   "useLastName": "Kim",
+   "boxscoreName": "Kim, Hy",
+   "gender": "M",
+   "isPlayer": true,
+   "isVerified": true,
+   "pronunciation": "Heh-song",
+   "mlbDebutDate": "2025-05-03",
+   "batSide": {
+    "code": "L",
+    "description": "Left"
+   },
+   "pitchHand": {
+    "code": "R",
+    "description": "Right"
+   },
+   "nameFirstLast": "Hyeseong Kim",
+   "nameSlug": "hyeseong-kim-808975",
+   "firstLastName": "Hyeseong Kim",
+   "lastFirstName": "Kim, Hyeseong",
+   "lastInitName": "Kim, H",
+   "initLastName": "H Kim",
+   "fullFMLName": "Hyeseong Kim",
+   "fullLFMName": "Kim, Hyeseong ",
+   "strikeZoneTop": 3.12,
+   "strikeZoneBottom": 1.58
+  },
+  {
+   "id": 673490,
+   "fullName": "Ha-Seong Kim",
+   "link": "/api/v1/people/673490",
+   "firstName": "Ha-Seong",
+   "lastName": "Kim",
+   "birthDate": "1995-10-17",
+   "currentAge": 31,
+   "birthCity": "Bucheon",
+   "birthCountry": "Republic of Korea",
+   "height": "5' 10\"",
+   "weight": 200,
+   "active": false,
+   "currentTeam": {
+    "id": 144,
+    "name": "Atlanta Braves",
+    "link": "/api/v1/teams/144"
+   },
+   "primaryPosition": {
+    "code": "6",
+    "name": "Shortstop",
+    "type": "Infielder",
+    "abbreviation": "SS"
+   },
+   "useName": "Ha-Seong",
+   "useLastName": "Kim",
+   "boxscoreName": "Kim, Ha",
+   "gender": "M",
+   "isPlayer": true,
+   "isVerified": false,
+   "pronunciation": "HA-song",
+   "lastPlayedDate": "2026-09-27",
+   "mlbDebutDate": "2021-04-01",
+   "batSide": {
+    "code": "R",
+    "description": "Right"
+   },
+   "pitchHand": {
+    "code": "R",
+    "description": "Right"
+   },
+   "nameFirstLast": "Ha-Seong Kim",
+   "nameSlug": "ha-seong-kim-673490",
+   "firstLastName": "Ha-Seong Kim",
+   "lastFirstName": "Kim, Ha-Seong",
+   "lastInitName": "Kim, H",
+   "initLastName": "H Kim",
+   "fullFMLName": "Ha-Seong Kim",
+   "fullLFMName": "Kim, Ha-Seong",
+   "strikeZoneTop": 3.14,
+   "strikeZoneBottom": 1.58
+  },
+  {
+   "id": 823550,
+   "fullName": "Sung-Mun Song",
+   "link": "/api/v1/people/823550",
+   "firstName": "Sung-Mun",
+   "lastName": "Song",
+   "primaryNumber": "24",
+   "birthDate": "1996-08-29",
+   "currentAge": 30,
+   "birthCity": "Seoul",
+   "birthCountry": "Republic of Korea",
+   "height": "6' 0\"",
+   "weight": 194,
+   "active": true,
+   "currentTeam": {
+    "id": 135,
+    "name": "San Diego Padres",
+    "link": "/api/v1/teams/135"
+   },
+   "primaryPosition": {
+    "code": "4",
+    "name": "Second Base",
+    "type": "Infielder",
+    "abbreviation": "2B"
+   },
+   "useName": "Sung-Mun",
+   "useLastName": "Song",
+   "boxscoreName": "Song",
+   "gender": "M",
+   "isPlayer": true,
+   "isVerified": true,
+   "mlbDebutDate": "2026-04-26",
+   "batSide": {
+    "code": "L",
+    "description": "Left"
+   },
+   "pitchHand": {
+    "code": "R",
+    "description": "Right"
+   },
+   "nameFirstLast": "Sung-Mun Song",
+   "nameSlug": "sung-mun-song-823550",
+   "firstLastName": "Sung-Mun Song",
+   "lastFirstName": "Song, Sung-Mun",
+   "lastInitName": "Song, S",
+   "initLastName": "S Song",
+   "fullFMLName": "Sung-Mun Song",
+   "fullLFMName": "Song, Sung-Mun ",
+   "strikeZoneTop": 3.19,
+   "strikeZoneBottom": 1.61
+  },
+  {
+   "id": 808970,
+   "fullName": "Woo-Suk Go",
+   "link": "/api/v1/people/808970",
+   "firstName": "Woo-Suk",
+   "lastName": "Go",
+   "primaryNumber": "1",
+   "birthDate": "1998-08-06",
+   "currentAge": 28,
+   "birthCity": "Ganghwa-gun",
+   "birthCountry": "Republic of Korea",
+   "height": "5' 11\"",
+   "weight": 198,
+   "active": true,
+   "currentTeam": {
+    "id": 1960,
+    "name": "St. Paul Saints",
+    "link": "/api/v1/teams/1960",
+    "parentOrgId": 142
+   },
+   "primaryPosition": {
+    "code": "1",
+    "name": "Pitcher",
+    "type": "Pitcher",
+    "abbreviation": "P"
+   },
+   "useName": "Woo-Suk",
+   "useLastName": "Go",
+   "boxscoreName": "Go",
+   "gender": "M",
+   "isPlayer": true,
+   "isVerified": false,
+   "mlbDebutDate": "2026-07-09",
+   "batSide": {
+    "code": "R",
+    "description": "Right"
+   },
+   "pitchHand": {
+    "code": "R",
+    "description": "Right"
+   },
+   "nameFirstLast": "Woo-Suk Go",
+   "nameSlug": "woo-suk-go-808970",
+   "firstLastName": "Woo-Suk Go",
+   "lastFirstName": "Go, Woo-Suk",
+   "lastInitName": "Go, W",
+   "initLastName": "W Go",
+   "fullFMLName": "Woo-Suk Go",
+   "fullLFMName": "Go, Woo-Suk ",
+   "strikeZoneTop": 3.165,
+   "strikeZoneBottom": 1.598
+  },
+  {
+   "id": 678225,
+   "fullName": "Jihwan Bae",
+   "link": "/api/v1/people/678225",
+   "firstName": "Jihwan",
+   "lastName": "Bae",
+   "primaryNumber": "0",
+   "birthDate": "1999-07-26",
+   "currentAge": 27,
+   "birthCity": "Daegu",
+   "birthCountry": "Republic of Korea",
+   "height": "5' 11\"",
+   "weight": 185,
+   "active": true,
+   "currentTeam": {
+    "id": 556,
+    "name": "Nashville Sounds",
+    "link": "/api/v1/teams/556",
+    "parentOrgId": 158
+   },
+   "primaryPosition": {
+    "code": "8",
+    "name": "Outfielder",
+    "type": "Outfielder",
+    "abbreviation": "CF"
+   },
+   "useName": "Jihwan",
+   "useLastName": "Bae",
+   "boxscoreName": "Bae",
+   "gender": "M",
+   "isPlayer": true,
+   "isVerified": true,
+   "pronunciation": "JEE-wahn BAY",
+   "mlbDebutDate": "2022-09-23",
+   "batSide": {
+    "code": "L",
+    "description": "Left"
+   },
+   "pitchHand": {
+    "code": "R",
+    "description": "Right"
+   },
+   "nameFirstLast": "Jihwan Bae",
+   "nameSlug": "jihwan-bae-678225",
+   "firstLastName": "Jihwan Bae",
+   "lastFirstName": "Bae, Jihwan",
+   "lastInitName": "Bae, J",
+   "initLastName": "J Bae",
+   "fullFMLName": "Jihwan Bae",
+   "fullLFMName": "Bae, Jihwan ",
+   "strikeZoneTop": 3.18,
+   "strikeZoneBottom": 1.6
+  }
+ ]
+}

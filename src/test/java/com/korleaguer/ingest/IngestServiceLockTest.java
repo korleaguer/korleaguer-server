@@ -1,11 +1,12 @@
 package com.korleaguer.ingest;
 
-import com.korleaguer.client.BdlPlayer;
-import com.korleaguer.client.SampleBdlClient;
-import com.korleaguer.domain.AffiliationRepository;
+import com.korleaguer.client.SampleMlbClient;
+import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
 import com.korleaguer.domain.IngestStatus;
+import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.PlayerSeasonRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,27 +28,24 @@ class IngestServiceLockTest {
     void secondIngestIsRejectedWhileFirstIsRunning() throws Exception {
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        // 검색 중에 멈춰 서는 가짜 클라이언트
-        SampleBdlClient blockingClient = new SampleBdlClient(List.of(), List.of(), List.of()) {
-            @Override
-            public List<BdlPlayer> searchPlayers(String search) {
-                entered.countDown();
-                await(release);
-                return List.of();
-            }
-        };
+        // 선수 정보를 받는 중에 멈춰 서는 가짜 수집기
+        PlayerRefresher blockingRefresher = mock(PlayerRefresher.class);
+        when(blockingRefresher.refresh(anyBoolean())).thenAnswer(invocation -> {
+            entered.countDown();
+            release.await(5, TimeUnit.SECONDS);
+            return new PlayerRefresher.Result(0, 0, false, 0);
+        });
         IngestLogRepository ingestLogs = mock(IngestLogRepository.class);
         when(ingestLogs.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        AffiliationRepository affiliations = mock(AffiliationRepository.class);
-        when(affiliations.findAllCurrent()).thenReturn(List.of());
-        RosterProperties roster = new RosterProperties(
-                List.of(new RosterProperties.Entry("김하성", List.of("Ha-Seong Kim"), null, null, null)));
-        MovesRefresher moves = mock(MovesRefresher.class);
-        when(moves.refreshStale()).thenReturn(new MovesRefresher.Result(0, 0, false, 0));
-        IngestService service = new IngestService(blockingClient, new PlayerResolver(blockingClient),
-                mock(IngestWriter.class), moves, affiliations, ingestLogs, roster, Clock.systemUTC());
+        PlayerRepository players = mock(PlayerRepository.class);
+        when(players.findByMlbIdIsNotNull()).thenReturn(List.of());
+        RosterProperties roster = new RosterProperties(List.of(new RosterProperties.Entry("김하성", 673490L, null)));
+        IngestService service = new IngestService(new SampleMlbClient(SampleMlbClient.Data.empty()),
+                mock(IngestWriter.class), blockingRefresher, mock(GameIngest.class), players,
+                mock(PlayerSeasonRepository.class), ingestLogs, roster,
+                new KorleaguerProperties(2026, null, null, null, null, null), Clock.systemUTC());
 
-        Thread first = new Thread(service::resolvePlayers);
+        Thread first = new Thread(service::syncPlayers);
         first.start();
         assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
 
@@ -54,16 +53,8 @@ class IngestServiceLockTest {
 
         release.countDown();
         first.join(5_000);
-        // 앞의 수집이 끝나면 다시 돌 수 있다(선수가 없어서 FAILED로 끝난다).
+        // 앞의 수집이 끝나면 다시 돌 수 있다.
         IngestLog next = service.ingestSeason(2026);
-        assertThat(next.getStatus()).isEqualTo(IngestStatus.FAILED);
-    }
-
-    private static void await(CountDownLatch latch) {
-        try {
-            latch.await(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        assertThat(next.getStatus()).isEqualTo(IngestStatus.SUCCESS);
     }
 }

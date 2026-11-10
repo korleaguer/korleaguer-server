@@ -32,7 +32,9 @@ import java.util.stream.Collectors;
  *   <li>기록이 없는 정규시즌·포스트시즌 경기: 아래 "뛴 기간" 안에서만 played=false 줄을 만든다(시범경기는 뺀다).
  *     <ul>
  *       <li>선수 기록을 받은 상태: 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기까지.
- *           단 지금 소속 팀이 마지막 기록의 팀과 같으면 끝을 열어 둔다(마지막 출전 뒤 경기도 결장으로 보인다).</li>
+ *           단 지금 소속 팀이 마지막 기록의 팀과 같으면 끝을 열어 둔다(마지막 출전 뒤 경기도 결장으로 보인다).
+ *           지금 마이너에 있는 선수(level=MINORS)는 끝을 열지 않는다(마이너로 간 뒤의 메이저 경기는 결장이 아니다).
+ *           소속이 끝난 선수(FA 등)도 같다(마지막 소속 구단의 그 뒤 경기는 결장이 아니다).</li>
  *       <li>선수 기록을 받지 못한 상태: 지금 소속 팀 경기 전부. summary는 "기록 없음"이다.</li>
  *     </ul>
  *   </li>
@@ -67,7 +69,7 @@ class GameLineAssembler {
         Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady);
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
-                .map(stint -> stint.team().getBdlTeamId())
+                .map(stint -> stint.team().getMlbTeamId())
                 .distinct()
                 .toList();
         List<Game> teamGames = teamIds.isEmpty() ? List.of() : games.findTeamGamesBetween(teamIds, from, to).stream()
@@ -81,12 +83,12 @@ class GameLineAssembler {
             for (Appearance appearance : played) {
                 if (appearance.getPlayer().getId().equals(player.getId())) {
                     lines.add(line(player, appearance.getTeam(), appearance.getGame(), appearance, statsReady));
-                    playedGameIds.add(appearance.getGame().getBdlGameId());
+                    playedGameIds.add(appearance.getGame().getGamePk());
                 }
             }
             List<Stint> playerStints = stints.getOrDefault(player.getId(), List.of());
             for (Game game : teamGames) {
-                if (!playedGameIds.contains(game.getBdlGameId())) {
+                if (!playedGameIds.contains(game.getGamePk())) {
                     teamInRange(game, playerStints)
                             .ifPresent(team -> lines.add(line(player, team, game, null, statsReady)));
                 }
@@ -111,9 +113,14 @@ class GameLineAssembler {
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
         return members.stream().collect(Collectors.toMap(
                 m -> m.player().getId(),
-                m -> stints(byPlayer.getOrDefault(m.player().getId(), List.of()), m.team())));
+                m -> stints(byPlayer.getOrDefault(m.player().getId(), List.of()),
+                        m.majorTeam())));
     }
 
+    /**
+     * @param currentTeam 지금 소속 팀. 마이너에 있거나 소속이 끝난(FA 등) 선수는 null로 넘긴다
+     *                    (메이저 팀의 그 뒤 경기를 결장으로 보지 않는다).
+     */
     static List<Stint> stints(List<Appearance> seasonAppearances, Team currentTeam) {
         if (seasonAppearances.isEmpty()) {
             return List.of();
@@ -122,7 +129,7 @@ class GameLineAssembler {
                 .max(Comparator.comparing(a -> a.getGame().getStartTimeUtc()))
                 .orElseThrow();
         Map<Long, List<Appearance>> byTeam = seasonAppearances.stream()
-                .collect(Collectors.groupingBy(a -> a.getTeam().getBdlTeamId()));
+                .collect(Collectors.groupingBy(a -> a.getTeam().getMlbTeamId()));
 
         List<Stint> result = new ArrayList<>();
         for (List<Appearance> teamAppearances : byTeam.values()) {
@@ -157,7 +164,7 @@ class GameLineAssembler {
                 player.getNameKo(),
                 profiles.photoUrl(player),
                 player.role(),
-                game.getBdlGameId(),
+                game.getGamePk(),
                 KoreanTime.toKst(game.getStartTimeUtc()),
                 TeamLabels.korean(team),
                 TeamLabels.abbreviation(team),
@@ -206,7 +213,7 @@ class GameLineAssembler {
     }
 
     private static boolean sameTeam(Team a, Team b) {
-        return a != null && b != null && Objects.equals(a.getBdlTeamId(), b.getBdlTeamId());
+        return a != null && b != null && Objects.equals(a.getMlbTeamId(), b.getMlbTeamId());
     }
 
     /** 선수가 한 팀에서 뛴 기간. first/last가 null이면 그쪽 끝이 열려 있다. */

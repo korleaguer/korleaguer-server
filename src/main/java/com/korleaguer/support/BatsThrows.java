@@ -3,7 +3,7 @@ package com.korleaguer.support;
 import java.util.Locale;
 
 /**
- * balldontlie bats_throws("타격/투구", 예: Left/Right, L/R, Switch/Right)를 한국식 "우투좌타"(투구 먼저)로 바꾼다.
+ * "타격/투구"(예: Left/Right, L/R, Switch/Right. MLB batSide·pitchHand를 이어 붙인 값)를 한국식 "우투좌타"(투구 먼저)로 바꾼다.
  * 읽을 수 없으면 null.
  */
 public final class BatsThrows {

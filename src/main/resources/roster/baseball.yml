@@ -1,35 +1,25 @@
-# 다룰 선수 시작 명단. 영어 별칭은 balldontlie 검색어로 쓴다(앞에서부터 차례로 검색).
-# 자동으로 못 고르거나 잘못 고르면 bdl-player-id 를 적는다. 그러면 검색하지 않고 그 id를 쓴다.
-#   예)  - name-ko: 이정후
-#          aliases: [ "Jung Hoo Lee" ]
-#          bdl-player-id: 12345
-# 선택 항목(없으면 비워 둔다):
-#   mlb-id: MLB 공식 선수 번호. 공식 사진 주소와 MLB 공식 페이지 링크(mlb.com/player/번호)에 쓴다.
-#   career-ko: 한국 시절 소속. 사람이 직접 적은 문장이며 화면에 그대로 나온다.
+# 다룰 선수 명단. 선수의 모든 데이터(프로필·경기 기록·이동 기록)는 mlb-id로 MLB 공식 Stats API에서 받는다.
+#   name-ko: 화면에 쓰는 한글 이름
+#   mlb-id: MLB 공식 선수 번호(mlb.com/player/번호). 없으면 이름만 보인다.
+#   career-ko: 한국 시절 소속. 사람이 직접 적은 문장이며 화면에 그대로 나온다(선택).
 # career-ko는 손으로 적은 값이라 공개 전에 다시 확인한다.
 roster:
   baseball:
     - name-ko: 이정후
-      aliases: [ "Jung Hoo Lee", "Jung-Hoo Lee", "Lee" ]
       mlb-id: 808982
       career-ko: "넥센·키움 히어로즈 (2017–2023)"
     - name-ko: 김혜성
-      aliases: [ "Hyeseong Kim", "Hye-Seong Kim", "Kim" ]
       mlb-id: 808975
       career-ko: "넥센·키움 히어로즈 (2017–2024)"
     - name-ko: 김하성
-      aliases: [ "Ha-Seong Kim", "Ha Seong Kim", "Kim" ]
       mlb-id: 673490
       career-ko: "넥센·키움 히어로즈 (2014–2020)"
     - name-ko: 송성문
-      aliases: [ "Sung-Mun Song", "Seongmun Song", "Song" ]
       mlb-id: 823550
       career-ko: "넥센·키움 히어로즈 (2015–2025)"
     - name-ko: 고우석
-      aliases: [ "Woo-Suk Go", "Woosuk Go", "Go" ]
       mlb-id: 808970
       career-ko: "LG 트윈스 (2017–2023)"
     - name-ko: 배지환
-      aliases: [ "Ji Hwan Bae", "Ji-Hwan Bae", "Bae" ]
       mlb-id: 678225
       career-ko: "KBO 경력 없음 (고교 졸업 후 미국 진출)"

@@ -27,7 +27,7 @@ class KoreanTimeTest {
     }
 
     @Test
-    void parseBalldontlieDateFormats() {
+    void parseUtcDateFormats() {
         Instant expected = Instant.parse("2026-09-24T01:45:00Z");
 
         assertThat(KoreanTime.parseUtc("2026-09-24T01:45:00.000Z")).isEqualTo(expected);

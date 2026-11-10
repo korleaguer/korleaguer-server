@@ -55,8 +55,13 @@ class MoveLabelsTest {
     }
 
     @Test
+    void numberChangeIsDropped() {
+        assertThat(MoveLabels.korean("NUM", "Number Change", "Los Angeles Dodgers 2B Hyeseong Kim changed number to 6.")).isNull();
+    }
+
+    @Test
     void unknownTypeKeepsEnglishDescription() {
-        assertThat(MoveLabels.korean("NUM", "Number Change", "RHP Somebody changed number to 99.")).isEqualTo("Number Change");
+        assertThat(MoveLabels.korean("XYZ", "Some New Type", null)).isEqualTo("Some New Type");
         assertThat(MoveLabels.korean("XYZ", "Signed - Minor League", null)).isEqualTo("계약");
         assertThat(MoveLabels.korean(null, null, null)).isNull();
     }

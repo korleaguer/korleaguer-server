@@ -4,7 +4,7 @@ import com.korleaguer.domain.Team;
 import com.korleaguer.support.MlbTeams;
 import com.korleaguer.support.TeamNames;
 
-/** 응답에 넣을 팀 표시값. 팀이 없으면(매칭 전) null */
+/** 응답에 넣을 팀 표시값. 팀이 없으면(소속 없음, 받기 전) null */
 final class TeamLabels {
 
     private TeamLabels() {

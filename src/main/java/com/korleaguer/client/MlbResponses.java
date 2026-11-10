@@ -10,7 +10,7 @@ public final class MlbResponses {
     private MlbResponses() {
     }
 
-    /** /api/v1/people/{id} */
+    /** /api/v1/people */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record People(List<MlbPerson> people) {
     }
@@ -23,5 +23,23 @@ public final class MlbResponses {
     /** /api/v1/teams/{id} */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Teams(List<MlbTeam> teams) {
+    }
+
+    /** /api/v1/people/{id}/stats */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Stats(List<StatGroup> stats) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record StatGroup(List<MlbGameLogSplit> splits) {
+    }
+
+    /** /api/v1/schedule */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Schedule(List<ScheduleDate> dates) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ScheduleDate(String date, List<MlbScheduleGame> games) {
     }
 }
