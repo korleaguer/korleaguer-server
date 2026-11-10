@@ -127,6 +127,23 @@ scp deploy/korleaguer-deploy 내계정@pigeon.ddns.net:/tmp/korleaguer-deploy &&
 
 `compose.yaml`·`Caddyfile`을 고쳤으면 `server-setup.sh`를 다시 실행한다(위 "처음 한 번"의 2번).
 
+## 관리용 계정(Claude Code)
+
+서버 설정 바꾸기·장애 확인을 Claude Code가 사람에게 비밀번호를 묻지 않고 직접 하도록 관리용 계정 `claude`를 둔다(2026-11-10 결정).
+SSH 키로만 로그인되고 비밀번호 없는 sudo라, **서버의 root 권한을 갖는다.** 배포 계정(`deploy`)과는 따로다.
+
+- 내 컴퓨터: 키 `~/.ssh/korleaguer-admin`, 접속 이름 `korleaguer-admin`(`~/.ssh/config`). 작업 폴더의 `.claude/settings.local.json`이
+  `ssh korleaguer-admin …` 명령만 묻지 않고 실행되게 허용한다.
+- 만들기·키 바꾸기(`add-admin.sh`, 다시 실행해도 된다). 내 컴퓨터의 이 저장소 폴더에서:
+
+```bash
+scp deploy/add-admin.sh ~/.ssh/korleaguer-admin.pub 내계정@pigeon.ddns.net:/tmp/ && ssh -t 내계정@pigeon.ddns.net \
+  'cd /tmp && sudo bash add-admin.sh --user claude --key-file korleaguer-admin.pub && rm -f add-admin.sh korleaguer-admin.pub'
+```
+
+- 회수: 서버에서 `sudo bash add-admin.sh --user claude --remove`(계정·홈·sudo 권한을 지운다). 내 컴퓨터에서는 키 두 파일,
+  `~/.ssh/config`의 `korleaguer-admin` 묶음, 작업 폴더 `.claude/settings.local.json`의 허용 규칙을 지운다.
+
 ## 백업·복원
 
 ```bash
