@@ -137,7 +137,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 ## 배포
 
 develop에 병합되면 Actions(`.github/workflows/deploy.yml`)가 테스트 → 이미지(`Dockerfile`, GHCR `ghcr.io/korleaguer/korleaguer-server:sha-<커밋>`) →
-SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾸기(끊김 없이, 실패하면 옛 것 유지)까지 알아서 한다(지속 배포, 버전 번호 없이 커밋 해시로 구분). 서버 구성(Caddy·web·api·MySQL),
+SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾸기(끊김 없이, 새 것이 정상이 안 되면 옛 것 유지)까지 알아서 한다(지속 배포, 버전 번호 없이 커밋 해시로 구분). 서버 구성(Caddy·web·api·MySQL),
 처음 준비, 되돌리기, 백업은 [`deploy/README.md`](deploy/README.md).
 
 ```bash

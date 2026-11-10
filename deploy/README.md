@@ -12,8 +12,8 @@ SSH로 서버에 접속해 새 이미지로 바꾼다(지속 배포, 사람이 '
 - **순서:** 테스트(CI) → 이미지(SBOM·출처 증명 포함) → 서버 교체 → (웹) 공개 주소 `/healthz`가 그 커밋을 주는지 확인 → main을 배포한 커밋에 맞춤.
 - **배포 구분:** 버전 번호 없이 커밋 해시로 구분한다. 이미지 이름표는 `sha-1a2b3c4`(병합된 커밋의 앞 7자리)이고, 배포 기록은 저장소 Actions의 `deploy` 실행 목록이다.
 - **끊김 없이 바꾸기:** 새 컨테이너를 옛 것과 겹쳐 띄우고 healthy가 되면 옛 것을 내린다. 새 것이 정상이 안 되면 지우고 옛 것을 그대로 둔다.
-- **API 배포 전 DB 백업:** `backups/`에 `before-<이미지 이름표>` 덤프(예 `before-sha-1a2b3c4`). 매일 04:30에도 백업(최근 14개).
-- **되돌리기(롤백):** Actions → deploy → Run workflow에 되돌릴 커밋(예 `1a2b3c4`)을 넣는다. 서버에 최근 3개 이미지가 남아 있고, 그보다 오래된 것은 GHCR에서 받는다.
+- **API 배포 전 DB 백업:** `backups/`에 `before-<이미지 이름표>` 덤프(예 `before-sha-1a2b3c4`). 매일 04:30에도 백업한다. 종류별로 따로 남긴다: 매일 백업 14개(2주), 배포 전·수동 백업 5개(배포가 잦아도 매일 백업이 밀려나지 않게).
+- **되돌리기(롤백):** Actions → deploy → Run workflow에 되돌릴 커밋(예 `1a2b3c4`)을 넣는다. 서버에 최근 3개 이미지가 남아 있고, 그보다 오래된 것은 GHCR에서 받는다. 되돌리기는 main을 옮기지 않는다(아래 "되돌리기·직접 배포").
 - **보안:** 배포 전용 계정 `deploy`의 SSH 키는 저장소마다 따로이고, 키마다 "그 서비스 배포" 명령 하나만 실행된다(셸·포트 포워딩 불가). 서버 호스트 키를 고정해 다른 서버에는 접속하지 않는다. 서버가 GHCR에서 이미지를 받을 때는 그 배포 job의 임시 토큰만 쓰고 지운다.
 
 ## 처음 한 번: 준비
@@ -97,7 +97,12 @@ Free 조직의 private 저장소는 Environment·조직 secret을 쓸 수 없어
 
 PR을 develop에 병합하면 끝이다. 워크플로가 그 커밋을 테스트해 이미지로 만들고 배포한다. 성공하면 main을 그 커밋에 맞춘다.
 API와 웹이 함께 바뀌는 변경은 API PR을 먼저 병합한다(웹은 옛 API에도 깨지지 않게 만든다).
-실패하면 Actions가 실패로 표시되고(메일 알림) 서버는 옛 것 그대로다. 고친 뒤 다시 병합하거나 실패한 실행을 '다시 실행'한다.
+실패하면 Actions가 실패로 표시된다(메일 알림).
+
+- 새 컨테이너가 정상(healthy)이 안 돼서 실패했으면 서버는 옛 것 그대로다.
+- SSH가 끊겨서 실패했으면 서버는 교체를 끝까지 하므로 이미 새 커밋일 수 있다. `deploy.log`(아래)로 확인한다. 웹은 공개 주소 `/healthz`가 주는 커밋으로도 본다.
+- 고친 뒤 다시 병합하거나 그 실행을 '다시 실행'한다. 다시 실행은 그 커밋이 아직 develop 끝일 때만 배포한다(그 사이 더 새 커밋이 나갔을 수 있어서 멈춘다). 옛 커밋을 다시 내려면 아래 되돌리기를 쓴다.
+- 'main을 배포한 커밋에 맞추기'만 빨간불이면 배포는 끝난 것이다. main만 맞추면 된다.
 
 - 진행 상황: 저장소 Actions 탭의 `deploy`. 서버에도 `/srv/korleaguer/deploy.log`에 남는다(SSH가 중간에 끊겨도 배포는 끝까지 간다)
 - 서버에서 보기: 아래처럼 deploy 계정으로 들어가서 본다(`/srv/korleaguer`는 deploy 계정만 열 수 있다)
@@ -112,6 +117,8 @@ docker compose logs -f api
 ## 되돌리기·직접 배포
 
 - GitHub: Actions → deploy → Run workflow → `commit`에 되돌릴 커밋(예 `1a2b3c4`, 그 저장소의 develop 커밋)
+  - 배포는 한 번에 하나씩이라, 앞 배포가 도는 동안 되돌리기는 기다린다. 그 사이 새 병합이 들어오면 되돌리기 실행이 '취소됨'으로 끝날 수 있다(알림 메일이 없다). 취소됐으면 다시 건다.
+  - 되돌리기는 main을 옮기지 않는다(강제 푸시를 하지 않는다). main은 '병합으로 마지막에 배포한 코드'로 남고, 지금 서버에 나가 있는 커밋은 deploy 실행 목록(웹은 `/healthz`도)이 정답이다. 다음 병합 배포 때 main이 다시 맞춰진다.
 - 서버에서 직접(이미지가 서버에 있을 때): `sudo -iu deploy` 뒤 `KORLEAGUER_SKIP_PULL=1 korleaguer-deploy api sha-1a2b3c4`
 - DB 구조가 바뀐 배포를 되돌릴 때는 `backups/`의 `before-sha-…` 덤프로 함께 복원한다.
 
@@ -121,8 +128,8 @@ docker compose logs -f api
 (배포 키는 배포 명령 하나만 실행할 수 있게 묶여 있다). 내 컴퓨터의 이 저장소 폴더에서:
 
 ```bash
-scp deploy/korleaguer-deploy 내계정@pigeon.ddns.net:/tmp/korleaguer-deploy && ssh -t 내계정@pigeon.ddns.net \
-  'sudo install -m 755 /tmp/korleaguer-deploy /usr/local/bin/korleaguer-deploy && rm /tmp/korleaguer-deploy && echo 설치 완료'
+scp deploy/korleaguer-deploy deploy/korleaguer-backup 내계정@pigeon.ddns.net:/tmp/ && ssh -t 내계정@pigeon.ddns.net \
+  'cd /tmp && sudo install -m 755 korleaguer-deploy korleaguer-backup /usr/local/bin/ && rm korleaguer-deploy korleaguer-backup && echo 설치 완료'
 ```
 
 `compose.yaml`·`Caddyfile`을 고쳤으면 `server-setup.sh`를 다시 실행한다(위 "처음 한 번"의 2번).
@@ -141,7 +148,9 @@ scp deploy/add-admin.sh ~/.ssh/korleaguer-admin.pub 내계정@pigeon.ddns.net:/t
   'cd /tmp && sudo bash add-admin.sh --user claude --key-file korleaguer-admin.pub && rm -f add-admin.sh korleaguer-admin.pub'
 ```
 
-- 회수: 서버에서 `sudo bash add-admin.sh --user claude --remove`(계정·홈·sudo 권한을 지운다). 내 컴퓨터에서는 키 두 파일,
+- 이 스크립트는 자기가 만든 계정만 다룬다(계정 설명 `korleaguer-admin` 또는 전용 sudo 파일이 있는 계정). 사람·시스템 계정(UID 1000 미만),
+  스크립트를 실행한 계정 자신을 주면 거절한다. 그래서 `claude` 계정을 바꾸거나 지울 때는 `ubuntu` 같은 다른 계정에서 실행한다.
+- 회수: 서버에서 `sudo bash add-admin.sh --user claude --remove`(키를 지우고 계정을 만료시켜 접속부터 막은 뒤 sudo 권한·계정·홈을 지운다). 내 컴퓨터에서는 키 두 파일,
   `~/.ssh/config`의 `korleaguer-admin` 묶음, 작업 폴더 `.claude/settings.local.json`의 허용 규칙을 지운다.
 
 ## 백업·복원
