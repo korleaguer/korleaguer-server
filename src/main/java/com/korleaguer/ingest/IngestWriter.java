@@ -2,6 +2,7 @@ package com.korleaguer.ingest;
 
 import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbGameLogSplit;
+import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbStat;
@@ -16,6 +17,8 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Lineup;
+import com.korleaguer.domain.MinorSeason;
+import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
@@ -69,10 +72,11 @@ public class IngestWriter {
     private final AppearanceRepository appearances;
     private final PlayerMoveRepository moves;
     private final PlayerSeasonRepository seasons;
+    private final MinorSeasonRepository minorSeasons;
 
     public IngestWriter(TeamRepository teams, PlayerRepository players, AffiliationRepository affiliations,
                         GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves,
-                        PlayerSeasonRepository seasons) {
+                        PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons) {
         this.teams = teams;
         this.players = players;
         this.affiliations = affiliations;
@@ -80,6 +84,7 @@ public class IngestWriter {
         this.appearances = appearances;
         this.moves = moves;
         this.seasons = seasons;
+        this.minorSeasons = minorSeasons;
     }
 
     /**
@@ -140,6 +145,14 @@ public class IngestWriter {
             saved++;
         }
         return saved;
+    }
+
+    /** 선수의 시즌 마이너 출전 경기 수를 새 값으로 덮어쓴다. */
+    public void saveMinorGames(long playerId, int season, MlbMinorGames games, Instant fetchedAt) {
+        MinorSeason row = minorSeasons.find(playerId, season)
+                .orElseGet(() -> new MinorSeason(players.getReferenceById(playerId), season));
+        row.update(games.hitting(), games.pitching(), fetchedAt);
+        minorSeasons.save(row);
     }
 
     /**

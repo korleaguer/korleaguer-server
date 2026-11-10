@@ -3,7 +3,7 @@
 한국 MLB 선수 6명의 최근 경기 한 줄 기록과 2026 시즌 성적을 JSON으로 준다. 화면([korleaguer-web](https://github.com/korleaguer/korleaguer-web))이 이 API를 부른다.
 
 - Java 21, Spring Boot 4.1.2, H2 파일 DB(`./data/korleaguer`, PostgreSQL 호환 모드), Flyway
-- 데이터 출처: MLB 공식 Stats API(`statsapi.mlb.com`, 키 없음). 경기·선수 기록·선수 정보·이동 기록을 모두 여기서 받는다(메이저 경기만).
+- 데이터 출처: MLB 공식 Stats API(`statsapi.mlb.com`, 키 없음). 경기·선수 기록·선수 정보·이동 기록을 모두 여기서 받는다(경기는 메이저만, 마이너는 시즌 출전 경기 수만).
 
 ## 실행
 
@@ -46,7 +46,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 화면용 API(`/api/**`)는 DB만 읽는다. MLB는 수집기(`ingest`)만 부른다. 같은 화면을 몇 번 열어도 MLB 요청은 늘지 않는다.
 
 - **요청 예절:** 1초에 1회 이하, `User-Agent: korleaguer/0.1`, 연결 5초·읽기 10초 제한, 다시 시도하지 않는다(실패한 건은 다음 수집 때 다시). 403/429가 오면 그 실행의 남은 단계는 건너뛴다(`BLOCKED`).
-- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
+- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 출전 경기 수 `people/{id}/stats?stats=season&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번, 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
@@ -65,7 +65,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 
 | 경로 | 설명 |
 |---|---|
-| `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`) |
+| `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`) |
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
@@ -78,6 +78,9 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 관리용은 `X-Admin-Token` 헤더가 필요하다. MLB 요청이 1초에 1회라 시즌 다시 받기는 몇십 초 걸릴 수 있다.
 수집은 한 번에 하나만 돈다. 도는 중에 또 부르면 409 `{"error":"ingest already running"}`이다.
 순위 기준(`ranking`)은 표본이 아주 적은 선수가 타율·OPS·평균자책점 1위가 되지 않게 거르는 최소값이다. 규정타석(팀 경기 수 × 3.1)보다 느슨하게 타자는 팀 경기 수 × 0.5타석(최소 10), 투수는 팀 경기 수 × 0.2이닝(최소 5이닝)이다. 팀 경기 수(`teamGames`)는 메이저에 있는 우리 선수 구단 중 이번 정규시즌에 끝난 경기가 가장 많은 구단의 경기 수다.
+
+"올해 주로 마이너"(`mainlyMinors`)는 같은 시즌 마이너(트리플A ~ 루키) 경기 수(`minorGames`, 타자는 타자로 나온 경기, 투수는 등판)가 메이저 정규시즌 경기 수(`games`)보다 많은 선수다. 지금 단계(`level`)가 아니라 시즌 경기 수로 정하므로, 시즌 중에 콜업돼 지금 메이저에 있어도 마이너에서 더 많이 뛰었으면 true다. 홈 시즌 성적에서는 맨 아래에 두고, 선수 페이지의 시즌 성적에도 같은 두 값이 있다. 마이너 경기 수를 아직 받지 않았으면 0이다.
+
 응답의 `dataMode`는 `"mlb"` / `"sample"`이고, `statsAvailable`은 늘 `true`다(화면 호환 때문에 남긴 필드).
 
 ```bash
@@ -141,7 +144,7 @@ com.korleaguer
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 
-- DB 스키마: 지금 모양은 `src/main/resources/db/migration/V4__mlb_source.sql`(V1~V3 위에서 표를 MLB 번호로 다시 만든다)과 `V5__appearance_lineup.sql`(선발·교체). 시각은 UTC로 저장하고 응답에서만 한국 시간으로 바꾼다.
+- DB 스키마: 지금 모양은 `src/main/resources/db/migration/V4__mlb_source.sql`(V1~V3 위에서 표를 MLB 번호로 다시 만든다)과 `V5__appearance_lineup.sql`(선발·교체), `V6__minor_season.sql`(시즌 마이너 출전 경기 수). 시각은 UTC로 저장하고 응답에서만 한국 시간으로 바꾼다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수 응답을 메모리(Caffeine)에 60초 캐시하고, 수집이 끝나면 비운다(나중에 Redis로 바꿀 자리). 내 선수 응답은 캐시하지 않는다.
 - H2 콘솔: 기본은 꺼져 있다. `local` 프로필로 띄우면 `http://localhost:8080/h2-console`이 열린다.

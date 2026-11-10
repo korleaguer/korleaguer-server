@@ -3,6 +3,7 @@ package com.korleaguer.ingest;
 import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameLogSplit;
+import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
@@ -112,6 +113,12 @@ class GameIngestTest {
         public List<MlbGameLogSplit> getGameLog(long personId, Group group, int season) {
             requests++;
             return delegate.getGameLog(personId, group, season);
+        }
+
+        @Override
+        public MlbMinorGames getMinorGames(long personId, int season) {
+            requests++;
+            return delegate.getMinorGames(personId, season);
         }
 
         @Override

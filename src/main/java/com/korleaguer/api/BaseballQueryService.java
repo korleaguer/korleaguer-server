@@ -7,6 +7,8 @@ import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.MinorSeason;
+import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
@@ -51,6 +53,7 @@ public class BaseballQueryService {
     private final AppearanceRepository appearances;
     private final GameRepository games;
     private final PlayerMoveRepository moves;
+    private final MinorSeasonRepository minorSeasons;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
     private final RosterProfiles profiles;
@@ -60,7 +63,7 @@ public class BaseballQueryService {
 
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
                                 AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
-                                GameLineAssembler gameLines,
+                                MinorSeasonRepository minorSeasons, GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode, KorleaguerProperties properties,
                                 Clock clock) {
         this.players = players;
@@ -68,6 +71,7 @@ public class BaseballQueryService {
         this.appearances = appearances;
         this.games = games;
         this.moves = moves;
+        this.minorSeasons = minorSeasons;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
         this.profiles = profiles;
@@ -86,26 +90,45 @@ public class BaseballQueryService {
         List<HitterSeason> hitters = List.of();
         List<PitcherSeason> pitchers = List.of();
         if (statsAvailable && !roster.isEmpty()) {
-            Map<Long, List<Appearance>> byPlayer = regularSeason(roster.stream().map(m -> m.player().getId()).toList());
+            List<Long> ids = roster.stream().map(m -> m.player().getId()).toList();
+            Map<Long, List<Appearance>> byPlayer = regularSeason(ids);
+            Map<Long, MinorSeason> minors = minorSeasonsOf(ids);
+            // 올해 주로 메이저에서 뛴 선수 먼저(주로 마이너면 맨 아래), 그 안에서 순위 기준을 채운 선수 먼저,
+            // 그 안에서 타율(투수는 평균자책점) 순
             hitters = roster.stream()
                     .filter(m -> m.player().role() == Role.HITTER)
                     .map(m -> SeasonStats.hitter(m.player(), profiles.photoUrl(m.player()), m.team(),
-                            seasonOf(byPlayer, m.player())))
-                    // 순위 기준을 채운 선수 먼저, 그 안에서 타율 순
-                    .sorted(Comparator.comparing((HitterSeason h) -> !ranking.qualifies(h))
+                            seasonOf(byPlayer, m.player()), hittingGames(minors.get(m.player().getId()))))
+                    .sorted(Comparator.comparing(HitterSeason::mainlyMinors)
+                            .thenComparing((HitterSeason h) -> !ranking.qualifies(h))
                             .thenComparing(HitterSeason::avg, Comparator.nullsLast(Comparator.reverseOrder())))
                     .toList();
             pitchers = roster.stream()
                     .filter(m -> m.player().role() == Role.PITCHER)
                     .map(m -> SeasonStats.pitcher(m.player(), profiles.photoUrl(m.player()), m.team(),
-                            seasonOf(byPlayer, m.player())))
-                    .sorted(Comparator.comparing((PitcherSeason p) -> !ranking.qualifies(p))
+                            seasonOf(byPlayer, m.player()), pitchingGames(minors.get(m.player().getId()))))
+                    .sorted(Comparator.comparing(PitcherSeason::mainlyMinors)
+                            .thenComparing((PitcherSeason p) -> !ranking.qualifies(p))
                             .thenComparing(PitcherSeason::era, Comparator.nullsLast(Comparator.naturalOrder())))
                     .toList();
         }
 
         return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
                 recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers);
+    }
+
+    /** 선수 번호 → 이번 시즌 마이너 출전 경기 수. 아직 받지 않은 선수는 빠진다. */
+    private Map<Long, MinorSeason> minorSeasonsOf(List<Long> playerIds) {
+        return minorSeasons.findAll(playerIds, season).stream()
+                .collect(Collectors.toMap(m -> m.getPlayer().getId(), m -> m));
+    }
+
+    private static int hittingGames(MinorSeason minor) {
+        return minor == null ? 0 : minor.getHittingGames();
+    }
+
+    private static int pitchingGames(MinorSeason minor) {
+        return minor == null ? 0 : minor.getPitchingGames();
     }
 
     /** 시즌이 얼마나 지났는지: 메이저에 있는 선수들의 구단 중 이번 정규시즌에 끝난 경기가 가장 많은 구단의 경기 수 */
@@ -141,10 +164,11 @@ public class BaseballQueryService {
         PitcherSeason pitching = null;
         if (statsAvailable) {
             List<Appearance> mine = seasonOf(regularSeason(List.of(player.getId())), player);
+            MinorSeason minor = minorSeasons.find(player.getId(), season).orElse(null);
             if (player.role() == Role.PITCHER) {
-                pitching = SeasonStats.pitcher(player, profiles.photoUrl(player), team, mine);
+                pitching = SeasonStats.pitcher(player, profiles.photoUrl(player), team, mine, pitchingGames(minor));
             } else {
-                hitting = SeasonStats.hitter(player, profiles.photoUrl(player), team, mine);
+                hitting = SeasonStats.hitter(player, profiles.photoUrl(player), team, mine, hittingGames(minor));
             }
         }
 

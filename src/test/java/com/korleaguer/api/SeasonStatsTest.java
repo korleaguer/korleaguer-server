@@ -28,7 +28,7 @@ class SeasonStatsTest {
         // 아웃 수를 모르는 경기의 자책점 2점은 평균자책점에 넣지 않는다.
         Appearance unknownOuts = pitched(player, team, 2L, new Pitching(null, 2, 2, 2, 1, 0, 0, 21, 0, 1, 0));
 
-        PitcherSeason season = SeasonStats.pitcher(player, null, team, List.of(known, unknownOuts));
+        PitcherSeason season = SeasonStats.pitcher(player, null, team, List.of(known, unknownOuts), 0);
 
         assertThat(season.games()).isEqualTo(2);
         assertThat(season.outs()).isEqualTo(3);
