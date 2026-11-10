@@ -43,13 +43,33 @@ class FreeAgencyTest {
     }
 
     @Test
-    void anyLaterMoveExceptReleaseMeansNewTeam() {
+    void laterMovesThatGiveATeamEndFreeAgency() {
         assertThat(FreeAgency.isFreeAgent(List.of(
                 move("2026-08-30", "DFA", "Declared Free Agency"),
                 move("2026-09-03", "TR", "Trade")))).isFalse();
         assertThat(FreeAgency.isFreeAgent(List.of(
                 move("2026-08-30", "DFA", "Declared Free Agency"),
-                move("2026-09-03", "REL", "Released")))).isTrue();
+                move("2026-09-03", "CLW", "Claimed Off Waivers")))).isFalse();
+    }
+
+    @Test
+    void laterMovesWithoutATeamKeepFreeAgency() {
+        // 방출·상태 변경(대표팀 소집 등)·출장 정지·등번호 변경은 새 팀이 아니다
+        for (String code : List.of("REL", "SC", "SU", "NUM")) {
+            assertThat(FreeAgency.isFreeAgent(List.of(
+                    move("2026-11-02", "DFA", "Declared Free Agency"),
+                    move("2027-02-05", code, "Status Change")))).as(code).isTrue();
+        }
+    }
+
+    @Test
+    void releasedWithoutNewContractIsFreeAgent() {
+        // 고우석 2025: 6/17 방출 → 6/23 디트로이트와 계약. 그 사이는 FA다
+        List<MlbTransaction> released = List.of(move("2025-06-17", "REL", "Released"));
+        assertThat(FreeAgency.isFreeAgent(released)).isTrue();
+        assertThat(FreeAgency.isFreeAgent(List.of(
+                move("2025-06-17", "REL", "Released"),
+                move("2025-06-23", "SFA", "Signed as Free Agent")))).isFalse();
     }
 
     @Test
