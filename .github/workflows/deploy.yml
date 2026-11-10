@@ -1,13 +1,11 @@
 # 지속 배포: develop에 병합(푸시)되면 사람 손 없이 서버까지 나간다.
-#   테스트(ci.yml) → 버전 정하기 → 이미지(GHCR) → 서버 무중단 교체(deploy/korleaguer-deploy)
-#   → 성공하면 태그·릴리스 노트(vX.Y.Z)를 남기고 main을 배포한 커밋에 맞춘다.
-# 배포가 실패하면 서버는 옛 버전 그대로이고 태그·릴리스도 남지 않는다(다음 병합이나 '다시 실행'이 같은 버전으로 다시 한다).
+#   테스트(ci.yml) → 이미지(GHCR, 이름표는 커밋 해시 sha-1a2b3c4) → 서버 무중단 교체(deploy/korleaguer-deploy)
+#   → 성공하면 main을 배포한 커밋에 맞춘다.
+# 배포는 커밋 해시로 구분한다(따로 버전 번호를 두지 않는다). 배포 기록은 Actions의 deploy 실행 목록이다.
+# 배포가 실패하면 서버는 옛 것 그대로다. 고친 뒤 다시 병합하거나 실패한 실행을 '다시 실행'한다.
 # 문서·테스트만 바뀐 푸시(*.md, deploy/, src/test/)는 배포하지 않는다.
-# 되돌리기: Actions → deploy → Run workflow에 이전 버전(예 0.2.0)을 넣으면 그 이미지로 다시 배포한다(서버에 최근 3개 버전이 있다).
-#
-# 버전(.github/scripts/next-version.sh, Conventional Commits): 마지막 vX.Y.Z 뒤 커밋 제목으로
-#   호환이 깨지는 변경(type!: 또는 BREAKING CHANGE) → 1.0.0 전에는 minor, 뒤에는 major / feat → minor / 그 밖 → patch.
-#   버전은 git 태그가 정한다(build.gradle의 version은 배포에 쓰지 않는다).
+# 되돌리기: Actions → deploy → Run workflow에 되돌릴 커밋(예 1a2b3c4)을 넣으면 그 커밋의 이미지로 다시 배포한다
+# (서버에 최근 3개 이미지가 있고, 그보다 오래된 것은 GHCR에서 받는다).
 #
 # 필요한 값(저장소 Settings → Secrets and variables → Actions). 자세한 준비는 deploy/README.md.
 #   secret   DEPLOY_SSH_KEY       배포 계정용 SSH 개인키(이 저장소 전용, 서버에서는 'api 배포'만 할 수 있게 묶여 있다)
@@ -27,8 +25,8 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
     inputs:
-      version:
-        description: 되돌리거나 다시 배포할 버전(예 0.2.0). GHCR에 이미 있는 이미지를 쓴다
+      commit:
+        description: 되돌리거나 다시 배포할 커밋(예 1a2b3c4). 이 워크플로가 그 커밋으로 만든 이미지가 있어야 한다
         required: true
 
 # 배포는 한 번에 하나씩, 도는 중인 배포는 끊지 않는다(기다리던 배포가 여럿이면 가장 새 것만 남는다).
@@ -49,38 +47,23 @@ jobs:
     if: github.event_name == 'push'
     uses: ./.github/workflows/ci.yml
 
-  version:
-    name: 버전 정하기
-    needs: test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      value: ${{ steps.next.outputs.value }}
-      state: ${{ steps.next.outputs.state }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # 태그와 전체 이력(마지막 버전 뒤 커밋을 본다)
-
-      - name: 다음 버전
-        id: next
-        run: |
-          out="$(bash .github/scripts/next-version.sh)"
-          read -r value state <<< "$out"
-          echo "value=$value" >> "$GITHUB_OUTPUT"
-          echo "state=$state" >> "$GITHUB_OUTPUT"
-          echo "배포할 버전: $value ($state)"
-
   build:
     name: 이미지 만들기
-    needs: version
+    needs: test
     runs-on: ${{ vars.DEPLOY_PLATFORM == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 이미지 이름표(커밋 해시)
+        id: tag
+        run: |
+          echo "value=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -90,14 +73,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 태그: 0.2.0(버전), sha-abc1234(커밋). 배포에는 버전만 쓰고 latest는 쓰지 않는다.
+      # 이름표는 sha-1a2b3c4 하나다. latest는 쓰지 않는다(무엇이 나가 있는지 늘 커밋으로 안다).
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=raw,value=${{ needs.version.outputs.value }}
-            type=sha,format=short,prefix=sha-
+            type=raw,value=${{ steps.tag.outputs.value }}
 
       # SBOM(이미지에 든 패키지 목록)과 출처 증명(어느 커밋·워크플로가 만들었나)을 이미지와 함께 올린다.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -114,7 +96,7 @@ jobs:
 
   deploy:
     name: 서버에 배포
-    needs: [version, build]
+    needs: build
     # 병합이면 이미지를 만든 뒤, 수동 실행(되돌리기)이면 테스트·이미지 만들기를 건너뛰고 바로 배포한다.
     if: always() && ((github.event_name == 'push' && needs.build.result == 'success') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
@@ -123,16 +105,22 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: 배포할 버전
-        id: version
+      - name: 배포할 이미지
+        id: tag
         run: |
-          version="${INPUT_VERSION:-$NEXT_VERSION}"
-          version="${version#v}"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "버전 형식(0.2.0)이 아닙니다: $version"; exit 1; }
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = workflow_dispatch ]; then
+            commit="$(printf '%s' "${INPUT_COMMIT#sha-}" | tr 'A-F' 'a-f')"
+            [[ "$commit" =~ ^[0-9a-f]{7,40}$ ]] || { echo "커밋 해시(예 1a2b3c4)가 아닙니다: $INPUT_COMMIT"; exit 1; }
+            tag="sha-${commit:0:7}"
+          else
+            tag="$BUILT_TAG"
+          fi
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+          echo "배포할 이미지: ${IMAGE}:${tag}"
         env:
-          INPUT_VERSION: ${{ inputs.version }}
-          NEXT_VERSION: ${{ needs.version.outputs.value }}
+          EVENT: ${{ github.event_name }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          BUILT_TAG: ${{ needs.build.outputs.tag }}
 
       - name: SSH 준비
         run: |
@@ -149,21 +137,21 @@ jobs:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
 
-      # 서버는 이 키로 'korleaguer-deploy api'만 실행한다. 보내는 명령은 버전뿐이고,
+      # 서버는 이 키로 'korleaguer-deploy api'만 실행한다. 보내는 명령은 이미지 이름표뿐이고,
       # 표준입력으로 이 job의 임시 토큰(packages:read)을 넘겨 GHCR에서 이미지를 받게 한다(job이 끝나면 만료).
-      # 서버가 새 컨테이너를 옛 것과 겹쳐 띄워 healthy가 되면 바꾸고, 안 되면 옛 것을 그대로 둔다(API는 바꾸기 전 DB 백업).
+      # 서버가 새 컨테이너를 옛 것과 겹쳐 띄워 healthy가 되면 바꾸고, 안 되면 옛 것을 그대로 둔다(바꾸기 전 DB 백업).
       - name: 배포
         run: |
           printf '%s\n%s\n' "$GITHUB_ACTOR" "$GHCR_TOKEN" | ssh \
             -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
             -o ConnectTimeout=20 -o ServerAliveInterval=15 \
-            "deploy@${DEPLOY_HOST}" "$VERSION"
+            "deploy@${DEPLOY_HOST}" "$TAG"
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
-          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.tag.outputs.value }}
 
       - name: SSH 키 지우기
         if: always()
@@ -171,41 +159,25 @@ jobs:
 
       - name: 요약
         run: |
-          echo "### API ${VERSION} 배포 완료 (${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
+          echo "### API 배포 완료: ${TAG}" >> "$GITHUB_STEP_SUMMARY"
         env:
-          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.tag.outputs.value }}
 
-  release:
-    name: 태그·릴리스 노트, main 맞추기
-    needs: [version, deploy]
+  main:
+    name: main을 배포한 커밋에 맞추기
+    needs: deploy
     if: github.event_name == 'push' && needs.deploy.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write
     steps:
-      # 릴리스 노트는 지난 릴리스 뒤 병합된 PR 제목으로 만든다. 이 토큰으로 만든 Release는 다른 워크플로를 깨우지 않는다.
-      - name: 태그와 릴리스 노트
-        if: needs.version.outputs.state == 'new'
-        run: |
-          gh release create "v${VERSION}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v${VERSION}" --generate-notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.version.outputs.value }}
-
       # main은 '지금 서버에 나가 있는 코드'다. 배포한 커밋을 main에 병합해 둔다(이미 들어 있으면 그대로).
-      - name: main을 배포한 커밋에 맞추기
+      - name: main에 병합
         run: |
           gh api -X POST "repos/${GITHUB_REPOSITORY}/merges" \
             -f base=main -f head="$GITHUB_SHA" \
-            -f commit_message="chore(release): v${VERSION} 배포를 main에 반영" --silent \
+            -f commit_message="chore(deploy): ${GITHUB_SHA::7} 배포를 main에 반영" --silent \
             || echo "::warning::main에 병합하지 못했습니다. 배포는 끝났으니 main만 직접 맞추세요"
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.version.outputs.value }}
-
-      - name: 요약
-        run: |
-          echo "릴리스: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
-        env:
-          VERSION: ${{ needs.version.outputs.value }}
