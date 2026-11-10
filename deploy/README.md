@@ -39,6 +39,8 @@ sudo ./server-setup.sh \
 ```
 
 - Debian·Ubuntu 계열에서 동작한다(Docker가 없으면 Docker 공식 저장소에서 설치).
+- Docker 설정(`/etc/docker/daemon.json`)도 넣는다: 로그 기본 상한, live-restore(Docker가 업데이트 등으로 다시 켜져도 컨테이너를 끄지 않음).
+  파일이 없을 때만 쓰고 `systemctl reload docker`로 적용한다(컨테이너는 그대로). 다른 설정이 이미 있으면 덮어쓰지 않고 넣을 값을 알려 준다.
 - 마지막에 GitHub에 넣을 값(`DEPLOY_HOST`, `DEPLOY_PLATFORM`, `DEPLOY_KNOWN_HOSTS`)과 서버 키 지문을 출력한다.
 - 비밀번호 로그인·root 로그인을 끄려면 `--harden-ssh`를 붙인다. **지금 쓰는 계정이 SSH 키로 로그인되는지 먼저 확인할 것**(아니면 서버에 못 들어가게 된다).
 - 다시 실행해도 된다. 이미 있는 비밀 파일(`api.env`, `mysql.env`, `.env`)은 그대로 두고, 같은 서비스의 배포 키는 새 키로 바뀐다.
@@ -188,5 +190,8 @@ docker compose exec api sh -c 'curl -s -X POST -H "X-Admin-Token: $KORLEAGUER_AD
 - **서버 설정 파일이 바뀌면**(`compose.yaml`, `Caddyfile`, 스크립트): 이 폴더를 서버에 다시 복사하고 `server-setup.sh`를 다시 실행한 뒤,
   deploy 계정으로 `cd /srv/korleaguer && docker compose up -d caddy mysql && docker compose restart caddy`
   (Caddy는 시작할 때만 Caddyfile을 읽어서, 설정이 같으면 `up`만으로는 다시 읽지 않는다).
+- **Docker 설정(`/etc/docker/daemon.json`)을 바꿀 때:** `sudo systemctl restart docker` 대신 `sudo systemctl reload docker`를 쓴다.
+  live-restore 같은 값은 reload로 컨테이너를 끄지 않고 적용된다. 로그 기본값처럼 reload로 안 바뀌는 값은 다음 Docker 재시작 때 적용되고,
+  그때도 live-restore가 켜져 있으면 컨테이너는 그대로 돈다.
 - **No-IP 무료 주소**는 30일마다 확인하지 않으면 만료된다.
 - **GHCR:** 지금은 컨테이너 이미지 저장·전송이 무료다(바뀌면 1개월 전에 알려 준다). 오래된 이미지는 GitHub 조직의 Packages에서 지울 수 있다.
