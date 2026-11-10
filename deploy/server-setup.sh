@@ -8,6 +8,8 @@
 #
 # 하는 일
 #  1) Docker Engine·compose 플러그인 설치(없을 때만, Docker 공식 apt 저장소)
+#     Docker 설정 /etc/docker/daemon.json: 로그 기본 상한, live-restore(Docker가 다시 켜져도 컨테이너 유지).
+#     파일이 없을 때만 쓰고(다른 설정이 있으면 넣을 값만 알린다) reload로 적용한다(컨테이너를 끄지 않는다)
 #  2) 배포 전용 계정 deploy(비밀번호 없음, sudo 없음, docker 그룹)
 #  3) /srv/korleaguer에 compose.yaml·Caddyfile 복사, .env·api.env·mysql.env 만들기
 #     (DB 비밀번호·관리용 토큰은 임의로 만든다. 이미 있으면 건드리지 않는다)
@@ -72,6 +74,55 @@ if ! command -v docker > /dev/null || ! docker compose version > /dev/null 2>&1;
 fi
 command -v crontab > /dev/null || { apt-get update && apt-get install -y cron && systemctl enable --now cron; }
 command -v flock > /dev/null || apt-get install -y util-linux
+
+# 1-1) Docker 설정. 우리 컨테이너의 로그 상한은 compose.yaml(x-logging)이 건다. 여기서 넣는 것은
+#  - 로그 기본 상한: compose 밖에서 띄운 컨테이너도 디스크를 채우지 않게
+#  - live-restore: Docker가 업데이트 등으로 다시 켜져도 컨테이너(사이트)를 끄지 않게
+DAEMON_JSON_CONTENT='{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "3" },
+  "live-restore": true
+}'
+# 결과를 출력한다: written(새로 씀) / same(이미 같은 값) / foreign(다른 설정이 있어 손대지 않음)
+write_daemon_json() {
+  local file="$1"
+  if [ ! -e "$file" ]; then
+    install -d -m 755 "$(dirname "$file")"
+    printf '%s\n' "$DAEMON_JSON_CONTENT" > "$file"
+    chmod 644 "$file"
+    echo written
+  elif printf '%s\n' "$DAEMON_JSON_CONTENT" | cmp -s - "$file"; then
+    echo same
+  elif command -v jq > /dev/null && jq -e '."live-restore" == true and ."log-driver" == "json-file"
+      and ."log-opts"."max-size" == "10m" and ."log-opts"."max-file" == "3"' "$file" > /dev/null 2>&1; then
+    echo same # 모양은 달라도 넣을 값이 이미 다 있다
+  else
+    echo foreign
+  fi
+}
+daemon_json=/etc/docker/daemon.json
+say "Docker 설정(${daemon_json})"
+daemon_result="$(write_daemon_json "$daemon_json")"
+case "$daemon_result" in
+  written) echo "만듦: $daemon_json" ;;
+  same) echo "있음(그대로 둠): $daemon_json" ;;
+  foreign)
+    echo "주의: ${daemon_json}에 다른 설정이 있어 덮어쓰지 않았습니다. 아래 값을 직접 합쳐 넣고 'sudo systemctl reload docker'를 실행하세요:" >&2
+    printf '%s\n' "$DAEMON_JSON_CONTENT" >&2
+    ;;
+esac
+# live-restore는 reload(설정 다시 읽기)로 컨테이너를 끄지 않고 바로 켜진다. 로그 기본값은 다음 Docker 재시작 때 적용된다.
+# restart는 쓰지 않는다(live-restore가 꺼진 채 재시작하면 컨테이너가 모두 내려갔다 다시 뜬다).
+live_restore() { docker info --format '{{.LiveRestoreEnabled}}' 2> /dev/null || true; }
+if [ "$daemon_result" != foreign ] && [ "$(live_restore)" != true ]; then
+  systemctl reload docker || echo "주의: 'systemctl reload docker'가 실패했습니다" >&2
+  for _ in 1 2 3 4 5; do [ "$(live_restore)" = true ] && break; sleep 1; done
+fi
+if [ "$(live_restore)" = true ]; then
+  echo "live-restore: 켜짐"
+else
+  echo "주의: live-restore가 꺼져 있습니다(${daemon_json}과 'journalctl -u docker'를 확인하세요)" >&2
+fi
 
 # 2) 배포 계정
 if ! id "$DEPLOY_USER" > /dev/null 2>&1; then
