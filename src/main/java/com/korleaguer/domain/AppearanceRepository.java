@@ -65,4 +65,13 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
             where a.player.id in :playerIds and g.startTimeUtc <= :now
             """)
     Optional<Instant> findLastStartTime(Collection<Long> playerIds, Instant now);
+
+    /** 선수마다 now까지 뛴 경기 중 가장 늦게 시작한 경기의 시작 시각. 뛴 경기가 없는 선수는 빠진다 */
+    @Query("""
+            select new com.korleaguer.domain.PlayerLastStart(a.player.id, max(g.startTimeUtc)) from Appearance a
+            join a.game g
+            where a.player.id in :playerIds and g.startTimeUtc <= :now
+            group by a.player.id
+            """)
+    List<PlayerLastStart> findLastStartTimes(Collection<Long> playerIds, Instant now);
 }
