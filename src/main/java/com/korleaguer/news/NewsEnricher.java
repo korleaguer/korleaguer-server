@@ -13,7 +13,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -23,8 +22,10 @@ import java.util.stream.Collectors;
  * NewsScheduler가 기사를 모은 뒤 부른다.
  * <ul>
  *   <li>요약기가 꺼져 있으면(ANTHROPIC_API_KEY 없음) 기사 페이지도 받지 않는다. 샘플 모드도 마찬가지다.</li>
- *   <li>기사 페이지는 기사마다 한 번 PoliteFetcher로 받는다(robots.txt·Crawl-delay·멈춤을 지킨다). 본문은 요약에만 쓰고 버린다.</li>
- *   <li>한 번에 최근 기사 몇 건만 한다. 실패하면 다음 차례에 다시 해 보고, 세 번 실패하면 그만둔다.</li>
+ *   <li>기사 페이지는 기사마다 PoliteFetcher.getPage로 받는다(robots.txt·Crawl-delay·멈춤을 지킨다).
+ *       본문은 요약에만 쓰고 버린다.</li>
+ *   <li>한 번에 최근 기사 몇 건만 한다. 기사 탓인 실패(페이지가 없어짐, 본문 없음, 요약 거절)는 세 번까지 다시 해 본다.</li>
+ *   <li>기사 탓이 아닌 실패(사이트가 쉬는 중, 요약 서비스 장애·키 문제)는 세지 않고 이번 차례를 멈춘다(다음 차례에 다시).</li>
  * </ul>
  */
 @Component
@@ -55,6 +56,18 @@ public class NewsEnricher {
         this.clock = clock;
     }
 
+    /** 한 기사를 해 본 결과 */
+    enum Outcome {
+        /** 요약을 붙였다 */
+        DONE,
+        /** 기사 탓으로 실패했다(시도로 센다) */
+        FAILED,
+        /** 기사 탓으로 실패했고, 같은 일이 이어질 수 있어 이번 차례는 멈춘다 */
+        FAILED_STOP,
+        /** 기사 탓이 아니다(사이트가 쉬는 중, 요약 서비스 문제). 세지 않고 이번 차례를 멈춘다 */
+        WAIT
+    }
+
     /** 요약을 붙인 기사 수 */
     public synchronized int enrich() {
         if (dataMode == DataMode.SAMPLE || !summarizer.enabled()) {
@@ -72,10 +85,16 @@ public class NewsEnricher {
                 PageRequest.of(0, PER_RUN));
         int done = 0;
         for (NewsArticle article : todo) {
-            if (enrich(article, now)) {
-                done++;
+            Outcome outcome = enrich(article, now);
+            if (outcome == Outcome.WAIT) {
+                break;
             }
             articles.save(article);
+            if (outcome == Outcome.DONE) {
+                done++;
+            } else if (outcome == Outcome.FAILED_STOP) {
+                break;
+            }
         }
         if (done > 0) {
             log.info("news: summarized {} article(s)", done);
@@ -83,31 +102,44 @@ public class NewsEnricher {
         return done;
     }
 
-    private boolean enrich(NewsArticle article, Instant now) {
+    Outcome enrich(NewsArticle article, Instant now) {
         try {
-            // 조건부 요청(fetch)을 쓰지 않는다: 요약이 실패한 뒤 다시 받을 때 304(안 바뀜)로 본문을 못 받게 된다
-            Optional<PoliteFetcher.Fetched> html = fetcher.get(URI.create(article.getUrl()), Map.of());
+            URI uri = URI.create(article.getUrl());
+            if (fetcher.paused(uri)) {
+                return Outcome.WAIT;
+            }
+            Optional<PoliteFetcher.Fetched> html = fetcher.getPage(uri);
             if (html.isEmpty() || !html.get().modified() || html.get().body() == null) {
-                article.enrichFailed(now);
-                return false;
+                if (fetcher.paused(uri)) {
+                    return Outcome.WAIT; // 제한(429·503)·거절·연결 실패로 사이트가 쉬기 시작했다
+                }
+                article.enrichFailed(now); // 기사가 없어졌거나(404·410) robots.txt가 막았다
+                return Outcome.FAILED;
             }
             ArticlePage page = ArticlePage.parse(html.get().body());
             if (page.text().length() < MIN_BODY) {
                 log.warn("news: no article body found at {}", article.getUrl());
                 article.enrichFailed(now);
-                return false;
+                return Outcome.FAILED;
             }
             Optional<String> summary = summarizer.summarize(article.getSubject(), article.getTitle(), page.text());
             if (summary.isEmpty()) {
-                article.enrichFailed(now);
-                return false;
+                article.enrichFailed(now); // 거절·빈 답
+                return Outcome.FAILED;
             }
             article.enriched(page.imageUrl(), summary.get(), summarizer.model(), now);
-            return true;
+            return Outcome.DONE;
+        } catch (Summarizer.Failure e) {
+            log.warn("news: summary service failed for {}: {}", article.getUrl(), e.getMessage());
+            if (e.articleProblem()) {
+                article.enrichFailed(now);
+                return Outcome.FAILED_STOP;
+            }
+            return Outcome.WAIT;
         } catch (RuntimeException e) {
             log.warn("news: could not summarize {}: {}", article.getUrl(), e.getMessage());
             article.enrichFailed(now);
-            return false;
+            return Outcome.FAILED;
         }
     }
 }

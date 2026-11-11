@@ -19,6 +19,8 @@ record ArticlePage(String imageUrl, String text) {
     private static final Pattern ATTR = Pattern.compile("(?is)([a-z:-]+)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')");
     private static final Pattern PARAGRAPH = Pattern.compile("(?is)<p[\\s>].*?</p>");
     private static final Pattern TAG = Pattern.compile("(?s)<[^>]*>");
+    private static final Pattern BODY_START =
+            Pattern.compile("(?i)<[a-z]+\\s[^>]*class\\s*=\\s*[\"'][^\"']*\\bentry-content\\b[^>]*>");
     private static final String[] BODY_ENDS = {"class=\"entry-footer", "id=\"comments\"", "class=\"comments", "</article>"};
 
     static ArticlePage parse(byte[] html) {
@@ -53,10 +55,11 @@ record ArticlePage(String imageUrl, String text) {
     }
 
     private static String body(String page) {
-        int start = page.indexOf("entry-content");
-        if (start < 0) {
+        Matcher open = BODY_START.matcher(page);
+        if (!open.find()) {
             return "";
         }
+        int start = open.end();
         int end = page.length();
         for (String marker : BODY_ENDS) {
             int at = page.indexOf(marker, start);

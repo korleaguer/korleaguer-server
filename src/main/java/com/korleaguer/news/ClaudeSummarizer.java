@@ -1,10 +1,16 @@
 package com.korleaguer.news;
 
 import com.anthropic.client.AnthropicClient;
+import com.anthropic.errors.AnthropicException;
+import com.anthropic.errors.BadRequestException;
+import com.anthropic.errors.UnprocessableEntityException;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
+import com.anthropic.models.messages.StopReason;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -51,21 +57,40 @@ public class ClaudeSummarizer implements Summarizer {
                 .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
                 .addUserMessage("이 기사가 다루는 한국 선수: " + player + "\n제목: " + title + "\n\n본문:\n" + body)
                 .build();
-        Message message = client.messages().create(params);
-        if (message.stopReason().map(r -> r.toString().equalsIgnoreCase("refusal")).orElse(false)) {
+        Message message;
+        try {
+            message = client.messages().create(params);
+        } catch (BadRequestException | UnprocessableEntityException e) {
+            throw new Failure("request rejected (" + e.statusCode() + "): " + e.getMessage(), true, e);
+        } catch (AnthropicException e) {
+            // 키·모델 설정(401·403·404), 사용량 제한(429), 서버 문제(5xx·529), 연결 실패
+            throw new Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), false, e);
+        }
+        Optional<StopReason> stop = message.stopReason();
+        if (stop.filter(StopReason.REFUSAL::equals).isPresent()) {
             return Optional.empty();
         }
         String text = message.content().stream()
                 .flatMap(block -> block.text().stream())
                 .map(t -> t.text())
-                .collect(Collectors.joining("\n"))
-                .replaceAll("[ \\t]+\\n", "\n")
-                .replaceAll("\\n{2,}", "\n")
-                .trim();
-        if (text.isEmpty()) {
+                .collect(Collectors.joining("\n"));
+        return tidy(text, stop.filter(StopReason.MAX_TOKENS::equals).isPresent());
+    }
+
+    /** 빈 줄·앞뒤 공백을 정리한다. 답이 길이 제한에서 잘렸으면(truncated) 끝나지 않은 마지막 줄을 버린다 */
+    static Optional<String> tidy(String text, boolean truncated) {
+        List<String> lines = Arrays.stream(text.split("\\R"))
+                .map(String::strip)
+                .filter(line -> !line.isEmpty())
+                .collect(Collectors.toList());
+        if (truncated && !lines.isEmpty()) {
+            lines.removeLast();
+        }
+        String summary = String.join("\n", lines);
+        if (summary.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(text.length() > MAX_SUMMARY ? text.substring(0, MAX_SUMMARY - 1) + "…" : text);
+        return Optional.of(summary.length() > MAX_SUMMARY ? summary.substring(0, MAX_SUMMARY - 1) + "…" : summary);
     }
 
     @Override

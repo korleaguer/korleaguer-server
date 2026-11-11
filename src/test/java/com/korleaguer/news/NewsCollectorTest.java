@@ -157,6 +157,23 @@ class NewsCollectorTest {
     }
 
     @Test
+    void anArticleSavedBeforeLeadsGetsItsLeadFromTheFeed() {
+        NewsArticle old = new NewsArticle("노시환", NEWS + "/view/5", NewsUrls.sha256(NEWS + "/view/5"), "노시환 소식",
+                "마이데일리", Instant.parse("2026-11-10T00:00:00Z"), Instant.parse("2026-11-10T00:10:00Z"));
+        saved.add(old);
+        when(articles.findBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
+                .filter(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1)))
+                .findFirst());
+        http.on(NEWS + "/lead.xml", ok("<rss version=\"2.0\"><channel><title>t</title><item><title>노시환 소식</title>"
+                + "<link>" + NEWS + "/view/5</link><description>노시환이 협상을 시작했다.</description></item></channel></rss>"));
+
+        int count = collector(new NewsProperties.Source("마이데일리", NEWS + "/lead.xml", null, null, null, "lead")).collect();
+
+        assertThat(count).isZero();
+        assertThat(old.getLeadText()).isEqualTo("노시환이 협상을 시작했다.");
+    }
+
+    @Test
     void mentionsIgnoresCaseAndHyphens() {
         List<String> names = List.of("노시환", "Si-Hwan Roh");
 

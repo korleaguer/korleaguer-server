@@ -39,7 +39,12 @@ public class NewsConfig {
             LoggerFactory.getLogger(NewsConfig.class).info("news: ANTHROPIC_API_KEY is not set, article summaries are off");
             return Summarizer.OFF;
         }
-        return new ClaudeSummarizer(AnthropicOkHttpClient.builder().apiKey(apiKey.trim()).build(), model);
+        // SDK 기본(10분 기다림, 두 번 다시 시도)은 30분마다 도는 수집 스레드를 너무 오래 잡는다
+        return new ClaudeSummarizer(AnthropicOkHttpClient.builder()
+                .apiKey(apiKey.trim())
+                .timeout(Duration.ofSeconds(60))
+                .maxRetries(1)
+                .build(), model);
     }
 
     @Bean

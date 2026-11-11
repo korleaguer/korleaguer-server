@@ -27,6 +27,18 @@ class PoliteFetcherTest {
     private final PoliteFetcher fetcher = new PoliteFetcher(http, AGENTS, clock, clock::advance);
 
     @Test
+    void aGoneArticlePageDoesNotPauseTheSiteButAGoneFeedDoes() {
+        String page = SITE + "/view/1";
+        http.on(ROBOTS, ok("User-agent: *\nAllow: /\n")).on(page, reply(404, "")).on(FEED, reply(410, ""));
+
+        assertThat(fetcher.getPage(URI.create(page))).isEmpty();
+        assertThat(fetcher.paused(URI.create(FEED))).isFalse();
+
+        assertThat(fetch(FEED)).isEmpty();
+        assertThat(fetcher.paused(URI.create(FEED))).isTrue();
+    }
+
+    @Test
     void feedDisallowedByRobotsIsNeverRequested() {
         http.on(ROBOTS, ok("User-agent: *\nDisallow: /RSS/\n")).on(FEED, ok("<rss/>"));
 

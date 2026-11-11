@@ -35,6 +35,18 @@ class ArticlePageTest {
     }
 
     @Test
+    void theArticleBlockIsFoundByItsClassNotByAMentionInStyles() {
+        ArticlePage page = ArticlePage.parse("""
+                <head><style>.entry-content p { margin: 0 }</style></head>
+                <body><nav><p>Menu</p></nav>
+                <div id="post" class="post entry-content clearfix"><p>Body line.</p></div>
+                <div class="entry-footer"></div></body>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).isEqualTo("Body line.");
+    }
+
+    @Test
     void noArticleBlockMeansNoBodyAndPlainHttpImagesAreIgnored() {
         ArticlePage page = ArticlePage.parse("""
                 <meta content="http://cdn.example.com/x.jpg" property="og:image"><p>just a page</p>

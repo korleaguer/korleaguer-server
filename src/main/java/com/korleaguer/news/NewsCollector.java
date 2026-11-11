@@ -129,6 +129,15 @@ public class NewsCollector {
         String url = NewsUrls.normalize(item.link());
         String hash = NewsUrls.sha256(url);
         if (articles.existsBySubjectAndUrlHash(subject, hash)) {
+            // 첫머리를 넣기 전에 모은 기사는 피드에 아직 있으면 채운다
+            if (source.lead() && item.lead() != null) {
+                articles.findBySubjectAndUrlHash(subject, hash)
+                        .filter(a -> a.getLeadText() == null)
+                        .ifPresent(a -> {
+                            a.setLeadText(item.lead());
+                            articles.save(a);
+                        });
+            }
             return false;
         }
         try {

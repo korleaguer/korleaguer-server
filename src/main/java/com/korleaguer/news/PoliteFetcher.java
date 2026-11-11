@@ -94,7 +94,7 @@ public class PoliteFetcher {
 
     /** 피드용: 새 내용이면 본문. 바뀐 게 없거나(304) robots.txt가 막았거나 실패했거나 쉬는 중이면 빈 값 */
     public synchronized Optional<byte[]> fetch(URI uri) {
-        Optional<Fetched> fetched = get(uri, conditionalHeaders(uri), 0);
+        Optional<Fetched> fetched = get(uri, conditionalHeaders(uri), 0, true);
         if (fetched.isEmpty() || !fetched.get().modified()) {
             return Optional.empty();
         }
@@ -107,7 +107,15 @@ public class PoliteFetcher {
      * 200이면 modified=true와 본문, 304면 modified=false. robots.txt가 막았거나 실패했거나 쉬는 중이면 빈 값
      */
     public synchronized Optional<Fetched> get(URI uri, Map<String, String> headers) {
-        return get(uri, headers, 0);
+        return get(uri, headers, 0, true);
+    }
+
+    /**
+     * 기사 페이지용: 조건 없이 한 번 받는다(304로 본문을 놓치지 않게). 404·410은 그 기사만 없어진 것이라 사이트를 쉬게
+     * 하지 않는다(피드 주소가 404면 하루 쉬는 것과 다르다). robots.txt·간격·429·403 등 나머지 규칙은 같다.
+     */
+    public synchronized Optional<Fetched> getPage(URI uri) {
+        return get(uri, Map.of(), 0, false);
     }
 
     /** 이 주소의 사이트가 지금 쉬는 중인지(테스트·로그용) */
@@ -116,7 +124,7 @@ public class PoliteFetcher {
         return site != null && site.pausedUntil != null && clock.instant().isBefore(site.pausedUntil);
     }
 
-    private Optional<Fetched> get(URI uri, Map<String, String> headers, int hops) {
+    private Optional<Fetched> get(URI uri, Map<String, String> headers, int hops, boolean missingPausesSite) {
         if (!isHttp(uri)) {
             log.warn("fetch: not an http(s) url, skipped: {}", uri);
             return Optional.empty();
@@ -160,10 +168,14 @@ public class PoliteFetcher {
             }
             URI next = uri.resolve(location.trim());
             log.info("fetch: {} redirects to {} (update the url if this stays)", uri, next);
-            return get(next, headers, hops + 1);
+            return get(next, headers, hops + 1, missingPausesSite);
         }
         if (status == 429 || status == 503) {
             pause(site, retryAfter(reply), "answered " + status);
+            return Optional.empty();
+        }
+        if ((status == 404 || status == 410) && !missingPausesSite) {
+            log.info("fetch: {} answered {} (page gone)", uri, status);
             return Optional.empty();
         }
         if (status == 401 || status == 403 || status == 404 || status == 410 || status == 451) {
