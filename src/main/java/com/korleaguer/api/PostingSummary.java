@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.NewsArticle;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -57,18 +59,24 @@ public record PostingSummary(List<Player> players, List<Past> history) {
     }
 
     /**
-     * 관련 기사 한 건. url은 원문(언론사) 주소다. 아래 셋은 언론사가 허락한 만큼만 있다(news/sources.yml preview).
+     * 관련 기사 한 건. url은 원문(언론사) 주소다.
      *
+     * @param id       우리 기사 번호. 웹은 제목을 누르면 우리 기사 페이지(/news/{id}, GET /api/news/{id})를 연다
      * @param titleKo  영어 기사 제목을 Claude가 한국어로 옮긴 것(화면은 이것을 제목으로). 없으면 null
      * @param lead     기사 첫머리(피드가 준 글자 200자 안팎). 없으면 null
      * @param summary  Claude가 쓴 한국어 요약(줄마다 한 문장). 없으면 null
      * @param imageUrl 기사 대표 사진의 원본 주소(언론사 서버, https). 없으면 null
      */
-    public record Headline(String title, String url, String publisher, Instant publishedAt, String titleKo,
+    public record Headline(Long id, String title, String url, String publisher, Instant publishedAt, String titleKo,
                            String lead, String summary, String imageUrl) {
 
         public Headline(String title, String url, String publisher, Instant publishedAt) {
-            this(title, url, publisher, publishedAt, null, null, null, null);
+            this(null, title, url, publisher, publishedAt, null, null, null, null);
+        }
+
+        static Headline of(NewsArticle a) {
+            return new Headline(a.getId(), a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt(),
+                    a.getTitleKo(), a.getLeadText(), a.getSummary(), a.getImageUrl());
         }
     }
 }

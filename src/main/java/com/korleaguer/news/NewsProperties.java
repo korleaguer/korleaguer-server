@@ -5,6 +5,9 @@ import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * korleaguer.news.* 관련 기사 수집 설정(출처 목록은 resources/news/sources.yml).
@@ -31,6 +34,12 @@ public record NewsProperties(boolean enabled, String cron, String userAgent, Lis
     public NewsProperties(boolean enabled, String cron, String userAgent, List<String> robotsAgents,
                           List<Source> sources) {
         this(enabled, cron, userAgent, robotsAgents, List.of(), sources);
+    }
+
+    /** 지금 기사를 받는 언론사 이름. 목록에서 뺀 언론사의 예전 기사는 화면에 내지 않는다 */
+    public Set<String> publishers() {
+        return sources.stream().map(Source::publisher).filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /** AI 요약 출처를 받을 때 robots.txt에서 볼 이름 전부(우리 이름 + Claude 계열) */
