@@ -67,7 +67,8 @@ public record MyPlayersResponse(
     /**
      * 상태 배지. 메이저에서 평소대로 뛰고 있으면 status 자체가 null이다.
      * kind: IL(부상자 명단) · RETURNED(부상자 명단에서 복귀, 7일 안) · CALLED_UP(콜업, 7일 안) · MINORS(마이너) ·
-     * MINORS_IL(마이너 부상자 명단) · SUSPENDED(출장 정지) · DFA(지명 할당) · FA · SEASON_OVER(시즌 끝).
+     * MINORS_IL(마이너 부상자 명단) · SUSPENDED(출장 정지) · DFA(지명 할당) · FA · SEASON_OVER(시즌 끝) ·
+     * KBO(국내 리그로 돌아감, 명단의 returned-ko. teamName에 그 팀 이름, 해외 마지막 경기는 lastGameDate·lastGameLevel).
      * since는 그 상태가 시작된 미국 날짜(모르면 null), days는 since부터 오늘까지 며칠째인지(since가 없으면 null).
      * level·teamName은 마이너 단계 약어와 마이너 팀 이름(마이너 기록이 있을 때), lastGameDate·lastGameLevel은
      * 마지막 경기의 미국 날짜와 단계(MLB 또는 마이너 약어, FA·시즌 끝일 때만)다.
