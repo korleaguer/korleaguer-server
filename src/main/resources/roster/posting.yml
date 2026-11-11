@@ -18,6 +18,8 @@
 #   season: 포스팅된 겨울이 시작한 해(2023-24 겨울이면 2023)
 #   deadline: 협상 마감 미국 날짜, agreed-on: 계약 합의가 처음 보도된 미국 날짜
 #   years·guaranteed-usd: 보장 연수와 보장액(달러). 옵션·인센티브는 넣지 않는다.
+#   kbo-id: KBO 선수 번호(한국어 위키백과 선수 문서의 KBO 기록 링크 playerId). 있으면 season 시즌의 KBO 공식 등록 사진
+#           (포스팅 당시 구단의 마지막 시즌, 정면)을 우리 서버가 KBO 사진 서버에서 한 번 받아 호스팅한다. 권리는 KBO·구단에 있다.
 # 2026-11-11 MLB Trade Rumors 원문으로 확인했다.
 posting:
   current:
@@ -36,6 +38,7 @@ posting:
       photo-url: https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/person/middle/2026/69737.jpg
   history:
     - name-ko: 송성문
+      kbo-id: 65357
       season: 2025
       mlb-team: SD
       deadline: 2025-12-21
@@ -44,6 +47,7 @@ posting:
       guaranteed-usd: 15000000
       source: https://www.mlbtraderumors.com/2025/12/padres-to-sign-sung-mun-song.html
     - name-ko: 김혜성
+      kbo-id: 67304
       season: 2024
       mlb-team: LAD
       deadline: 2025-01-03
@@ -52,6 +56,7 @@ posting:
       guaranteed-usd: 12500000
       source: https://www.mlbtraderumors.com/2025/01/dodgers-to-sign-hyeseong-kim.html
     - name-ko: 이정후
+      kbo-id: 67341
       season: 2023
       mlb-team: SF
       deadline: 2024-01-03
@@ -60,6 +65,7 @@ posting:
       guaranteed-usd: 113000000
       source: https://www.mlbtraderumors.com/2023/12/giants-jung-hoo-lee-agree-to-six-year-deal.html
     - name-ko: 고우석
+      kbo-id: 67119
       season: 2023
       mlb-team: SD
       deadline: 2024-01-03
@@ -68,6 +74,7 @@ posting:
       guaranteed-usd: 4500000
       source: https://www.mlbtraderumors.com/2024/01/padres-woo-suk-go-agree-to-two-year-deal.html
     - name-ko: 김하성
+      kbo-id: 64300
       season: 2020
       mlb-team: SD
       # 서류 보완으로 공시가 12월 7일로 늦었지만 마감은 1월 1일 그대로였다(협상 기간 약 25일).
@@ -77,6 +84,7 @@ posting:
       guaranteed-usd: 28000000
       source: https://www.mlbtraderumors.com/2020/12/padres-sign-ha-seong-kim.html
     - name-ko: 김광현
+      kbo-id: 77829
       season: 2019
       mlb-team: STL
       deadline: 2020-01-05
