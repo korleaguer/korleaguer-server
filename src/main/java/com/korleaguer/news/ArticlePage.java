@@ -12,10 +12,50 @@ import java.util.regex.Pattern;
  * (MLB Trade Rumors 구조, 2026-11-11 확인). 그 칸이 없는 사이트(MLB.com·CBS Sports 등)는 article 칸(없으면 페이지 전체)의
  * 긴 문단(LONG_PARAGRAPH자 이상, 메뉴·광고 문구 같은 짧은 줄은 뺀다)을 모은다. 못 찾으면 빈 문자열이다.
  */
-record ArticlePage(String imageUrl, String text, String description) {
+record ArticlePage(String imageUrl, String text, String description, String title) {
 
     ArticlePage(String imageUrl, String text) {
-        this(imageUrl, text, null);
+        this(imageUrl, text, null, null);
+    }
+
+    ArticlePage(String imageUrl, String text, String description) {
+        this(imageUrl, text, description, null);
+    }
+
+    /** 사이트 이름 꼬리를 떼어 볼 구분자(제목 - 엑스포츠뉴스, 제목 | MK스포츠 …) */
+    private static final String[] TITLE_SEPARATORS = {" - ", " | ", " :: ", " : ", " < ", " — "};
+
+    /**
+     * 피드 제목이 문장부호를 뺀 글자면(엑스포츠뉴스 사이트맵 등) 이 페이지의 제목(og:title, 사이트 이름 꼬리 제외)을 돌려준다.
+     * 글자(부호·공백을 뺀 문자·숫자)가 같을 때만 바꾼다. 바꿀 것이 없으면 null
+     */
+    String betterTitle(String stored) {
+        if (title == null || stored == null) {
+            return null;
+        }
+        String target = letters(stored);
+        if (target.isEmpty()) {
+            return null;
+        }
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(title);
+        for (String separator : TITLE_SEPARATORS) {
+            int at = title.lastIndexOf(separator);
+            if (at > 0) {
+                candidates.add(title.substring(0, at));
+            }
+        }
+        for (String candidate : candidates) {
+            String clean = FeedParser.Texts.title(candidate);
+            if (clean != null && !clean.equals(stored) && letters(clean).equals(target)) {
+                return clean;
+            }
+        }
+        return null;
+    }
+
+    private static String letters(String text) {
+        return text.replaceAll("[^\\p{L}\\p{N}]", "").toLowerCase(Locale.ROOT);
     }
 
     static final int MAX_TEXT = 8000;
@@ -36,7 +76,7 @@ record ArticlePage(String imageUrl, String text, String description) {
     static ArticlePage parse(byte[] html) {
         String page = new String(html, charset(html));
         return new ArticlePage(meta(page, "og:image", "og:image:secure_url"), body(page),
-                FeedParser.Texts.lead(meta(page, "og:description", "description")));
+                FeedParser.Texts.lead(meta(page, "og:description", "description")), meta(page, "og:title"));
     }
 
     /** 페이지 앞부분의 meta charset(EUC-KR 등). 없거나 모르는 이름이면 UTF-8 */

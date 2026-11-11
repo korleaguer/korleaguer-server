@@ -60,6 +60,18 @@ class ArticlePageTest {
     }
 
     @Test
+    void aTitleWithoutPunctuationIsReplacedByThePageTitle() {
+        ArticlePage page = ArticlePage.parse("""
+                <meta property="og:title" content="노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나 - 엑스포츠뉴스">
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
+                .isEqualTo("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나");
+        assertThat(page.betterTitle("전혀 다른 기사 제목")).isNull();
+        assertThat(page.betterTitle("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나")).isNull();
+    }
+
+    @Test
     void anEucKrPageIsReadInItsOwnCharset() {
         byte[] html = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\">"
                 .concat("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\"></head></html>")
