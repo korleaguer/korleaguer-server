@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 /**
- * 지금 제도의 지난 포스팅 한 건(posting.yml의 history를 읽어 검사한 값).
+ * 지난 포스팅 한 건(posting.yml의 history를 읽어 검사한 값). 2017년까지의 옛 제도면 deadline은 단독 협상 마감이다.
  *
  * @param season      포스팅된 겨울이 시작한 해
  * @param deadline    협상 마감 미국 날짜

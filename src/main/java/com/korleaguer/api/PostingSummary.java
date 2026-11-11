@@ -8,7 +8,7 @@ import java.util.List;
  * 홈의 포스팅 묶음(GET /api/home의 posting). 비시즌일 때만 있다(PostingFinder).
  *
  * @param players 이번 겨울 포스팅된 선수(협상 마감이 이른 순). 마감 60일 뒤에는 빠진다
- * @param history 지금 포스팅 제도(2018~)의 지난 기록(posting.yml에 적은 순서)
+ * @param history 포스팅으로 MLB 구단과 계약한 지난 기록(2012~, posting.yml에 적은 순서)
  */
 public record PostingSummary(List<Player> players, List<Past> history) {
 
