@@ -27,6 +27,7 @@
 #           (포스팅 당시 구단의 마지막 시즌, 정면)을 우리 서버가 KBO 사진 서버에서 한 번 받아 호스팅한다. 권리는 KBO·구단에 있다.
 #   mlb-id·photo-season·photo-url: 계약한 MLB 구단에서의 마지막 시즌 MLB 공식 사진(headshot/67)의 출처.
 #           지금도 그 구단이면 MLB 현재 사진 주소, 팀을 옮겼으면 인터넷 보관소(web.archive.org, 'id_' 원본 사본)에 남은 그 시즌 사진 주소를 적는다.
+#           headshot/67 주소가 생기기 전(2019년까지) 사진은 그때 MLB가 같은 증명사진을 내주던 주소(securea.mlb.com head_shot)의 보관소 사본을 적는다.
 #           화면에는 이 사진의 편집본을 보인다: 배경을 지워 흰 바탕에 놓고 얼굴 크기·위치를 노시환 KBO 사진과 맞춘 정사각형
 #           (src/main/resources/photos/posting-{mlb-id}-{photo-season}.jpg, 만드는 법은 tools/posting-photo/README.md).
 #           편집본이 없으면 서버가 뜨지 않는다. 우리 서버가 /photos/posting-{번호}-{시즌}으로 호스팅한다. 권리는 MLB·구단에 있다.
@@ -167,5 +168,8 @@ posting:
       guaranteed-usd: 36000000
       krw-per-usd: 1083.05  # ECB 2012-12-07(12-09는 일요일이라 그 전 영업일)
       source: https://www.mlbtraderumors.com/2012/12/dodgers-sign-hyun-jin-ryu.html
-      # 사진 없음: 지금 MLB 사진(옛 주소 포함)은 토론토 사진이고, 다저스 시절 사진을 찾을 인터넷 보관소가 점검 중이다(11-11).
-      # 보관소가 열리면 다저스 마지막 시즌(2019) 사진을 mlb-id·photo-season·photo-url로 적고 편집본을 만든다. 그 전에는 화면이 이름 원을 보인다.
+      mlb-id: 547943
+      # 지금 MLB 사진은 다른 팀(토론토)이고 headshot/67 주소의 보관소 사본도 2020-09부터라 토론토다.
+      # 그래서 2019년 MLB 증명사진 주소에 남은 2019-07-30 다저스 사진(마지막 다저스 시즌, 2019-03-23~12-23 같은 파일)
+      photo-season: 2019
+      photo-url: https://web.archive.org/web/20190730223237id_/https://securea.mlb.com/mlb/images/players/head_shot/547943@2x.jpg
