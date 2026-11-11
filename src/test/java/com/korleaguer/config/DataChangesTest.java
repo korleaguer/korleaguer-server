@@ -5,36 +5,40 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 응답에 나오는 표에 쓴 SQL만 데이터 변경으로 센다 */
+/** 쓴 SQL이 어느 응답을 바꿀 수 있는지 가른다: 모두(ALL), 홈만(HOME, 기사 제목), 없음(NONE) */
 class DataChangesTest {
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', textBlock = """
-            insert into game (game_pk,status_state) values (?,?); true
-            update appearance set hits=? where id=?; true
-            delete from minor_game_log mgl1_0 where mgl1_0.player_id=?; true
-            UPDATE `player` SET level=? WHERE id=?; true
-            merge into news_article values (?); true
-              insert into team (id) values (?); true
-            select g1_0.game_pk from game g1_0; false
-            insert into ingest_log (kind) values (?); false
-            update ingest_log set status=? where id=?; false
-            delete from ingest_log where id=?; false
-            insert into photo (key) values (?); false
-            update flyway_schema_history set success=?; false
+            insert into game (game_pk,status_state) values (?,?); ALL
+            update appearance set hits=? where id=?; ALL
+            delete from minor_game_log mgl1_0 where mgl1_0.player_id=?; ALL
+            UPDATE `player` SET level=? WHERE id=?; ALL
+              insert into team (id) values (?); ALL
+            insert into news_article (title) values (?); HOME
+            merge into news_article values (?); HOME
+            select g1_0.game_pk from game g1_0; NONE
+            insert into ingest_log (kind) values (?); NONE
+            update ingest_log set status=? where id=?; NONE
+            delete from ingest_log where id=?; NONE
+            insert into photo (key) values (?); NONE
+            update flyway_schema_history set success=?; NONE
             """)
-    void countsWritesToTablesTheScreensShow(String sql, boolean expected) {
-        assertThat(DataChanges.countsAsChange(sql)).isEqualTo(expected);
+    void sortsWritesByTheResponsesTheyChange(String sql, DataChanges.Scope expected) {
+        assertThat(DataChanges.scopeOf(sql)).isEqualTo(expected);
     }
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', textBlock = """
-            update game set status_state=? where game_pk=?; 1
-            select * from game; 0
+            update game set status_state=? where game_pk=?; 1; 0
+            insert into news_article (title) values (?); 0; 1
+            select * from game; 0; 0
             """)
-    void inspectReturnsTheSqlAndBumpsTheVersionForWrites(String sql, long bump) {
-        long before = DataChanges.version();
+    void inspectReturnsTheSqlAndBumpsTheMatchingVersion(String sql, long all, long home) {
+        long allBefore = DataChanges.version();
+        long homeBefore = DataChanges.homeVersion();
         assertThat(new DataChanges().inspect(sql)).isEqualTo(sql);
-        assertThat(DataChanges.version() - before).isEqualTo(bump);
+        assertThat(DataChanges.version() - allBefore).isEqualTo(all);
+        assertThat(DataChanges.homeVersion() - homeBefore).isEqualTo(home);
     }
 }
