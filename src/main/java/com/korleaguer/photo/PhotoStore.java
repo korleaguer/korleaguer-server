@@ -27,7 +27,8 @@ import java.util.Optional;
  * <ul>
  *   <li>처음 요청되거나 주기 작업(refresh)이 돌 때 원본에서 받아 DB(photo)에 둔다. 그다음부터는 저장본을 준다.</li>
  *   <li>원본에 마지막으로 물어본 지 7일이 지나면 주기 작업이 조건부 요청(If-None-Match·If-Modified-Since)으로
- *       바뀌었는지만 묻는다. 304거나, 200이어도 본문(SHA-256)이 같으면 다시 쓰지 않는다.</li>
+ *       바뀌었는지만 묻는다. 304거나, 200이어도 본문(SHA-256)이 같으면 다시 쓰지 않는다.
+ *       시즌이 정해진 사진(PhotoSources.seasonFixed)은 다시 묻지 않는다.</li>
  *   <li>원본 주소가 바뀌면(명단·포스팅 파일 수정) 새로 받는다.</li>
  *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).</li>
  *   <li>샘플 모드는 네트워크를 쓰지 않는다(저장본이 없으면 사진 없음).</li>
@@ -92,7 +93,8 @@ public class PhotoStore {
                     if (download(entry.getKey(), entry.getValue(), stored.orElse(null), now).isPresent()) {
                         changed++;
                     }
-                } else if (!now.isBefore(stored.get().getCheckedAt().plus(RECHECK_AFTER))) {
+                } else if (!PhotoSources.seasonFixed(entry.getKey())
+                        && !now.isBefore(stored.get().getCheckedAt().plus(RECHECK_AFTER))) {
                     if (recheck(stored.get(), now)) {
                         changed++;
                     }

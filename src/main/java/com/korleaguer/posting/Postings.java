@@ -99,7 +99,20 @@ public class Postings {
         if (p.kboId() != null && p.kboId() < 1) {
             throw invalid(who, "kbo-id must be a positive KBO player number: " + p.kboId());
         }
-        return new PastPosting(p.nameKo().trim(), p.season(), deadline, result, p.source(), p.kboId());
+        String photoUrl = blankToNull(p.photoUrl());
+        if (photoUrl != null) {
+            if (!photoUrl.startsWith("https://")) {
+                throw invalid(who, "photo-url must start with https://");
+            }
+            if (p.mlbId() == null || p.mlbId() < 1) {
+                throw invalid(who, "mlb-id is required when photo-url is set");
+            }
+            if (p.photoSeason() == null || p.photoSeason() < 1990 || p.photoSeason() > 2100) {
+                throw invalid(who, "photo-season (year of the photo) is required when photo-url is set");
+            }
+        }
+        return new PastPosting(p.nameKo().trim(), p.season(), deadline, result, p.source(), p.kboId(),
+                photoUrl == null ? null : p.mlbId(), photoUrl == null ? null : p.photoSeason(), photoUrl);
     }
 
     private static PostingResult signed(String mlbTeam, String agreedOn, Integer years, Long guaranteedUsd,

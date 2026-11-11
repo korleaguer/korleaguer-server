@@ -136,6 +136,26 @@ class PhotoStoreTest {
     }
 
     @Test
+    void seasonPhotoIsFetchedOnceAndNeverAskedAgain() {
+        String past = "https://archive.example/web/2024/673490.jpg";
+        reply(past, 200, "padres", Map.of("content-type", "image/jpeg"));
+        PhotoStore store = storeWithPastPhoto(past);
+        assertThat(store.load("mlb-673490-2024")).isPresent();
+        int before = requested.size();
+
+        // 원본이 다른 팀 사진으로 바뀌어도, 7일이 아니라 한 해가 지나도 다시 묻지 않는다
+        reply(past, 200, "braves", Map.of("content-type", "image/jpeg"));
+        clock.advance(Duration.ofDays(400));
+        store.refresh();
+
+        assertThat(requested.stream().skip(before).filter(past::equals)).isEmpty();
+        assertThat(new String(saved.get("mlb-673490-2024").getData(), StandardCharsets.UTF_8)).isEqualTo("padres");
+        assertThat(PhotoSources.seasonFixed("kbo-67341-2023")).isTrue();
+        assertThat(PhotoSources.seasonFixed("mlb-808982")).isFalse();
+        assertThat(PhotoSources.seasonFixed("kbo-si-hwan-roh")).isFalse();
+    }
+
+    @Test
     void notAnImageIsIgnored() {
         reply(MLB, 200, "<html>blocked</html>", Map.of("content-type", "text/html"));
 
@@ -162,6 +182,27 @@ class PhotoStoreTest {
                 new KorleaguerProperties(null, null, null, null,
                         new KorleaguerProperties.Images(true, "https://img.example.com/people/{mlbId}/headshot", null), null));
         return new PhotoStore(sources, repository, fetcher, mode, clock);
+    }
+
+    /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진)만 있는 사진 목록 */
+    private PhotoStore storeWithPastPhoto(String photoUrl) {
+        reply("https://archive.example/robots.txt", 404, "", Map.of());
+        HttpGetter http = (URI uri, Map<String, String> headers) -> {
+            requested.add(uri.toString());
+            sentHeaders.add(Map.copyOf(headers));
+            Deque<HttpGetter.Reply> queue = replies.get(uri.toString());
+            if (queue == null || queue.isEmpty()) {
+                return new HttpGetter.Reply(404, Map.of(), new byte[0]);
+            }
+            return queue.size() > 1 ? queue.poll() : queue.peek();
+        };
+        PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance, false);
+        PostingProperties.Past kim = new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4,
+                28_000_000L, null, 64300L, 673490L, 2024, photoUrl);
+        PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
+                new Postings(new PostingProperties(List.of(), List.of(kim))),
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
+        return new PhotoStore(sources, repository, fetcher, DataMode.MLB, clock);
     }
 
     private void reply(String url, int status, String body, Map<String, String> headers) {
