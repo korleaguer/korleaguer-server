@@ -22,6 +22,8 @@ import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.support.KoreanTime;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,8 +58,9 @@ import java.util.stream.Collectors;
  *       재활 경기를 보이며, 마이너에 있으면 큰 숫자·막대를 마이너 기록으로 채우고, FA·시즌 끝이면 시즌 합계(메이저·마이너)를
  *       준다. 상태·소식은 끝난 경기로만 정한다(진행 중 경기의 중간 기록으로 바뀌지 않게).</li>
  * </ul>
- * 응답은 선수 조합(ids 글자 그대로)과 days마다 캐시한다(AppConfig.MY_CACHE). 데이터나 날짜가 바뀔 때 비운다(ResponseCaches).
- * 비시즌 홈은 명단 전원을 늘 같은 순서로 부르므로, 따라잡기 뒤에 CacheWarmer가 미리 채워 둔다.
+ * 카드는 선수·기간마다(AppConfig.CARD_CACHE), 응답은 선수 조합(ids 글자 그대로)과 days마다(AppConfig.MY_CACHE) 캐시한다.
+ * 처음 보는 조합도 카드를 모으기만 하면 된다. 데이터나 날짜가 바뀔 때 비우고(ResponseCaches),
+ * CacheWarmer가 명단 전원의 카드(7·14·30일)와 비시즌 홈의 명단 전원 조합을 미리 채워 둔다.
  */
 @Service
 @Transactional(readOnly = true)
@@ -81,12 +84,14 @@ public class MyPlayersService {
     private final MinorGameLogRepository minorGameLogs;
     private final SeasonDatesRepository seasonDates;
     private final Clock clock;
+    private final CacheManager cacheManager;
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
                             AppearanceRepository appearances, GameRepository games, GameLineAssembler gameLines,
                             BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
                             CurrentSeason currentSeason, PlayerMoveRepository moves,
-                            MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates, Clock clock) {
+                            MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates, Clock clock,
+                            CacheManager cacheManager) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -100,9 +105,13 @@ public class MyPlayersService {
         this.minorGameLogs = minorGameLogs;
         this.seasonDates = seasonDates;
         this.clock = clock;
+        this.cacheManager = cacheManager;
     }
 
     /**
+     * 고른 선수들의 카드를 요청한 순서대로 모은다. 카드는 선수·기간마다 캐시한 것(card)을 쓰므로, 처음 보는 조합도
+     * 미리 채워 둔 카드로 바로 답한다.
+     *
      * @param ids  쉼표로 이은 선수 id. 겹치면 처음 것만 남기고, 1~20개여야 한다. 없는 id는 건너뛴다.
      * @param days 7, 14, 30 중 하나
      * @throws BadRequestException ids·days가 규칙에 맞지 않을 때(캐시하지 않는다)
@@ -110,10 +119,44 @@ public class MyPlayersService {
     @Cacheable(cacheNames = AppConfig.MY_CACHE, key = "#ids + '|' + #days")
     public MyPlayersResponse find(String ids, int days) {
         List<Long> requested = parseIds(ids);
+        checkDays(days);
+
+        Instant now = clock.instant();
+        LocalDate today = KoreanTime.kstDate(now);
+        List<MyPlayersResponse.MyPlayer> result = new ArrayList<>();
+        for (long id : requested) {
+            result.addAll(card(id, days));
+        }
+        // 기간을 마지막으로 뛴 날까지 당긴 카드가 있는지(웹이 안내 한 줄을 띄운다). 카드가 실제로 보이는 기간으로 정한다
+        // (마이너 카드는 마이너 기간, 부상자 명단 카드는 '다치기 전'이라 따로 적는다, 시즌 합계 카드는 기간이 없다).
+        boolean anyFallback = result.stream().anyMatch(p -> p.basis() == MyPlayersResponse.Basis.LAST_PLAYED
+                || (p.basis() == MyPlayersResponse.Basis.REHAB && p.isFallback()));
+        return new MyPlayersResponse(dataMode.value(), queryService.statsAvailable(), currentSeason.current(),
+                now.truncatedTo(ChronoUnit.SECONDS), days, today.minusDays(days - 1), today, anyFallback, result);
+    }
+
+    /**
+     * 선수 한 명의 카드(없는 선수면 빈 목록). 선수·기간마다 캐시한다(AppConfig.CARD_CACHE).
+     * 카드는 선수마다 따로 정해지므로(기간·상태·출전 줄·소식) 여럿을 함께 계산한 것과 같다.
+     * 데이터·날짜가 바뀌면 다른 응답 캐시와 함께 비우고(ResponseCaches), CacheWarmer가 명단 전원을 미리 채운다.
+     */
+    public List<MyPlayersResponse.MyPlayer> card(long playerId, int days) {
+        checkDays(days);
+        Cache cache = cacheManager.getCache(AppConfig.CARD_CACHE);
+        if (cache == null) {
+            return cards(List.of(playerId), days);
+        }
+        return cache.get(playerId + "|" + days, () -> cards(List.of(playerId), days));
+    }
+
+    private static void checkDays(int days) {
         if (!ALLOWED_DAYS.contains(days)) {
             throw new BadRequestException("days must be 7, 14 or 30");
         }
+    }
 
+    /** 고른 선수들의 카드를 계산한다(캐시 없이). 같은 기간인 선수끼리 묶어 DB를 한 번에 읽는다 */
+    private List<MyPlayersResponse.MyPlayer> cards(List<Long> requested, int days) {
         Instant now = clock.instant();
         LocalDate today = KoreanTime.kstDate(now);
         LocalDate usToday = LocalDate.ofInstant(now, GameIngest.US_EASTERN);
@@ -189,7 +232,7 @@ public class MyPlayersService {
                     byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES))));
         }
 
-        List<MyPlayersResponse.MyPlayer> result = members.stream()
+        return members.stream()
                 .map(m -> {
                     long id = m.player().getId();
                     Card card = new Card(m, periods.get(id), statuses.get(id), majorSeason.getOrDefault(id, List.of()),
@@ -199,12 +242,6 @@ public class MyPlayersService {
                             seasonByPlayer.getOrDefault(id, List.of()));
                 })
                 .toList();
-        // 기간을 마지막으로 뛴 날까지 당긴 카드가 있는지(웹이 안내 한 줄을 띄운다). 카드가 실제로 보이는 기간으로 정한다
-        // (마이너 카드는 마이너 기간, 부상자 명단 카드는 '다치기 전'이라 따로 적는다, 시즌 합계 카드는 기간이 없다).
-        boolean anyFallback = result.stream().anyMatch(p -> p.basis() == MyPlayersResponse.Basis.LAST_PLAYED
-                || (p.basis() == MyPlayersResponse.Basis.REHAB && p.isFallback()));
-        return new MyPlayersResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
-                days, recent.fromKst(), recent.toKst(), anyFallback, result);
     }
 
     /** 카드 한 장의 기간(한국 날짜 [fromKst, toKst]). fallback: 최근 기간에 경기가 없어 마지막으로 뛴 날까지로 당겼다 */
