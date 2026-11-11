@@ -36,8 +36,8 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_ADMIN_TOKEN` | 관리용 엔드포인트 토큰. 없으면 관리용 엔드포인트는 전부 막힌다 |
 | `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트와 선수 페이지에서 시즌 받기만 MLB를 부른다 |
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
-| `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수 관련 기사 제목 수집(30분마다). 기본 `true`. 포스팅 협상 기간(시작 3일 전 ~ 마감 3일 뒤)이 아니면 켜 있어도 요청하지 않는다. `false`여도 홈은 DB에 있는 기사를 보여 준다 |
-| `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines only; personal, non-commercial)` |
+| `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수 관련 기사 수집·요약(30분마다). 기본 `true`. 포스팅 협상 기간(시작 3일 전 ~ 마감 3일 뒤)이 아니면 켜 있어도 요청하지 않는다. `false`여도 홈은 DB에 있는 기사를 보여 준다 |
+| `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines and summaries; personal, non-commercial)` |
 | `KORLEAGUER_PHOTOS_ENABLED` | 선수 사진 미리 받기(앱이 뜰 때와 6시간마다). 기본 `true`. 꺼도 사진은 처음 요청될 때 받아 저장한다 |
 | `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
 
@@ -74,6 +74,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
+| `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
 | `GET /actuator/health` | 상태 확인 |
 | `POST /admin/ingest/players` | 명단 선수의 정보·지금 팀·단계·이동 기록을 지금 다시 받기 |
 | `POST /admin/ingest/season?season=2026` | 명단 선수 전원의 시즌을 다시 받기(받은 적이 있어도) |
@@ -152,16 +153,16 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   마감이 지났는데 결과를 아직 안 적었으면 `CLOSED`(결과 확인 중). 마감 60일 뒤에는 목록에서 빠지니 그 전에 `history`로 옮긴다.
 - 지난 기록은 마감 며칠 전에 합의했는지(`daysBeforeDeadline`, 미국 날짜)를 같이 준다.
 
-### 관련 기사 제목(`news_article`)
-- 포스팅 선수 이름이 제목에 든 기사의 **제목·링크·언론사·발행 시각만** 모은다. 본문·사진·요약은 저장하지 않고, 화면은 원문(언론사)으로 연결한다.
-- 출처는 `news/sources.yml`(지금: MLB Trade Rumors 노시환·KBO 태그 피드, 마이데일리 해외야구·야구, 뉴시스 스포츠). robots.txt가 허용하고 RSS가 있는 곳만 넣었다.
-  네이버·구글 뉴스(robots.txt가 모든 수집기를 막음), OSEN·일간스포츠(저작권 규약이 허가 없는 정보서비스·DB 이용을 금지), 스타뉴스(무단 이용 단속 공지)는 넣지 않았다.
+### 관련 기사(`news_article`)
+- 포스팅 선수 이름이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).
+- 홈(`GET /api/home`)은 선수마다 최근 기사 5건(제목과 기사 번호 `id`)을, 기사 페이지(`GET /api/news/{id}`)는 한 건의 사진·요약·원문 주소와 같은 선수의 다른 기사 5건을 준다. `sources.yml`에서 뺀 언론사의 기사는 둘 다 내지 않는다.
+- 출처는 `news/sources.yml`(넣은 곳과 뺀 곳의 근거는 그 파일 머리말). robots.txt가 우리 수집기(`korleaguer`)를 허용하고 피드(RSS·Atom·뉴스 사이트맵)가 있는 곳만 넣었다. 네이버·구글 뉴스는 robots.txt가 막아 넣지 않았다.
 - 요청 예절(`PoliteFetcher`):
-  - 사이트마다 robots.txt를 하루 한 번 받아 지킨다(RFC 9309). 우리 이름(`korleaguer`)과 Claude 계열 이름 중 하나라도 막혀 있으면 받지 않는다.
+  - 사이트마다 robots.txt를 하루 한 번 받아 지킨다(RFC 9309). 우리 이름(`korleaguer`)이 막혀 있으면 받지 않는다. 영어 출처(`preview: ai`)는 Claude 계열 이름도 본다.
     robots.txt가 없으면(404) 다 허용, 서버 오류·연결 실패면 다 막힘으로 보고 나중에 다시 묻는다.
   - 같은 사이트 요청 사이 1초 이상(crawl-delay가 더 길면 그만큼), 조건부 요청(ETag·Last-Modified), gzip, 본문 2MB까지.
   - 429·503은 Retry-After만큼, 401·403·404·410·451은 하루, 그 밖의 실패는 30분부터 두 배씩(최대 하루) 그 사이트를 쉰다.
-  - 큰 피드는 출처마다 간격(`interval`)을 둔다(마이데일리 2시간, 뉴시스 1시간).
+  - 큰 피드는 출처마다 간격(`interval`)을 둔다.
 - 같은 선수에 같은 주소(추적 매개변수를 뺀 주소)는 한 번만 저장한다. 언론사가 내려 달라고 하면 `sources.yml`에서 빼고 그 언론사 줄을 지운다(`delete from news_article where publisher = '...'`).
 
 ### 결장 판단
@@ -194,7 +195,7 @@ com.korleaguer
 ├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder)
 ├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
 ├── photo    선수 사진 호스팅: 원본 목록(PhotoSources), 한 번 받아 저장·재확인(PhotoStore)·주기 작업
-├── news     관련 기사 제목 수집: 피드 읽기(FeedParser), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher), 수집(NewsCollector)·스케줄
+├── news     관련 기사 수집: 피드 읽기(FeedParser), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher), 수집(NewsCollector)·기사 페이지 읽기(ArticlePage)·요약(NewsEnricher, ClaudeSummarizer)·스케줄
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 
@@ -202,7 +203,7 @@ com.korleaguer
 - 운영 DB 연결: `SPRING_DATASOURCE_URL`(예: `jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC`)·`SPRING_DATASOURCE_USERNAME`·`SPRING_DATASOURCE_PASSWORD` 환경변수로 덮어쓴다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수·내 선수 응답을 메모리(Caffeine)에 두고, 보이는 것이 실제로 바뀔 때만 비운다(`ResponseCaches`, 나중에 Redis로 바꿀 자리).
-  - 데이터: 수집이나 기사 수집이 DB에 실제로 썼을 때. Hibernate가 보내는 INSERT·UPDATE·DELETE를 센다(`DataChanges`). Hibernate는 값이 바뀐 줄만 UPDATE하므로 같은 일정·기록을 다시 받으면 세지 않는다. 수집 기록(`ingest_log`)·사진(`photo`)은 응답에 나오지 않아 세지 않는다. 수집은 끝날 때 바로, 그 밖의 쓰기(기사)는 다음 따라잡기(12분 안) 때 본다. 기사 제목(`news_article`)은 홈에만 나오므로 홈 캐시만 비운다.
+  - 데이터: 수집이나 기사 수집이 DB에 실제로 썼을 때. Hibernate가 보내는 INSERT·UPDATE·DELETE를 센다(`DataChanges`). Hibernate는 값이 바뀐 줄만 UPDATE하므로 같은 일정·기록을 다시 받으면 세지 않는다. 수집 기록(`ingest_log`)·사진(`photo`)은 응답에 나오지 않아 세지 않는다. 수집은 끝날 때 바로, 그 밖의 쓰기(기사)는 다음 따라잡기(12분 안) 때 본다. 기사(`news_article`)는 홈과 기사 페이지에만 나오고 기사 페이지는 캐시하지 않으므로 홈 캐시만 비운다.
   - 시각: 한국·미국 날짜가 바뀌면(D-day, 최근 N일, 'N일째', 나이) 모두, 포스팅 상태·보이는지·진행 막대(1% 단위)만 바뀌면 홈만. 따라잡기 때마다 본다.
   - 비우면 `CacheWarmer`가 홈, 선수 페이지 전부, 내 선수 카드(명단 전원 × 7·14·30일), 비시즌 홈의 선수 카드(`/api/my` 명단 전원·7일)를 뒤에서 다시 계산해 넣는다(자동 수집이 켜졌을 때). 따라잡기(12분마다, 앱 시작 때) 끝에도 빠진 것을 채운다. 운영 장비에서는 응답 하나를 처음 만드는 데 1~2초 걸려서, 사람이 처음 부를 때 기다리지 않게 하려는 것이다.
   - 사람마다 다른 내 선수 조합은 미리 채운 카드를 모아 바로 만들고, 데이터나 날짜가 바뀔 때까지 둔다. 비시즌에는 거의 하루, 시즌 중에는 다음 경기 갱신까지 남는다.
