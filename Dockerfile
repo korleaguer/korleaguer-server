@@ -31,7 +31,10 @@ COPY --from=app /extracted/snapshot-dependencies/ ./
 COPY --from=app /extracted/application/ ./
 USER app
 # 컨테이너 메모리 상한의 75%까지 힙으로 쓰고, 메모리가 모자라면 멈춰 다시 띄워지게 한다.
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError" \
+# JIT은 C1(빠르고 가벼운 컴파일러)만 쓴다(TieredStopAtLevel=1). 서버(Raspberry Pi 4)처럼 CPU가 빠듯하면
+# C2(최적화 컴파일러)가 시동 중 CPU를 크게 잡아 시동이 두 배 넘게 걸린다. 캐시된 응답 위주인 이 API는
+# C1만으로도 데운 뒤 응답이 느려지지 않았다(로컬에서 Pi 흉내로 시동 −55%, 메모리 −90MB, 2026-11-11 실측).
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -XX:TieredStopAtLevel=1" \
     KORLEAGUER_DATA_SOURCE=mlb
 EXPOSE 8080
 # 뜨는 중(시작 유예 90초)에는 2초마다 확인해 뜨자마자 healthy가 되게 한다(Docker 25+). 그 뒤로는 10초마다.
