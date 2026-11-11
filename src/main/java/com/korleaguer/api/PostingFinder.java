@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -49,6 +51,34 @@ public class PostingFinder {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    /**
+     * 그 선수의 관련 기사(늦은 순 NEWS_PER_PLAYER건, 지금 수집하는 언론사만).
+     * 국내 기사가 많으면 영어 기사의 AI 요약이 밀려 안 보이므로, 그 안에 요약 기사가 없으면 가장 최근 요약 기사 하나를
+     * 마지막 자리에 넣는다(덜 찼으면 맨 뒤에 붙인다. 사용자가 원한 것이 영어 기사의 한국어 요약이다). 늦은 순은 그대로다.
+     */
+    private List<NewsArticle> headlines(String player) {
+        // 뺀 언론사의 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
+        List<NewsArticle> picked = new ArrayList<>(news.findLatest(player, PageRequest.of(0, NEWS_PER_PLAYER * 4))
+                .stream()
+                .filter(a -> publishers.contains(a.getPublisher()))
+                .limit(NEWS_PER_PLAYER)
+                .toList());
+        if (picked.stream().noneMatch(a -> a.getSummary() != null)) {
+            // 고른 기사보다 오래된 기사라 마지막 자리(덜 찼으면 맨 뒤)에 두어도 늦은 순이 그대로다
+            news.findLatestSummarized(player, PageRequest.of(0, NEWS_PER_PLAYER)).stream()
+                    .filter(a -> publishers.contains(a.getPublisher()))
+                    .findFirst()
+                    .ifPresent(a -> {
+                        if (picked.size() == NEWS_PER_PLAYER) {
+                            picked.set(NEWS_PER_PLAYER - 1, a);
+                        } else {
+                            picked.add(a);
+                        }
+                    });
+        }
+        return picked;
+    }
+
     PostingSummary find(Instant now) {
         List<PostingSummary.Player> players = postings.current().stream()
                 .filter(p -> now.isBefore(p.deadline().plus(SHOW_AFTER_DEADLINE)))
@@ -68,11 +98,7 @@ public class PostingFinder {
         Integer daysLeft = open
                 ? (int) ChronoUnit.DAYS.between(KoreanTime.kstDate(now), KoreanTime.kstDate(p.deadline()))
                 : null;
-        // 뺀 언론사의 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
-        List<PostingSummary.Headline> headlines = news.findLatest(p.nameKo(), PageRequest.of(0, NEWS_PER_PLAYER * 4))
-                .stream()
-                .filter(a -> publishers.contains(a.getPublisher()))
-                .limit(NEWS_PER_PLAYER)
+        List<PostingSummary.Headline> headlines = headlines(p.nameKo()).stream()
                 .map(a -> new PostingSummary.Headline(a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt(),
                         a.getTitleKo(), a.getLeadText(), a.getSummary(), a.getImageUrl()))
                 .toList();
