@@ -1,0 +1,142 @@
+package com.korleaguer.api;
+
+import com.korleaguer.domain.NewsArticle;
+import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.posting.PostingProperties;
+import com.korleaguer.posting.Postings;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+/**
+ * 홈의 포스팅 묶음: 상태(협상 전·중·마감·결과), 한국 날짜 기준 남은 날, 지난 비율, 지난 기록의 '마감 며칠 전', 관련 기사.
+ * 노시환: 협상 미국 11/2 08:00(한국 11/2 22:00) ~ 12/1 17:00(한국 12/2 07:00)
+ */
+class PostingFinderTest {
+
+    private static final String OPENS = "2026-11-02T08:00:00-05:00";
+    private static final String DEADLINE = "2026-12-01T17:00:00-05:00";
+
+    private final NewsArticleRepository news = mock(NewsArticleRepository.class);
+
+    @BeforeEach
+    void setUp() {
+        when(news.findLatest(anyString(), any())).thenReturn(List.of());
+    }
+
+    @Test
+    void negotiatingCountsKoreanDaysLeftAndElapsedShare() {
+        // 한국 11/11 10:00. 마감(한국 12/2)까지 21일, 705시간 중 204시간 지남
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
+
+        assertThat(roh.status()).isEqualTo("NEGOTIATING");
+        assertThat(roh.daysLeft()).isEqualTo(21);
+        assertThat(roh.elapsedRatio()).isEqualTo(0.289);
+        assertThat(roh.windowOpensAt()).isEqualTo(Instant.parse("2026-11-02T13:00:00Z"));
+        assertThat(roh.deadlineAt()).isEqualTo(Instant.parse("2026-12-01T22:00:00Z"));
+        assertThat(roh.deal()).isNull();
+    }
+
+    @Test
+    void deadlineDayInKoreaIsZeroDaysLeft() {
+        // 한국 12/2 05:00, 마감 두 시간 전
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-12-01T20:00:00Z")).players().getFirst();
+
+        assertThat(roh.status()).isEqualTo("NEGOTIATING");
+        assertThat(roh.daysLeft()).isZero();
+    }
+
+    @Test
+    void beforeTheWindowOpensIsUpcoming() {
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-01T20:00:00Z")).players().getFirst();
+
+        assertThat(roh.status()).isEqualTo("UPCOMING");
+        assertThat(roh.daysLeft()).isEqualTo(30);
+        assertThat(roh.elapsedRatio()).isZero();
+    }
+
+    @Test
+    void pastDeadlineWithoutResultIsClosed() {
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-12-01T23:00:00Z")).players().getFirst();
+
+        assertThat(roh.status()).isEqualTo("CLOSED");
+        assertThat(roh.daysLeft()).isNull();
+        assertThat(roh.elapsedRatio()).isEqualTo(1.0);
+    }
+
+    @Test
+    void signedPlayerShowsTheDeal() {
+        PostingProperties.Result signed = new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 4, 30_000_000L);
+
+        PostingSummary.Player roh = finder(roh(signed)).find(Instant.parse("2026-11-29T01:00:00Z")).players().getFirst();
+
+        assertThat(roh.status()).isEqualTo("SIGNED");
+        assertThat(roh.daysLeft()).isNull();
+        assertThat(roh.deal()).isEqualTo(new PostingSummary.Deal(135L, "샌디에이고", LocalDate.parse("2026-11-28"), 4,
+                30_000_000L));
+    }
+
+    @Test
+    void playerLeavesSixtyDaysAfterTheDeadlineButHistoryStays() {
+        PostingSummary summary = finder(roh(null)).find(Instant.parse("2027-02-01T00:00:00Z"));
+
+        assertThat(summary.players()).isEmpty();
+        assertThat(summary.history()).hasSize(2);
+    }
+
+    @Test
+    void historyCountsDaysBeforeTheDeadline() {
+        List<PostingSummary.Past> history = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).history();
+
+        assertThat(history).containsExactly(
+                new PostingSummary.Past("이정후", 2023, LocalDate.parse("2024-01-03"), 22,
+                        new PostingSummary.Deal(137L, "샌프란시스코", LocalDate.parse("2023-12-12"), 6, 113_000_000L)),
+                new PostingSummary.Past("나성범", 2020, LocalDate.parse("2021-01-09"), null, null));
+    }
+
+    @Test
+    void headlinesComeLatestFirst() {
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(
+                new NewsArticle("노시환", "https://news.example.kr/2", "h2", "노시환 두 번째 소식", "뉴시스",
+                        Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z")),
+                new NewsArticle("노시환", "https://news.example.kr/1", "h1", "노시환 첫 소식", "마이데일리",
+                        Instant.parse("2026-11-02T03:00:00Z"), Instant.parse("2026-11-02T03:10:00Z"))));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).containsExactly(
+                new PostingSummary.Headline("노시환 두 번째 소식", "https://news.example.kr/2", "뉴시스",
+                        Instant.parse("2026-11-10T03:00:00Z")),
+                new PostingSummary.Headline("노시환 첫 소식", "https://news.example.kr/1", "마이데일리",
+                        Instant.parse("2026-11-02T03:00:00Z")));
+    }
+
+    @Test
+    void nothingToShowIsNull() {
+        PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news);
+
+        assertThat(finder.find(Instant.parse("2026-11-11T01:00:00Z"))).isNull();
+    }
+
+    private PostingFinder finder(PostingProperties.Current current) {
+        List<PostingProperties.Past> history = List.of(
+                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6, 113_000_000L, null),
+                new PostingProperties.Past("나성범", 2020, null, "2021-01-09", null, null, null, null));
+        return new PostingFinder(new Postings(new PostingProperties(List.of(current), history)), news);
+    }
+
+    private static PostingProperties.Current roh(PostingProperties.Result result) {
+        return new PostingProperties.Current("노시환", "한화 이글스", "3루수", 2000, List.of("Si-Hwan Roh"), OPENS,
+                DEADLINE, null, result);
+    }
+}

@@ -36,6 +36,8 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_ADMIN_TOKEN` | 관리용 엔드포인트 토큰. 없으면 관리용 엔드포인트는 전부 막힌다 |
 | `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트와 선수 페이지에서 시즌 받기만 MLB를 부른다 |
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
+| `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수 관련 기사 제목 수집(30분마다). 기본 `true`. 포스팅 협상 기간(시작 3일 전 ~ 마감 3일 뒤)이 아니면 켜 있어도 요청하지 않는다. `false`여도 홈은 DB에 있는 기사를 보여 준다 |
+| `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines only; personal, non-commercial)` |
 | `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
 
 > **MLB 이용 고지:** 응답에 붙는 MLB 저작권 안내(`gdx.mlb.com/components/copyright.txt`)는 "개인적·비상업적·대량이 아닌 사용(individual, non-commercial, non-bulk use)"만 허락한다.
@@ -133,6 +135,26 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 선수 상태 변경(SC)은 설명 글에 부상자 명단(등재·해제·이동)이나 출장 정지가 있을 때만 남기고 나머지("roster status changed", 그냥 "activated")는 뺀다. MLB가 같은 날 같은 내용을 두 번 준 줄도 하나만 남긴다.
   - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`), 마이너 팀 등은 MLB가 준 영어 이름 그대로(`St. Paul Saints`).
 
+### 이번 겨울 MLB 도전(홈의 `posting`)
+- 비시즌 홈에만 붙는다. 포스팅 선수(`players`)와 지금 포스팅 제도(2018~)의 지난 기록(`history`)이다.
+- 자료는 사람이 `roster/posting.yml`에 적는다. 협상 시작·마감 시각, 지난 기록의 마감일·합의 보도일·보장 계약은 근거 기사(MLB Trade Rumors 등) 원문으로 확인한 값만 넣는다.
+  칸이 빠졌거나 형식이 틀리면 앱이 뜰 때 어느 선수의 어느 칸인지 밝히고 실패한다(`Postings`).
+- 선수 상태: 협상 시작 전(`UPCOMING`) → 협상 중(`NEGOTIATING`, 한국 날짜로 마감까지 남은 날 `daysLeft`) → 결과를 적으면 `SIGNED`/`NO_DEAL`.
+  마감이 지났는데 결과를 아직 안 적었으면 `CLOSED`(결과 확인 중). 마감 60일 뒤에는 목록에서 빠지니 그 전에 `history`로 옮긴다.
+- 지난 기록은 마감 며칠 전에 합의했는지(`daysBeforeDeadline`, 미국 날짜)를 같이 준다.
+
+### 관련 기사 제목(`news_article`)
+- 포스팅 선수 이름이 제목에 든 기사의 **제목·링크·언론사·발행 시각만** 모은다. 본문·사진·요약은 저장하지 않고, 화면은 원문(언론사)으로 연결한다.
+- 출처는 `news/sources.yml`(지금: MLB Trade Rumors 노시환·KBO 태그 피드, 마이데일리 해외야구·야구, 뉴시스 스포츠). robots.txt가 허용하고 RSS가 있는 곳만 넣었다.
+  네이버·구글 뉴스(robots.txt가 모든 수집기를 막음), OSEN·일간스포츠(저작권 규약이 허가 없는 정보서비스·DB 이용을 금지), 스타뉴스(무단 이용 단속 공지)는 넣지 않았다.
+- 요청 예절(`PoliteFetcher`):
+  - 사이트마다 robots.txt를 하루 한 번 받아 지킨다(RFC 9309). 우리 이름(`korleaguer`)과 Claude 계열 이름 중 하나라도 막혀 있으면 받지 않는다.
+    robots.txt가 없으면(404) 다 허용, 서버 오류·연결 실패면 다 막힘으로 보고 나중에 다시 묻는다.
+  - 같은 사이트 요청 사이 1초 이상(crawl-delay가 더 길면 그만큼), 조건부 요청(ETag·Last-Modified), gzip, 본문 2MB까지.
+  - 429·503은 Retry-After만큼, 401·403·404·410·451은 하루, 그 밖의 실패는 30분부터 두 배씩(최대 하루) 그 사이트를 쉰다.
+  - 큰 피드는 출처마다 간격(`interval`)을 둔다(마이데일리 2시간, 뉴시스 1시간).
+- 같은 선수에 같은 주소(추적 매개변수를 뺀 주소)는 한 번만 저장한다. 언론사가 내려 달라고 하면 `sources.yml`에서 빼고 그 언론사 줄을 지운다(`delete from news_article where publisher = '...'`).
+
 ### 결장 판단
 - 경기가 끝났고(final) 그 선수 기록이 없으면 "결장"이다.
 - 정규시즌·포스트시즌 경기 중, 선수가 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기 사이만 본다.
@@ -159,7 +181,9 @@ com.korleaguer
 ├── ingest   선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
 │            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 선수 페이지에서 시즌 받기(OnDemandSeason), DB 저장(IngestWriter)
 ├── domain   JPA 엔티티와 리포지토리
-├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산
+├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder)
+├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
+├── news     관련 기사 제목 수집: 피드 읽기(FeedParser), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher), 수집(NewsCollector)·스케줄
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 

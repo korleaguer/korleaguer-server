@@ -1,6 +1,8 @@
 package com.korleaguer.config;
 
 import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.news.NewsProperties;
+import com.korleaguer.posting.PostingProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -18,7 +20,8 @@ import java.util.concurrent.Executors;
 @Configuration
 @EnableCaching
 @EnableScheduling
-@EnableConfigurationProperties({KorleaguerProperties.class, RosterProperties.class})
+@EnableConfigurationProperties({KorleaguerProperties.class, RosterProperties.class, PostingProperties.class,
+        NewsProperties.class})
 public class AppConfig {
 
     public static final String HOME_CACHE = "home";

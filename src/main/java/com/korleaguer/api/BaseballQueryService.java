@@ -63,6 +63,7 @@ public class BaseballQueryService {
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
     private final OffSeasonFinder offSeasons;
+    private final PostingFinder postings;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
     private final CurrentSeason currentSeason;
@@ -72,7 +73,8 @@ public class BaseballQueryService {
                                 AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
                                 MinorSeasonRepository minorSeasons, MinorGameLogRepository minorGameLogs,
                                 GameLineAssembler gameLines,
-                                RecentGamesFinder recentGames, OffSeasonFinder offSeasons, RosterProfiles profiles,
+                                RecentGamesFinder recentGames, OffSeasonFinder offSeasons, PostingFinder postings,
+                                RosterProfiles profiles,
                                 DataMode dataMode, CurrentSeason currentSeason, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
@@ -84,6 +86,7 @@ public class BaseballQueryService {
         this.gameLines = gameLines;
         this.recentGames = recentGames;
         this.offSeasons = offSeasons;
+        this.postings = postings;
         this.profiles = profiles;
         this.dataMode = dataMode;
         this.currentSeason = currentSeason;
@@ -142,9 +145,12 @@ public class BaseballQueryService {
                     .toList();
         }
 
+        OffSeason offseason = offSeasons.find(roster, now);
+        // 포스팅(이번 겨울 MLB 도전)은 비시즌 홈에만 보인다
+        PostingSummary posting = offseason == null ? null : postings.find(now);
         return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
                 recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers, minorHitters, minorPitchers,
-                offSeasons.find(roster, now));
+                offseason, posting);
     }
 
     /** 선수 번호 → 이번 시즌 마이너 출전 경기 수. 아직 받지 않은 선수는 빠진다. */
