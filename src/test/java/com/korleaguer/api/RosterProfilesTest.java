@@ -15,11 +15,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RosterProfilesTest {
 
     private static final String TEMPLATE = "https://img.example.test/people/{mlbId}/headshot/current";
+    private static final String KBO_TEMPLATE = "https://kbo.example.test/person/{season}/{kboId}.jpg";
 
     private final RosterProperties roster = new RosterProperties(List.of(
-            new RosterProperties.Entry("이정후", 808982L, "넥센·키움 히어로즈 (2017–2023)", null),
-            new RosterProperties.Entry("김하성", null, null, null),
-            new RosterProperties.Entry("고우석", 808970L, "LG 트윈스 (2017–2023)", "LG 트윈스")));
+            new RosterProperties.Entry("이정후", 808982L, "넥센·키움 히어로즈 (2017–2023)", null, 67341L,
+                    List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023))),
+            new RosterProperties.Entry("김하성", null, null, null, null, null),
+            new RosterProperties.Entry("고우석", 808970L, "LG 트윈스 (2017–2023)", "LG 트윈스", null, null)));
 
     @Test
     void returnedTeamComesFromTheRosterOnly() {
@@ -39,6 +41,16 @@ class RosterProfilesTest {
         assertThat(profiles.photoUrl(jungHoo)).isEqualTo("/photos/mlb-808982");
         assertThat(profiles.mlbUrl(jungHoo)).isEqualTo("https://www.mlb.com/player/808982");
         assertThat(profiles.careerKo(jungHoo)).isEqualTo("넥센·키움 히어로즈 (2017–2023)");
+    }
+
+    @Test
+    void pastKboTeamPhotosAreOurHostedPaths() {
+        RosterProfiles profiles = profiles(true, TEMPLATE);
+
+        assertThat(profiles.careerPhotos(new Player("이정후"))).containsExactly(
+                new PlayerPageResponse.CareerPhoto("키움 히어로즈", "2017–2023", "/photos/kbo-67341-2023"));
+        assertThat(profiles.careerPhotos(new Player("김하성"))).isEmpty();
+        assertThat(profiles(false, TEMPLATE).careerPhotos(new Player("이정후"))).isEmpty();
     }
 
     @Test
@@ -78,7 +90,7 @@ class RosterProfilesTest {
 
     private RosterProfiles profiles(boolean officialPhotos, String template) {
         KorleaguerProperties properties = new KorleaguerProperties(2026, null, null, null,
-                new KorleaguerProperties.Images(officialPhotos, template), null);
+                new KorleaguerProperties.Images(officialPhotos, template, KBO_TEMPLATE), null);
         return new RosterProfiles(roster, new PhotoSources(roster,
                 new Postings(new PostingProperties(List.of(), List.of())), properties));
     }

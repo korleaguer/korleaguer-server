@@ -32,8 +32,9 @@ public record KorleaguerProperties(Integer season, String dataSource, Ingest ing
     /**
      * officialPhotos: false면 MLB 공식 사진 주소를 응답에 넣지 않는다(photoUrl이 null).
      * playerPhotoTemplate: 사진 주소 틀. {mlbId}가 MLB 선수 번호로 바뀐다.
+     * kboPhotoTemplate: KBO 시절 공식 사진 주소 틀. {kboId}가 KBO 선수 번호, {season}이 사진 시즌으로 바뀐다.
      */
-    public record Images(boolean officialPhotos, String playerPhotoTemplate) {
+    public record Images(boolean officialPhotos, String playerPhotoTemplate, String kboPhotoTemplate) {
     }
 
     /**

@@ -154,7 +154,7 @@ class PostingFinderTest {
 
     private static PhotoSources photos(Postings postings, boolean on) {
         return new PhotoSources(new RosterProperties(List.of()), postings,
-                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(on, null), null));
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(on, null, null), null));
     }
 
     private static PostingProperties.Current roh(PostingProperties.Result result) {

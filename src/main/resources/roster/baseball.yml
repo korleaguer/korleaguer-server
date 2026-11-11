@@ -4,18 +4,30 @@
 #   career-ko: 한국 시절 소속. 사람이 직접 적은 문장이며 화면에 그대로 나온다(선택).
 #   returned-ko: 국내 리그로 돌아간 팀(선택). 있으면 화면이 FA 대신 'LG 트윈스 복귀'로 보인다.
 #                MLB 데이터에는 KBO 계약이 없어 사람이 적는다. 해외파가 아니게 됐으니 다음 시즌이 시작되면 명단에서 뺀다.
+#   kbo-id: KBO 선수 번호(선택). 위키백과 선수 문서의 KBO 기록 링크(playerId)에서 확인했다(11-11).
+#   career-photos: 과거 소속팀(KBO) 시절 공식 사진(선택). team·years는 화면에 그대로, season은 사진 시즌(그 팀 마지막 해).
+#                  KBO 사진 서버의 그 시즌 선수 등록 사진을 우리 서버가 한 번 받아 호스팅한다(권리는 KBO·구단).
 # career-ko는 손으로 적은 값이라 공개 전에 다시 확인한다.
 roster:
   baseball:
     - name-ko: 이정후
       mlb-id: 808982
       career-ko: "넥센·키움 히어로즈 (2017–2023)"
+      kbo-id: 67341
+      career-photos:
+        - { team: 키움 히어로즈, years: "2017–2023", season: 2023 }
     - name-ko: 김혜성
       mlb-id: 808975
       career-ko: "넥센·키움 히어로즈 (2017–2024)"
+      kbo-id: 67304
+      career-photos:
+        - { team: 키움 히어로즈, years: "2017–2024", season: 2024 }
     - name-ko: 김하성
       mlb-id: 673490
       career-ko: "넥센·키움 히어로즈 (2014–2020)"
+      kbo-id: 64300
+      career-photos:
+        - { team: 키움 히어로즈, years: "2014–2020", season: 2020 }
     - name-ko: 송성문
       mlb-id: 823550
       career-ko: "넥센·키움 히어로즈 (2015–2025)"
@@ -23,6 +35,9 @@ roster:
       mlb-id: 808970
       career-ko: "LG 트윈스 (2017–2023)"
       returned-ko: "LG 트윈스"
+      kbo-id: 67119
+      career-photos:
+        - { team: LG 트윈스, years: "2017–2023", season: 2023 }
     - name-ko: 배지환
       mlb-id: 678225
       career-ko: "KBO 경력 없음 (고교 졸업 후 미국 진출)"
