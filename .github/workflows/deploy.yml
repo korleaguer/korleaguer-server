@@ -1,6 +1,10 @@
 # 지속 배포: develop에 병합(푸시)되면 사람 손 없이 서버까지 나간다.
-#   테스트(ci.yml) → 이미지(GHCR, 이름표는 커밋 해시 sha-1a2b3c4) → 서버 무중단 교체(deploy/korleaguer-deploy)
-#   → 성공하면 main을 배포한 커밋에 맞춘다.
+#   테스트(ci.yml)와 이미지(GHCR, 이름표는 커밋 해시 sha-1a2b3c4)를 동시에 만들고, 둘 다 성공하면
+#   서버 무중단 교체(deploy/korleaguer-deploy) → 성공하면 main을 배포한 커밋에 맞춘다.
+# 같은 코드를 두 번 검사하지 않는다: 병합한 커밋의 코드(트리)가 그 PR 마지막 커밋과 똑같고 그 커밋의 CI가 통과했으면
+# 테스트를 건너뛴다(squash 병합 전에 PR이 develop 끝을 담고 있었던 경우. 아니면 지금처럼 테스트한다).
+# 최신만 배포한다: 배포 차례가 왔을 때 develop에 더 새 배포 대상 커밋이 있으면 이 실행은 배포하지 않는다
+# (그 커밋의 배포가 이 변경까지 함께 내보낸다). 그래서 차례가 뒤바뀌어도 옛 코드가 새 코드를 덮지 않는다.
 # 배포는 커밋 해시로 구분한다(따로 버전 번호를 두지 않는다). 배포 기록은 Actions의 deploy 실행 목록이다.
 # 새 컨테이너가 정상(healthy)이 안 되면 서버는 옛 것을 그대로 둔다. 다만 SSH가 끊겨 job이 실패해도 서버는 교체를
 # 끝까지 하므로, 빨간불이어도 이미 새 커밋일 수 있다(서버의 /srv/korleaguer/deploy.log로 확인).
@@ -34,13 +38,7 @@ on:
         description: 되돌리거나 다시 배포할 커밋(예 1a2b3c4). 이 워크플로가 그 커밋으로 만든 이미지가 있어야 한다
         required: true
 
-# 배포는 한 번에 하나씩, 도는 중인 배포는 끊지 않는다. 기다리는 실행은 취소하지 않고 기다리기 시작한 순서대로 돈다
-# (queue: max, 최대 100개). 그래서 병합마다 그 커밋이 차례로 나가고, 되돌리기도 뒤에 온 병합에 밀려 취소되지 않는다.
-# 서버에서도 두 저장소의 배포가 겹치지 않게 잠근다(korleaguer-deploy).
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
-  queue: max
+# 줄 서기는 '서버에 배포' 잡에만 둔다(아래 deploy.concurrency). 테스트·이미지 만들기는 앞 배포를 기다리지 않고 바로 돈다.
 
 permissions:
   contents: read
@@ -49,14 +47,53 @@ env:
   IMAGE: ghcr.io/korleaguer/korleaguer-server
 
 jobs:
+  # PR에서 이미 통과한 코드인지 본다. 확인하다 오류가 나면 '아니다'로 보고 테스트한다(테스트 없이 배포하지 않는다).
+  reuse:
+    name: 같은 코드 검사 기록 찾기
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    outputs:
+      tested: ${{ steps.find.outputs.tested }}
+    steps:
+      - name: PR 마지막 커밋과 코드가 같고 CI가 통과했나
+        id: find
+        run: |
+          set +e
+          tested=false
+          tree="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${GITHUB_SHA}" -q .tree.sha)"
+          head="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            -q "[.[] | select(.merge_commit_sha == \"${GITHUB_SHA}\")][0].head.sha // empty")"
+          if [ -n "$tree" ] && [ -n "$head" ]; then
+            head_tree="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${head}" -q .tree.sha)"
+            passed="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${head}&event=pull_request&status=success&per_page=1" -q .total_count)"
+            if [ "$tree" = "$head_tree" ] && [ "${passed:-0}" -gt 0 ] 2> /dev/null; then
+              tested=true
+            fi
+          fi
+          echo "tested=$tested" >> "$GITHUB_OUTPUT"
+          if [ "$tested" = true ]; then
+            echo "PR 마지막 커밋 ${head::7}과 코드가 같고 그 CI가 통과해 테스트를 건너뜁니다" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "PR 마지막 커밋(${head:-없음})과 코드가 다르거나 통과한 CI가 없어 테스트합니다" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   test:
     name: 테스트
-    if: github.event_name == 'push'
+    needs: reuse
+    if: github.event_name == 'push' && needs.reuse.outputs.tested != 'true'
     uses: ./.github/workflows/ci.yml
 
+  # 테스트와 동시에 돈다. 테스트가 실패하면 이미지는 올라가도 배포하지 않는다.
   build:
     name: 이미지 만들기
-    needs: test
+    if: github.event_name == 'push'
     runs-on: ${{ vars.DEPLOY_PLATFORM == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
@@ -71,6 +108,24 @@ jobs:
         id: tag
         run: |
           echo "value=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      # jar는 러너에서 만든다. Gradle 내려받기·라이브러리는 setup-java 캐시(build.gradle이 그대로면 그대로 쓰고,
+      # 바뀌었을 때만 새로 저장)로 받아 온다. 이미지 안에서 만들면 러너가 매번 새것이라 매번 새로 받는다.
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: corretto
+          java-version: 21
+          cache: gradle
+
+      # Dockerfile의 app 단계가 하는 일(bootJar → 레이어별로 풀기)을 여기서 한다. 결과(build/image/extracted)는
+      # 아래 build-contexts로 app 단계 대신 들어간다.
+      - name: jar 만들고 레이어로 풀기
+        run: |
+          ./gradlew --no-daemon -q bootJar
+          jar="$(find build/libs -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
+          rm -rf build/image build/application.jar
+          cp "$jar" build/application.jar
+          java -Djarmode=tools -jar build/application.jar extract --layers --destination build/image/extracted
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -92,6 +147,8 @@ jobs:
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
+          build-contexts: |
+            app=build/image
           push: true
           platforms: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -103,49 +160,74 @@ jobs:
 
   deploy:
     name: 서버에 배포
-    needs: build
-    # 병합이면 이미지를 만든 뒤, 수동 실행(되돌리기)이면 테스트·이미지 만들기를 건너뛰고 바로 배포한다.
-    # 실행을 취소하면 배포하지 않는다(배포 단계가 이미 시작됐으면 서버는 교체를 끝까지 한다).
-    if: ${{ !cancelled() && ((github.event_name == 'push' && needs.build.result == 'success') || github.event_name == 'workflow_dispatch') }}
+    needs: [reuse, test, build]
+    # 병합이면 이미지가 만들어지고 테스트가 통과(또는 PR에서 같은 코드가 통과)했을 때, 수동 실행(되돌리기)이면
+    # 테스트·이미지 만들기를 건너뛰고 바로 배포한다. 실행을 취소하면 배포하지 않는다(배포 단계가 이미 시작됐으면
+    # 서버는 교체를 끝까지 한다).
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.build.result == 'success' &&
+      (needs.test.result == 'success' || (needs.test.result == 'skipped' && needs.reuse.outputs.tested == 'true')))) }}
     runs-on: ubuntu-24.04
-    # 서버는 앞 배포를 최대 10분 기다리고(잠금), 새 자리가 healthy(최대 5분)·데워지기(최대 3분)를 기다린다(블루-그린)
-    timeout-minutes: 25
+    timeout-minutes: 15
+    # 배포는 한 번에 하나씩, 도는 중인 배포는 끊지 않는다. 기다리는 배포는 취소하지 않는다(queue: max, 최대 100개).
+    # 그래서 되돌리기도 뒤에 온 병합에 밀려 취소되지 않는다. 서버에서도 두 저장소의 배포가 겹치지 않게 잠근다(korleaguer-deploy).
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: read
       packages: read
+    outputs:
+      deployed: ${{ steps.done.outputs.deployed }}
     steps:
-      # '다시 실행'(같은 실행의 두 번째 시도부터)이 그 사이 나간 새 배포를 옛 코드로 덮지 않게 한다.
-      # - 병합 배포: 이 커밋이 아직 develop 끝이거나, 그 뒤 커밋들이 배포하지 않는 파일(IGNORED)만 바꿨을 때만 배포한다.
+      # 병합 배포는 develop 끝(또는 그 뒤 커밋들이 배포하지 않는 파일만 바꾼 커밋)만 내보낸다.
+      # - 첫 실행: 더 새 배포 대상 커밋이 있으면 건너뛴다(그 배포가 이 변경까지 내보낸다). 실행은 성공으로 끝난다.
+      # - 다시 실행: 그 사이 나간 새 배포를 옛 코드로 덮을 수 있어 실패로 알린다(지금까지와 같다).
       # - 되돌리기(수동 실행): 다시 실행하지 않는다. Run workflow로 새로 건다.
-      - name: 다시 실행이면 최신 커밋인지 확인
-        if: github.run_attempt != '1'
+      - name: 최신 커밋인지 확인
+        id: latest
         run: |
+          api() { for _ in 1 2 3; do gh api "$@" && return 0; sleep 3; done; return 1; }
           if [ "$EVENT" = workflow_dispatch ]; then
-            echo "::error::되돌리기(수동 실행)는 다시 실행하지 않습니다(그 사이 나간 새 배포를 덮을 수 있어서). Actions → deploy → Run workflow로 새로 거세요"
-            exit 1
-          fi
-          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/develop" -q .sha)"
-          if [ "$tip" = "$GITHUB_SHA" ]; then
-            echo "develop 끝이 이 커밋이라 다시 배포합니다"
+            if [ "$ATTEMPT" != 1 ]; then
+              echo "::error::되돌리기(수동 실행)는 다시 실행하지 않습니다(그 사이 나간 새 배포를 덮을 수 있어서). Actions → deploy → Run workflow로 새로 거세요"
+              exit 1
+            fi
+            echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          cmp="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${tip}")"
+          tip="$(api "repos/${GITHUB_REPOSITORY}/commits/develop" -q .sha)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "develop 끝이 이 커밋이라 배포합니다"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cmp="$(api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${tip}")"
           changed="$(jq -r '.files[] | .filename, (.previous_filename // empty)' <<< "$cmp")"
           code="$(grep -vE "$IGNORED" <<< "$changed" || true)"
           if [ "$(jq -r .status <<< "$cmp")" = ahead ] && [ "$(jq '.files | length' <<< "$cmp")" -lt 300 ] && [ -z "$code" ]; then
-            echo "develop 끝(${tip::7})까지 배포하지 않는 파일만 바뀌어 이 커밋을 다시 배포합니다"
+            echo "develop 끝(${tip::7})까지 배포하지 않는 파일만 바뀌어 이 커밋을 배포합니다"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "::error::이 커밋(${GITHUB_SHA::7}) 뒤로 배포되는 커밋이 develop에 있어(끝 ${tip::7}) 다시 실행으로는 배포하지 않습니다. 이 커밋을 꼭 내야 하면 deploy를 Run workflow로 실행하고 commit에 ${GITHUB_SHA::7}을 넣으세요"
-          exit 1
+          if [ "$ATTEMPT" != 1 ]; then
+            echo "::error::이 커밋(${GITHUB_SHA::7}) 뒤로 배포되는 커밋이 develop에 있어(끝 ${tip::7}) 다시 실행으로는 배포하지 않습니다. 이 커밋을 꼭 내야 하면 deploy를 Run workflow로 실행하고 commit에 ${GITHUB_SHA::7}을 넣으세요"
+            exit 1
+          fi
+          echo "::notice::develop에 더 새 커밋(${tip::7})이 있어 이 실행은 배포하지 않습니다. 그 커밋의 배포가 이 변경까지 함께 내보냅니다"
+          echo "### 배포 건너뜀: 더 새 커밋 ${tip::7}이 이 변경까지 함께 내보낸다" >> "$GITHUB_STEP_SUMMARY"
+          echo "skip=true" >> "$GITHUB_OUTPUT"
         env:
           EVENT: ${{ github.event_name }}
+          ATTEMPT: ${{ github.run_attempt }}
           GH_TOKEN: ${{ github.token }}
           # 배포하지 않는 파일. 위 on.push.paths-ignore와 같게 유지한다.
           IGNORED: '\.md$|^deploy/|^src/test/|^\.github/ISSUE_TEMPLATE/'
 
       - name: 배포할 이미지
         id: tag
+        if: steps.latest.outputs.skip != 'true'
         run: |
           if [ "$EVENT" = workflow_dispatch ]; then
             commit="$(printf '%s' "${INPUT_COMMIT#sha-}" | tr 'A-F' 'a-f')"
@@ -162,6 +244,7 @@ jobs:
           BUILT_TAG: ${{ needs.build.outputs.tag }}
 
       - name: SSH 준비
+        if: steps.latest.outputs.skip != 'true'
         run: |
           if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
             echo "DEPLOY_SSH_KEY·DEPLOY_HOST·DEPLOY_KNOWN_HOSTS를 먼저 등록하세요(deploy/README.md)"
@@ -180,6 +263,7 @@ jobs:
       # 표준입력으로 이 job의 임시 토큰(packages:read)을 넘겨 GHCR에서 이미지를 받게 한다(job이 끝나면 만료).
       # 서버가 새 컨테이너를 옛 것과 겹쳐 띄워 healthy가 되면 바꾸고, 안 되면 옛 것을 그대로 둔다(바꾸기 전 DB 백업).
       - name: 배포
+        if: steps.latest.outputs.skip != 'true'
         run: |
           printf '%s\n%s\n' "$GITHUB_ACTOR" "$GHCR_TOKEN" | ssh \
             -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" \
@@ -197,12 +281,15 @@ jobs:
         run: rm -f ~/.ssh/deploy_key
 
       - name: 요약
+        id: done
+        if: steps.latest.outputs.skip != 'true'
         run: |
           if [ "$EVENT" = workflow_dispatch ]; then
             echo "### API 되돌리기 배포 완료: ${TAG} (main은 옮기지 않는다)" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "### API 배포 완료: ${TAG}" >> "$GITHUB_STEP_SUMMARY"
           fi
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
         env:
           EVENT: ${{ github.event_name }}
           TAG: ${{ steps.tag.outputs.value }}
@@ -210,13 +297,14 @@ jobs:
   main:
     name: main을 배포한 커밋에 맞추기
     needs: deploy
-    if: github.event_name == 'push' && needs.deploy.result == 'success'
+    # 건너뛴 배포(더 새 커밋이 내보냄)는 main을 옮기지 않는다. main은 '병합으로 마지막에 배포한 코드'다.
+    if: github.event_name == 'push' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write
     steps:
-      # main은 '병합으로 마지막에 배포한 코드'다. 배포한 커밋을 main에 병합해 둔다(이미 들어 있으면 그대로).
+      # 배포한 커밋을 main에 병합해 둔다(이미 들어 있으면 그대로).
       # 되돌리기(수동 실행)는 main을 옮기지 않는다(강제 푸시를 하지 않는다). 그때 서버의 커밋은 deploy 실행 목록이 정답이다.
       # 병합에 실패하면 이 job만 빨간불로 끝낸다(경고만 남기면 아무도 못 본다). 배포는 이미 끝났으니 main만 맞추면 된다
       # (그냥 두어도 다음 병합 배포가 main을 함께 맞춘다).
