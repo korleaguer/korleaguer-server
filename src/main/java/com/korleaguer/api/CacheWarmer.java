@@ -15,6 +15,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -32,7 +33,7 @@ import java.util.stream.Collectors;
  * </ul>
  * 언제 채우나:
  * <ul>
- *   <li>캐시를 지운 뒤(ResponseCachesCleared): 지운 쪽(수집 등)을 붙잡지 않게 뒤에서 채운다. 자동 수집이 켜진 운영에서만
+ *   <li>캐시를 지운 뒤(ResponseCachesCleared): 지운 쪽(수집 등)을 붙잡지 않게 뒤에서, 5초 뒤 한 번 더 지우고 채운다. 자동 수집이 켜진 운영에서만
  *       (테스트에서는 뒤에서 도는 계산이 결과를 흔들지 않게 끈다).</li>
  *   <li>따라잡기가 끝날 때(CatchUpFinished, 12분마다·앱 시작 때): 먼저 시각으로 바뀌는 값(한국·미국 날짜, 포스팅 상태·진행 막대)이
  *       바뀌었는지, 수집 밖에서 DB에 쓴 것(기사 등)이 있는지 보고 그렇다면 지운다. 그다음 빠진 것을 채운다(하루 만료로 빠진 것 포함).</li>
@@ -47,6 +48,9 @@ public class CacheWarmer {
 
     /** 웹 비시즌 홈(web의 src/components/home/OffseasonPlayers.tsx, DAYS)이 /api/my에 넘기는 기간 */
     static final int OFFSEASON_CARD_DAYS = 7;
+
+    /** 캐시를 지운 뒤 다시 지우고 채우기까지 기다리는 시간(그사이 끝나는 요청이 넣은 옛 응답을 걷어 낸다) */
+    private static final Duration SETTLE = Duration.ofSeconds(5);
 
     private final BaseballQueryService queryService;
     private final MyPlayersService myPlayers;
@@ -74,8 +78,23 @@ public class CacheWarmer {
     @EventListener
     public void onCachesCleared(ResponseCachesCleared event) {
         if (warmInBackground) {
-            executor.execute(this::warm);
+            executor.execute(this::settleThenWarm);
         }
+    }
+
+    /**
+     * 지운 순간에 계산 중이던 요청(운영 장비에서 길면 1~2초)이 옛 데이터로 만든 응답을 그 뒤에 넣을 수 있다.
+     * 그대로 두면 다음 변경까지(비시즌에는 하루까지) 남으므로, 잠깐 기다렸다가 한 번 더 지우고 채운다.
+     */
+    private void settleThenWarm() {
+        try {
+            Thread.sleep(SETTLE.toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        responseCaches.clearQuietly();
+        warm();
     }
 
     @EventListener

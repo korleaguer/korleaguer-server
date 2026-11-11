@@ -50,13 +50,21 @@ public class ResponseCaches {
         synchronized (this) {
             seenVersion = DataChanges.version();
         }
+        clearQuietly();
+        log.info("response caches cleared: {}", reason);
+        events.publishEvent(new ResponseCachesCleared(reason));
+    }
+
+    /**
+     * 알리지 않고 지운다. 지운 순간에 계산 중이던 요청이 옛 데이터로 만든 응답을 그 뒤에 넣을 수 있어서,
+     * 다시 채우기 전에 한 번 더 지울 때 쓴다(CacheWarmer).
+     */
+    public void clearQuietly() {
         for (String name : NAMES) {
             Cache cache = cacheManager.getCache(name);
             if (cache != null) {
                 cache.clear();
             }
         }
-        log.info("response caches cleared: {}", reason);
-        events.publishEvent(new ResponseCachesCleared(reason));
     }
 }
