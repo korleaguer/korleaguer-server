@@ -14,7 +14,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 캐시는 지금 메모리(Caffeine, 60초 만료)에 둔다. 설정은 application.properties의 spring.cache.*.
+ * 캐시는 지금 메모리(Caffeine, 15분 만료)에 둔다. 설정은 application.properties의 spring.cache.*.
+ * 데이터는 수집 때만 바뀌고 그때 캐시를 비운다(IngestService). 따라잡기가 끝나면 CacheWarmer가 다시 채운다.
  * 서버를 여러 대로 늘리면 Redis로 바꿀 자리다(spring-boot-starter-data-redis + spring.cache.type=redis).
  */
 @Configuration
@@ -26,6 +27,8 @@ public class AppConfig {
 
     public static final String HOME_CACHE = "home";
     public static final String PLAYER_CACHE = "player";
+    /** 내 선수(GET /api/my). 선수 조합(ids)과 기간(days)마다 따로 둔다 */
+    public static final String MY_CACHE = "my";
 
     // 테스트에서 시각을 고정할 수 있게 Clock을 빈으로 둔다.
     @Bean

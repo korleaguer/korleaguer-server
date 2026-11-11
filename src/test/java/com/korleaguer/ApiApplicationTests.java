@@ -23,7 +23,7 @@ class ApiApplicationTests {
 	@Test
 	void cacheIsCaffeine() {
 		assertThat(cacheManager).isInstanceOf(CaffeineCacheManager.class);
-		assertThat(cacheManager.getCacheNames()).contains("home", "player");
+		assertThat(cacheManager.getCacheNames()).contains("home", "player", "my");
 	}
 
 }

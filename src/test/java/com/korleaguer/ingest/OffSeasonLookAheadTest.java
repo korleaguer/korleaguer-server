@@ -78,7 +78,8 @@ class OffSeasonLookAheadTest {
 
     @Test
     void offSeasonLooksAheadOncePerDayAndComesBackForPostseason() {
-        IngestScheduler scheduler = new IngestScheduler(ingestService, clock);
+        List<Object> published = new ArrayList<>();
+        IngestScheduler scheduler = new IngestScheduler(ingestService, published::add, clock);
 
         // 10/1 00:00Z: 앞뒤 3일에 DB 경기가 없어 비시즌이다. 그사이 MLB 일정에 7201이 잡혔다.
         clock.set(Instant.parse("2026-10-01T00:00:00Z"));
@@ -86,6 +87,8 @@ class OffSeasonLookAheadTest {
         assertThat(ingestService.inSeason(clock.instant())).isFalse();
         client.takeSchedulesAsked();
         scheduler.tick();
+        // 따라잡기가 끝났다고 알린다(화면용 응답을 캐시에 미리 채운다).
+        assertThat(published).containsExactly(new CatchUpFinished());
         // 앞으로 7일 일정(미국 날짜 9/30~10/7)을 한 번 받아 7201을 DB에 넣는다.
         assertThat(client.takeSchedulesAsked()).containsExactly("2026-09-30~2026-10-07");
         // 박스스코어는 선발·교체를 모르는 지난 경기 7001만 선발·교체 채우기(fillLineups)로 한 번 받는다.
