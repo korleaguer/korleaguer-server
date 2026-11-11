@@ -145,6 +145,38 @@ class CacheWarmerTest {
         assertThat(cache(AppConfig.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
     }
 
+    @Test
+    void newHeadlineClearsOnlyHome() {
+        MyPlayersResponse my = myPlayers.find("1,2", 7);
+        PlayerPageResponse player = queryService.player(1L);
+        HomeResponse home = queryService.home();
+
+        // 기사 제목(news_article)은 홈에만 나온다. 실제 행은 바꾸지 않는다.
+        transactions.executeWithoutResult(status ->
+                entityManager.createNativeQuery("update news_article set title = title where 1 = 0").executeUpdate());
+        events.publishEvent(new CatchUpFinished());
+
+        assertThat(queryService.home()).isNotSameAs(home);
+        assertThat(queryService.player(1L)).isSameAs(player);
+        assertThat(myPlayers.find("1,2", 7)).isSameAs(my);
+    }
+
+    @Test
+    void postingStatusChangeClearsOnlyHome() {
+        // 노시환 협상 시작(미국 11/2 08:00 = 13:00Z, 한국 11/2 22:00) 10분 전
+        clock.set(Instant.parse("2026-11-02T12:50:00Z"));
+        events.publishEvent(new CatchUpFinished());
+        MyPlayersResponse my = myPlayers.find("1,2", 7);
+        HomeResponse home = queryService.home();
+
+        // 같은 한국·미국 날짜에 협상이 시작됐다(UPCOMING → NEGOTIATING): 홈만 다시 만든다
+        clock.set(Instant.parse("2026-11-02T13:10:00Z"));
+        events.publishEvent(new CatchUpFinished());
+
+        assertThat(queryService.home()).isNotSameAs(home);
+        assertThat(myPlayers.find("1,2", 7)).isSameAs(my);
+    }
+
     private Cache cache(String name) {
         return cacheManager.getCache(name);
     }
