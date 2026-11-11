@@ -113,6 +113,11 @@ public class NewsCollector {
             log.warn("news: could not read the feed of {}: {}", source.publisher(), e.getMessage());
             return 0;
         }
+        if (items.isEmpty()) {
+            // 피드·사이트맵 모양이 바뀌었거나(색인 파일, 이름 공간 등) 비었다. 0건이 이어지면 sources.yml을 고친다
+            log.warn("news: no items in the feed of {} ({})", source.publisher(), source.feedUrl());
+            return 0;
+        }
         int saved = 0;
         for (FeedParser.Item item : items) {
             for (PostingCase posting : watched) {

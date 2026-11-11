@@ -1,5 +1,6 @@
 package com.korleaguer.news;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -29,12 +30,31 @@ record ArticlePage(String imageUrl, String text, String description) {
     private static final Pattern TAG = Pattern.compile("(?s)<[^>]*>");
     private static final Pattern BODY_START =
             Pattern.compile("(?i)<[a-z]+\\s[^>]*class\\s*=\\s*[\"'][^\"']*\\bentry-content\\b[^>]*>");
+    private static final Pattern CHARSET = Pattern.compile("(?i)<meta[^>]+charset\\s*=\\s*[\"']?([\\w-]+)");
     private static final String[] BODY_ENDS = {"class=\"entry-footer", "id=\"comments\"", "class=\"comments", "</article>"};
 
     static ArticlePage parse(byte[] html) {
-        String page = new String(html, StandardCharsets.UTF_8);
+        String page = new String(html, charset(html));
         return new ArticlePage(meta(page, "og:image", "og:image:secure_url"), body(page),
                 FeedParser.Texts.lead(meta(page, "og:description", "description")));
+    }
+
+    /** 페이지 앞부분의 meta charset(EUC-KR 등). 없거나 모르는 이름이면 UTF-8 */
+    private static Charset charset(byte[] html) {
+        String head = new String(html, 0, Math.min(html.length, 4096), StandardCharsets.ISO_8859_1);
+        Matcher m = CHARSET.matcher(head);
+        if (m.find()) {
+            String name = m.group(1);
+            if (name.toLowerCase(Locale.ROOT).startsWith("ks_c_5601")) {
+                name = "MS949";
+            }
+            try {
+                return Charset.forName(name);
+            } catch (RuntimeException e) {
+                return StandardCharsets.UTF_8;
+            }
+        }
+        return StandardCharsets.UTF_8;
     }
 
     /**
