@@ -7,7 +7,9 @@
 #   window-opens: 30일 협상 시작 시각(MLB가 구단들에 공시한 다음 날 오전 8시, 미국 동부)
 #   deadline: 협상 마감 시각(30일째 오후 5시, 미국 동부). 11월 첫 일요일부터는 표준시(-05:00)다.
 #   source: 공시·마감 시각의 근거 기사
-#   photo-url: 프로필 사진 주소(선택, 현 소속 KBO 구단 공식 사진). 없으면 화면이 구단 색 원에 이름 첫 글자를 보인다
+#   slug: 영문 짧은 이름(사진 주소에 쓴다, 예: si-hwan-roh). photo-url이 있으면 꼭 적는다
+#   photo-url: 프로필 사진 원본 주소(선택, KBO 공식 선수 등록 사진: KBO 사진 서버의 그 시즌 사진). 우리 서버가 한 번 받아 호스팅한다.
+#              없으면 화면이 구단 색 원에 이름 첫 글자를 보인다
 #   result: 결과가 나면 적는다. outcome은 SIGNED(계약) 또는 NO_DEAL(결렬).
 #           SIGNED면 mlb-team(약어, 예: SD), agreed-on(합의 보도 미국 날짜), years(보장 연수), guaranteed-usd(보장액)를 같이 적는다.
 #
@@ -20,6 +22,7 @@
 posting:
   current:
     - name-ko: 노시환
+      slug: si-hwan-roh
       kbo-team: 한화 이글스
       position-ko: 3루수
       birth-year: 2000
@@ -28,6 +31,9 @@ posting:
       # 근거 기사: "30-day window ending at 4pm CT on December 1" (= 미국 동부 오후 5시, 한국 12월 2일 오전 7시)
       deadline: 2026-12-01T17:00:00-05:00
       source: https://www.mlbtraderumors.com/2026/11/kbos-hanwha-eagles-to-post-si-hwan-roh-for-mlb-teams.html
+      # KBO 공식 2026 선수 등록 사진(정면, 새 유니폼). KBO 사진 서버(robots.txt 없음)에서 우리 서버가 한 번 받아 호스팅한다.
+      # 주소 끝 숫자(69737)는 KBO 선수 번호, 2026은 시즌. 권리는 KBO·한화 이글스에 있다.
+      photo-url: https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/person/middle/2026/69737.jpg
   history:
     - name-ko: 송성문
       season: 2025

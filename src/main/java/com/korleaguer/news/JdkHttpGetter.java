@@ -40,10 +40,13 @@ public class JdkHttpGetter implements HttpGetter {
                 .GET()
                 .timeout(readTimeout)
                 .header("User-Agent", userAgent)
-                .header("Accept", "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, "
-                        + "text/plain;q=0.5, */*;q=0.1")
                 .header("Accept-Encoding", "gzip");
-        headers.forEach(request::header);
+        // 부르는 쪽이 Accept를 주지 않으면 피드를 받는다고 본다(사진은 image/*를 준다).
+        if (headers.keySet().stream().noneMatch(name -> name.equalsIgnoreCase("Accept"))) {
+            request.header("Accept", "application/rss+xml, application/atom+xml, application/xml;q=0.9, "
+                    + "text/xml;q=0.9, text/plain;q=0.5, */*;q=0.1");
+        }
+        headers.forEach(request::setHeader);
         try {
             HttpResponse<InputStream> response = client.send(request.build(),
                     HttpResponse.BodyHandlers.ofInputStream());

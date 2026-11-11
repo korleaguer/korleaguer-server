@@ -20,18 +20,21 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 남의 사이트에서 피드를 예의 있게 받는다.
+ * 남의 사이트에서 피드·사진을 예의 있게 받는다.
  * <ul>
  *   <li>사이트(scheme+host)마다 robots.txt를 하루 한 번 받아 지킨다. 확인할 이름(우리 이름·Claude 계열) 중
  *       하나라도 막혀 있으면 받지 않는다. robots.txt가 없으면(404 등) 다 허용, 서버 오류·연결 실패면 다 막힘으로 보고
- *       나중에 다시 묻는다(RFC 9309). 401·403·429면 그 사이트를 멈춘다.</li>
+ *       나중에 다시 묻는다(RFC 9309). robots.txt가 401·403이면 기본은 그 사이트를 하루 쉰다
+ *       (pauseOnRobotsForbidden=false면 표준대로 '없음'으로 보고 받는다. 사람이 고른 사진 주소 하나를 받을 때).
+ *       robots.txt가 429면 쉰다.</li>
  *   <li>같은 사이트 요청 사이를 1초 이상(crawl-delay가 더 길면 그만큼) 띄운다.</li>
- *   <li>지난번 응답의 ETag·Last-Modified로 조건부 요청을 보낸다(바뀐 게 없으면 304로 끝).</li>
+ *   <li>피드(fetch): 지난번 응답의 ETag·Last-Modified로 조건부 요청을 보낸다(바뀐 게 없으면 304로 끝).
+ *       사진(get): 조건부 헤더를 부르는 쪽이 넣는다(저장해 둔 ETag 등).</li>
  *   <li>리다이렉트는 3번까지 따라가되, 갈 때마다 그 주소의 robots.txt를 다시 본다.</li>
  *   <li>실패하면 그 사이트를 쉰다: 429·503은 Retry-After(없으면 아래처럼), 401·403·404·410·451은 하루,
  *       그 밖의 실패는 30분부터 실패할 때마다 두 배(최대 하루).</li>
  * </ul>
- * 상태(robots.txt·쉬는 시각·ETag)는 메모리에만 둔다. 서버가 다시 뜨면 처음부터 다시 묻는다.
+ * 상태(robots.txt·쉬는 시각·피드 ETag)는 메모리에만 둔다. 서버가 다시 뜨면 처음부터 다시 묻는다.
  */
 public class PoliteFetcher {
 
@@ -49,10 +52,21 @@ public class PoliteFetcher {
         void sleep(Duration duration);
     }
 
+    /**
+     * 받은 결과. modified가 false면 304(바뀐 것 없음)라 body가 비어 있다.
+     *
+     * @param contentType Content-Type 헤더(없으면 null)
+     * @param etag        ETag 헤더(없으면 null)
+     * @param lastModified Last-Modified 헤더(없으면 null)
+     */
+    public record Fetched(boolean modified, byte[] body, String contentType, String etag, String lastModified) {
+    }
+
     private final HttpGetter http;
     private final List<String> agents;
     private final Clock clock;
     private final Sleeper sleeper;
+    private final boolean pauseOnRobotsForbidden;
     private final Map<String, Site> sites = new HashMap<>();
     private final Map<String, Validators> validators = new HashMap<>();
 
@@ -60,6 +74,14 @@ public class PoliteFetcher {
      * @param agents robots.txt에서 확인할 이름. 맨 앞이 우리 이름이다(비면 안 된다)
      */
     public PoliteFetcher(HttpGetter http, List<String> agents, Clock clock, Sleeper sleeper) {
+        this(http, agents, clock, sleeper, true);
+    }
+
+    /**
+     * @param pauseOnRobotsForbidden robots.txt가 401·403이면 그 사이트를 쉴지(true). false면 표준대로 'robots.txt 없음'으로 본다
+     */
+    public PoliteFetcher(HttpGetter http, List<String> agents, Clock clock, Sleeper sleeper,
+                         boolean pauseOnRobotsForbidden) {
         if (agents.isEmpty()) {
             throw new IllegalArgumentException("robots agents must not be empty");
         }
@@ -67,11 +89,25 @@ public class PoliteFetcher {
         this.agents = List.copyOf(agents);
         this.clock = clock;
         this.sleeper = sleeper;
+        this.pauseOnRobotsForbidden = pauseOnRobotsForbidden;
     }
 
-    /** 새 내용이면 본문. 바뀐 게 없거나(304) robots.txt가 막았거나 실패했거나 쉬는 중이면 빈 값 */
+    /** 피드용: 새 내용이면 본문. 바뀐 게 없거나(304) robots.txt가 막았거나 실패했거나 쉬는 중이면 빈 값 */
     public synchronized Optional<byte[]> fetch(URI uri) {
-        return fetch(uri, 0);
+        Optional<Fetched> fetched = get(uri, conditionalHeaders(uri), 0);
+        if (fetched.isEmpty() || !fetched.get().modified()) {
+            return Optional.empty();
+        }
+        remember(uri, fetched.get());
+        return Optional.of(fetched.get().body());
+    }
+
+    /**
+     * 한 번 받는다. headers(Accept, If-None-Match 등)를 그대로 붙인다.
+     * 200이면 modified=true와 본문, 304면 modified=false. robots.txt가 막았거나 실패했거나 쉬는 중이면 빈 값
+     */
+    public synchronized Optional<Fetched> get(URI uri, Map<String, String> headers) {
+        return get(uri, headers, 0);
     }
 
     /** 이 주소의 사이트가 지금 쉬는 중인지(테스트·로그용) */
@@ -80,14 +116,14 @@ public class PoliteFetcher {
         return site != null && site.pausedUntil != null && clock.instant().isBefore(site.pausedUntil);
     }
 
-    private Optional<byte[]> fetch(URI uri, int hops) {
+    private Optional<Fetched> get(URI uri, Map<String, String> headers, int hops) {
         if (!isHttp(uri)) {
-            log.warn("news: not an http(s) url, skipped: {}", uri);
+            log.warn("fetch: not an http(s) url, skipped: {}", uri);
             return Optional.empty();
         }
         Site site = site(uri);
         if (site.pausedUntil != null && clock.instant().isBefore(site.pausedUntil)) {
-            log.debug("news: {} is paused until {}", site.key, site.pausedUntil);
+            log.debug("fetch: {} is paused until {}", site.key, site.pausedUntil);
             return Optional.empty();
         }
         RobotsTxt robots = robots(site);
@@ -97,33 +133,34 @@ public class PoliteFetcher {
         String path = pathOf(uri);
         for (String agent : agents) {
             if (!robots.allows(agent, path)) {
-                log.info("news: robots.txt of {} disallows {} for {}", site.key, path, agent);
+                log.info("fetch: robots.txt of {} disallows {} for {}", site.key, path, agent);
                 return Optional.empty();
             }
         }
-        HttpGetter.Reply reply = request(site, uri, conditionalHeaders(uri));
+        HttpGetter.Reply reply = request(site, uri, headers);
         if (reply == null) {
             return Optional.empty();
         }
         int status = reply.status();
         if (status == 200) {
             site.failures = 0;
-            remember(uri, reply);
-            return Optional.of(reply.body());
+            return Optional.of(new Fetched(true, reply.body(), reply.header("content-type"), reply.header("etag"),
+                    reply.header("last-modified")));
         }
         if (status == 304) {
             site.failures = 0;
-            return Optional.empty();
+            return Optional.of(new Fetched(false, new byte[0], null, reply.header("etag"),
+                    reply.header("last-modified")));
         }
         if (isRedirect(status)) {
             String location = reply.header("location");
             if (location == null || location.isBlank() || hops >= MAX_REDIRECTS) {
-                log.warn("news: {} answered {} without a usable redirect", uri, status);
+                log.warn("fetch: {} answered {} without a usable redirect", uri, status);
                 return Optional.empty();
             }
             URI next = uri.resolve(location.trim());
-            log.info("news: {} redirects to {} (update the feed url if this stays)", uri, next);
-            return fetch(next, hops + 1);
+            log.info("fetch: {} redirects to {} (update the url if this stays)", uri, next);
+            return get(next, headers, hops + 1);
         }
         if (status == 429 || status == 503) {
             pause(site, retryAfter(reply), "answered " + status);
@@ -158,7 +195,7 @@ public class PoliteFetcher {
     }
 
     private RobotsTxt fetchRobots(Site site, URI robotsUri, int hops) {
-        HttpGetter.Reply reply = request(site, robotsUri, Map.of());
+        HttpGetter.Reply reply = request(site, robotsUri, Map.of("Accept", "text/plain, */*;q=0.1"));
         if (reply == null) {
             return null;
         }
@@ -169,7 +206,7 @@ public class PoliteFetcher {
         if (isRedirect(status) && reply.header("location") != null && hops < 5) {
             return fetchRobots(site, robotsUri.resolve(reply.header("location").trim()), hops + 1);
         }
-        if (status == 401 || status == 403) {
+        if ((status == 401 || status == 403) && pauseOnRobotsForbidden) {
             // 표준은 4xx를 '없음(다 허용)'으로 보지만, 우리를 막은 것일 수 있어 하루 쉰다.
             pause(site, MAX_PAUSE, "robots.txt answered " + status);
             return null;
@@ -218,7 +255,7 @@ public class PoliteFetcher {
 
     private void pause(Site site, Duration duration, String reason) {
         site.pausedUntil = clock.instant().plus(duration);
-        log.warn("news: pausing {} until {} ({})", site.key, site.pausedUntil, reason);
+        log.warn("fetch: pausing {} until {} ({})", site.key, site.pausedUntil, reason);
     }
 
     /** Retry-After(초 또는 HTTP 날짜). 없거나 읽을 수 없으면 실패 횟수에 따른 쉬는 시간. 1분~하루로 묶는다. */
@@ -258,13 +295,11 @@ public class PoliteFetcher {
         return headers;
     }
 
-    private void remember(URI uri, HttpGetter.Reply reply) {
-        String etag = reply.header("etag");
-        String lastModified = reply.header("last-modified");
-        if (etag == null && lastModified == null) {
+    private void remember(URI uri, Fetched fetched) {
+        if (fetched.etag() == null && fetched.lastModified() == null) {
             validators.remove(uri.toString());
         } else {
-            validators.put(uri.toString(), new Validators(etag, lastModified));
+            validators.put(uri.toString(), new Validators(fetched.etag(), fetched.lastModified()));
         }
     }
 

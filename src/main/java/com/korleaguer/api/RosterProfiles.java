@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Player;
 import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.photo.PhotoSources;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -15,28 +15,24 @@ import java.util.Map;
 @Component
 class RosterProfiles {
 
-    private static final String MLB_ID_PLACEHOLDER = "{mlbId}";
     private static final String MLB_PLAYER_PAGE = "https://www.mlb.com/player/";
 
     private final Map<String, RosterProperties.Entry> byNameKo = new LinkedHashMap<>();
-    private final boolean officialPhotos;
-    private final String photoTemplate;
+    private final PhotoSources photos;
 
-    RosterProfiles(RosterProperties roster, KorleaguerProperties properties) {
+    RosterProfiles(RosterProperties roster, PhotoSources photos) {
         for (RosterProperties.Entry entry : roster.baseball()) {
             byNameKo.putIfAbsent(entry.nameKo(), entry);
         }
-        this.officialPhotos = properties.images().officialPhotos();
-        this.photoTemplate = properties.images().playerPhotoTemplate();
+        this.photos = photos;
     }
 
-    /** 공식 사진을 켰고(official-photos) MLB 선수 번호가 있을 때만 주소가 나온다. */
+    /**
+     * 우리가 호스팅하는 사진 주소(/photos/mlb-808982, PhotoSources). 공식 사진을 켰고(official-photos)
+     * MLB 선수 번호가 있을 때만 나온다. 원본(MLB 사진 서버)은 서버가 한 번 받아 둔다(PhotoStore).
+     */
     String photoUrl(Player player) {
-        Long mlbId = mlbId(player);
-        if (!officialPhotos || mlbId == null || photoTemplate == null || photoTemplate.isBlank()) {
-            return null;
-        }
-        return photoTemplate.replace(MLB_ID_PLACEHOLDER, String.valueOf(mlbId));
+        return photos.mlbPath(mlbId(player));
     }
 
     /** MLB 선수 번호만 있으면 나온다(사진 설정과 무관). */

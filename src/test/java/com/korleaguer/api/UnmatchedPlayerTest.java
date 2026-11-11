@@ -33,8 +33,7 @@ class UnmatchedPlayerTest {
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.player.nameKo").value("모르는선수"))
                 .andExpect(jsonPath("$.player.nameEn").value(nullValue()))
-                .andExpect(jsonPath("$.player.photoUrl").value("https://img.mlbstatic.com/mlb-photos/image/upload/"
-                        + "d_people:generic:headshot:silo:current.png/w_360,q_auto:best,f_auto/v1/people/111111/headshot/silo/current"))
+                .andExpect(jsonPath("$.player.photoUrl").value("/photos/mlb-111111"))
                 .andExpect(jsonPath("$.player.mlbUrl").value("https://www.mlb.com/player/111111"))
                 .andExpect(jsonPath("$.player.careerKo").value("테스트 소속 (2020–2024)"))
                 .andExpect(jsonPath("$.player.jersey").value(nullValue()))

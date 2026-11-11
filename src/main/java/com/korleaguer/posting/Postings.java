@@ -59,8 +59,19 @@ public class Postings {
                 .filter(name -> !names.contains(name))
                 .forEach(names::add);
         PostingResult result = c.result() == null ? null : result(c.result(), who);
-        return new PostingCase(c.nameKo().trim(), c.kboTeam().trim(), c.positionKo().trim(), c.birthYear(), names,
-                opens, deadline, c.source(), blankToNull(c.photoUrl()), result);
+        String slug = blankToNull(c.slug());
+        String photoUrl = blankToNull(c.photoUrl());
+        if (slug != null && !slug.matches("[a-z0-9-]{1,40}")) {
+            throw invalid(who, "slug must be lowercase letters, digits and '-': " + slug);
+        }
+        if (photoUrl != null && slug == null) {
+            throw invalid(who, "slug is required when photo-url is set");
+        }
+        if (photoUrl != null && !photoUrl.startsWith("https://")) {
+            throw invalid(who, "photo-url must start with https://");
+        }
+        return new PostingCase(c.nameKo().trim(), slug, c.kboTeam().trim(), c.positionKo().trim(), c.birthYear(), names,
+                opens, deadline, c.source(), photoUrl, result);
     }
 
     private static PostingResult result(PostingProperties.Result r, String who) {

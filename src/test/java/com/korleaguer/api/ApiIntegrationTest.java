@@ -30,9 +30,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class ApiIntegrationTest {
 
-    private static final String PHOTO_PREFIX = "https://img.mlbstatic.com/mlb-photos/image/upload/"
-            + "d_people:generic:headshot:silo:current.png/w_360,q_auto:best,f_auto/v1/people/";
-    private static final String PHOTO_SUFFIX = "/headshot/silo/current";
+    // 사진은 우리가 호스팅한다(/photos/mlb-{MLB 선수 번호}, PhotoStore가 원본을 한 번 받아 둔다)
+    private static final String PHOTO_PREFIX = "/photos/mlb-";
+    private static final String PHOTO_SUFFIX = "";
     private static final String JUNG_HOO_PHOTO = PHOTO_PREFIX + "808982" + PHOTO_SUFFIX;
 
     @Autowired
