@@ -9,9 +9,10 @@ import java.time.LocalDate;
  * @param agreedOn      합의가 처음 보도된 미국 날짜
  * @param years         보장 연수
  * @param guaranteedUsd 보장액(달러)
+ * @param krwPerUsd     합의일 원/달러 환율(1달러당 원). 적지 않았으면 null
  */
 public record PostingResult(Outcome outcome, Long mlbTeamId, LocalDate agreedOn, Integer years,
-                            Long guaranteedUsd) {
+                            Long guaranteedUsd, Double krwPerUsd) {
 
     public enum Outcome {
         /** MLB 구단과 계약 */
@@ -21,6 +22,6 @@ public record PostingResult(Outcome outcome, Long mlbTeamId, LocalDate agreedOn,
     }
 
     public static PostingResult noDeal() {
-        return new PostingResult(Outcome.NO_DEAL, null, null, null, null);
+        return new PostingResult(Outcome.NO_DEAL, null, null, null, null, null);
     }
 }

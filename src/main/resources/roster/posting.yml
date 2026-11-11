@@ -18,6 +18,9 @@
 #   season: 포스팅된 겨울이 시작한 해(2023-24 겨울이면 2023)
 #   deadline: 협상 마감 미국 날짜, agreed-on: 계약 합의가 처음 보도된 미국 날짜
 #   years·guaranteed-usd: 보장 연수와 보장액(달러). 옵션·인센티브는 넣지 않는다.
+#   krw-per-usd: 합의일(agreed-on, 미국 날짜) 원/달러 환율, 1달러당 원(선택). 화면이 보장액을 원화로 어림해 달러와 번갈아 보인다.
+#           ECB 기준 환율(https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip)의 그날 KRW ÷ USD를 소수 둘째 자리까지 적는다.
+#           ECB가 고시하지 않은 날(주말·휴일)은 그 전 영업일 값. current의 result에도 같은 이름으로 적을 수 있다.
 #   kbo-id: KBO 선수 번호(한국어 위키백과 선수 문서의 KBO 기록 링크 playerId). MLB 사진(photo-url)이 없을 때 season 시즌의 KBO 공식 등록 사진
 #           (포스팅 당시 구단의 마지막 시즌, 정면)을 우리 서버가 KBO 사진 서버에서 한 번 받아 호스팅한다. 권리는 KBO·구단에 있다.
 #   mlb-id·photo-season·photo-url: 계약한 MLB 구단에서의 마지막 시즌 MLB 공식 사진(headshot/67)의 출처.
@@ -50,6 +53,7 @@ posting:
       agreed-on: 2025-12-19
       years: 4
       guaranteed-usd: 15000000
+      krw-per-usd: 1478.72  # ECB 2025-12-19
       source: https://www.mlbtraderumors.com/2025/12/padres-to-sign-sung-mun-song.html
       mlb-id: 823550
       photo-season: 2026
@@ -62,6 +66,7 @@ posting:
       agreed-on: 2025-01-03
       years: 3
       guaranteed-usd: 12500000
+      krw-per-usd: 1468.78  # ECB 2025-01-03
       source: https://www.mlbtraderumors.com/2025/01/dodgers-to-sign-hyeseong-kim.html
       mlb-id: 808975
       photo-season: 2026
@@ -74,6 +79,7 @@ posting:
       agreed-on: 2023-12-12
       years: 6
       guaranteed-usd: 113000000
+      krw-per-usd: 1309.89  # ECB 2023-12-12
       source: https://www.mlbtraderumors.com/2023/12/giants-jung-hoo-lee-agree-to-six-year-deal.html
       mlb-id: 808982
       photo-season: 2026
@@ -86,6 +92,7 @@ posting:
       agreed-on: 2024-01-03
       years: 2
       guaranteed-usd: 4500000
+      krw-per-usd: 1311.73  # ECB 2024-01-03
       source: https://www.mlbtraderumors.com/2024/01/padres-woo-suk-go-agree-to-two-year-deal.html
       mlb-id: 808970
       # 지금 MLB 사진은 다른 팀(미네소타)이라 인터넷 보관소에 남은 2024-03-01 샌디에이고 사진
@@ -100,6 +107,7 @@ posting:
       agreed-on: 2020-12-28
       years: 4
       guaranteed-usd: 28000000
+      krw-per-usd: 1097.36  # ECB 2020-12-28
       source: https://www.mlbtraderumors.com/2020/12/padres-sign-ha-seong-kim.html
       mlb-id: 673490
       # 지금 MLB 사진은 다른 팀(애틀랜타)이라 인터넷 보관소에 남은 2024-03-04 샌디에이고 사진(마지막 샌디에이고 시즌)
@@ -113,6 +121,7 @@ posting:
       agreed-on: 2019-12-17
       years: 2
       guaranteed-usd: 8000000
+      krw-per-usd: 1164.11  # ECB 2019-12-17
       source: https://www.mlbtraderumors.com/2019/12/cardinals-to-sign-kwang-hyun-kim.html
       mlb-id: 547942
       # MLB 마지막 시즌(2021) 세인트루이스 사진. 인터넷 보관소 2022-09-08 사본과 같은 파일

@@ -102,14 +102,14 @@ class PostingFinderTest {
 
     @Test
     void signedPlayerShowsTheDeal() {
-        PostingProperties.Result signed = new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 4, 30_000_000L);
+        PostingProperties.Result signed = new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 4, 30_000_000L, 1450.0);
 
         PostingSummary.Player roh = finder(roh(signed)).find(Instant.parse("2026-11-29T01:00:00Z")).players().getFirst();
 
         assertThat(roh.status()).isEqualTo("SIGNED");
         assertThat(roh.daysLeft()).isNull();
         assertThat(roh.deal()).isEqualTo(new PostingSummary.Deal(135L, "샌디에이고", LocalDate.parse("2026-11-28"), 4,
-                30_000_000L));
+                30_000_000L, 1450.0));
     }
 
     @Test
@@ -126,11 +126,12 @@ class PostingFinderTest {
 
         assertThat(history).containsExactly(
                 new PostingSummary.Past("이정후", 2023, LocalDate.parse("2024-01-03"), 22,
-                        new PostingSummary.Deal(137L, "샌프란시스코", LocalDate.parse("2023-12-12"), 6, 113_000_000L),
+                        new PostingSummary.Deal(137L, "샌프란시스코", LocalDate.parse("2023-12-12"), 6, 113_000_000L,
+                                1309.89),
                         "/photos/kbo-67341-2023"),
                 new PostingSummary.Past("나성범", 2020, LocalDate.parse("2021-01-09"), null, null, null),
                 new PostingSummary.Past("김하성", 2020, LocalDate.parse("2021-01-01"), 4,
-                        new PostingSummary.Deal(135L, "샌디에이고", LocalDate.parse("2020-12-28"), 4, 28_000_000L),
+                        new PostingSummary.Deal(135L, "샌디에이고", LocalDate.parse("2020-12-28"), 4, 28_000_000L, null),
                         "/photos/posting-673490-2024"));
     }
 
@@ -163,7 +164,7 @@ class PostingFinderTest {
     void missingEditedPhotoStopsTheServerFromStarting() {
         Postings postings = new Postings(new PostingProperties(List.of(), List.of(
                 new PostingProperties.Past("노시환", 2026, "SD", "2026-12-01", "2026-11-28", 4, 30_000_000L, null,
-                        69737L, 999_999L, 2027, "https://img.example/999999.jpg"))));
+                        69737L, 999_999L, 2027, "https://img.example/999999.jpg", null))));
 
         assertThatThrownBy(() -> photos(postings, true))
                 .isInstanceOf(IllegalStateException.class)
@@ -308,11 +309,11 @@ class PostingFinderTest {
     private static Postings postings(PostingProperties.Current current) {
         List<PostingProperties.Past> history = List.of(
                 new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6, 113_000_000L, null,
-                        67341L, null, null, null),
+                        67341L, null, null, null, 1309.89),
                 new PostingProperties.Past("나성범", 2020, null, "2021-01-09", null, null, null, null, null,
-                        null, null, null),
+                        null, null, null, null),
                 new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4, 28_000_000L, null,
-                        64300L, 673490L, 2024, "https://archive.example/2024/673490.jpg"));
+                        64300L, 673490L, 2024, "https://archive.example/2024/673490.jpg", null));
         return new Postings(new PostingProperties(List.of(current), history));
     }
 

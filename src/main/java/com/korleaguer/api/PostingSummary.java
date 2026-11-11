@@ -36,8 +36,11 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      *
      * @param agreedOn      합의가 처음 보도된 미국 날짜
      * @param guaranteedUsd 보장액(달러). 옵션·인센티브는 넣지 않는다
+     * @param krwPerUsd     합의일 원/달러 환율(1달러당 원, ECB 기준 환율로 계산). 화면이 보장액을 원화로 어림한다.
+     *                      적지 않았으면 null
      */
-    public record Deal(Long mlbTeamId, String mlbTeamKo, LocalDate agreedOn, Integer years, Long guaranteedUsd) {
+    public record Deal(Long mlbTeamId, String mlbTeamKo, LocalDate agreedOn, Integer years, Long guaranteedUsd,
+                       Double krwPerUsd) {
     }
 
     /**
