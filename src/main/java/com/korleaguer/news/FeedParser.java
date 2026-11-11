@@ -21,8 +21,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * RSS 2.0·Atom 피드에서 기사마다 제목·링크·발행 시각과 첫머리(lead)를 읽는다. 첫머리는 소개 글(description·summary)이나
- * 본문(content:encoded)의 앞 문단에서 글자만 200자 안팎 떼어 낸 것이다. 사진과 나머지 본문은 버린다.
+ * RSS 2.0·Atom 피드와 뉴스 사이트맵(검색엔진용 공개 목록, RSS가 없는 언론사)에서 기사마다 제목·링크·발행 시각,
+ * 첫머리(lead), 대표 사진 주소(imageUrl)를 읽는다. 첫머리는 소개 글(description·summary)이나 본문(content:encoded)의
+ * 앞 문단에서 글자만 200자 안팎 떼어 낸 것이다(사이트맵에는 없다). 사진은 enclosure·media:content·media:thumbnail·
+ * 사이트맵 image:loc·본문 첫 img의 주소만 쓴다(파일은 받지 않는다). 나머지 본문은 버린다.
  * 첫머리를 화면에 쓸지는 출처마다 정한다(NewsProperties.Source.preview). 외부 엔티티·DTD는 처리하지 않는다(XXE 방지).
  */
 public final class FeedParser {
@@ -33,6 +35,10 @@ public final class FeedParser {
     private static final String ATOM = "http://www.w3.org/2005/Atom";
     private static final String DUBLIN_CORE = "http://purl.org/dc/elements/1.1/";
     private static final String CONTENT = "http://purl.org/rss/1.0/modules/content/";
+    private static final String MEDIA = "http://search.yahoo.com/mrss/";
+    private static final String SITEMAP = "http://www.sitemaps.org/schemas/sitemap/0.9";
+    private static final String SITEMAP_NEWS = "http://www.google.com/schemas/sitemap-news/0.9";
+    private static final String SITEMAP_IMAGE = "http://www.google.com/schemas/sitemap-image/1.1";
 
     private FeedParser() {
     }
@@ -40,10 +46,14 @@ public final class FeedParser {
     /**
      * 기사 하나. publishedAt은 피드에 없거나 읽을 수 없으면 null이다.
      */
-    public record Item(String title, String link, Instant publishedAt, String lead) {
+    public record Item(String title, String link, Instant publishedAt, String lead, String imageUrl) {
 
         public Item(String title, String link, Instant publishedAt) {
-            this(title, link, publishedAt, null);
+            this(title, link, publishedAt, null, null);
+        }
+
+        public Item(String title, String link, Instant publishedAt, String lead) {
+            this(title, link, publishedAt, lead, null);
         }
     }
 
@@ -83,12 +93,33 @@ public final class FeedParser {
                         if (name.equals("title") && plainOrAtom(ns) && draft.title == null) {
                             draft.title = text(reader);
                             depth--;
+                        } else if (name.equals("loc") && SITEMAP.equals(ns) && draft.link == null) {
+                            draft.link = text(reader);
+                            depth--;
+                        } else if (name.equals("lastmod") && SITEMAP.equals(ns) && draft.updated == null) {
+                            draft.updated = text(reader);
+                            depth--;
+                        } else if (name.equals("news") && SITEMAP_NEWS.equals(ns)) {
+                            readSitemapNews(reader, draft);
+                            depth--;
+                        } else if (name.equals("image") && SITEMAP_IMAGE.equals(ns)) {
+                            readSitemapImage(reader, draft);
+                            depth--;
+                        } else if (name.equals("enclosure") && (ns == null || ns.isEmpty())) {
+                            draft.offerImage(reader.getAttributeValue(null, "url"), reader.getAttributeValue(null, "type"));
+                        } else if ((name.equals("content") || name.equals("thumbnail")) && MEDIA.equals(ns)) {
+                            String medium = reader.getAttributeValue(null, "medium");
+                            String type = reader.getAttributeValue(null, "type");
+                            draft.offerImage(reader.getAttributeValue(null, "url"),
+                                    name.equals("thumbnail") || "image".equals(medium) ? "image/" : type);
                         } else if (name.equals("link") && plainOrAtom(ns)) {
                             String href = reader.getAttributeValue(null, "href");
                             if (href != null) {
                                 String rel = reader.getAttributeValue(null, "rel");
                                 if ((rel == null || rel.equals("alternate")) && draft.link == null) {
                                     draft.link = href;
+                                } else if ("enclosure".equals(rel)) {
+                                    draft.offerImage(href, reader.getAttributeValue(null, "type"));
                                 }
                             } else if (draft.link == null) {
                                 draft.link = text(reader);
@@ -128,7 +159,51 @@ public final class FeedParser {
     }
 
     private static boolean isItem(String name, String ns) {
-        return (name.equals("item") && !ATOM.equals(ns)) || (name.equals("entry") && ATOM.equals(ns));
+        return (name.equals("item") && !ATOM.equals(ns)) || (name.equals("entry") && ATOM.equals(ns))
+                || (name.equals("url") && SITEMAP.equals(ns));
+    }
+
+    /** 사이트맵 news:news 칸에서 제목과 발행 시각을 읽는다. 끝나면 이 칸의 END_ELEMENT에 서 있다 */
+    private static void readSitemapNews(XMLStreamReader reader, Draft draft) throws XMLStreamException {
+        int nested = 0;
+        while (reader.hasNext()) {
+            int event = reader.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                String name = reader.getLocalName();
+                if (name.equals("title") && draft.title == null) {
+                    draft.title = text(reader);
+                } else if (name.equals("publication_date") && draft.date == null) {
+                    draft.date = text(reader);
+                } else {
+                    nested++;
+                }
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                if (nested == 0) {
+                    return;
+                }
+                nested--;
+            }
+        }
+    }
+
+    /** 사이트맵 image:image 칸에서 첫 사진 주소를 읽는다. 끝나면 이 칸의 END_ELEMENT에 서 있다 */
+    private static void readSitemapImage(XMLStreamReader reader, Draft draft) throws XMLStreamException {
+        int nested = 0;
+        while (reader.hasNext()) {
+            int event = reader.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                if (reader.getLocalName().equals("loc")) {
+                    draft.offerImage(text(reader), "image/");
+                } else {
+                    nested++;
+                }
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                if (nested == 0) {
+                    return;
+                }
+                nested--;
+            }
+        }
     }
 
     private static boolean plainOrAtom(String ns) {
@@ -177,6 +252,18 @@ public final class FeedParser {
         String updated;
         String summary;
         String content;
+        String image;
+
+        /** 사진으로 보이는 첫 주소만 받는다(type이 image/로 시작하거나, type이 없으면 주소가 사진 확장자) */
+        void offerImage(String url, String type) {
+            if (image != null || url == null || url.isBlank()) {
+                return;
+            }
+            boolean pictureType = type != null && type.toLowerCase(Locale.ROOT).startsWith("image/");
+            if (pictureType || (type == null && Texts.looksLikePicture(url))) {
+                image = url;
+            }
+        }
 
         Item toItem(ZoneId zone) {
             String cleanTitle = Texts.title(title);
@@ -189,7 +276,12 @@ public final class FeedParser {
                 published = FeedDates.parse(updated, zone);
             }
             String lead = Texts.lead(summary);
-            return new Item(cleanTitle, cleanLink, published, lead != null ? lead : Texts.lead(content));
+            String picture = image != null ? image : Texts.firstImage(summary);
+            if (picture == null) {
+                picture = Texts.firstImage(content);
+            }
+            return new Item(cleanTitle, cleanLink, published, lead != null ? lead : Texts.lead(content),
+                    Texts.imageUrl(picture));
         }
 
         private static boolean isWebLink(String link) {
@@ -225,6 +317,42 @@ public final class FeedParser {
         }
 
         static final int MAX_LEAD = 200;
+        static final int MAX_IMAGE_URL = 1000;
+        private static final Pattern IMG_SRC = Pattern.compile("(?is)<img\\s[^>]*?src\\s*=\\s*[\"']([^\"']+)[\"']");
+        private static final Pattern PICTURE = Pattern.compile("(?i)\\.(jpe?g|png|webp|gif|avif)(\\?.*)?$");
+
+        static boolean looksLikePicture(String url) {
+            return PICTURE.matcher(url.trim()).find();
+        }
+
+        /** HTML 조각의 첫 img 주소. 없으면 null */
+        static String firstImage(String html) {
+            if (html == null) {
+                return null;
+            }
+            Matcher m = IMG_SRC.matcher(html);
+            return m.find() ? m.group(1) : null;
+        }
+
+        /**
+         * 화면에 쓸 사진 주소로 다듬는다: 엔티티 풀기, //로 시작하면 https:, http는 https로 올린다(https 사이트에서 http 사진은
+         * 브라우저가 막는다. https가 안 되는 서버면 화면에서 안 뜨고 대신 선수 사진이 나온다). 쓸 수 없으면 null
+         */
+        static String imageUrl(String raw) {
+            if (raw == null || raw.isBlank()) {
+                return null;
+            }
+            String url = decode(raw.trim());
+            if (url.startsWith("//")) {
+                url = "https:" + url;
+            } else if (url.regionMatches(true, 0, "http://", 0, 7)) {
+                url = "https://" + url.substring(7);
+            }
+            if (!url.regionMatches(true, 0, "https://", 0, 8) || url.length() > MAX_IMAGE_URL || url.contains(" ")) {
+                return null;
+            }
+            return url;
+        }
         private static final Pattern BLOCK_END = Pattern.compile("(?i)</p>|<br\\s*/?>|</div>|</h\\d>");
         private static final Pattern ANY_TAG = Pattern.compile("(?s)<[^>]*>");
         // 첫 문단 앞의 '[마이데일리 = 김진성 기자]' 같은 기자 표시

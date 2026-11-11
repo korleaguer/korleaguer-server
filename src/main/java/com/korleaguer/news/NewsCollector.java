@@ -7,6 +7,7 @@ import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -29,8 +30,9 @@ import java.util.Optional;
  *   <li>출처(news/sources.yml)마다 피드 한 번(PoliteFetcher가 robots.txt·간격·조건부 요청을 지킨다).
  *       출처에 interval이 있으면 그 간격이 지나야 다시 받는다(큰 피드를 자주 받지 않게).</li>
  *   <li>제목에 선수 이름(한글·영어 표기)이 든 기사만 남긴다. 선수 한 명만 다루는 피드(subject)는 그 선수 기사로 본다.
- *       제목·링크·언론사·발행 시각을 저장하고, 출처가 첫머리를 허락하면(preview: lead) 기사 첫머리 200자 안팎도 둔다.
- *       나머지 본문·사진은 버린다. 요약·대표 사진은 NewsEnricher가 따로 붙인다.</li>
+ *       제목·링크·언론사·발행 시각과 피드가 주는 사진 주소를 저장하고, 출처가 첫머리를 허락하면(preview: lead) 기사 첫머리
+ *       200자 안팎도 둔다. 나머지 본문은 버린다. 피드에 없는 앞부분·사진과 AI 요약은 NewsEnricher가 기사 페이지에서 붙인다.</li>
+ *   <li>AI 요약 출처(preview: ai)는 Claude 계열 이름까지 robots.txt가 허용할 때만 받는다(aiFetcher).</li>
  *   <li>같은 선수에 같은 주소는 한 번만 저장한다. 협상 시작 30일 전보다 오래된 기사는 버린다.</li>
  * </ul>
  */
@@ -45,17 +47,24 @@ public class NewsCollector {
     private final NewsProperties properties;
     private final Postings postings;
     private final PoliteFetcher fetcher;
+    private final PoliteFetcher aiFetcher;
     private final NewsArticleRepository articles;
     private final DataMode dataMode;
     private final Clock clock;
     // 출처(피드 주소)별 마지막으로 받으러 간 시각. 서버가 다시 뜨면 비어 첫 번에 다시 받는다.
     private final Map<String, Instant> lastVisited = new HashMap<>();
 
+    /**
+     * @param fetcher   앞부분만 쓰는 출처용(robots.txt를 우리 이름으로 본다)
+     * @param aiFetcher AI 요약 출처용(Claude 계열 이름도 본다)
+     */
     public NewsCollector(NewsProperties properties, Postings postings, PoliteFetcher fetcher,
+                         @Qualifier("aiFetcher") PoliteFetcher aiFetcher,
                          NewsArticleRepository articles, DataMode dataMode, Clock clock) {
         this.properties = properties;
         this.postings = postings;
         this.fetcher = fetcher;
+        this.aiFetcher = aiFetcher;
         this.articles = articles;
         this.dataMode = dataMode;
         this.clock = clock;
@@ -93,7 +102,7 @@ public class NewsCollector {
             log.warn("news: bad feed url for {}: {}", source.publisher(), source.feedUrl());
             return 0;
         }
-        Optional<byte[]> body = fetcher.fetch(uri);
+        Optional<byte[]> body = (source.ai() ? aiFetcher : fetcher).fetch(uri);
         if (body.isEmpty()) {
             return 0;
         }
@@ -102,6 +111,11 @@ public class NewsCollector {
             items = FeedParser.parse(body.get(), zone(source));
         } catch (IllegalArgumentException e) {
             log.warn("news: could not read the feed of {}: {}", source.publisher(), e.getMessage());
+            return 0;
+        }
+        if (items.isEmpty()) {
+            // 피드·사이트맵 모양이 바뀌었거나(색인 파일, 이름 공간 등) 비었다. 0건이 이어지면 sources.yml을 고친다
+            log.warn("news: no items in the feed of {} ({})", source.publisher(), source.feedUrl());
             return 0;
         }
         int saved = 0;
@@ -129,12 +143,18 @@ public class NewsCollector {
         String url = NewsUrls.normalize(item.link());
         String hash = NewsUrls.sha256(url);
         if (articles.existsBySubjectAndUrlHash(subject, hash)) {
-            // 첫머리를 넣기 전에 모은 기사는 피드에 아직 있으면 채운다
-            if (source.lead() && item.lead() != null) {
+            // 첫머리·사진을 넣기 전에 모은 기사는 피드에 아직 있으면 채운다
+            boolean leadToFill = source.lead() && item.lead() != null;
+            if (leadToFill || item.imageUrl() != null) {
                 articles.findBySubjectAndUrlHash(subject, hash)
-                        .filter(a -> a.getLeadText() == null)
+                        .filter(a -> (leadToFill && a.getLeadText() == null) || (item.imageUrl() != null && a.getImageUrl() == null))
                         .ifPresent(a -> {
-                            a.setLeadText(item.lead());
+                            if (leadToFill && a.getLeadText() == null) {
+                                a.setLeadText(item.lead());
+                            }
+                            if (item.imageUrl() != null && a.getImageUrl() == null) {
+                                a.setImageUrl(item.imageUrl());
+                            }
                             articles.save(a);
                         });
             }
@@ -145,6 +165,7 @@ public class NewsCollector {
             if (source.lead()) {
                 article.setLeadText(item.lead());
             }
+            article.setImageUrl(item.imageUrl());
             articles.save(article);
             return true;
         } catch (DataIntegrityViolationException e) {

@@ -173,6 +173,49 @@ class NewsEnricherTest {
     }
 
     @Test
+    void leadSourcesGetTheirLeadAndPhotoFromTheArticlePage() {
+        NewsArticle sitemapArticle = new NewsArticle("노시환", MLB + "/2026/11/lead.html", "p", "노시환 소식", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T20:40:00Z"), NOV_11);
+        when(articles.findNeedingPage(anyCollection(), anyInt(), any(), any())).thenAnswer(inv ->
+                sitemapArticle.getPageReadAt() == null ? List.of(sitemapArticle) : List.of());
+        http.on(MLB + "/2026/11/lead.html", ok("<meta property=\"og:description\" content=\"[예시 = 기자] 노시환이 협상을 시작했다.\">"
+                + "<meta property=\"og:image\" content=\"http://img.example.kr/roh.jpg\">"));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, Summarizer.OFF,
+                DataMode.MLB, clock);
+
+        assertThat(enricher.enrich()).isEqualTo(1);
+        assertThat(sitemapArticle.getLeadText()).isEqualTo("노시환이 협상을 시작했다.");
+        assertThat(sitemapArticle.getImageUrl()).isEqualTo("https://img.example.kr/roh.jpg");
+        assertThat(sitemapArticle.getPageReadAt()).isEqualTo(NOV_11);
+        assertThat(enricher.enrich()).isZero();
+        assertThat(http.urls()).filteredOn(u -> u.endsWith("lead.html")).hasSize(1);
+    }
+
+    @Test
+    void aSiteThatRefusesArticlePagesIsNotAskedAgainForAMonth() {
+        String other = "https://other.example.kr";
+        NewsArticle refused = new NewsArticle("노시환", MLB + "/2026/11/refused.html", "r", "노시환 소식", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T21:00:00Z"), NOV_11);
+        NewsArticle fine = new NewsArticle("노시환", other + "/view/1", "f", "노시환 다른 소식", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T20:00:00Z"), NOV_11);
+        when(articles.findNeedingPage(anyCollection(), anyInt(), any(), any())).thenAnswer(inv -> java.util.stream.Stream
+                .of(refused, fine).filter(a -> a.getPageReadAt() == null).toList());
+        http.on(MLB + "/2026/11/refused.html", FakeHttp.reply(403, ""))
+                .on(other + "/robots.txt", ok("User-agent: *\nAllow: /\n"))
+                .on(other + "/view/1", ok("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\">"));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, Summarizer.OFF,
+                DataMode.MLB, clock);
+
+        enricher.enrich();
+        clock.advance(java.time.Duration.ofDays(2));
+        enricher.enrich();
+
+        assertThat(refused.getEnrichAttempts()).isZero();
+        assertThat(fine.getLeadText()).isEqualTo("노시환이 협상을 시작했다.");
+        assertThat(http.urls()).filteredOn(u -> u.endsWith("refused.html")).hasSize(1);
+    }
+
+    @Test
     void withoutAnApiKeyNoPageIsRequested() {
         assertThat(enricher(Summarizer.OFF).enrich()).isZero();
         assertThat(http.requests).isEmpty();
@@ -180,7 +223,7 @@ class NewsEnricherTest {
 
     @Test
     void sourcesWithoutAiPreviewAreNotSummarized() {
-        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), articles, summarizer("요약"),
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, summarizer("요약"),
                 DataMode.MLB, clock);
 
         assertThat(enricher.enrich()).isZero();
@@ -205,7 +248,7 @@ class NewsEnricherTest {
     }
 
     private NewsEnricher enricher(Summarizer summarizer) {
-        return new NewsEnricher(properties("ai"), fetcher(), articles, summarizer, DataMode.MLB, clock);
+        return new NewsEnricher(properties("ai"), fetcher(), fetcher(), articles, summarizer, DataMode.MLB, clock);
     }
 
     private PoliteFetcher fetcher() {
