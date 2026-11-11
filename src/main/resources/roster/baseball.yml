@@ -2,6 +2,8 @@
 #   name-ko: 화면에 쓰는 한글 이름
 #   mlb-id: MLB 공식 선수 번호(mlb.com/player/번호). 없으면 이름만 보인다.
 #   career-ko: 한국 시절 소속. 사람이 직접 적은 문장이며 화면에 그대로 나온다(선택).
+#   returned-ko: 국내 리그로 돌아간 팀(선택). 있으면 화면이 FA 대신 'LG 트윈스 복귀'로 보인다.
+#                MLB 데이터에는 KBO 계약이 없어 사람이 적는다. 해외파가 아니게 됐으니 다음 시즌이 시작되면 명단에서 뺀다.
 # career-ko는 손으로 적은 값이라 공개 전에 다시 확인한다.
 roster:
   baseball:
@@ -20,6 +22,7 @@ roster:
     - name-ko: 고우석
       mlb-id: 808970
       career-ko: "LG 트윈스 (2017–2023)"
+      returned-ko: "LG 트윈스"
     - name-ko: 배지환
       mlb-id: 678225
       career-ko: "KBO 경력 없음 (고교 졸업 후 미국 진출)"

@@ -14,8 +14,18 @@ class RosterProfilesTest {
     private static final String TEMPLATE = "https://img.example.test/people/{mlbId}/headshot/current";
 
     private final RosterProperties roster = new RosterProperties(List.of(
-            new RosterProperties.Entry("이정후", 808982L, "넥센·키움 히어로즈 (2017–2023)"),
-            new RosterProperties.Entry("김하성", null, null)));
+            new RosterProperties.Entry("이정후", 808982L, "넥센·키움 히어로즈 (2017–2023)", null),
+            new RosterProperties.Entry("김하성", null, null, null),
+            new RosterProperties.Entry("고우석", 808970L, "LG 트윈스 (2017–2023)", "LG 트윈스")));
+
+    @Test
+    void returnedTeamComesFromTheRosterOnly() {
+        RosterProfiles profiles = profiles(true, TEMPLATE);
+
+        assertThat(profiles.returnedKo(new Player("고우석"))).isEqualTo("LG 트윈스");
+        assertThat(profiles.returnedKo(new Player("이정후"))).isNull();
+        assertThat(profiles.returnedKo(new Player("모르는 선수"))).isNull();
+    }
 
     @Test
     void photoAndMlbLinkComeFromMlbId() {
