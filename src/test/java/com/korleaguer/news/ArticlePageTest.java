@@ -103,6 +103,21 @@ class ArticlePageTest {
     }
 
     @Test
+    void aBodyWrittenWithLineBreaksIsRead() {
+        // 엑스포츠뉴스 꼴: p 없이 <br>로 나뉜 본문. 짧은 줄(날짜·메뉴)과 스크립트는 뺀다
+        ArticlePage page = ArticlePage.parse("""
+                <script>var x = "아주 긴 스크립트 문자열이 본문으로 섞이면 안 되는데 이렇게 길게 써 둔다";</script>
+                <div>기사입력 2026.11.11</div>
+                <div class="news">(엑스포츠뉴스 이우진 기자) 미국 메이저리그(MLB) 필라델피아 필리스가 김하성의 영입에 관심을 보이고 있다.<br><br>
+                필라델피아가 김하성을 데려오면 노시환 영입에도 도움이 될 것이라는 현지 매체의 분석이 나왔다.<br>
+                노시환은 이번 겨울 포스팅 시스템으로 메이저리그 진출을 노리고 있으며 여러 구단의 관심을 받고 있다.</div>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).contains("필라델피아 필리스가 김하성의 영입에 관심", "노시환 영입에도 도움", "여러 구단의 관심")
+                .doesNotContain("스크립트", "기사입력");
+    }
+
+    @Test
     void ogImageWinsOverTwitterImage() {
         ArticlePage page = ArticlePage.parse("""
                 <meta name="twitter:image" content="https://cdn.example.kr/logo.png">

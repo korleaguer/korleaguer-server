@@ -222,12 +222,26 @@ class NewsEnricherTest {
     }
 
     @Test
-    void sourcesWithoutAiPreviewAreNotSummarized() {
-        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, summarizer("요약"),
-                DataMode.MLB, clock);
+    void koreanLeadSourcesAreSummarizedTooAndKeepTheirOwnTitleAndFeedPhoto() {
+        String kr = "https://kr.example.kr";
+        article = new NewsArticle("노시환", kr + "/article/1", "k", "노시환, 메츠 관심…\"3루 보강 후보\"", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T20:40:00Z"), NOV_11);
+        article.setImageUrl("https://img.example.kr/feed.jpg");
+        http.on(kr + "/robots.txt", ok("User-agent: *\nAllow: /\n"))
+                .on(kr + "/article/1", ok("<meta property=\"og:image\" content=\"https://img.example.kr/og.jpg\">"
+                        + "<meta property=\"og:description\" content=\"(예시 홍길동 기자) 노시환이 메츠의 관심을 받는다.\">"
+                        + "<div id=\"body\">" + "노시환이 뉴욕 메츠의 3루 보강 후보로 다시 거론되고 있다는 미국 매체 보도가 나왔다.<br>".repeat(6)
+                        + "</div>"));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles,
+                summarizer("노시환이 메츠의 3루 보강 후보로 거론됐다."), DataMode.MLB, clock);
 
-        assertThat(enricher.enrich()).isZero();
-        assertThat(http.requests).isEmpty();
+        assertThat(enricher.enrich()).isEqualTo(1);
+        assertThat(article.getSummary()).isEqualTo("노시환이 메츠의 3루 보강 후보로 거론됐다.");
+        assertThat(article.getTitleKo()).isNull(); // 국내 기사는 언론사 제목 그대로
+        assertThat(article.getImageUrl()).isEqualTo("https://img.example.kr/feed.jpg"); // 피드 사진을 지킨다
+        assertThat(article.getLeadText()).isEqualTo("(예시 홍길동 기자) 노시환이 메츠의 관심을 받는다.");
+        assertThat(asked).singleElement().asString().contains("노시환이 뉴욕 메츠의 3루 보강 후보");
+        assertThat(http.urls()).filteredOn(u -> u.endsWith("/article/1")).hasSize(1); // 페이지는 한 번만
     }
 
     @Test

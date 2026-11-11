@@ -38,7 +38,7 @@ public class NewsEnricher {
 
     private static final Logger log = LoggerFactory.getLogger(NewsEnricher.class);
 
-    static final int PER_RUN = 5;
+    static final int PER_RUN = 10;
     /** 한 번에 읽는 기사 페이지 수(앞부분 출처, 실제로 요청한 것만 센다) */
     static final int PAGES_PER_RUN = 10;
     /** 페이지 읽기 후보를 넉넉히 뽑는다(쉬는 사이트의 기사가 칸을 다 차지하지 않게) */
@@ -49,6 +49,7 @@ public class NewsEnricher {
     static final Duration OLDEST = Duration.ofDays(45);
     /** 이보다 짧은 본문은 요약할 거리가 없다(페이지 구조가 바뀐 경우 등) */
     static final int MIN_BODY = 200;
+    private static final java.util.regex.Pattern HANGUL = java.util.regex.Pattern.compile("\\p{IsHangul}");
 
     private final NewsProperties properties;
     private final PoliteFetcher fetcher;
@@ -77,10 +78,10 @@ public class NewsEnricher {
         DONE,
         /** 기사 탓으로 실패했다(시도로 센다) */
         FAILED,
-        /** 기사 탓으로 실패했고 그 요청으로 사이트가 쉬기 시작해 이번 차례는 멈춘다 */
-        FAILED_STOP,
         /** 기사 탓이 아니다(사이트가 쉬는 중, 요약 서비스 문제). 세지 않고 이번 차례를 멈춘다 */
-        WAIT
+        WAIT,
+        /** 그 사이트만 지금 받을 수 없다(쉬는 중·페이지를 막음). 세지 않고 다음 기사로 */
+        SKIP
     }
 
     /** 페이지를 읽어 채우거나 요약을 붙인 기사 수 */
@@ -89,7 +90,8 @@ public class NewsEnricher {
             return 0;
         }
         Instant now = clock.instant();
-        return readPages(now) + summarize(now);
+        // 요약하며 앞부분·사진도 채우므로 요약을 먼저 하고, 남은 기사(요약기 꺼짐·실패)만 페이지를 따로 읽는다
+        return summarize(now) + readPages(now);
     }
 
     /** 앞부분만 쓰는 출처의 기사 중 피드가 앞부분·사진을 주지 않은 것의 페이지를 읽는다. 채운 기사 수 */
@@ -165,28 +167,38 @@ public class NewsEnricher {
                 .collect(Collectors.toSet());
     }
 
-    /** AI 요약 출처의 새 기사에 한국어 제목·요약을 붙인다(요약기가 켜져 있을 때만). 붙인 기사 수 */
+    /**
+     * 기사에 Claude 한국어 요약을 붙인다(요약기가 켜져 있을 때만). 사용자 결정(11-11): 국내·영어 모든 출처의 기사를 요약해
+     * 우리 화면에서 읽게 한다. 영어 기사는 한국어 제목도 붙인다. 붙인 기사 수
+     */
     int summarize(Instant now) {
         if (!summarizer.enabled()) {
             return 0;
         }
-        Set<String> publishers = publishers(NewsProperties.Source::ai);
+        Set<String> publishers = publishers(s -> s.ai() || s.lead());
         if (publishers.isEmpty()) {
             return 0;
         }
+        Set<String> aiPublishers = publishers(NewsProperties.Source::ai);
         List<NewsArticle> todo = articles.findToEnrich(publishers, MAX_ATTEMPTS, now.minus(OLDEST),
-                PageRequest.of(0, PER_RUN));
+                PageRequest.of(0, PAGE_CANDIDATES));
+        int requested = 0;
         int done = 0;
         for (NewsArticle article : todo) {
-            Outcome outcome = enrich(article, now);
-            if (outcome == Outcome.WAIT) {
+            if (requested >= PER_RUN) {
                 break;
             }
+            Outcome outcome = enrich(article, aiPublishers.contains(article.getPublisher()) ? aiFetcher : fetcher, now);
+            if (outcome == Outcome.SKIP) {
+                continue; // 그 사이트만 쉬거나 페이지를 막았다. 다른 언론사 기사를 요약한다
+            }
+            if (outcome == Outcome.WAIT) {
+                break; // 요약 서비스 문제: 다음 차례에 다시
+            }
+            requested++;
             articles.save(article);
             if (outcome == Outcome.DONE) {
                 done++;
-            } else if (outcome == Outcome.FAILED_STOP) {
-                break;
             }
         }
         if (done > 0) {
@@ -195,23 +207,37 @@ public class NewsEnricher {
         return done;
     }
 
-    Outcome enrich(NewsArticle article, Instant now) {
+    /**
+     * 기사 하나를 요약한다. 같은 페이지로 피드가 주지 않은 앞부분·사진과 부호 빠진 제목도 채운다(페이지를 두 번 받지 않게).
+     *
+     * @param pages 이 출처를 받을 수집기(AI 요약 출처는 aiFetcher, 앞부분 출처는 우리 이름으로 보는 fetcher)
+     */
+    Outcome enrich(NewsArticle article, PoliteFetcher pages, Instant now) {
         try {
             URI uri = URI.create(article.getUrl());
-            if (aiFetcher.paused(uri)) {
-                return Outcome.WAIT;
+            String host = uri.getHost();
+            Instant blocked = host == null ? null : pagesBlockedUntil.get(host);
+            if ((blocked != null && now.isBefore(blocked)) || pages.paused(uri)) {
+                return Outcome.SKIP;
             }
-            PoliteFetcher.Page html = aiFetcher.getPage(uri);
+            PoliteFetcher.Page html = pages.getPage(uri);
             if (!html.ok()) {
                 int status = html.status();
-                if (status == 429 || status == 503 || (status == 0 && aiFetcher.paused(uri))) {
-                    return Outcome.WAIT; // 사이트가 천천히 하라고 했거나 연결이 안 된다: 기사 탓이 아니다
+                if (status == 401 || status == 403 || status == 451) {
+                    pagesBlockedUntil.put(host, now.plus(PAGE_BLOCK)); // 페이지를 막은 사이트: 피드는 계속, 페이지만 쉰다
+                    log.warn("news: {} refused an article page ({}); not reading its pages for {} days", host, status,
+                            PAGE_BLOCK.toDays());
+                    return Outcome.SKIP;
                 }
-                article.enrichFailed(now); // 기사가 없어졌거나(404·410) robots.txt가 막았거나 이 기사만 403·5xx
-                // 이 기사 요청으로 사이트가 쉬기 시작했으면(403·5xx) 이번 차례는 멈춘다. 세 번 세면 그만둔다
-                return aiFetcher.paused(uri) ? Outcome.FAILED_STOP : Outcome.FAILED;
+                if (status == 429 || status == 503 || (status == 0 && pages.paused(uri))) {
+                    return Outcome.SKIP; // 사이트가 천천히 하라고 했거나 연결이 안 된다: 기사 탓이 아니다
+                }
+                article.enrichFailed(now); // 기사가 없어졌거나(404·410) robots.txt가 막았거나 이 기사만 5xx
+                return Outcome.FAILED;
             }
             ArticlePage page = ArticlePage.parse(html.body());
+            article.pageRead(page.description(), page.imageUrl(), now);
+            article.retitle(page.betterTitle(article.getTitle()));
             if (page.text().length() < MIN_BODY) {
                 log.warn("news: no article body found at {}", article.getUrl());
                 article.enrichFailed(now);
@@ -223,7 +249,9 @@ public class NewsEnricher {
                 article.enrichFailed(now); // 거절·빈 답
                 return Outcome.FAILED;
             }
-            article.enriched(page.imageUrl(), summary.get().titleKo(), summary.get().text(), summarizer.model(), now);
+            // 국내 기사는 언론사 제목을 그대로 둔다(AI 제목은 영어 기사에만). 사진은 pageRead가 채웠다
+            String titleKo = HANGUL.matcher(article.getTitle()).find() ? null : summary.get().titleKo();
+            article.enriched(null, titleKo, summary.get().text(), summarizer.model(), now);
             return Outcome.DONE;
         } catch (Summarizer.Failure e) {
             log.warn("news: summary service failed for {}: {}", article.getUrl(), e.getMessage());

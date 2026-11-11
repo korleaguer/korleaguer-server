@@ -88,6 +88,12 @@ record ArticlePage(String imageUrl, String text, String description, String titl
     static final int MAX_TEXT = 8000;
     /** 기사 칸이 없는 사이트에서 본문으로 볼 문단의 최소 글자 수 */
     static final int LONG_PARAGRAPH = 60;
+    /** 문단(p)으로 찾은 본문이 이보다 짧으면 줄바꿈으로 나뉜 긴 줄을 본문으로 본다 */
+    static final int MIN_BODY_TEXT = 200;
+    /** 줄바꿈으로 본문을 쓰는 사이트(엑스포츠뉴스 등)에서 본문으로 볼 줄의 최소 글자 수 */
+    static final int LONG_LINE = 40;
+    private static final Pattern NOISE = Pattern.compile("(?is)<(script|style|noscript|nav|footer)[\\s>].*?</\\1>");
+    private static final Pattern LINE_BREAK = Pattern.compile("(?i)<br\\s*/?>|</p>|</div>|</li>|</h\\d>|</td>");
     private static final Pattern ARTICLE = Pattern.compile("(?is)<article[\\s>].*?</article>");
     static final int MAX_IMAGE_URL = 1000;
 
@@ -164,6 +170,33 @@ record ArticlePage(String imageUrl, String text, String description, String titl
     }
 
     private static String body(String page) {
+        String text = paragraphBody(page);
+        if (text.length() >= MIN_BODY_TEXT) {
+            return text;
+        }
+        // 국내 언론사 다수는 본문을 p 없이 <br>로 나눠 쓴다: 칸·줄 경계로 나눈 긴 줄을 모은다
+        String lines = longLines(page);
+        return lines.length() > text.length() ? lines : text;
+    }
+
+    /** 줄바꿈·칸 경계로 나눈 줄 중 LONG_LINE자 이상인 것(스크립트·메뉴·꼬리 칸은 뺀다). MAX_TEXT자까지 */
+    private static String longLines(String page) {
+        String clean = NOISE.matcher(page).replaceAll(" ");
+        StringBuilder text = new StringBuilder();
+        for (String raw : LINE_BREAK.split(clean)) {
+            if (text.length() >= MAX_TEXT) {
+                break;
+            }
+            String line = FeedParser.Texts.decode(TAG.matcher(raw).replaceAll(" ")).replaceAll("[\\s\\u00A0]+", " ").trim();
+            if (line.length() >= LONG_LINE) {
+                text.append(line).append('\n');
+            }
+        }
+        String out = text.toString().trim();
+        return out.length() > MAX_TEXT ? out.substring(0, MAX_TEXT) : out;
+    }
+
+    private static String paragraphBody(String page) {
         Matcher open = BODY_START.matcher(page);
         if (open.find()) {
             int start = open.end();
