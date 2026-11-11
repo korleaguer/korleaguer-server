@@ -36,6 +36,7 @@ public class NewsArticle {
     private String summaryModel;
     private Instant enrichedAt;
     private int enrichAttempts;
+    private Instant pageReadAt;
 
     protected NewsArticle() {
     }
@@ -115,9 +116,31 @@ public class NewsArticle {
         return enrichAttempts;
     }
 
+    public Instant getPageReadAt() {
+        return pageReadAt;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    /** 기사 페이지를 읽었다. 피드가 주지 않은 앞부분·사진만 채운다(있던 값은 그대로) */
+    public void pageRead(String leadText, String imageUrl, Instant at) {
+        if (this.leadText == null) {
+            this.leadText = leadText;
+        }
+        if (this.imageUrl == null) {
+            this.imageUrl = imageUrl;
+        }
+        this.pageReadAt = at;
+    }
+
     /** 요약을 붙였다(사진 주소·한국어 제목은 없을 수 있다) */
     public void enriched(String imageUrl, String titleKo, String summary, String summaryModel, Instant at) {
-        this.imageUrl = imageUrl;
+        if (imageUrl != null) {
+            this.imageUrl = imageUrl;
+        }
+        this.pageReadAt = at;
         this.titleKo = titleKo;
         this.summary = summary;
         this.summaryModel = summaryModel;
