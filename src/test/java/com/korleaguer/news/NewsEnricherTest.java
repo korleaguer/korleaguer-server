@@ -3,6 +3,8 @@ package com.korleaguer.news;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsBlockedHost;
+import com.korleaguer.domain.NewsBlockedHostRepository;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ class NewsEnricherTest {
     private final MutableClock clock = new MutableClock(NOV_11);
     private final FakeHttp http = new FakeHttp(clock);
     private final NewsArticleRepository articles = mock(NewsArticleRepository.class);
+    private final NewsBlockedHostRepository blockedHosts = mock(NewsBlockedHostRepository.class);
     private final List<String> asked = new ArrayList<>();
     private final PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance);
     private final List<NewsArticle> queue = new ArrayList<>();
@@ -180,7 +183,7 @@ class NewsEnricherTest {
                 sitemapArticle.getPageReadAt() == null ? List.of(sitemapArticle) : List.of());
         http.on(MLB + "/2026/11/lead.html", ok("<meta property=\"og:description\" content=\"[예시 = 기자] 노시환이 협상을 시작했다.\">"
                 + "<meta property=\"og:image\" content=\"http://img.example.kr/roh.jpg\">"));
-        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, Summarizer.OFF,
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, blockedHosts, Summarizer.OFF,
                 DataMode.MLB, clock);
 
         assertThat(enricher.enrich()).isEqualTo(1);
@@ -203,7 +206,7 @@ class NewsEnricherTest {
         http.on(MLB + "/2026/11/refused.html", FakeHttp.reply(403, ""))
                 .on(other + "/robots.txt", ok("User-agent: *\nAllow: /\n"))
                 .on(other + "/view/1", ok("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\">"));
-        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, Summarizer.OFF,
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, blockedHosts, Summarizer.OFF,
                 DataMode.MLB, clock);
 
         enricher.enrich();
@@ -216,18 +219,65 @@ class NewsEnricherTest {
     }
 
     @Test
+    void aRefusingSiteIsRememberedInTheDatabaseAcrossRestarts() {
+        String blocked = "https://blocked.example.kr";
+        article = new NewsArticle("노시환", blocked + "/article/9", "b", "노시환 소식", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T21:00:00Z"), NOV_11);
+        when(articles.findNeedingPage(anyCollection(), anyInt(), any(), any())).thenAnswer(inv -> List.of(article));
+        // 다시 뜬 서버: DB에 이미 막힌 사이트로 적혀 있다
+        when(blockedHosts.findAll()).thenReturn(List.of(new NewsBlockedHost("blocked.example.kr",
+                NOV_11.plus(java.time.Duration.ofDays(20)))));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, blockedHosts,
+                Summarizer.OFF, DataMode.MLB, clock);
+
+        enricher.enrich();
+
+        assertThat(http.urls()).noneMatch(u -> u.startsWith(blocked));
+    }
+
+    @Test
+    void aRefusedArticlePageIsSavedAsABlockedHostAndTheFeedIsNotPaused() {
+        article = new NewsArticle("노시환", MLB + "/2026/11/refused2.html", "r2", "노시환 소식", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T21:00:00Z"), NOV_11);
+        when(articles.findNeedingPage(anyCollection(), anyInt(), any(), any())).thenAnswer(inv -> List.of(article));
+        http.on(MLB + "/2026/11/refused2.html", FakeHttp.reply(403, ""));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, blockedHosts,
+                Summarizer.OFF, DataMode.MLB, clock);
+
+        enricher.enrich();
+
+        org.mockito.Mockito.verify(blockedHosts).save(org.mockito.ArgumentMatchers.argThat(b ->
+                b.getHost().equals("mlb.example.com") && b.getBlockedUntil().equals(NOV_11.plus(NewsEnricher.PAGE_BLOCK))));
+        assertThat(fetcher.paused(java.net.URI.create(MLB + "/feed"))).isFalse();
+    }
+
+    @Test
     void withoutAnApiKeyNoPageIsRequested() {
         assertThat(enricher(Summarizer.OFF).enrich()).isZero();
         assertThat(http.requests).isEmpty();
     }
 
     @Test
-    void sourcesWithoutAiPreviewAreNotSummarized() {
-        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, summarizer("요약"),
-                DataMode.MLB, clock);
+    void koreanLeadSourcesAreSummarizedTooAndKeepTheirOwnTitleAndFeedPhoto() {
+        String kr = "https://kr.example.kr";
+        article = new NewsArticle("노시환", kr + "/article/1", "k", "노시환, 메츠 관심…\"3루 보강 후보\"", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T20:40:00Z"), NOV_11);
+        article.setImageUrl("https://img.example.kr/feed.jpg");
+        http.on(kr + "/robots.txt", ok("User-agent: *\nAllow: /\n"))
+                .on(kr + "/article/1", ok("<meta property=\"og:image\" content=\"https://img.example.kr/og.jpg\">"
+                        + "<meta property=\"og:description\" content=\"(예시 홍길동 기자) 노시환이 메츠의 관심을 받는다.\">"
+                        + "<div id=\"body\">" + "노시환이 뉴욕 메츠의 3루 보강 후보로 다시 거론되고 있다는 미국 매체 보도가 나왔다.<br>".repeat(6)
+                        + "</div>"));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, blockedHosts,
+                summarizer("노시환이 메츠의 3루 보강 후보로 거론됐다."), DataMode.MLB, clock);
 
-        assertThat(enricher.enrich()).isZero();
-        assertThat(http.requests).isEmpty();
+        assertThat(enricher.enrich()).isEqualTo(1);
+        assertThat(article.getSummary()).isEqualTo("노시환이 메츠의 3루 보강 후보로 거론됐다.");
+        assertThat(article.getTitleKo()).isNull(); // 국내 기사는 언론사 제목 그대로
+        assertThat(article.getImageUrl()).isEqualTo("https://img.example.kr/feed.jpg"); // 피드 사진을 지킨다
+        assertThat(article.getLeadText()).isEqualTo("(예시 홍길동 기자) 노시환이 메츠의 관심을 받는다.");
+        assertThat(asked).singleElement().asString().contains("노시환이 뉴욕 메츠의 3루 보강 후보");
+        assertThat(http.urls()).filteredOn(u -> u.endsWith("/article/1")).hasSize(1); // 페이지는 한 번만
     }
 
     @Test
@@ -248,7 +298,7 @@ class NewsEnricherTest {
     }
 
     private NewsEnricher enricher(Summarizer summarizer) {
-        return new NewsEnricher(properties("ai"), fetcher(), fetcher(), articles, summarizer, DataMode.MLB, clock);
+        return new NewsEnricher(properties("ai"), fetcher(), fetcher(), articles, blockedHosts, summarizer, DataMode.MLB, clock);
     }
 
     private PoliteFetcher fetcher() {

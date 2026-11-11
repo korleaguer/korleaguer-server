@@ -103,6 +103,55 @@ class ArticlePageTest {
     }
 
     @Test
+    void aBodyWrittenWithLineBreaksIsRead() {
+        // 엑스포츠뉴스 꼴: p 없이 <br>로 나뉜 본문. 짧은 줄(날짜·메뉴)과 스크립트는 뺀다
+        ArticlePage page = ArticlePage.parse("""
+                <script>var x = "아주 긴 스크립트 문자열이 본문으로 섞이면 안 되는데 이렇게 길게 써 둔다";</script>
+                <div>기사입력 2026.11.11</div>
+                <div class="news">(엑스포츠뉴스 이우진 기자) 미국 메이저리그(MLB) 필라델피아 필리스가 김하성의 영입에 관심을 보이고 있다.<br><br>
+                필라델피아가 김하성을 데려오면 노시환 영입에도 도움이 될 것이라는 현지 매체의 분석이 나왔다.<br>
+                노시환은 이번 겨울 포스팅 시스템으로 메이저리그 진출을 노리고 있으며 여러 구단의 관심을 받고 있다.</div>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).contains("필라델피아 필리스가 김하성의 영입에 관심", "노시환 영입에도 도움", "여러 구단의 관심")
+                .doesNotContain("스크립트", "기사입력");
+    }
+
+    @Test
+    void theBodyBoxIsReadAndRelatedHeadlinesAndCopyrightAreLeftOut() {
+        // 엑스포츠뉴스 꼴: 제목·사이드바가 본문 칸 밖에, 본문 끝에 ▶ 관련 기사와 저작권 줄
+        ArticlePage page = ArticlePage.parse("""
+                <div class="aside"><div>많이 본 뉴스: 김하성, 애틀랜타와 재계약 협상 중이라는 현지 보도가 나왔다고 한다</div></div>
+                <div class="news_contents">(엑스포츠뉴스 이우진 기자) 미국 메이저리그(MLB) 필라델피아 필리스가 김하성의 영입에 관심을 보이고 있다.<br>
+                필라델피아가 김하성을 데려오면 노시환 영입에도 도움이 될 것이라는 현지 매체의 분석이 나왔다.<br>
+                사진=연합뉴스 / X / 엑스포츠뉴스DB 사진 설명이 길게 들어간 줄도 본문으로 넣지 않는다<br>
+                이우진 기자 wzyfooty@xportsnews.com</div>
+                <ul class="another_ats"><li>▶ KBO 45년史 최초 홀드왕, NPB 우승팀 파격 제안→결별 확정이라는 다른 기사 제목</li></ul>
+                <div class="copyright">ⓒ 엑스포츠뉴스 무단전재 및 재배포 금지 / 서울시 어딘가 주소와 발행인 이름이 길게 이어진다</div>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).contains("필라델피아 필리스가 김하성의 영입", "노시환 영입에도 도움")
+                .doesNotContain("많이 본 뉴스", "홀드왕", "무단전재", "사진=");
+    }
+
+    @Test
+    void onlyTheBodyBoxIsReadEvenWithoutACopyrightLineAndALeadingArrowLineIsKeptOut() {
+        // 리뷰 재현: 본문 칸 안에 저작권 줄이 없고 사이드바·꼬리 칸이 뒤에, 속보 article 카드가 앞에, 본문 첫머리에 ▶ 요약 줄
+        ArticlePage page = ArticlePage.parse("""
+                <article class="breaking"><div>[속보] 김하성 FA 다년 계약 임박이라는 다른 기사 제목이 여기 길게 있다</div></article>
+                <div class="article_content"><div class="summary">▶ 노시환, MLB 포스팅 공식 신청이라는 요약 줄이 맨 앞에 있다</div>
+                <p>한화 이글스의 노시환이 메이저리그 진출을 위해 포스팅 시스템을 통한 공식 신청 절차를 마쳤다고 구단이 밝혔다.</p>
+                <p>노시환은 30일 동안 메이저리그 30개 구단과 협상할 수 있으며 여러 구단이 관심을 보이는 것으로 알려졌다.</p>
+                <p>구단은 선수의 도전을 응원한다며 좋은 결과가 나오기를 바란다고 덧붙였다는 소식이 전해졌다.</p></div>
+                <div class="aside"><div>많이 본 뉴스: 류현진, 은퇴 시점을 두고 고민하고 있다는 소식이 전해졌다는 다른 기사</div></div>
+                <div class="footer-info">주소: 서울시 어딘가 길 15, 발행인 홍길동 편집인 홍길동 등록번호 어쩌고</div>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).contains("공식 신청 절차를 마쳤다", "여러 구단이 관심", "좋은 결과가 나오기를")
+                .doesNotContain("속보", "▶", "류현진", "발행인");
+    }
+
+    @Test
     void ogImageWinsOverTwitterImage() {
         ArticlePage page = ArticlePage.parse("""
                 <meta name="twitter:image" content="https://cdn.example.kr/logo.png">

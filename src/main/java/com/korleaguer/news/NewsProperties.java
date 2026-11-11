@@ -13,8 +13,8 @@ import java.util.List;
  * @param cron         깨어나는 주기(UTC). 포스팅 협상 기간이 아니면 깨어나도 아무 요청도 하지 않는다
  * @param userAgent    우리가 누군지 밝히는 값. 브라우저인 척하지 않는다
  * @param robotsAgents   robots.txt에서 확인할 이름(우리 수집기 이름). 하나라도 막혀 있으면 받지 않는다
- * @param aiRobotsAgents AI 요약 출처(preview: ai)를 받을 때 더 확인할 이름(Claude 계열). 그 사이트가 AI 수집기를 막았으면
- *                       본문을 Claude에 보내지 않는다. 앞부분만 쓰는 출처는 AI에 보내지 않으므로 우리 이름만 본다
+ * @param aiRobotsAgents 영어 출처(preview: ai)를 받을 때 더 확인할 이름(Claude 계열). 앞부분 출처는 우리 이름만 본다.
+ *                       2026-11-11 사용자 결정으로 앞부분 출처의 기사도 우리 수집기가 받은 본문을 Claude로 요약한다
  * @param sources        기사를 받을 피드(RSS·Atom·뉴스 사이트맵). robots.txt가 허용한 곳만 적는다
  */
 @ConfigurationProperties("korleaguer.news")

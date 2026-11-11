@@ -27,11 +27,14 @@ class PoliteFetcherTest {
     private final PoliteFetcher fetcher = new PoliteFetcher(http, AGENTS, clock, clock::advance);
 
     @Test
-    void aGoneArticlePageDoesNotPauseTheSiteButAGoneFeedDoes() {
+    void aGoneOrRefusedArticlePageDoesNotPauseTheSiteButAGoneFeedDoes() {
         String page = SITE + "/view/1";
-        http.on(ROBOTS, ok("User-agent: *\nAllow: /\n")).on(page, reply(404, "")).on(FEED, reply(410, ""));
+        String refused = SITE + "/view/2";
+        http.on(ROBOTS, ok("User-agent: *\nAllow: /\n")).on(page, reply(404, "")).on(refused, reply(403, ""))
+                .on(FEED, reply(410, ""));
 
         assertThat(fetcher.getPage(URI.create(page))).isEqualTo(new PoliteFetcher.Page(404, null));
+        assertThat(fetcher.getPage(URI.create(refused))).isEqualTo(new PoliteFetcher.Page(403, null));
         assertThat(fetcher.paused(URI.create(FEED))).isFalse();
 
         assertThat(fetch(FEED)).isEmpty();

@@ -25,7 +25,7 @@ public class DataChanges implements StatementInspector {
     private static final AtomicLong HOME_VERSION = new AtomicLong();
     private static final Pattern WRITE = Pattern.compile(
             "^\\s*(?:insert\\s+into|update|delete\\s+from|merge\\s+into)\\s+[`\"]?(\\w+)", Pattern.CASE_INSENSITIVE);
-    private static final Set<String> IGNORED_TABLES = Set.of("ingest_log", "photo", "flyway_schema_history");
+    private static final Set<String> IGNORED_TABLES = Set.of("ingest_log", "photo", "flyway_schema_history", "news_blocked_host");
     private static final Set<String> HOME_ONLY_TABLES = Set.of("news_article");
 
     /** 쓴 SQL이 어느 응답을 바꿀 수 있나 */
