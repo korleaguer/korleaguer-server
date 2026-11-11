@@ -49,7 +49,7 @@ public record PostingProperties(List<Current> current, List<Past> history) {
     }
 
     /**
-     * 지금 제도의 지난 포스팅 한 건. agreedOn이 없으면 결렬이다.
+     * 지난 포스팅 한 건(2012~). agreedOn이 없으면 결렬이다.
      *
      * @param season   포스팅된 겨울이 시작한 해
      * @param deadline 협상 마감 미국 날짜(yyyy-MM-dd)

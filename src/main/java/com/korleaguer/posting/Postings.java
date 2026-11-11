@@ -35,7 +35,7 @@ public class Postings {
         return current;
     }
 
-    /** 지금 제도의 지난 포스팅(파일에 적은 순서) */
+    /** 지난 포스팅(파일에 적은 순서) */
     public List<PastPosting> history() {
         return history;
     }
