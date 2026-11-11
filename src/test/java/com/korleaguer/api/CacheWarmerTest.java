@@ -98,6 +98,26 @@ class CacheWarmerTest {
     }
 
     @Test
+    void anyCombinationIsAssembledFromCachedCards() {
+        // 따라잡기 끝(startFresh)에서 명단 전원의 카드를 7·14·30일마다 채워 둔다
+        for (PlayerSummary player : queryService.players()) {
+            for (int days : List.of(7, 14, 30)) {
+                assertThat(cache(AppConfig.CARD_CACHE).get(player.id() + "|" + days))
+                        .as("card %d|%d", player.id(), days).isNotNull();
+            }
+        }
+
+        // 처음 보는 조합(순서도 바꿈)은 그 카드들을 요청한 순서대로 모은 것이다
+        MyPlayersResponse combo = myPlayers.find("3,1", 14);
+        assertThat(combo.players()).hasSize(2);
+        assertThat(combo.players().get(0)).isSameAs(myPlayers.card(3, 14).getFirst());
+        assertThat(combo.players().get(1)).isSameAs(myPlayers.card(1, 14).getFirst());
+        // 없는 선수는 빈 카드로 두고 건너뛴다
+        assertThat(myPlayers.card(999, 14)).isEmpty();
+        assertThat(myPlayers.find("999,3", 14).players()).containsExactly(combo.players().get(0));
+    }
+
+    @Test
     void cachesStayUntilTheDatabaseActuallyChanges() {
         MyPlayersResponse first = myPlayers.find("1,2", 7);
         assertThat(myPlayers.find("1,2", 7)).isSameAs(first);

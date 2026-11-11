@@ -29,6 +29,8 @@ public class AppConfig {
     public static final String PLAYER_CACHE = "player";
     /** 내 선수(GET /api/my). 선수 조합(ids)과 기간(days)마다 따로 둔다 */
     public static final String MY_CACHE = "my";
+    /** 내 선수 카드 한 장. 선수와 기간(days)마다 따로 둔다. 처음 보는 조합도 이것을 모아 바로 답한다 */
+    public static final String CARD_CACHE = "card";
 
     // 테스트에서 시각을 고정할 수 있게 Clock을 빈으로 둔다.
     @Bean
