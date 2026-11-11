@@ -56,19 +56,19 @@ class PhotoControllerTest {
     }
 
     @Test
-    void seasonMlbPhotoOfAPastPostingIsServed() throws Exception {
-        // posting.yml 김하성: 계약 구단(샌디에이고) 마지막 시즌(2024) MLB 사진. 이름에 시즌이 붙는다
-        Photo photo = new Photo("mlb-673490-2024");
-        photo.replace("https://web.archive.org/web/20240304053528id_/https://img.mlbstatic.com/mlb-photos/image/upload/"
-                        + "d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/673490/headshot/67/current",
-                "image/jpeg", "padres".getBytes(StandardCharsets.UTF_8), "def456", null, null,
-                Instant.parse("2026-11-11T00:00:00Z"));
-        photos.save(photo);
+    void editedPhotoOfAPastPostingIsServedEvenInSampleMode() throws Exception {
+        // posting.yml 김하성: 계약 구단(샌디에이고) 마지막 시즌(2024) MLB 사진의 편집본. 앱에 들어 있는 파일이라 샘플 모드에서도 준다
+        byte[] edited;
+        try (var in = getClass().getClassLoader().getResourceAsStream("photos/posting-673490-2024.jpg")) {
+            edited = in.readAllBytes();
+        }
 
-        mockMvc.perform(get("/api/photos/mlb-673490-2024"))
+        mockMvc.perform(get("/api/photos/posting-673490-2024"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/jpeg"))
-                .andExpect(content().bytes("padres".getBytes(StandardCharsets.UTF_8)));
+                .andExpect(header().exists("ETag"))
+                .andExpect(content().bytes(edited));
+        mockMvc.perform(get("/api/photos/mlb-673490-2024")).andExpect(status().isNotFound()); // 원본은 더 주지 않는다
     }
 
     @Test
