@@ -35,7 +35,7 @@ public class ClaudeSummarizer implements Summarizer {
     private static final Pattern BOLD = Pattern.compile("\\*\\*");
 
     static final String SYSTEM = """
-            너는 한국 야구 팬 사이트에서 미국 야구 기사를 한국어로 요약한다.
+            너는 한국 야구 팬 사이트에서 야구 기사(한국어나 영어)를 한국어로 요약한다.
             규칙:
             - 기사에 쓰인 사실만 쓴다. 추측·평가·전망을 덧붙이지 않는다(기사가 전한 전망은 '~라고 전했다'처럼 출처를 살린다).
             - 요약은 2~3문장, 모두 합쳐 130자 안팎. 가장 중요한 사실부터 쓴다.
@@ -46,7 +46,7 @@ public class ClaudeSummarizer implements Summarizer {
             - 금액은 원문 단위를 살려 한국어로 쓴다(예: $23MM → 2,300만 달러).
             - 기자 이름·광고·댓글·다른 기사 소개는 넣지 않는다.
             출력 형식(이 형식만 쓴다):
-            제목: <기사 제목을 한국어 기사 제목처럼 옮긴 것, 35자 이내>
+            제목: <기사 제목을 한국어 기사 제목처럼 옮긴 것(한국어 기사면 원래 제목을 그대로), 35자 이내>
             <요약 2~3문장, 한 줄에 한 문장>
             """;
 

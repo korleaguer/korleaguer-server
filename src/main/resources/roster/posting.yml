@@ -13,7 +13,9 @@
 #   result: 결과가 나면 적는다. outcome은 SIGNED(계약) 또는 NO_DEAL(결렬).
 #           SIGNED면 mlb-team(약어, 예: SD), agreed-on(합의 보도 미국 날짜), years(보장 연수), guaranteed-usd(보장액)를 같이 적는다.
 #
-# history: 지금 포스팅 제도(2018년 KBO·MLB 합의, 30일 동안 모든 구단과 협상)에서 MLB 구단과 계약한 기록.
+# history: 포스팅으로 MLB 구단과 계약한 기록(2012년 류현진부터). 화면은 제도를 나누지 않고 보장액 순위로 보인다(사용자 결정 11-11).
+#   지금 제도(2018년 KBO·MLB 합의)는 30일 동안 모든 구단과 협상하고, 2017년까지는 최고 입찰 구단 한 곳과만 30일 협상했다.
+#   옛 제도의 deadline은 그 단독 협상 마감이다.
 #   결렬(나성범 2020·김재환 2019)은 화면에 넣지 않기로 해 적지 않는다(사용자 결정 11-11). agreed-on이 없으면 결렬로 읽는다.
 #   season: 포스팅된 겨울이 시작한 해(2023-24 겨울이면 2023)
 #   deadline: 협상 마감 미국 날짜, agreed-on: 계약 합의가 처음 보도된 미국 날짜
@@ -127,3 +129,43 @@ posting:
       # MLB 마지막 시즌(2021) 세인트루이스 사진. 인터넷 보관소 2022-09-08 사본과 같은 파일
       photo-season: 2021
       photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/547942/headshot/67/current
+    - name-ko: 박병호
+      season: 2015
+      mlb-team: MIN
+      # 단독 협상권(최고 입찰 1,285만 달러, 11월 9일 발표) 마감 12월 8일. Jon Heyman 첫 보도 12월 1일
+      deadline: 2015-12-08
+      agreed-on: 2015-12-01
+      years: 4
+      guaranteed-usd: 12000000
+      krw-per-usd: 1159.43  # ECB 2015-12-01
+      source: https://www.mlbtraderumors.com/2015/12/twins-to-sign-byung-ho-park.html
+      mlb-id: 666560
+      # MLB에서는 미네소타에서만 뛰었다(마지막 MLB 시즌 2016). 지금 MLB 사진이 그 미네소타 사진
+      photo-season: 2016
+      photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/666560/headshot/67/current
+    - name-ko: 강정호
+      season: 2014
+      mlb-team: PIT
+      # 단독 협상권(최고 입찰 500만 2,015달러, 2014-12-22 수락) 마감 한국 1월 21일 오전 7시 = 미국 1월 20일. Jim Bowden 첫 보도 1월 12일(공식 발표 1월 16일)
+      deadline: 2015-01-20
+      agreed-on: 2015-01-12
+      years: 4
+      guaranteed-usd: 11000000
+      krw-per-usd: 1085.42  # ECB 2015-01-12
+      source: https://www.mlbtraderumors.com/2015/01/pirates-jung-ho-kang-agree-to-terms.html
+      mlb-id: 628356
+      # MLB에서는 피츠버그에서만 뛰었다(마지막 시즌 2019). 지금 MLB 사진이 그 피츠버그 사진
+      photo-season: 2019
+      photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/628356/headshot/67/current
+    - name-ko: 류현진
+      season: 2012
+      mlb-team: LAD
+      # 단독 협상권(최고 입찰 2,573만 7,737달러) 마감 12월 9일 오후 4시(미국 중부) 직전에 합의
+      deadline: 2012-12-09
+      agreed-on: 2012-12-09
+      years: 6
+      guaranteed-usd: 36000000
+      krw-per-usd: 1083.05  # ECB 2012-12-07(12-09는 일요일이라 그 전 영업일)
+      source: https://www.mlbtraderumors.com/2012/12/dodgers-sign-hyun-jin-ryu.html
+      # 사진 없음: 지금 MLB 사진(옛 주소 포함)은 토론토 사진이고, 다저스 시절 사진을 찾을 인터넷 보관소가 점검 중이다(11-11).
+      # 보관소가 열리면 다저스 마지막 시즌(2019) 사진을 mlb-id·photo-season·photo-url로 적고 편집본을 만든다. 그 전에는 화면이 이름 원을 보인다.
