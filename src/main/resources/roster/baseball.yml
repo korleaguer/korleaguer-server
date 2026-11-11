@@ -31,6 +31,10 @@ roster:
     - name-ko: 송성문
       mlb-id: 823550
       career-ko: "넥센·키움 히어로즈 (2015–2025)"
+      # KBO 선수 번호는 사용자가 알려 준 TVING 선수 주소(/sports/kbo/athlete/65357)에서 확인(11-11)
+      kbo-id: 65357
+      career-photos:
+        - { team: 키움 히어로즈, years: "2015–2025", season: 2025 }
     - name-ko: 고우석
       mlb-id: 808970
       career-ko: "LG 트윈스 (2017–2023)"
