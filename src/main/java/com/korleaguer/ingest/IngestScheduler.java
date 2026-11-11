@@ -4,6 +4,7 @@ import com.korleaguer.support.KoreanTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,7 @@ import java.time.ZonedDateTime;
  *       포스트시즌 경기는 그날 일정을 받을 때에야 DB에 들어오므로, 라운드 사이 쉬는 날이 길어 비시즌으로 넘어가도
  *       여기서 다음 경기를 보고 시즌 중으로 돌아온다.</li>
  * </ul>
+ * 따라잡기가 끝나면 CatchUpFinished를 보낸다(화면용 응답을 캐시에 미리 채운다).
  */
 @Component
 @ConditionalOnProperty(name = "korleaguer.ingest.schedule-enabled", havingValue = "true")
@@ -29,10 +31,12 @@ public class IngestScheduler {
     private static final Logger log = LoggerFactory.getLogger(IngestScheduler.class);
 
     private final IngestService ingestService;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    public IngestScheduler(IngestService ingestService, Clock clock) {
+    public IngestScheduler(IngestService ingestService, ApplicationEventPublisher events, Clock clock) {
         this.ingestService = ingestService;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -42,6 +46,7 @@ public class IngestScheduler {
         try {
             boolean inSeason = ingestService.inSeason(now);
             ingestService.catchUp(inSeason && gameTime(now), !inSeason);
+            events.publishEvent(new CatchUpFinished());
         } catch (IngestAlreadyRunningException e) {
             log.info("skip scheduled ingest: another ingest is running");
         }
