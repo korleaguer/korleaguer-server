@@ -120,8 +120,28 @@ class PostingFinderTest {
 
         assertThat(history).containsExactly(
                 new PostingSummary.Past("이정후", 2023, LocalDate.parse("2024-01-03"), 22,
-                        new PostingSummary.Deal(137L, "샌프란시스코", LocalDate.parse("2023-12-12"), 6, 113_000_000L)),
-                new PostingSummary.Past("나성범", 2020, LocalDate.parse("2021-01-09"), null, null));
+                        new PostingSummary.Deal(137L, "샌프란시스코", LocalDate.parse("2023-12-12"), 6, 113_000_000L),
+                        "/photos/kbo-67341-2023"),
+                new PostingSummary.Past("나성범", 2020, LocalDate.parse("2021-01-09"), null, null, null));
+    }
+
+    @Test
+    void historyPhotoIsTheKboPhotoOfThePostingSeasonAndFollowsTheSwitch() {
+        Instant now = Instant.parse("2026-11-11T01:00:00Z");
+
+        // KBO 선수 번호가 있는 선배만, 포스팅된 겨울(season) 시즌 사진. 공식 사진을 끄면 모두 null
+        assertThat(finder(roh(null)).find(now).history()).extracting(PostingSummary.Past::photoUrl)
+                .containsExactly("/photos/kbo-67341-2023", null);
+        assertThat(finder(roh(null), false).find(now).history()).extracting(PostingSummary.Past::photoUrl)
+                .containsExactly(null, null);
+    }
+
+    @Test
+    void historyPhotoIsAHostedSourceFromTheKboPhotoServer() {
+        Postings postings = postings(roh(null));
+
+        assertThat(photos(postings, true).source("kbo-67341-2023"))
+                .contains("https://kbo.example/2023/67341.jpg");
     }
 
     @Test
@@ -162,16 +182,22 @@ class PostingFinderTest {
     }
 
     private PostingFinder finder(PostingProperties.Current current, boolean officialPhotos) {
-        List<PostingProperties.Past> history = List.of(
-                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6, 113_000_000L, null),
-                new PostingProperties.Past("나성범", 2020, null, "2021-01-09", null, null, null, null));
-        Postings postings = new Postings(new PostingProperties(List.of(current), history));
+        Postings postings = postings(current);
         return new PostingFinder(postings, news, photos(postings, officialPhotos));
+    }
+
+    private static Postings postings(PostingProperties.Current current) {
+        List<PostingProperties.Past> history = List.of(
+                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6, 113_000_000L, null,
+                        67341L),
+                new PostingProperties.Past("나성범", 2020, null, "2021-01-09", null, null, null, null, null));
+        return new Postings(new PostingProperties(List.of(current), history));
     }
 
     private static PhotoSources photos(Postings postings, boolean on) {
         return new PhotoSources(new RosterProperties(List.of()), postings,
-                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(on, null, null), null));
+                new KorleaguerProperties(null, null, null, null,
+                        new KorleaguerProperties.Images(on, null, "https://kbo.example/{season}/{kboId}.jpg"), null));
     }
 
     private static PostingProperties.Current roh(PostingProperties.Result result) {

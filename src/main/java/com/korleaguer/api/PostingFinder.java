@@ -45,7 +45,7 @@ public class PostingFinder {
                 .sorted(Comparator.comparing(PostingCase::deadline))
                 .map(p -> player(p, now))
                 .toList();
-        List<PostingSummary.Past> history = postings.history().stream().map(PostingFinder::record).toList();
+        List<PostingSummary.Past> history = postings.history().stream().map(this::record).toList();
         if (players.isEmpty() && history.isEmpty()) {
             return null;
         }
@@ -94,9 +94,9 @@ public class PostingFinder {
         return Math.round(ratio * 1000) / 1000.0;
     }
 
-    private static PostingSummary.Past record(PastPosting past) {
+    private PostingSummary.Past record(PastPosting past) {
         return new PostingSummary.Past(past.nameKo(), past.season(), past.deadline(), past.daysBeforeDeadline(),
-                deal(past.result()));
+                deal(past.result()), photos.careerPath(past.kboId(), past.season()));
     }
 
     private static PostingSummary.Deal deal(PostingResult result) {

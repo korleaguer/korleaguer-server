@@ -2,6 +2,7 @@ package com.korleaguer.photo;
 
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.posting.PastPosting;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,8 @@ import java.util.Optional;
  * <ul>
  *   <li>mlb-{MLB 선수 번호}: 명단(baseball.yml)의 mlb-id로 만든 MLB 공식 사진(korleaguer.images.player-photo-template)</li>
  *   <li>kbo-{slug}: 포스팅 선수(posting.yml)의 photo-url(현 소속 KBO 구단 사진)</li>
- *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진(korleaguer.images.kbo-photo-template)</li>
+ *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진, 지난 포스팅 선배(posting.yml
+ *       history의 kbo-id)의 포스팅 당시 사진(korleaguer.images.kbo-photo-template)</li>
  * </ul>
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
@@ -52,10 +54,17 @@ public class PhotoSources {
                     }
                     for (RosterProperties.CareerPhoto photo : entry.careerPhotos()) {
                         if (photo.season() != null) {
-                            all.putIfAbsent(careerKey(entry.kboId(), photo.season()), kboTemplate
-                                    .replace(KBO_ID_PLACEHOLDER, String.valueOf(entry.kboId()))
-                                    .replace(SEASON_PLACEHOLDER, String.valueOf(photo.season())));
+                            all.putIfAbsent(careerKey(entry.kboId(), photo.season()),
+                                    kboUrl(kboTemplate, entry.kboId(), photo.season()));
                         }
+                    }
+                }
+                // 지난 포스팅 선배: 포스팅된 겨울(season)의 KBO 공식 등록 사진 = 포스팅 당시 구단의 마지막 시즌 사진.
+                // 명단 선수의 과거 소속팀 사진과 이름이 같으면(이정후 2023 등) 하나만 받는다
+                for (PastPosting past : postings.history()) {
+                    if (past.kboId() != null) {
+                        all.putIfAbsent(careerKey(past.kboId(), past.season()),
+                                kboUrl(kboTemplate, past.kboId(), past.season()));
                     }
                 }
             }
@@ -107,5 +116,10 @@ public class PhotoSources {
 
     static String kboKey(String slug) {
         return "kbo-" + slug;
+    }
+
+    private static String kboUrl(String template, Long kboId, int season) {
+        return template.replace(KBO_ID_PLACEHOLDER, String.valueOf(kboId))
+                .replace(SEASON_PLACEHOLDER, String.valueOf(season));
     }
 }

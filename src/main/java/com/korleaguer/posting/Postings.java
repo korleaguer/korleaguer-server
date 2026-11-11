@@ -96,7 +96,10 @@ public class Postings {
         if (result.agreedOn() != null && result.agreedOn().isAfter(deadline)) {
             throw invalid(who, "agreed-on must not be after deadline");
         }
-        return new PastPosting(p.nameKo().trim(), p.season(), deadline, result, p.source());
+        if (p.kboId() != null && p.kboId() < 1) {
+            throw invalid(who, "kbo-id must be a positive KBO player number: " + p.kboId());
+        }
+        return new PastPosting(p.nameKo().trim(), p.season(), deadline, result, p.source(), p.kboId());
     }
 
     private static PostingResult signed(String mlbTeam, String agreedOn, Integer years, Long guaranteedUsd,
