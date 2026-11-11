@@ -270,6 +270,15 @@ public class GameIngest {
                 now.minus(Duration.ofDays(days)), now.plus(Duration.ofDays(days)));
     }
 
+    /**
+     * 지금부터 거슬러 days일 안에 시작한 우리 팀들의 경기가 있는지(DB만 본다). 홈이 비시즌인지 정할 때 쓴다(OffSeasonFinder).
+     * 앞으로 잡힌 경기는 보지 않는다: 개막 경기가 시작되기 전까지는 비시즌 화면(개막까지 남은 날)을 둔다.
+     */
+    public boolean hasRecentGames(Instant now, int days) {
+        List<Long> teamIds = trackedTeamIds();
+        return !teamIds.isEmpty() && games.existsTeamGameBetween(teamIds, now.minus(Duration.ofDays(days)), now);
+    }
+
     /** 미국 날짜(동부 시간) */
     public LocalDate usDate(Instant instant) {
         return LocalDate.ofInstant(instant, US_EASTERN);
