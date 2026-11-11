@@ -9,15 +9,24 @@
 # 표준입력 두 줄: GHCR 사용자 이름, 그 배포 job의 임시 토큰(GITHUB_TOKEN, packages:read).
 # 토큰은 임시 폴더에서 docker login에만 쓰고 바로 지운다. 서버에 오래 남는 토큰은 없다.
 #
-# 순서: 이미지 받기 → mysql·caddy가 떠 있게 → (api면) DB 백업 → 새 컨테이너를 옛 것과 겹쳐 띄움
-#       → 새 것이 healthy면 옛 것을 내림. 새 것이 healthy가 안 되면 새 것을 지우고 태그를 되돌린다(옛 것은 계속 돈다).
+# 블루-그린: 웹·API는 자리가 둘(blue·green)이다. 지금 받는 쪽은 .env의 WEB_LIVE·API_LIVE이고,
+# Caddy는 live/web.caddy·live/api.caddy에 적힌 컨테이너로 보낸다(웹 → API도 Caddy의 안쪽 포트 8080을 거친다).
+# 순서: 이미지 받기 → mysql·caddy가 떠 있게 → (api면) DB 백업 → 쉬는 자리에 새 버전을 띄움 → healthy를 기다림
+#       → 데우기(api: 미리 채우기를 마칠 때까지 /actuator/warm, web: 주요 화면을 두 번씩 불러 봄)
+#       → Caddy가 새 자리로 보내게(live 파일을 쓰고 caddy reload, 하던 요청은 끊기지 않는다) → 옛 자리를 멈춘다.
+#       옛 자리는 지우지 않고 멈춘 채 둔다(급하면 다시 켜고 live 파일만 되돌리면 된다). 다음 배포가 그 자리를 쓴다.
+#       새 자리가 healthy가 안 되면 지우고 태그를 되돌린다(옛 자리가 계속 받는다).
+#       데우기가 시간 안에 안 끝나면 경고를 남기고 그대로 넘긴다(데우지 않은 채 받기 시작한다).
 # 직접 실행(서버에서 재배포·롤백): korleaguer-deploy api sha-1a2b3c4 (이미지가 이미 있으면 KORLEAGUER_SKIP_PULL=1)
 set -euo pipefail
 
 DEPLOY_DIR="${KORLEAGUER_DIR:-/srv/korleaguer}"
 SERVICE="${1:-}"
 VERSION="${SSH_ORIGINAL_COMMAND:-${2:-}}"
-HEALTH_TIMEOUT="${KORLEAGUER_HEALTH_TIMEOUT:-240}"
+HEALTH_TIMEOUT="${KORLEAGUER_HEALTH_TIMEOUT:-300}"
+WARM_TIMEOUT="${KORLEAGUER_WARM_TIMEOUT:-180}"
+# Caddy가 새 자리로 보낸 뒤 옛 자리를 멈추기까지 기다리는 시간(옛 자리로 이미 간 요청이 끝나게)
+DRAIN_SECONDS="${KORLEAGUER_DRAIN_SECONDS:-5}"
 BACKUP_BIN="${KORLEAGUER_BACKUP_BIN:-/usr/local/bin/korleaguer-backup}"
 KEEP_IMAGES=3
 
@@ -25,8 +34,8 @@ log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 fail() { log "실패: $*" >&2; exit 1; }
 
 case "$SERVICE" in
-  api) TAG_VAR=API_TAG; IMAGE=ghcr.io/korleaguer/korleaguer-server ;;
-  web) TAG_VAR=WEB_TAG; IMAGE=ghcr.io/korleaguer/korleaguer-web ;;
+  api) PREFIX=API; PORT=8080; IMAGE=ghcr.io/korleaguer/korleaguer-server ;;
+  web) PREFIX=WEB; PORT=3000; IMAGE=ghcr.io/korleaguer/korleaguer-web ;;
   *) fail "서비스는 api 또는 web이어야 합니다: '${SERVICE}'" ;;
 esac
 [[ "$VERSION" =~ ^(sha-[0-9a-f]{7,40}|[0-9]+\.[0-9]+\.[0-9]+)$ ]] \
@@ -45,7 +54,7 @@ else
   exec > >(tee -a "$DEPLOY_DIR/deploy.log") 2>&1
 fi
 
-# 두 저장소의 배포가 겹치지 않게 한 번에 하나만 돈다.
+# 두 저장소(여러 대화)의 배포가 겹치지 않게 한 번에 하나만 돈다. 앞의 배포가 끝날 때까지 최대 10분 기다린다.
 if command -v flock > /dev/null; then
   exec 9> "$DEPLOY_DIR/.deploy.lock"
   flock -w 600 9 || fail "다른 배포가 10분 안에 끝나지 않았습니다"
@@ -53,17 +62,52 @@ fi
 
 compose() { docker compose "$@"; }
 
-current_tag() { grep -E "^${TAG_VAR}=" .env | tail -n 1 | cut -d= -f2- || true; }
+env_value() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; }
 
-set_tag() {
-  local value="$1"
-  sed -i.bak -E "/^${TAG_VAR}=/d" .env && rm -f .env.bak
+set_env() {
+  local key="$1" value="$2"
+  sed -i.bak -E "/^${key}=/d" .env && rm -f .env.bak
   if [ -n "$value" ]; then
-    printf '%s=%s\n' "$TAG_VAR" "$value" >> .env
+    printf '%s=%s\n' "$key" "$value" >> .env
   fi
 }
 
+# 컨테이너 이름 앞부분(compose.yaml의 container_name과 같다). 시험 환경은 .env에 COMPOSE_PROJECT_NAME을 둔다.
+PROJECT="$(env_value COMPOSE_PROJECT_NAME)"
+PROJECT="${PROJECT:-korleaguer}"
+CADDY="${PROJECT}-caddy"
+
+# 서비스의 한 자리 컨테이너 이름. 예: container api green → korleaguer-api-green
+container() { printf '%s-%s-%s' "$PROJECT" "$1" "$2"; }
+
+# Caddy가 보낼 곳(live/<서비스>.caddy). 파일을 통째로 바꿔 쓴다(반쯤 쓴 파일을 Caddy가 읽지 않게).
+write_live() {
+  local svc="$1" upstream="$2" tmp
+  mkdir -p live
+  tmp="$(mktemp "live/.${svc}.XXXXXX")"
+  cat > "$tmp" <<EOF
+# korleaguer-deploy가 쓴다. 손으로 고치지 않는다. 지금 받는 ${svc}: ${upstream}
+reverse_proxy ${upstream} {
+	# 바꾸는 순간 접속이 끊기면 30초까지 다시 시도한다(502 대신 잠깐 기다림)
+	lb_try_duration 30s
+	lb_try_interval 500ms
+}
+EOF
+  chmod 644 "$tmp"
+  mv "$tmp" "live/${svc}.caddy"
+}
+
+# Caddy가 읽는 live 파일이 없으면 만든다(처음 설치). 아직 배포 전이면 blue 자리를 가리킨다(배포 전에는 502).
+ensure_live() {
+  [ -f live/web.caddy ] || write_live web "$(container web blue):3000"
+  [ -f live/api.caddy ] || write_live api "$(container api blue):8080"
+}
+
+caddy_reload() { docker exec "$CADDY" caddy reload --config /etc/caddy/Caddyfile > /dev/null; }
+
 # 컨테이너가 healthy가 될 때까지 기다린다. 헬스체크가 없으면 running이면 된다.
+# unhealthy는 바로 실패로 보지 않는다: 서버가 바쁘면 자바가 이미지의 시작 유예(90초)보다 늦게 떠서 잠깐 unhealthy였다가
+# healthy가 된다(2026-11-11 시험에서 150초 넘게 걸림). 컨테이너가 꺼졌거나 시간이 다 되면 실패다.
 wait_healthy() {
   local id="$1" deadline=$((SECONDS + HEALTH_TIMEOUT)) status
   while :; do
@@ -71,43 +115,129 @@ wait_healthy() {
     case "$status" in
       healthy) return 0 ;;
       running) docker inspect -f '{{if .State.Health}}x{{end}}' "$id" | grep -q x || return 0 ;;
-      unhealthy | exited | dead | gone) return 1 ;;
+      exited | dead | gone) return 1 ;;
     esac
     [ "$SECONDS" -ge "$deadline" ] && return 1
     sleep 3
   done
 }
 
-# 새 컨테이너를 옛 컨테이너와 겹쳐 띄우고, 새 것이 healthy면 옛 것을 내린다.
-rollout() {
-  local svc="$1" old new count
-  old="$(compose ps -q "$svc" | sort)"
-  if [ -z "$old" ]; then
-    compose up -d --no-deps "$svc"
-    new="$(compose ps -q "$svc")"
-    if ! wait_healthy "$new"; then
-      docker logs --tail 80 "$new" >&2 || true
-      return 1
+# API 데우기: 앱이 미리 채우기(홈·선수·내 선수 카드)를 마칠 때까지 기다린다(GET /actuator/warm이 200).
+# 404면 이 버전에 그 엔드포인트가 없다(예전 버전으로 되돌릴 때): 기다리지 않는다.
+warm_api() {
+  local name="$1" deadline=$((SECONDS + WARM_TIMEOUT)) code
+  while :; do
+    code="$(docker exec "$name" curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/actuator/warm 2> /dev/null || true)"
+    case "$code" in
+      200) log "미리 채우기를 마쳤습니다"; return 0 ;;
+      404) log "이 버전에는 /actuator/warm이 없어 기다리지 않습니다"; return 0 ;;
+    esac
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      log "경고: ${WARM_TIMEOUT}초 안에 미리 채우기가 끝나지 않았습니다(마지막 응답 ${code:-없음}). 그대로 넘깁니다"
+      return 0
     fi
-    return 0
-  fi
-  count="$(printf '%s\n' "$old" | wc -l | tr -d ' ')"
-  compose up -d --no-deps --no-recreate --scale "${svc}=$((count + 1))" "$svc"
-  new="$(comm -13 <(printf '%s\n' "$old") <(compose ps -q "$svc" | sort))"
-  [ -n "$new" ] || { log "새 컨테이너를 찾지 못했습니다"; return 1; }
-  log "새 컨테이너 ${new:0:12}가 healthy가 되기를 기다립니다(최대 ${HEALTH_TIMEOUT}초)"
-  if ! wait_healthy "$new"; then
-    docker logs --tail 80 "$new" >&2 || true
-    docker rm -f $new > /dev/null
-    return 1
-  fi
-  log "옛 컨테이너를 내립니다: $(printf '%s ' $old | cut -c1-12)"
-  docker stop --time 30 $old > /dev/null
-  docker rm $old > /dev/null
+    sleep 3
+  done
 }
 
-previous="$(current_tag)"
-log "배포 시작: ${SERVICE} ${previous:-없음} → ${VERSION}"
+# 웹 데우기: 새 컨테이너 안에서 주요 화면(홈·선수·내 선수·선수 상세 전부)을 두 번씩 불러 본다.
+# Node·Next.js는 막 떴을 때 처음 몇 번 그리기가 느리다. API는 지금 받는 쪽(Caddy)을 부른다.
+WEB_WARM_JS='
+const base = "http://127.0.0.1:3000";
+async function get(path) {
+  const started = Date.now();
+  try {
+    const res = await fetch(base + path, { signal: AbortSignal.timeout(30000) });
+    const body = await res.text();
+    return { status: res.status, ms: Date.now() - started, body };
+  } catch (e) {
+    return { status: "error", ms: Date.now() - started, body: "" };
+  }
+}
+(async () => {
+  const list = await get("/players");
+  const ids = [...new Set([...list.body.matchAll(/href="\/players\/(\d+)"/g)].map((m) => m[1]))];
+  const pages = ["/", "/players", "/my", ...ids.map((id) => "/players/" + id)];
+  for (let round = 1; round <= 2; round++) {
+    const report = [];
+    for (const page of pages) {
+      const r = await get(page);
+      report.push(page + " " + r.status + " " + r.ms + "ms");
+    }
+    console.log("데우기 " + round + "회: " + report.join(", "));
+  }
+})();
+'
+warm_web() {
+  local name="$1"
+  docker exec "$name" node -e "$WEB_WARM_JS" || log "경고: 웹 데우기 중 오류가 났습니다(그대로 넘깁니다)"
+}
+
+# 예전 방식(compose 서비스 이름 그대로 'web'·'api', 배포마다 숫자가 붙던) 컨테이너를 내린다.
+# 블루-그린으로 옮긴 뒤 처음 배포할 때 한 번 걸린다.
+stop_legacy() {
+  local legacy
+  legacy="$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT}" \
+    --filter "label=com.docker.compose.service=${SERVICE}")"
+  [ -n "$legacy" ] || return 0
+  log "예전 방식 컨테이너를 내립니다: $(docker inspect -f '{{.Name}}' $legacy | tr -d '/' | tr '\n' ' ')"
+  docker stop --time 30 $legacy > /dev/null || true
+  docker rm $legacy > /dev/null || true
+}
+
+# 쉬는 자리에 새 버전을 띄워 데운 뒤 Caddy가 그쪽으로 보내게 하고, 옛 자리를 멈춘다.
+rollout() {
+  local live idle new_name old_name tag_var previous_tag
+  live="$(env_value "${PREFIX}_LIVE")"
+  if [ "$live" = blue ]; then idle=green; else idle=blue; fi
+  new_name="$(container "$SERVICE" "$idle")"
+  tag_var="${PREFIX}_${idle^^}_TAG"
+  previous_tag="$(env_value "$tag_var")"
+
+  log "새 버전을 쉬는 자리(${idle})에 띄웁니다: ${new_name}"
+  set_env "$tag_var" "$VERSION"
+  if ! compose up -d --no-deps --force-recreate "${SERVICE}-${idle}"; then
+    set_env "$tag_var" "$previous_tag"
+    return 1
+  fi
+  log "${new_name}가 healthy가 되기를 기다립니다(최대 ${HEALTH_TIMEOUT}초)"
+  if ! wait_healthy "$new_name"; then
+    docker logs --tail 80 "$new_name" >&2 || true
+    compose rm -sf "${SERVICE}-${idle}" > /dev/null 2>&1 || true
+    set_env "$tag_var" "$previous_tag"
+    return 1
+  fi
+
+  log "데웁니다(최대 ${WARM_TIMEOUT}초)"
+  "warm_${SERVICE}" "$new_name"
+
+  log "Caddy가 ${new_name}로 보내게 합니다"
+  [ -f "live/${SERVICE}.caddy" ] && cp "live/${SERVICE}.caddy" "live/.${SERVICE}.caddy.previous"
+  write_live "$SERVICE" "${new_name}:${PORT}"
+  if ! caddy_reload; then
+    log "Caddy 설정을 다시 읽지 못해 되돌립니다"
+    [ -f "live/.${SERVICE}.caddy.previous" ] && mv "live/.${SERVICE}.caddy.previous" "live/${SERVICE}.caddy"
+    caddy_reload || true
+    compose rm -sf "${SERVICE}-${idle}" > /dev/null 2>&1 || true
+    set_env "$tag_var" "$previous_tag"
+    return 1
+  fi
+  rm -f "live/.${SERVICE}.caddy.previous"
+  set_env "${PREFIX}_LIVE" "$idle"
+
+  # 옛 자리로 이미 간 요청이 끝나게 잠깐 기다린 뒤 멈춘다(API는 하던 요청을 마치고 내려간다).
+  sleep "$DRAIN_SECONDS"
+  if [ -n "$live" ]; then
+    old_name="$(container "$SERVICE" "$live")"
+    log "옛 자리를 멈춥니다(지우지 않고 둔다): ${old_name}"
+    docker stop --time 30 "$old_name" > /dev/null 2>&1 || true
+  fi
+  stop_legacy
+}
+
+previous="$(env_value "${PREFIX}_TAG")"
+live_now="$(env_value "${PREFIX}_LIVE")"
+log "배포 시작: ${SERVICE} ${previous:-없음} → ${VERSION} (지금 받는 자리: ${live_now:-없음})"
 
 # 1) 이미지 받기. 로그인 정보는 임시 폴더에만 두고 바로 지운다.
 if [ "${KORLEAGUER_SKIP_PULL:-0}" != 1 ]; then
@@ -124,6 +254,7 @@ fi
 docker image inspect "${IMAGE}:${VERSION}" > /dev/null 2>&1 || fail "서버에 이미지가 없습니다: ${IMAGE}:${VERSION}"
 
 # 2) 기반 서비스(DB, 리버스 프록시)가 떠 있게 한다. 이미 떠 있으면 그대로다.
+ensure_live
 compose up -d --no-deps --wait mysql
 compose up -d --no-deps caddy
 
@@ -132,14 +263,13 @@ if [ "$SERVICE" = api ]; then
   "$BACKUP_BIN" "before-${VERSION}" || fail "DB 백업에 실패해 배포를 멈춥니다"
 fi
 
-# 4) 바꾸기. 실패하면 태그를 되돌린다(옛 컨테이너는 그대로 돈다).
-set_tag "$VERSION"
-if ! rollout "$SERVICE"; then
-  set_tag "$previous"
-  fail "${SERVICE} ${VERSION}이 정상 상태가 되지 않아 되돌렸습니다(${previous:-없음} 유지)"
+# 4) 바꾸기. 실패하면 받는 쪽은 그대로다.
+if ! rollout; then
+  fail "${SERVICE} ${VERSION}이 정상 상태가 되지 않아 넘기지 않았습니다(${previous:-없음} 그대로)"
 fi
+set_env "${PREFIX}_TAG" "$VERSION"
 
 # 5) 이 서비스의 오래된 이미지는 최근 ${KEEP_IMAGES}개만 남긴다(롤백용). 쓰고 있는 이미지는 지워지지 않는다.
 docker image ls "$IMAGE" --format '{{.Repository}}:{{.Tag}}' | tail -n +$((KEEP_IMAGES + 1)) | xargs -r docker image rm > /dev/null 2>&1 || true
 
-log "배포 완료: ${SERVICE} ${VERSION}"
+log "배포 완료: ${SERVICE} ${VERSION} (받는 자리: $(env_value "${PREFIX}_LIVE"))"

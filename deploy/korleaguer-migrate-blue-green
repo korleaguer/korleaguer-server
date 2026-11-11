@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# 한 번만: 예전 배포 방식(서비스 이름 web·api, 배포마다 숫자가 붙는 컨테이너)에서 블루-그린으로 옮긴다.
+# 서버에서 이 폴더(deploy/)를 복사해 둔 곳에서 root로 실행한다: sudo bash korleaguer-migrate-blue-green
+#
+# 1) 배포 잠금을 잡고(그동안 들어온 배포는 기다린다) 새 compose.yaml·Caddyfile·korleaguer-deploy를 설치한다.
+# 2) Caddy가 지금 돌고 있는 예전 컨테이너로 계속 보내도록 live 파일을 만든다(예전 서비스 이름 web:3000·api:8080).
+# 3) caddy·mysql을 새 이름(korleaguer-caddy·korleaguer-mysql)으로 다시 만든다.
+#    caddy는 몇 초, mysql은 수십 초 끊긴다. 그동안 API는 캐시한 응답으로 답한다(캐시에 없는 요청만 실패할 수 있다).
+# 4) 잠금을 풀고, 지금 버전 그대로 웹 → API 순서로 새 방식으로 다시 배포한다(이미지는 서버에 있다).
+#    새 자리(blue)가 데워진 뒤 Caddy가 넘기고, 예전 컨테이너는 그때 내린다.
+# 다시 실행해도 된다: 이미 옮긴 서비스(.env에 WEB_LIVE·API_LIVE가 있음)는 건너뛴다.
+set -euo pipefail
+
+DEPLOY_DIR="${KORLEAGUER_DIR:-/srv/korleaguer}"
+DEPLOY_USER="${KORLEAGUER_DEPLOY_USER:-deploy}"
+# 배포 스크립트를 둘 곳. 시험할 때만 바꾼다(운영 스크립트를 덮지 않게)
+BIN_DIR="${KORLEAGUER_BIN_DIR:-/usr/local/bin}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
+[ "$(id -u)" = 0 ] || { echo "root로 실행하세요: sudo bash $0" >&2; exit 1; }
+cd "$DEPLOY_DIR"
+
+env_value() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; }
+as_deploy() { sudo -u "$DEPLOY_USER" "$@"; }
+
+# 1) 잠그고 설치
+exec 9> "$DEPLOY_DIR/.deploy.lock"
+chown "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_DIR/.deploy.lock"
+log "배포 잠금을 기다립니다(다른 배포가 끝날 때까지 최대 10분)"
+flock -w 600 9 || { log "다른 배포가 10분 안에 끝나지 않았습니다"; exit 1; }
+log "새 compose.yaml·Caddyfile·korleaguer-deploy를 설치합니다"
+install -m 640 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$HERE/compose.yaml" "$DEPLOY_DIR/compose.yaml"
+install -m 640 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$HERE/Caddyfile" "$DEPLOY_DIR/Caddyfile"
+# install은 새 파일로 바꿔 넣는다(돌고 있는 옛 스크립트가 있어도 그쪽은 옛 파일을 끝까지 읽는다)
+install -m 755 "$HERE/korleaguer-deploy" "$BIN_DIR/korleaguer-deploy"
+
+# 2) live 파일: 아직 옮기지 않은 서비스는 예전 컨테이너(서비스 이름)로 보낸다
+install -d -m 755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$DEPLOY_DIR/live"
+write_legacy_live() {
+  local svc="$1" upstream="$2"
+  if [ -n "$(env_value "${svc^^}_LIVE")" ] && [ -f "live/${svc}.caddy" ]; then
+    log "${svc}: 이미 블루-그린입니다($(env_value "${svc^^}_LIVE")). live 파일을 그대로 둡니다"
+    return 0
+  fi
+  as_deploy tee "live/${svc}.caddy" > /dev/null <<EOF
+# korleaguer-deploy가 쓴다. 손으로 고치지 않는다. 블루-그린으로 옮기는 동안 예전 컨테이너(${upstream})로 보낸다.
+reverse_proxy ${upstream} {
+	lb_try_duration 30s
+	lb_try_interval 500ms
+}
+EOF
+  log "${svc}: 예전 컨테이너(${upstream})로 보내는 live 파일을 만들었습니다"
+}
+write_legacy_live web web:3000
+write_legacy_live api api:8080
+
+# 3) caddy·mysql을 새 이름으로
+log "caddy를 새 이름(korleaguer-caddy)으로 다시 만듭니다(몇 초 끊김)"
+as_deploy docker compose up -d --no-deps caddy
+log "mysql을 새 이름(korleaguer-mysql)으로 다시 만듭니다(수십 초 끊김)"
+as_deploy docker compose up -d --no-deps --wait mysql
+
+# 4) 잠금을 풀고 지금 버전 그대로 새 방식으로 다시 배포(각 배포가 다시 잠금을 잡는다)
+flock -u 9
+for svc in web api; do
+  if [ -n "$(env_value "${svc^^}_LIVE")" ]; then
+    log "${svc}: 이미 블루-그린입니다. 건너뜁니다"
+    continue
+  fi
+  tag="$(env_value "${svc^^}_TAG")"
+  [ -n "$tag" ] || { log "${svc}: .env에 ${svc^^}_TAG가 없어 건너뜁니다"; continue; }
+  log "${svc}: 지금 버전(${tag})을 블루-그린으로 다시 배포합니다"
+  as_deploy env KORLEAGUER_DIR="$DEPLOY_DIR" KORLEAGUER_SKIP_PULL=1 \
+    ${KORLEAGUER_BACKUP_BIN:+KORLEAGUER_BACKUP_BIN="$KORLEAGUER_BACKUP_BIN"} "$BIN_DIR/korleaguer-deploy" "$svc" "$tag"
+done
+
+log "옮기기 끝: $(as_deploy docker ps --format '{{.Names}}' | sort | tr '\n' ' ')"
