@@ -11,7 +11,9 @@ SSH로 서버에 접속해 새 이미지로 바꾼다(지속 배포, 사람이 '
 - **배포 시작:** 저장소마다 develop 병합(푸시). 문서·테스트만 바뀐 푸시는 건너뛴다. API는 `korleaguer-server`, 웹은 `korleaguer-web`에서 따로 나간다.
 - **순서:** 테스트(CI) → 이미지(SBOM·출처 증명 포함) → 서버 교체 → (웹) 공개 주소 `/healthz`가 그 커밋을 주는지 확인 → main을 배포한 커밋에 맞춤.
 - **배포 구분:** 버전 번호 없이 커밋 해시로 구분한다. 이미지 이름표는 `sha-1a2b3c4`(병합된 커밋의 앞 7자리)이고, 배포 기록은 저장소 Actions의 `deploy` 실행 목록이다.
-- **끊김 없이 바꾸기:** 새 컨테이너를 옛 것과 겹쳐 띄우고 healthy가 되면 옛 것을 내린다. 새 것이 정상이 안 되면 지우고 옛 것을 그대로 둔다.
+- **끊김 없이 바꾸기(블루-그린):** 웹·API는 자리가 둘(blue·green)이다. 쉬는 자리에 새 버전을 띄워 healthy가 되고 데워지면(아래) Caddy가 그쪽으로 보내고, 15초 뒤(옛 자리로 이미 간 요청이 끝나게) 옛 자리를 멈춘다. 새 것이 정상이 안 되면 지우고 옛 자리가 그대로 받는다.
+- **데우기:** 막 뜬 자바·Node는 처음 몇 번이 느리다. API는 미리 채우기(홈·선수·내 선수 카드)를 마칠 때까지(`/actuator/warm`, 최대 3분), 웹은 주요 화면(홈·선수·내 선수·선수 상세 전부)을 두 번씩 불러 본 뒤에 넘긴다. 그래서 배포 직후 첫 방문도 데워진 서버가 받는다.
+- **컨테이너 이름:** `korleaguer-caddy`, `korleaguer-mysql`, `korleaguer-web-blue`/`-green`, `korleaguer-api-blue`/`-green`. 지금 받는 쪽은 `.env`의 `WEB_LIVE`·`API_LIVE`(아래 "블루-그린"). 웹 → API도 Caddy(`caddy:8080`, 안쪽에서만)를 거친다.
 - **API 배포 전 DB 백업:** `backups/`에 `before-<이미지 이름표>` 덤프(예 `before-sha-1a2b3c4`). 매일 04:30에도 백업한다. 종류별로 따로 남긴다: 매일 백업 14개(2주), 배포 전·수동 백업 5개(배포가 잦아도 매일 백업이 밀려나지 않게).
 - **되돌리기(롤백):** Actions → deploy → Run workflow에 되돌릴 커밋(예 `1a2b3c4`)을 넣는다. 서버에 최근 3개 이미지가 남아 있고, 그보다 오래된 것은 GHCR에서 받는다. 되돌리기는 main을 옮기지 않는다(아래 "되돌리기·직접 배포").
 - **보안:** 배포 전용 계정 `deploy`의 SSH 키는 저장소마다 따로이고, 키마다 "그 서비스 배포" 명령 하나만 실행된다(셸·포트 포워딩 불가). 서버 호스트 키를 고정해 다른 서버에는 접속하지 않는다. 서버가 GHCR에서 이미지를 받을 때는 그 배포 job의 임시 토큰만 쓰고 지운다.
@@ -115,8 +117,24 @@ API와 웹이 함께 바뀌는 변경은 API PR을 먼저 병합한다(웹은 �
 ```bash
 sudo -iu deploy
 cd /srv/korleaguer
-docker compose ps
-docker compose logs -f api
+docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'   # 멈춘 옛 자리까지 보려면 docker ps -a
+grep -E '_LIVE=|_TAG=' .env                               # 지금 받는 자리와 태그
+docker logs -f korleaguer-api-$(grep '^API_LIVE=' .env | cut -d= -f2)
+```
+
+## 블루-그린(자리 둘)
+
+- 서비스마다 `blue`·`green` 두 자리(`korleaguer-web-blue` 등)가 있고, 지금 받는 쪽은 `.env`의 `WEB_LIVE`·`API_LIVE`다. 자리마다 이미지 태그는 `WEB_BLUE_TAG`·`WEB_GREEN_TAG`·`API_BLUE_TAG`·`API_GREEN_TAG`, 지금 받는 쪽 태그는 `WEB_TAG`·`API_TAG`다.
+- Caddy가 보내는 곳은 `live/web.caddy`·`live/api.caddy`다. 배포 스크립트가 쓰고 `caddy reload` 한다(하던 요청은 끊기지 않는다). 손으로 고치지 않는다.
+- 배포가 끝나면 옛 자리는 지우지 않고 멈춘 채 둔다(`docker ps -a`에 Exited로 보인다). 다음 배포가 그 자리에 새 버전을 띄운다.
+- 급하게 바로 전 버전으로 돌아가야 하면(이미지 받기·데우기 없이): 옛 자리를 켜고 healthy가 되면 live 파일을 그쪽으로 바꾼다. 보통은 아래 "되돌리기"를 쓴다(데운 뒤 넘긴다).
+
+```bash
+sudo -iu deploy && cd /srv/korleaguer
+docker start korleaguer-api-blue        # 옛 자리
+# healthy가 되면(docker ps) live/api.caddy의 컨테이너 이름을 korleaguer-api-blue로 고치고
+docker exec korleaguer-caddy caddy reload --config /etc/caddy/Caddyfile
+sed -i 's/^API_LIVE=.*/API_LIVE=blue/' .env && docker stop korleaguer-api-green
 ```
 
 ## 되돌리기·직접 배포
@@ -140,7 +158,9 @@ scp deploy/korleaguer-deploy deploy/korleaguer-backup 내계정@pigeon.ddns.net:
 
 (누구나 쓸 수 있는 `/tmp` 대신 내 홈 폴더를 거친다.) 관리용 계정(아래)이 있으면 Claude Code가 `ssh korleaguer-admin`으로 같은 일을 한다.
 
-`compose.yaml`·`Caddyfile`을 고쳤으면 `server-setup.sh`를 다시 실행한다(위 "처음 한 번"의 2번).
+`compose.yaml`·`Caddyfile`을 고쳤으면 `server-setup.sh`를 다시 실행한다(위 "처음 한 번"의 2번). Caddyfile만 바꿨으면 `docker exec korleaguer-caddy caddy reload --config /etc/caddy/Caddyfile`로 바로 읽힌다.
+
+**예전 방식(서비스 `web`·`api`, 숫자 붙는 컨테이너)에서 블루-그린으로 옮기기(2026-11, 한 번만):** 이 폴더를 서버에 복사하고 `sudo bash korleaguer-migrate-blue-green`. 배포 잠금을 잡고 새 파일을 설치한 뒤 caddy·mysql을 새 이름으로 다시 만들고(caddy 몇 초·mysql 수십 초 끊김), 지금 버전 그대로 웹 → API를 새 방식으로 다시 배포한다. 다시 실행해도 된다.
 
 ## 관리용 계정(Claude Code)
 
@@ -186,7 +206,7 @@ docker compose exec api sh -c 'curl -s -X POST -H "X-Admin-Token: $KORLEAGUER_AD
 ## 알아 둘 것
 
 - **DB 구조를 바꾸는 배포:** 새 API가 Flyway로 DB를 바꾸는 동안 옛 API도 잠깐 같이 돈다. 그래서 바뀐 구조가 옛 코드에서도 돌아가게 한다(열·표 추가는 먼저, 지우기는 다음 배포에서).
-- **API가 겹쳐 뜨는 동안:** 수십 초 동안 두 API가 함께 떠 있어 수집이 한 번 겹칠 수 있다. 같은 경기·기록은 DB의 유일 제약이 막고, 실패한 수집은 다음 실행(12분 뒤)에 다시 한다.
+- **API가 겹쳐 뜨는 동안:** 새 자리가 뜨고 데워지는 1~3분 동안 두 API가 함께 떠 있어 수집이 한 번 겹칠 수 있다(요청은 옛 자리만 받는다). 같은 경기·기록은 DB의 유일 제약이 막고, 실패한 수집은 다음 실행(12분 뒤)에 다시 한다.
 - **서버 설정 파일이 바뀌면**(`compose.yaml`, `Caddyfile`, 스크립트): 이 폴더를 서버에 다시 복사하고 `server-setup.sh`를 다시 실행한 뒤,
   deploy 계정으로 `cd /srv/korleaguer && docker compose up -d caddy mysql && docker compose restart caddy`
   (Caddy는 시작할 때만 Caddyfile을 읽어서, 설정이 같으면 `up`만으로는 다시 읽지 않는다).

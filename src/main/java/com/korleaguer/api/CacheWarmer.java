@@ -65,6 +65,8 @@ public class CacheWarmer {
     private final Clock clock;
     private final boolean warmInBackground;
     private final ReentrantLock warming = new ReentrantLock();
+    /** 한 번이라도 다 채웠나(WarmEndpoint). 배포가 새 서버로 요청을 넘기기 전에 이것을 기다린다 */
+    private volatile boolean warmedOnce;
     /** 지난 따라잡기 때의 날짜 키(dateKey)·포스팅 키(postingKey). 처음에는 null */
     private String seenDateKey;
     private String seenPostingKey;
@@ -145,9 +147,19 @@ public class CacheWarmer {
         warming.lock();
         try {
             fill();
+            warmedOnce = true;
         } finally {
             warming.unlock();
         }
+    }
+
+    /**
+     * 요청을 받을 준비가 됐나: 앱이 뜬 뒤 화면이 부를 응답을 한 번 다 채웠다(일부가 실패해도 채우기를 마쳤으면 된다).
+     * 배포 스크립트가 새 서버로 요청을 넘기기 전에 기다린다(GET /actuator/warm, WarmEndpoint).
+     * 자동 수집이 꺼져 있으면(테스트·로컬) 미리 채우지 않으므로 늘 준비됐다.
+     */
+    public boolean ready() {
+        return !warmInBackground || warmedOnce;
     }
 
     private void fill() {

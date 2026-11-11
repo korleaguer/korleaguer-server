@@ -1,8 +1,12 @@
 # 코리거 운영 구성(서버의 /srv/korleaguer/compose.yaml). 원본은 korleaguer-server 저장소의 deploy/ 폴더다.
-# - caddy: 80·443만 밖으로 연다. HTTPS 인증서를 자동으로 받고 web으로 넘긴다.
-# - web(Next.js) → api(Spring Boot) → mysql. api·mysql은 밖으로 포트를 열지 않는다(Docker 내부망에서만).
-# 이미지 태그(API_TAG·WEB_TAG)는 같은 폴더의 .env에 있고, 배포 스크립트(korleaguer-deploy)가 바꾼다.
-# web·api는 배포 때 잠깐 두 개가 겹쳐 뜨므로 container_name과 호스트 포트를 두지 않는다.
+# - caddy: 80·443만 밖으로 연다. HTTPS 인증서를 자동으로 받고, 지금 받는 웹으로 넘긴다.
+#   안쪽(도커 망)에서는 caddy:8080으로 웹 → API 요청도 지금 받는 API로 넘긴다(밖으로는 열지 않는다).
+# - 웹(Next.js)·API(Spring Boot)는 자리가 둘(blue·green)이다(블루-그린 배포). 배포 스크립트(korleaguer-deploy)가
+#   쉬는 자리에 새 버전을 띄워 데운 뒤 Caddy가 받는 쪽을 바꾸고, 옛 자리는 내린다(지운 게 아니라 멈춘 채 둔다).
+#   지금 받는 쪽은 .env의 WEB_LIVE·API_LIVE, Caddy가 보는 곳은 live/web.caddy·live/api.caddy(스크립트가 쓴다).
+# - 이미지 태그는 .env의 WEB_BLUE_TAG·WEB_GREEN_TAG·API_BLUE_TAG·API_GREEN_TAG(지금 받는 쪽의 태그는 WEB_TAG·API_TAG).
+# - 컨테이너 이름은 고정이다: korleaguer-caddy, korleaguer-mysql, korleaguer-web-blue/green, korleaguer-api-blue/green.
+#   (앞부분은 프로젝트 이름. 시험용으로 .env에 COMPOSE_PROJECT_NAME을 두면 그 이름으로 바뀐다)
 name: korleaguer
 
 # 컨테이너 로그는 서비스마다 10MB × 3개까지만 남긴다(Docker 기본값은 무제한이라 SD 카드가 찰 수 있다).
@@ -12,9 +16,36 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
+# 웹 한 자리. profiles: 'docker compose up -d'로 모두 띄울 때 두 자리가 같이 뜨지 않게 한다(배포 스크립트가 이름을 짚어 띄운다).
+x-web: &web
+  logging: *logging
+  restart: unless-stopped
+  environment:
+    # API는 Caddy를 거친다(지금 받는 API로 넘겨 준다). API 자리가 바뀌어도 웹을 다시 띄울 필요가 없다.
+    API_BASE_URL: http://caddy:8080
+  mem_limit: 512m
+  profiles: ["app"]
+
+# API 한 자리
+x-api: &api
+  logging: *logging
+  restart: unless-stopped
+  env_file: api.env
+  environment:
+    SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC
+    SPRING_DATASOURCE_USERNAME: korleaguer
+  # 새 요청은 받지 않고 하던 요청을 끝낸 뒤 내려간다(Spring graceful shutdown)
+  stop_grace_period: 30s
+  mem_limit: 768m
+  depends_on:
+    mysql:
+      condition: service_healthy
+  profiles: ["app"]
+
 services:
   caddy:
     image: caddy:2.10
+    container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-caddy
     logging: *logging
     restart: unless-stopped
     ports:
@@ -26,34 +57,33 @@ services:
       SITE_ADDRESS: ${SITE_ADDRESS:-pigeon.ddns.net}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./live:/etc/caddy/live:ro   # 지금 받는 웹·API(배포 스크립트가 쓰고 caddy reload 한다)
       - caddy_data:/data      # 인증서. 지우면 다시 발급받는다(발급 횟수 제한 주의)
       - caddy_config:/config
 
-  web:
-    image: ghcr.io/korleaguer/korleaguer-web:${WEB_TAG:-unset}
-    logging: *logging
-    restart: unless-stopped
-    environment:
-      API_BASE_URL: http://api:8080
-    mem_limit: 512m
+  web-blue:
+    <<: *web
+    container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-web-blue
+    image: ghcr.io/korleaguer/korleaguer-web:${WEB_BLUE_TAG:-unset}
 
-  api:
-    image: ghcr.io/korleaguer/korleaguer-server:${API_TAG:-unset}
-    logging: *logging
-    restart: unless-stopped
-    env_file: api.env
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC
-      SPRING_DATASOURCE_USERNAME: korleaguer
-    # 새 요청은 받지 않고 하던 요청을 끝낸 뒤 내려간다(Spring graceful shutdown)
-    stop_grace_period: 30s
-    mem_limit: 768m
-    depends_on:
-      mysql:
-        condition: service_healthy
+  web-green:
+    <<: *web
+    container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-web-green
+    image: ghcr.io/korleaguer/korleaguer-web:${WEB_GREEN_TAG:-unset}
+
+  api-blue:
+    <<: *api
+    container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-api-blue
+    image: ghcr.io/korleaguer/korleaguer-server:${API_BLUE_TAG:-unset}
+
+  api-green:
+    <<: *api
+    container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-api-green
+    image: ghcr.io/korleaguer/korleaguer-server:${API_GREEN_TAG:-unset}
 
   mysql:
     image: mysql:8.4
+    container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-mysql
     logging: *logging
     restart: unless-stopped
     env_file: mysql.env
