@@ -1,6 +1,7 @@
 package com.korleaguer.api;
 
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PastPosting;
 import com.korleaguer.posting.PostingCase;
@@ -17,6 +18,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 홈의 포스팅 묶음(PostingSummary)을 만든다. posting.yml(Postings)과 DB의 관련 기사만 읽는다.
@@ -32,11 +36,17 @@ public class PostingFinder {
     private final Postings postings;
     private final NewsArticleRepository news;
     private final PhotoSources photos;
+    /** 지금 news/sources.yml에 있는 언론사. 뺀 언론사(이용약관으로 뺀 뉴시스 등)의 예전 기사는 보이지 않는다 */
+    private final Set<String> publishers;
 
-    public PostingFinder(Postings postings, NewsArticleRepository news, PhotoSources photos) {
+    public PostingFinder(Postings postings, NewsArticleRepository news, PhotoSources photos, NewsProperties newsProperties) {
         this.postings = postings;
         this.news = news;
         this.photos = photos;
+        this.publishers = newsProperties.sources().stream()
+                .map(NewsProperties.Source::publisher)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     PostingSummary find(Instant now) {
@@ -58,8 +68,11 @@ public class PostingFinder {
         Integer daysLeft = open
                 ? (int) ChronoUnit.DAYS.between(KoreanTime.kstDate(now), KoreanTime.kstDate(p.deadline()))
                 : null;
-        List<PostingSummary.Headline> headlines = news.findLatest(p.nameKo(), PageRequest.of(0, NEWS_PER_PLAYER))
+        // 뺀 언론사의 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
+        List<PostingSummary.Headline> headlines = news.findLatest(p.nameKo(), PageRequest.of(0, NEWS_PER_PLAYER * 4))
                 .stream()
+                .filter(a -> publishers.contains(a.getPublisher()))
+                .limit(NEWS_PER_PLAYER)
                 .map(a -> new PostingSummary.Headline(a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt()))
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
