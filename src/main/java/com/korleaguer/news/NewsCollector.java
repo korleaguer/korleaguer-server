@@ -29,7 +29,8 @@ import java.util.Optional;
  *   <li>출처(news/sources.yml)마다 피드 한 번(PoliteFetcher가 robots.txt·간격·조건부 요청을 지킨다).
  *       출처에 interval이 있으면 그 간격이 지나야 다시 받는다(큰 피드를 자주 받지 않게).</li>
  *   <li>제목에 선수 이름(한글·영어 표기)이 든 기사만 남긴다. 선수 한 명만 다루는 피드(subject)는 그 선수 기사로 본다.
- *       제목·링크·언론사·발행 시각만 저장하고 본문은 버린다.</li>
+ *       제목·링크·언론사·발행 시각을 저장하고, 출처가 첫머리를 허락하면(preview: lead) 기사 첫머리 200자 안팎도 둔다.
+ *       나머지 본문·사진은 버린다. 요약·대표 사진은 NewsEnricher가 따로 붙인다.</li>
  *   <li>같은 선수에 같은 주소는 한 번만 저장한다. 협상 시작 30일 전보다 오래된 기사는 버린다.</li>
  * </ul>
  */
@@ -115,7 +116,7 @@ public class NewsCollector {
                 if (published.isBefore(posting.windowOpens().minus(OLDEST))) {
                     continue;
                 }
-                if (save(posting.nameKo(), item, source.publisher(), published, now)) {
+                if (save(posting.nameKo(), item, source, published, now)) {
                     saved++;
                 }
             }
@@ -123,14 +124,28 @@ public class NewsCollector {
         return saved;
     }
 
-    private boolean save(String subject, FeedParser.Item item, String publisher, Instant published, Instant now) {
+    private boolean save(String subject, FeedParser.Item item, NewsProperties.Source source, Instant published,
+                         Instant now) {
         String url = NewsUrls.normalize(item.link());
         String hash = NewsUrls.sha256(url);
         if (articles.existsBySubjectAndUrlHash(subject, hash)) {
+            // 첫머리를 넣기 전에 모은 기사는 피드에 아직 있으면 채운다
+            if (source.lead() && item.lead() != null) {
+                articles.findBySubjectAndUrlHash(subject, hash)
+                        .filter(a -> a.getLeadText() == null)
+                        .ifPresent(a -> {
+                            a.setLeadText(item.lead());
+                            articles.save(a);
+                        });
+            }
             return false;
         }
         try {
-            articles.save(new NewsArticle(subject, url, hash, item.title(), publisher, published, now));
+            NewsArticle article = new NewsArticle(subject, url, hash, item.title(), source.publisher(), published, now);
+            if (source.lead()) {
+                article.setLeadText(item.lead());
+            }
+            articles.save(article);
             return true;
         } catch (DataIntegrityViolationException e) {
             return false; // 같은 기사를 동시에 저장한 경우

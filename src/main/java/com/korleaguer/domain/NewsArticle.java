@@ -8,7 +8,10 @@ import jakarta.persistence.Id;
 import java.time.Instant;
 
 /**
- * 관련 기사 한 건(제목·링크·언론사·발행 시각만). 본문·사진·요약은 저장하지 않는다.
+ * 관련 기사 한 건(제목·링크·언론사·발행 시각). 출처가 허락하면(news/sources.yml preview) 더 둔다:
+ * leadText는 피드가 준 기사 첫머리, imageUrl·titleKo·summary는 기사 페이지의 대표 사진 주소와 Claude가 쓴
+ * 한국어 제목·요약(NewsEnricher).
+ * 본문·사진 파일은 저장하지 않는다(사진은 원본 주소만).
  * subject는 기사가 다루는 포스팅 선수의 한글 이름이다(포스팅 선수는 아직 명단에 없어 선수 번호가 없다).
  * 같은 선수에 같은 주소(urlHash)는 한 번만 둔다. 언론사가 내려 달라고 하면 그 줄을 지운다.
  */
@@ -26,6 +29,13 @@ public class NewsArticle {
     private String publisher;
     private Instant publishedAt;
     private Instant fetchedAt;
+    private String leadText;
+    private String imageUrl;
+    private String titleKo;
+    private String summary;
+    private String summaryModel;
+    private Instant enrichedAt;
+    private int enrichAttempts;
 
     protected NewsArticle() {
     }
@@ -71,5 +81,53 @@ public class NewsArticle {
 
     public Instant getFetchedAt() {
         return fetchedAt;
+    }
+
+    public String getLeadText() {
+        return leadText;
+    }
+
+    public void setLeadText(String leadText) {
+        this.leadText = leadText;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public String getTitleKo() {
+        return titleKo;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public String getSummaryModel() {
+        return summaryModel;
+    }
+
+    public Instant getEnrichedAt() {
+        return enrichedAt;
+    }
+
+    public int getEnrichAttempts() {
+        return enrichAttempts;
+    }
+
+    /** 요약을 붙였다(사진 주소·한국어 제목은 없을 수 있다) */
+    public void enriched(String imageUrl, String titleKo, String summary, String summaryModel, Instant at) {
+        this.imageUrl = imageUrl;
+        this.titleKo = titleKo;
+        this.summary = summary;
+        this.summaryModel = summaryModel;
+        this.enrichedAt = at;
+        this.enrichAttempts++;
+    }
+
+    /** 이번에는 요약하지 못했다(몇 번까지만 다시 해 본다) */
+    public void enrichFailed(Instant at) {
+        this.enrichedAt = at;
+        this.enrichAttempts++;
     }
 }

@@ -1,9 +1,14 @@
 package com.korleaguer.config;
 
+import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.korleaguer.news.ClaudeSummarizer;
 import com.korleaguer.news.HttpGetter;
 import com.korleaguer.news.JdkHttpGetter;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.news.Summarizer;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -21,6 +26,25 @@ public class NewsConfig {
     public HttpGetter newsHttpGetter(NewsProperties properties) {
         return new JdkHttpGetter(properties.userAgent(), Duration.ofSeconds(5), Duration.ofSeconds(10),
                 MAX_FEED_BYTES);
+    }
+
+    /**
+     * 기사 요약기. 서버 환경 변수 ANTHROPIC_API_KEY(Claude Console에서 만든 키, /srv/korleaguer/api.env)가 있을 때만 켠다.
+     * 없으면 요약도 기사 페이지 받기도 하지 않는다.
+     */
+    @Bean
+    public Summarizer summarizer(@Value("${ANTHROPIC_API_KEY:}") String apiKey,
+                                 @Value("${korleaguer.news.summary-model:claude-haiku-5-5}") String model) {
+        if (apiKey == null || apiKey.isBlank()) {
+            LoggerFactory.getLogger(NewsConfig.class).info("news: ANTHROPIC_API_KEY is not set, article summaries are off");
+            return Summarizer.OFF;
+        }
+        // SDK 기본(10분 기다림, 두 번 다시 시도)은 30분마다 도는 수집 스레드를 너무 오래 잡는다
+        return new ClaudeSummarizer(AnthropicOkHttpClient.builder()
+                .apiKey(apiKey.trim())
+                .timeout(Duration.ofSeconds(60))
+                .maxRetries(1)
+                .build(), model);
     }
 
     @Bean

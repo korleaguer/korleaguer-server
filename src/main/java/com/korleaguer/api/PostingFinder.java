@@ -73,7 +73,8 @@ public class PostingFinder {
                 .stream()
                 .filter(a -> publishers.contains(a.getPublisher()))
                 .limit(NEWS_PER_PLAYER)
-                .map(a -> new PostingSummary.Headline(a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt()))
+                .map(a -> new PostingSummary.Headline(a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt(),
+                        a.getTitleKo(), a.getLeadText(), a.getSummary(), a.getImageUrl()))
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
                 photos.postingPath(p.slug()), status,
