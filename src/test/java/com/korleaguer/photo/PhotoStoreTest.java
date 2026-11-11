@@ -157,10 +157,10 @@ class PhotoStoreTest {
         PostingProperties.Current roh = new PostingProperties.Current("노시환", "si-hwan-roh", "한화 이글스", "3루수",
                 2000, List.of(), "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", null, KBO, null);
         PhotoSources sources = new PhotoSources(
-                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null))),
+                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null))),
                 new Postings(new PostingProperties(List.of(roh), List.of())),
                 new KorleaguerProperties(null, null, null, null,
-                        new KorleaguerProperties.Images(true, "https://img.example.com/people/{mlbId}/headshot"), null));
+                        new KorleaguerProperties.Images(true, "https://img.example.com/people/{mlbId}/headshot", null), null));
         return new PhotoStore(sources, repository, fetcher, mode, clock);
     }
 

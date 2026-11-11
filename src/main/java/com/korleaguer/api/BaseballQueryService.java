@@ -225,7 +225,8 @@ public class BaseballQueryService {
                 BirthDates.age(player.getBirthDate(), player.getAge(), KoreanTime.kstDate(now)),
                 BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
                 BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
-                player.getLevel(), player.getLevelTeamName(), player.isFreeAgent(), profiles.returnedKo(player));
+                player.getLevel(), player.getLevelTeamName(), player.isFreeAgent(), profiles.returnedKo(player),
+                profiles.careerPhotos(player));
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())));
     }
