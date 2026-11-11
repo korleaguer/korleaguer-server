@@ -77,6 +77,15 @@ public class PostingFinder {
         return now.isBefore(p.deadline()) ? "NEGOTIATING" : "CLOSED";
     }
 
+    /**
+     * 시각이 지나며 바뀌는 이 선수의 포스팅 응답 값: 상태(협상 시작·마감), 홈에 보이는지(마감 뒤 SHOW_AFTER_DEADLINE),
+     * 진행 막대(1% 단위). 이 값이 바뀌면 캐시한 응답을 다시 만든다(CacheWarmer). 남은 날(daysLeft)은 한국 날짜로 따로 본다.
+     */
+    static String timeKey(PostingCase p, Instant now) {
+        boolean shown = now.isBefore(p.deadline().plus(SHOW_AFTER_DEADLINE));
+        return status(p, now) + ":" + shown + ":" + Math.round(elapsedRatio(p, now) * 100);
+    }
+
     /** 협상 기간 중 지난 비율(0~1). 소수 셋째 자리까지 */
     static double elapsedRatio(PostingCase p, Instant now) {
         double total = Duration.between(p.windowOpens(), p.deadline()).toSeconds();

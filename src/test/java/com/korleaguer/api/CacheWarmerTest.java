@@ -1,8 +1,11 @@
 package com.korleaguer.api;
 
 import com.korleaguer.config.AppConfig;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.ingest.CatchUpFinished;
 import com.korleaguer.ingest.IngestService;
+import com.korleaguer.support.MutableClock;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,28 +18,33 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 따라잡기가 끝나면(CatchUpFinished) 홈·선수 페이지 전부·비시즌 홈의 선수 카드가 캐시에 미리 들어가고,
- * 내 선수 응답도 캐시했다가 수집이 끝나면 비운다. 샘플 데이터, 지금을 2026-11-01(비시즌)로 고정한다.
+ * 응답 캐시는 보이는 것이 실제로 바뀔 때만 비우고, 따라잡기가 끝나면 빠진 것을 채운다.
+ * 샘플 데이터, 지금을 2026-11-01 11:00Z(한국 20:00, 비시즌)에서 시작한다.
+ * 테스트에서는 자동 수집이 꺼져 있어, 비운 뒤 뒤에서 다시 채우지 않는다(채우기는 따라잡기 끝에서만 확인한다).
  */
 @SpringBootTest
 @ActiveProfiles("test")
 class CacheWarmerTest {
+
+    private static final Instant START = Instant.parse("2026-11-01T11:00:00Z");
 
     @Autowired
     private ApplicationEventPublisher events;
 
     @Autowired
     private CacheManager cacheManager;
+
+    @Autowired
+    private ResponseCaches responseCaches;
 
     @Autowired
     private BaseballQueryService queryService;
@@ -47,24 +55,34 @@ class CacheWarmerTest {
     @Autowired
     private IngestService ingestService;
 
+    @Autowired
+    private EntityManager entityManager;
+
+    @Autowired
+    private TransactionTemplate transactions;
+
+    @Autowired
+    private MutableClock clock;
+
     @TestConfiguration
-    static class FixedClock {
+    static class Clocks {
         @Bean
         @Primary
-        Clock fixedClock() {
-            return Clock.fixed(Instant.parse("2026-11-01T11:00:00Z"), ZoneOffset.UTC);
+        MutableClock mutableClock() {
+            return new MutableClock(START);
         }
     }
 
     @BeforeEach
-    void emptyCaches() {
-        cacheManager.getCacheNames().forEach(name -> cache(name).clear());
+    void startFresh() {
+        clock.set(START);
+        // 앞선 테스트의 쓰기는 본 것으로 치고, 캐시를 비우고, 시각 키를 지금으로 맞춘다
+        responseCaches.clearAll("테스트 시작");
+        events.publishEvent(new CatchUpFinished());
     }
 
     @Test
     void catchUpFinishedFillsHomeEveryPlayerAndOffSeasonCards() {
-        events.publishEvent(new CatchUpFinished());
-
         assertThat(cache(AppConfig.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
         List<PlayerSummary> players = queryService.players();
         assertThat(players).isNotEmpty();
@@ -80,16 +98,51 @@ class CacheWarmerTest {
     }
 
     @Test
-    void myPlayersIsCachedUntilIngestFinishes() {
+    void cachesStayUntilTheDatabaseActuallyChanges() {
         MyPlayersResponse first = myPlayers.find("1,2", 7);
         assertThat(myPlayers.find("1,2", 7)).isSameAs(first);
         // 기간이 다르면 따로 둔다
         assertThat(myPlayers.find("1,2", 14)).isNotSameAs(first);
 
+        // 아무것도 쓰지 않았으면 그대로 둔다(12분마다 따라잡기가 할 일 없이 끝나는 경우)
+        assertThat(responseCaches.clearIfDataChanged("확인")).isFalse();
+        events.publishEvent(new CatchUpFinished());
+        assertThat(myPlayers.find("1,2", 7)).isSameAs(first);
+
+        // 응답에 나오는 표에 쓰면(Hibernate가 보내는 UPDATE) 다음 확인 때 비운다. 실제 행은 바꾸지 않는다.
+        transactions.executeWithoutResult(status ->
+                entityManager.createNativeQuery("update team set name_en = name_en where 1 = 0").executeUpdate());
+        events.publishEvent(new CatchUpFinished());
+        assertThat(myPlayers.find("1,2", 7)).isNotSameAs(first);
+    }
+
+    @Test
+    void ingestClearsCachesWhenSomethingWasWritten() {
+        MyPlayersResponse first = myPlayers.find("1,2", 7);
+        transactions.executeWithoutResult(status ->
+                entityManager.createNativeQuery("update team set name_en = name_en where 1 = 0").executeUpdate());
+
+        // 수집이 끝나면 그사이 쓴 것을 보고 바로 비운다(따라잡기를 기다리지 않는다)
         ingestService.catchUp(false);
 
         assertThat(cache(AppConfig.MY_CACHE).get("1,2|7")).isNull();
         assertThat(myPlayers.find("1,2", 7)).isNotSameAs(first);
+    }
+
+    @Test
+    void newKoreanDateClearsCaches() {
+        MyPlayersResponse first = myPlayers.find("1,2", 7);
+
+        // 같은 날 한국 23:50: 그대로
+        clock.set(Instant.parse("2026-11-01T14:50:00Z"));
+        events.publishEvent(new CatchUpFinished());
+        assertThat(myPlayers.find("1,2", 7)).isSameAs(first);
+
+        // 한국 날짜가 11-02로 바뀌면 비우고, 따라잡기 끝에서 홈·선수를 다시 채운다
+        clock.set(Instant.parse("2026-11-01T15:00:00Z"));
+        events.publishEvent(new CatchUpFinished());
+        assertThat(cache(AppConfig.MY_CACHE).get("1,2|7")).isNull();
+        assertThat(cache(AppConfig.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
     }
 
     private Cache cache(String name) {

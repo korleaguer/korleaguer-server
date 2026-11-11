@@ -2,8 +2,8 @@ package com.korleaguer.ingest;
 
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
@@ -13,7 +13,6 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -27,7 +26,8 @@ import java.util.function.Supplier;
 
 /**
  * 수집 진입점. MLB 공식 Stats API는 여기(수집기)서만 부르고, 화면용 API는 DB만 읽는다.
- * - 실행마다 ingest_log에 한 줄을 남기고(requestsUsed = MLB 요청 수), 끝나면 홈·선수·내 선수 응답 캐시를 비운다.
+ * - 실행마다 ingest_log에 한 줄을 남긴다(requestsUsed = MLB 요청 수). 끝나면 응답에 나오는 데이터를 실제로 바꿨을 때만
+ *   홈·선수·내 선수 응답 캐시를 비운다(ResponseCaches. 같은 내용을 다시 받았으면 그대로 둔다).
  *   스케줄 실행(SCHEDULED)이 MLB를 한 번도 부르지 않았으면 줄을 남기지 않는다.
  * - 한 번에 하나만 돈다. 이미 도는 중이면 IngestAlreadyRunningException을 던진다.
  * - 단계마다 받은 것을 저장한다. MLB가 403/429로 거절하면 그 실행의 남은 단계는 건너뛰고 BLOCKED로 끝난다.
@@ -53,13 +53,14 @@ public class IngestService {
     private final IngestLogRepository ingestLogs;
     private final RosterProperties roster;
     private final CurrentSeason currentSeason;
+    private final ResponseCaches responseCaches;
     private final Clock clock;
     private final ReentrantLock lock = new ReentrantLock();
 
     public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher,
                          SeasonDatesRefresher seasonDatesRefresher, GameIngest gameIngest, PlayerRepository players,
                          PlayerSeasonRepository seasons, IngestLogRepository ingestLogs, RosterProperties roster,
-                         CurrentSeason currentSeason, Clock clock) {
+                         CurrentSeason currentSeason, ResponseCaches responseCaches, Clock clock) {
         this.client = client;
         this.writer = writer;
         this.playerRefresher = playerRefresher;
@@ -70,11 +71,11 @@ public class IngestService {
         this.ingestLogs = ingestLogs;
         this.roster = roster;
         this.currentSeason = currentSeason;
+        this.responseCaches = responseCaches;
         this.clock = clock;
     }
 
     /** 명단 선수를 만들고, 프로필·지금 팀·단계·이동 기록을 오늘 이미 받았어도 다시 받는다. */
-    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE}, allEntries = true)
     public IngestLog syncPlayers() {
         return run(IngestKind.PLAYERS, steps -> {
             ensureRoster();
@@ -83,7 +84,6 @@ public class IngestService {
     }
 
     /** 명단 선수 전원의 한 시즌을 (받은 적이 있어도) 다시 받는다. */
-    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE}, allEntries = true)
     public IngestLog ingestSeason(int season) {
         return run(IngestKind.SEASON, steps -> {
             ensureRoster();
@@ -93,7 +93,6 @@ public class IngestService {
     }
 
     /** 미국 날짜 usDate와 그 전날의 우리 팀 경기를 다시 받는다(끝난 경기도 박스스코어를 다시 받는다). */
-    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE}, allEntries = true)
     public IngestLog ingestGames(LocalDate usDate) {
         return run(IngestKind.GAMES, steps -> steps.add(() -> gameIngest.refreshGames(usDate.minusDays(1), usDate, true)));
     }
@@ -109,7 +108,6 @@ public class IngestService {
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
      * </ol>
      */
-    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE}, allEntries = true)
     public IngestLog catchUp(boolean refreshGames) {
         return catchUp(refreshGames, false);
     }
@@ -118,7 +116,6 @@ public class IngestService {
      * 따라잡기에 lookAhead면 앞 일정 보기(하루 한 번 앞으로 7일 일정)를 더한다.
      * 스케줄이 비시즌일 때 이것으로 포스트시즌처럼 새로 잡힌 경기를 보고 시즌 중으로 돌아온다.
      */
-    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE}, allEntries = true)
     public IngestLog catchUp(boolean refreshGames, boolean lookAhead) {
         return run(IngestKind.SCHEDULED, steps -> {
             ensureRoster();
@@ -140,7 +137,6 @@ public class IngestService {
     }
 
     /** 선수 한 명의 이번 시즌을 아직 안 받았으면 받는다(선수 페이지를 열 때). */
-    @CacheEvict(cacheNames = {AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE}, allEntries = true)
     public IngestLog loadPlayerSeason(long playerId) {
         return run(IngestKind.PLAYER_SEASON, steps -> {
             Player player = players.findById(playerId).orElse(null);
@@ -227,6 +223,8 @@ public class IngestService {
             return ingestLogs.save(entry);
         } finally {
             lock.unlock();
+            // 이번 수집이 응답에 나오는 데이터를 바꿨으면 캐시를 비운다. 잠금을 푼 뒤에 해서 다음 수집을 붙잡지 않는다.
+            responseCaches.clearIfDataChanged("수집 " + kind);
         }
     }
 }

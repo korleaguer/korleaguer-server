@@ -4,6 +4,7 @@ import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
 import com.korleaguer.domain.IngestStatus;
@@ -47,7 +48,8 @@ class IngestServiceLockTest {
                 DataMode.MLB, mock(SeasonDatesRepository.class), Clock.systemUTC());
         IngestService service = new IngestService(new SampleMlbClient(SampleMlbClient.Data.empty()),
                 mock(IngestWriter.class), blockingRefresher, mock(SeasonDatesRefresher.class), mock(GameIngest.class),
-                players, mock(PlayerSeasonRepository.class), ingestLogs, roster, currentSeason, Clock.systemUTC());
+                players, mock(PlayerSeasonRepository.class), ingestLogs, roster, currentSeason,
+                mock(ResponseCaches.class), Clock.systemUTC());
 
         Thread first = new Thread(service::syncPlayers);
         first.start();
