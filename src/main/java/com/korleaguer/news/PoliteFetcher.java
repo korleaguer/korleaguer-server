@@ -73,6 +73,9 @@ public class PoliteFetcher {
     /**
      * @param agents robots.txt에서 확인할 이름. 맨 앞이 우리 이름이다(비면 안 된다)
      */
+    // getPage가 읽는 마지막 응답 코드(메서드가 모두 synchronized라 한 호출 안에서만 쓴다)
+    private int lastStatus;
+
     public PoliteFetcher(HttpGetter http, List<String> agents, Clock clock, Sleeper sleeper) {
         this(http, agents, clock, sleeper, true);
     }
@@ -114,8 +117,26 @@ public class PoliteFetcher {
      * 기사 페이지용: 조건 없이 한 번 받는다(304로 본문을 놓치지 않게). 404·410은 그 기사만 없어진 것이라 사이트를 쉬게
      * 하지 않는다(피드 주소가 404면 하루 쉬는 것과 다르다). robots.txt·간격·429·403 등 나머지 규칙은 같다.
      */
-    public synchronized Optional<Fetched> getPage(URI uri) {
-        return get(uri, Map.of(), 0, false);
+    public synchronized Page getPage(URI uri) {
+        lastStatus = 0;
+        Optional<Fetched> fetched = get(uri, Map.of(), 0, false);
+        if (fetched.isPresent() && fetched.get().modified()) {
+            return new Page(200, fetched.get().body());
+        }
+        return new Page(lastStatus, null);
+    }
+
+    /**
+     * 기사 페이지 한 번 받은 결과.
+     *
+     * @param status 마지막 응답 코드. 요청하지 않았으면(robots.txt가 막음, 쉬는 중, 연결 실패) 0
+     * @param body   200이면 본문, 아니면 null
+     */
+    public record Page(int status, byte[] body) {
+
+        public boolean ok() {
+            return body != null;
+        }
     }
 
     /** 이 주소의 사이트가 지금 쉬는 중인지(테스트·로그용) */
@@ -150,6 +171,7 @@ public class PoliteFetcher {
             return Optional.empty();
         }
         int status = reply.status();
+        lastStatus = status;
         if (status == 200) {
             site.failures = 0;
             return Optional.of(new Fetched(true, reply.body(), reply.header("content-type"), reply.header("etag"),

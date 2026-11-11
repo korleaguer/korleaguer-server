@@ -31,7 +31,7 @@ class PoliteFetcherTest {
         String page = SITE + "/view/1";
         http.on(ROBOTS, ok("User-agent: *\nAllow: /\n")).on(page, reply(404, "")).on(FEED, reply(410, ""));
 
-        assertThat(fetcher.getPage(URI.create(page))).isEmpty();
+        assertThat(fetcher.getPage(URI.create(page))).isEqualTo(new PoliteFetcher.Page(404, null));
         assertThat(fetcher.paused(URI.create(FEED))).isFalse();
 
         assertThat(fetch(FEED)).isEmpty();

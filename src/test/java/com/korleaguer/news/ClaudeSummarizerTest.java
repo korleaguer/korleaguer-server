@@ -14,6 +14,14 @@ class ClaudeSummarizerTest {
     }
 
     @Test
+    void aMarkdownDecoratedTitleLineIsStillRecognised() {
+        assertThat(ClaudeSummarizer.tidy("**제목:** 한화, 노시환 포스팅\n**노시환**이 포스팅됐다.", false))
+                .contains(new Summarizer.Summary("한화, 노시환 포스팅", "노시환이 포스팅됐다."));
+        assertThat(ClaudeSummarizer.tidy("# 제목: 노시환 포스팅\n노시환이 포스팅됐다.", false))
+                .contains(new Summarizer.Summary("노시환 포스팅", "노시환이 포스팅됐다."));
+    }
+
+    @Test
     void withoutATitleLineEverythingIsTheSummary() {
         assertThat(ClaudeSummarizer.tidy("노시환이 포스팅됐다.", false))
                 .contains(new Summarizer.Summary(null, "노시환이 포스팅됐다."));

@@ -44,20 +44,13 @@ public interface Summarizer {
     String model();
 
     /**
-     * 요약 서비스가 이번에 답하지 못했다. articleProblem이면 요청 내용이 거절된 것(400 등)이라 그 기사의 시도로 센다.
-     * 아니면(키·모델 설정, 사용량 제한, 서버 문제, 연결 실패) 기사 탓이 아니라 세지 않고 다음 차례에 다시 한다.
+     * 요약 서비스가 이번에 답하지 못했다(키·결제·모델 설정, 사용량 제한, 서버 문제, 연결 실패, 요청 거절).
+     * 본문은 8000자로 묶고 요청 모양은 늘 같아 기사 탓일 일이 거의 없으므로, 기사의 시도로 세지 않고 다음 차례에 다시 한다.
      */
     final class Failure extends RuntimeException {
 
-        private final boolean articleProblem;
-
-        public Failure(String message, boolean articleProblem, Throwable cause) {
+        public Failure(String message, Throwable cause) {
             super(message, cause);
-            this.articleProblem = articleProblem;
-        }
-
-        public boolean articleProblem() {
-            return articleProblem;
         }
     }
 }

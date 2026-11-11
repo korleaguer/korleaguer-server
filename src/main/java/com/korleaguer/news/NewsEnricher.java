@@ -25,7 +25,8 @@ import java.util.stream.Collectors;
  *   <li>기사 페이지는 기사마다 PoliteFetcher.getPage로 받는다(robots.txt·Crawl-delay·멈춤을 지킨다).
  *       본문은 요약에만 쓰고 버린다.</li>
  *   <li>한 번에 최근 기사 몇 건만 한다. 기사 탓인 실패(페이지가 없어짐, 본문 없음, 요약 거절)는 세 번까지 다시 해 본다.</li>
- *   <li>기사 탓이 아닌 실패(사이트가 쉬는 중, 요약 서비스 장애·키 문제)는 세지 않고 이번 차례를 멈춘다(다음 차례에 다시).</li>
+ *   <li>기사 탓이 아닌 실패(사이트가 쉬는 중·429·503·연결 실패, 요약 서비스 장애·키 문제)는 세지 않고 이번 차례를
+ *       멈춘다(다음 차례에 다시). 그 기사만 403·5xx를 주면 기사 탓으로 세고 멈춘다(끝없이 되풀이하지 않게).</li>
  * </ul>
  */
 @Component
@@ -62,7 +63,7 @@ public class NewsEnricher {
         DONE,
         /** 기사 탓으로 실패했다(시도로 센다) */
         FAILED,
-        /** 기사 탓으로 실패했고, 같은 일이 이어질 수 있어 이번 차례는 멈춘다 */
+        /** 기사 탓으로 실패했고 그 요청으로 사이트가 쉬기 시작해 이번 차례는 멈춘다 */
         FAILED_STOP,
         /** 기사 탓이 아니다(사이트가 쉬는 중, 요약 서비스 문제). 세지 않고 이번 차례를 멈춘다 */
         WAIT
@@ -108,15 +109,17 @@ public class NewsEnricher {
             if (fetcher.paused(uri)) {
                 return Outcome.WAIT;
             }
-            Optional<PoliteFetcher.Fetched> html = fetcher.getPage(uri);
-            if (html.isEmpty() || !html.get().modified() || html.get().body() == null) {
-                if (fetcher.paused(uri)) {
-                    return Outcome.WAIT; // 제한(429·503)·거절·연결 실패로 사이트가 쉬기 시작했다
+            PoliteFetcher.Page html = fetcher.getPage(uri);
+            if (!html.ok()) {
+                int status = html.status();
+                if (status == 429 || status == 503 || (status == 0 && fetcher.paused(uri))) {
+                    return Outcome.WAIT; // 사이트가 천천히 하라고 했거나 연결이 안 된다: 기사 탓이 아니다
                 }
-                article.enrichFailed(now); // 기사가 없어졌거나(404·410) robots.txt가 막았다
-                return Outcome.FAILED;
+                article.enrichFailed(now); // 기사가 없어졌거나(404·410) robots.txt가 막았거나 이 기사만 403·5xx
+                // 이 기사 요청으로 사이트가 쉬기 시작했으면(403·5xx) 이번 차례는 멈춘다. 세 번 세면 그만둔다
+                return fetcher.paused(uri) ? Outcome.FAILED_STOP : Outcome.FAILED;
             }
-            ArticlePage page = ArticlePage.parse(html.get().body());
+            ArticlePage page = ArticlePage.parse(html.body());
             if (page.text().length() < MIN_BODY) {
                 log.warn("news: no article body found at {}", article.getUrl());
                 article.enrichFailed(now);
@@ -132,10 +135,6 @@ public class NewsEnricher {
             return Outcome.DONE;
         } catch (Summarizer.Failure e) {
             log.warn("news: summary service failed for {}: {}", article.getUrl(), e.getMessage());
-            if (e.articleProblem()) {
-                article.enrichFailed(now);
-                return Outcome.FAILED_STOP;
-            }
             return Outcome.WAIT;
         } catch (RuntimeException e) {
             log.warn("news: could not summarize {}: {}", article.getUrl(), e.getMessage());

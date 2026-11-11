@@ -79,7 +79,7 @@ class NewsEnricherTest {
             @Override
             public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
                 if (calls[0]++ == 0) {
-                    throw new Summarizer.Failure("529 overloaded", false, null);
+                    throw new Summarizer.Failure("529 overloaded", null);
                 }
                 return Optional.of(new Summarizer.Summary(null, "두 번째에 요약했다."));
             }
@@ -130,6 +130,21 @@ class NewsEnricherTest {
     }
 
     @Test
+    void anArticleThatKeepsFailingOnItsOwnIsCountedAndStopsTheRun() {
+        NewsArticle second = new NewsArticle("노시환", MLB + "/2026/11/second.html", "s", "Roh Second", "MLB Trade Rumors",
+                Instant.parse("2026-11-01T10:00:00Z"), NOV_11);
+        article = new NewsArticle("노시환", MLB + "/2026/11/broken.html", "b", "Roh Notes", "MLB Trade Rumors",
+                Instant.parse("2026-11-05T20:40:00Z"), NOV_11);
+        queue.addAll(List.of(article, second));
+        http.on(MLB + "/2026/11/broken.html", FakeHttp.reply(500, ""));
+
+        enricher(summarizer("요약")).enrich();
+
+        assertThat(article.getEnrichAttempts()).isEqualTo(1);
+        assertThat(http.urls()).doesNotContain(MLB + "/2026/11/second.html");
+    }
+
+    @Test
     void summaryServiceTroubleUsesNoAttempts() {
         Summarizer down = new Summarizer() {
             @Override
@@ -139,7 +154,7 @@ class NewsEnricherTest {
 
             @Override
             public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
-                throw new Summarizer.Failure("UnauthorizedException: invalid x-api-key", false, null);
+                throw new Summarizer.Failure("UnauthorizedException: invalid x-api-key", null);
             }
 
             @Override
