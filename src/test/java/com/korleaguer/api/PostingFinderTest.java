@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -130,7 +131,7 @@ class PostingFinderTest {
                 new PostingSummary.Past("나성범", 2020, LocalDate.parse("2021-01-09"), null, null, null),
                 new PostingSummary.Past("김하성", 2020, LocalDate.parse("2021-01-01"), 4,
                         new PostingSummary.Deal(135L, "샌디에이고", LocalDate.parse("2020-12-28"), 4, 28_000_000L),
-                        "/photos/mlb-673490-2024"));
+                        "/photos/posting-673490-2024"));
     }
 
     @Test
@@ -138,9 +139,9 @@ class PostingFinderTest {
         Instant now = Instant.parse("2026-11-11T01:00:00Z");
 
         // KBO 선수 번호가 있는 선배만, 포스팅된 겨울(season) 시즌 사진. 공식 사진을 끄면 모두 null
-        // 계약 구단 MLB 사진이 있으면 그것(김하성 2024 샌디에이고), 없으면 포스팅 시즌 KBO 사진(이정후 2023). 끄면 모두 null
+        // 계약 구단 MLB 사진(의 편집본)이 있으면 그것(김하성 2024 샌디에이고), 없으면 포스팅 시즌 KBO 사진(이정후 2023). 끄면 모두 null
         assertThat(finder(roh(null)).find(now).history()).extracting(PostingSummary.Past::photoUrl)
-                .containsExactly("/photos/kbo-67341-2023", null, "/photos/mlb-673490-2024");
+                .containsExactly("/photos/kbo-67341-2023", null, "/photos/posting-673490-2024");
         assertThat(finder(roh(null), false).find(now).history()).extracting(PostingSummary.Past::photoUrl)
                 .containsExactly(null, null, null);
     }
@@ -151,9 +152,25 @@ class PostingFinderTest {
 
         assertThat(photos(postings, true).source("kbo-67341-2023"))
                 .contains("https://kbo.example/2023/67341.jpg");
-        assertThat(photos(postings, true).source("mlb-673490-2024"))
-                .contains("https://archive.example/2024/673490.jpg");
+        // MLB 사진은 원본(photo-url)을 받지 않고 우리가 만든 편집본(흰 바탕)을 준다
+        assertThat(photos(postings, true).source("posting-673490-2024"))
+                .contains("classpath:photos/posting-673490-2024.jpg");
+        assertThat(photos(postings, true).source("mlb-673490-2024")).isEmpty();
         assertThat(photos(postings, true).source("kbo-64300-2020")).isEmpty(); // MLB 사진이 있으면 KBO 사진은 받지 않는다
+    }
+
+    @Test
+    void missingEditedPhotoStopsTheServerFromStarting() {
+        Postings postings = new Postings(new PostingProperties(List.of(), List.of(
+                new PostingProperties.Past("노시환", 2026, "SD", "2026-12-01", "2026-11-28", 4, 30_000_000L, null,
+                        69737L, 999_999L, 2027, "https://img.example/999999.jpg"))));
+
+        assertThatThrownBy(() -> photos(postings, true))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("노시환")
+                .hasMessageContaining("photos/posting-999999-2027.jpg")
+                .hasMessageContaining("tools/posting-photo");
+        assertThat(photos(postings, false).all()).isEmpty(); // 공식 사진을 끄면 편집본도 필요 없다
     }
 
     @Test

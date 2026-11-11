@@ -19,7 +19,9 @@ import java.util.Optional;
  *   <li>kbo-{slug}: 포스팅 선수(posting.yml)의 photo-url(현 소속 KBO 구단 사진)</li>
  *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진, MLB 사진이 없는 지난 포스팅 선배의
  *       포스팅 당시 사진(korleaguer.images.kbo-photo-template)</li>
- *   <li>mlb-{MLB 선수 번호}-{시즌}: 지난 포스팅 선배의 계약 구단 시절 MLB 공식 사진(posting.yml history의 photo-url)</li>
+ *   <li>posting-{MLB 선수 번호}-{시즌}: 지난 포스팅 선배의 계약 구단 시절 MLB 공식 사진(posting.yml history의 photo-url)을
+ *       배경을 지워 흰 바탕에 놓고 얼굴 크기를 포스팅 선수 KBO 사진에 맞춘 편집본. 원본에서 받지 않고 우리가 만든 파일
+ *       (src/main/resources/photos/, tools/posting-photo)을 그대로 준다</li>
  * </ul>
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
@@ -28,6 +30,9 @@ import java.util.Optional;
 public class PhotoSources {
 
     public static final String WEB_PATH = "/photos/";
+    /** 원본에서 받지 않고 우리 파일(클래스패스)을 그대로 주는 사진의 원본 주소 앞머리 */
+    public static final String BUNDLED = "classpath:";
+    private static final String BUNDLED_DIR = "photos/";
     private static final String MLB_ID_PLACEHOLDER = "{mlbId}";
     private static final String KBO_ID_PLACEHOLDER = "{kboId}";
     private static final String SEASON_PLACEHOLDER = "{season}";
@@ -69,10 +74,18 @@ public class PhotoSources {
                     }
                 }
             }
-            // 지난 포스팅 선배: 계약한 MLB 구단 시절 MLB 공식 사진(모두 같은 틀이라 크기가 고르다)
+            // 지난 포스팅 선배: 계약한 MLB 구단 시절 MLB 공식 사진의 편집본(흰 바탕, 포스팅 선수 사진과 같은 얼굴 크기).
+            // 편집본 없이 원본을 그대로 보이면 원 안 배경·크기가 제각각이라, 편집본이 빠졌으면 뜨지 않는다
             for (PastPosting past : postings.history()) {
                 if (past.photoUrl() != null) {
-                    all.putIfAbsent(mlbSeasonKey(past.mlbId(), past.photoSeason()), past.photoUrl());
+                    String key = pastPostingKey(past.mlbId(), past.photoSeason());
+                    String resource = BUNDLED_DIR + key + ".jpg";
+                    if (PhotoSources.class.getClassLoader().getResource(resource) == null) {
+                        throw new IllegalStateException("roster/posting.yml posting.history " + past.nameKo()
+                                + ": edited photo src/main/resources/" + resource
+                                + " is missing (make it from photo-url with tools/posting-photo)");
+                    }
+                    all.putIfAbsent(key, BUNDLED + resource);
                 }
             }
             for (PostingCase posting : postings.current()) {
@@ -109,17 +122,22 @@ public class PhotoSources {
         return kboId == null || season == null ? null : path(careerKey(kboId, season));
     }
 
-    /** 그 시즌 MLB 공식 사진의 우리 주소(/photos/mlb-673490-2024). 사진을 껐거나 목록에 없으면 null */
-    public String mlbSeasonPath(Long mlbId, Integer season) {
-        return mlbId == null || season == null ? null : path(mlbSeasonKey(mlbId, season));
+    /** 지난 포스팅 선배 사진 편집본의 우리 주소(/photos/posting-673490-2024). 사진을 껐거나 목록에 없으면 null */
+    public String pastPostingPath(Long mlbId, Integer season) {
+        return mlbId == null || season == null ? null : path(pastPostingKey(mlbId, season));
+    }
+
+    /** 원본에서 받지 않고 우리 파일을 그대로 주는 사진인가(원본 주소가 classpath:…) */
+    public static boolean bundled(String source) {
+        return source.startsWith(BUNDLED);
     }
 
     /**
-     * 시즌이 정해진 사진(kbo-67341-2023, mlb-673490-2024)인가. 그 시즌의 모습이라 바뀔 일이 없으므로
+     * 시즌이 정해진 사진(kbo-67341-2023)인가. 그 시즌의 모습이라 바뀔 일이 없으므로
      * 한 번 받으면 원본에 다시 묻지 않는다(선수가 팀을 옮겨 원본 '현재 사진'이 바뀌어도 그 시즌 사진을 지킨다).
      */
     public static boolean seasonFixed(String key) {
-        return key.matches("(kbo|mlb)-\\d+-\\d{4}");
+        return key.matches("kbo-\\d+-\\d{4}");
     }
 
     private String path(String key) {
@@ -130,8 +148,8 @@ public class PhotoSources {
         return "mlb-" + mlbId;
     }
 
-    static String mlbSeasonKey(Long mlbId, int season) {
-        return "mlb-" + mlbId + "-" + season;
+    static String pastPostingKey(Long mlbId, int season) {
+        return "posting-" + mlbId + "-" + season;
     }
 
     static String careerKey(Long kboId, int season) {

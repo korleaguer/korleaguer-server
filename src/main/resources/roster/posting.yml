@@ -20,9 +20,11 @@
 #   years·guaranteed-usd: 보장 연수와 보장액(달러). 옵션·인센티브는 넣지 않는다.
 #   kbo-id: KBO 선수 번호(한국어 위키백과 선수 문서의 KBO 기록 링크 playerId). MLB 사진(photo-url)이 없을 때 season 시즌의 KBO 공식 등록 사진
 #           (포스팅 당시 구단의 마지막 시즌, 정면)을 우리 서버가 KBO 사진 서버에서 한 번 받아 호스팅한다. 권리는 KBO·구단에 있다.
-#   mlb-id·photo-season·photo-url: 계약한 MLB 구단에서의 마지막 시즌 MLB 공식 사진(headshot/67, 모두 같은 틀이라 크기가 고르다).
+#   mlb-id·photo-season·photo-url: 계약한 MLB 구단에서의 마지막 시즌 MLB 공식 사진(headshot/67)의 출처.
 #           지금도 그 구단이면 MLB 현재 사진 주소, 팀을 옮겼으면 인터넷 보관소(web.archive.org, 'id_' 원본 사본)에 남은 그 시즌 사진 주소를 적는다.
-#           우리 서버가 mlb-{번호}-{시즌}으로 한 번 받아 호스팅하고 다시 받지 않는다(팀을 옮겨도 그 시즌 사진 유지). 권리는 MLB·구단에 있다.
+#           화면에는 이 사진의 편집본을 보인다: 배경을 지워 흰 바탕에 놓고 얼굴 크기·위치를 노시환 KBO 사진과 맞춘 정사각형
+#           (src/main/resources/photos/posting-{mlb-id}-{photo-season}.jpg, 만드는 법은 tools/posting-photo/README.md).
+#           편집본이 없으면 서버가 뜨지 않는다. 우리 서버가 /photos/posting-{번호}-{시즌}으로 호스팅한다. 권리는 MLB·구단에 있다.
 # 2026-11-11 MLB Trade Rumors 원문으로 확인했다.
 posting:
   current:

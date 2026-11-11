@@ -46,8 +46,8 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param season             포스팅된 겨울이 시작한 해
      * @param deadline           협상 마감 미국 날짜
      * @param daysBeforeDeadline 마감 며칠 전에 합의했는지(미국 날짜, 마감 당일이면 0)
-     * @param photoUrl           포스팅 당시 KBO 공식 등록 사진(그 구단 마지막 시즌, /photos/kbo-77829-2019).
-     *                           KBO 선수 번호가 없거나 공식 사진을 껐으면 null
+     * @param photoUrl           계약 구단 시절 MLB 공식 사진의 편집본(흰 바탕 정사각형, /photos/posting-673490-2024).
+     *                           없으면 포스팅 당시 KBO 공식 등록 사진(/photos/kbo-77829-2019). 둘 다 없거나 공식 사진을 껐으면 null
      */
     public record Past(String nameKo, int season, LocalDate deadline, Integer daysBeforeDeadline, Deal deal,
                        String photoUrl) {

@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -21,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 선수 사진을 우리가 호스팅한다(원본에서 처음 한 번만 받는다).
@@ -32,6 +36,7 @@ import java.util.Optional;
  *   <li>원본 주소가 바뀌면(명단·포스팅 파일 수정) 새로 받는다.</li>
  *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).</li>
  *   <li>샘플 모드는 네트워크를 쓰지 않는다(저장본이 없으면 사진 없음).</li>
+ *   <li>우리가 만든 사진(원본 주소 classpath:…, 포스팅 선배 편집본)은 받지 않고 그 파일을 그대로 준다. 샘플 모드에서도 준다.</li>
  * </ul>
  */
 @Component
@@ -50,6 +55,7 @@ public class PhotoStore {
     private final DataMode dataMode;
     private final Clock clock;
     private final Object lock = new Object();
+    private final Map<String, Photo> bundled = new ConcurrentHashMap<>();
 
     public PhotoStore(PhotoSources sources, PhotoRepository photos, @Qualifier("photoFetcher") PoliteFetcher fetcher,
                       DataMode dataMode, Clock clock) {
@@ -65,6 +71,9 @@ public class PhotoStore {
         Optional<String> source = sources.source(key);
         if (source.isEmpty()) {
             return Optional.empty();
+        }
+        if (PhotoSources.bundled(source.get())) {
+            return Optional.of(bundled.computeIfAbsent(key, k -> readBundled(k, source.get())));
         }
         Optional<Photo> stored = photos.findById(key);
         if (stored.isPresent() && stored.get().getSourceUrl().equals(source.get())) {
@@ -87,6 +96,9 @@ public class PhotoStore {
         int changed = 0;
         synchronized (lock) {
             for (Map.Entry<String, String> entry : sources.all().entrySet()) {
+                if (PhotoSources.bundled(entry.getValue())) {
+                    continue; // 우리 파일이라 받을 것도 물을 것도 없다
+                }
                 Instant now = clock.instant();
                 Optional<Photo> stored = photos.findById(entry.getKey());
                 if (stored.isEmpty() || !stored.get().getSourceUrl().equals(entry.getValue())) {
@@ -159,6 +171,22 @@ public class PhotoStore {
             return photos.save(photo);
         } catch (DataIntegrityViolationException e) {
             return photos.findById(key).orElse(photo);
+        }
+    }
+
+    /** 우리 파일(classpath:photos/….jpg)을 읽는다. 앱에 들어 있는 파일이라 DB에 두지 않고 메모리에만 둔다 */
+    private Photo readBundled(String key, String source) {
+        String resource = source.substring(PhotoSources.BUNDLED.length());
+        try (InputStream in = PhotoStore.class.getClassLoader().getResourceAsStream(resource)) {
+            if (in == null) {
+                throw new IllegalStateException("bundled photo is missing: " + resource);
+            }
+            byte[] data = in.readAllBytes();
+            Photo photo = new Photo(key);
+            photo.replace(source, "image/jpeg", data, sha256(data), null, null, clock.instant());
+            return photo;
+        } catch (IOException e) {
+            throw new UncheckedIOException("cannot read bundled photo " + resource, e);
         }
     }
 
