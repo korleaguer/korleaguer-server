@@ -42,8 +42,10 @@ public record PostingProperties(List<Current> current, List<Past> history) {
      * @param agreedOn      합의가 처음 보도된 미국 날짜(yyyy-MM-dd). SIGNED일 때만
      * @param years         보장 연수. SIGNED일 때만
      * @param guaranteedUsd 보장액(달러). SIGNED일 때만
+     * @param krwPerUsd     합의일 원/달러 환율(1달러당 원, 선택). 화면이 보장액을 원화로 어림해 보인다. SIGNED일 때만
      */
-    public record Result(String outcome, String mlbTeam, String agreedOn, Integer years, Long guaranteedUsd) {
+    public record Result(String outcome, String mlbTeam, String agreedOn, Integer years, Long guaranteedUsd,
+                         Double krwPerUsd) {
     }
 
     /**
@@ -54,10 +56,11 @@ public record PostingProperties(List<Current> current, List<Past> history) {
      * @param kboId       KBO 선수 번호(선택). MLB 사진이 없으면 season 시즌의 KBO 공식 등록 사진을 쓴다
      * @param mlbId       MLB 선수 번호(선택, photo-url과 함께)
      * @param photoSeason photo-url 사진의 시즌(계약한 MLB 구단에서의 마지막 시즌)
-     * @param photoUrl    계약한 MLB 구단 시절 MLB 공식 사진 원본 주소(선택). 우리 서버가 한 번 받아 호스팅한다
+     * @param photoUrl    계약한 MLB 구단 시절 MLB 공식 사진 원본 주소(선택). 화면에는 그 편집본을 보인다
+     * @param krwPerUsd   합의일 원/달러 환율(1달러당 원, 선택). 화면이 보장액을 원화로 어림해 보인다
      */
     public record Past(String nameKo, Integer season, String mlbTeam, String deadline, String agreedOn,
                        Integer years, Long guaranteedUsd, String source, Long kboId,
-                       Long mlbId, Integer photoSeason, String photoUrl) {
+                       Long mlbId, Integer photoSeason, String photoUrl, Double krwPerUsd) {
     }
 }
