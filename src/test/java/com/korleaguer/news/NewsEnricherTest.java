@@ -58,6 +58,43 @@ class NewsEnricherTest {
     }
 
     @Test
+    void aFailedSummaryIsRetriedWithAFreshPage() {
+        http.on(MLB + "/2026/11/etag.html", FakeHttp.reply(200, "<div class=\"entry-content\"><p>" + BODY + "</p></div>",
+                "ETag", "\"v1\""));
+        article = new NewsArticle("노시환", MLB + "/2026/11/etag.html", "t", "Roh Notes", "MLB Trade Rumors",
+                Instant.parse("2026-11-03T20:40:00Z"), NOV_11);
+        int[] calls = {0};
+        Summarizer flaky = new Summarizer() {
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+
+            @Override
+            public Optional<String> summarize(String player, String title, String body) {
+                if (calls[0]++ == 0) {
+                    throw new IllegalStateException("529 overloaded");
+                }
+                return Optional.of("두 번째에 요약했다.");
+            }
+
+            @Override
+            public String model() {
+                return "test-model";
+            }
+        };
+        NewsEnricher enricher = enricher(flaky);
+
+        enricher.enrich();
+        clock.advance(java.time.Duration.ofMinutes(30));
+        enricher.enrich();
+
+        assertThat(article.getSummary()).isEqualTo("두 번째에 요약했다.");
+        assertThat(http.requests).filteredOn(r -> r.uri().getPath().endsWith("etag.html"))
+                .allSatisfy(r -> assertThat(r.headers()).doesNotContainKey("If-None-Match"));
+    }
+
+    @Test
     void withoutAnApiKeyNoPageIsRequested() {
         assertThat(enricher(Summarizer.OFF).enrich()).isZero();
         assertThat(http.requests).isEmpty();

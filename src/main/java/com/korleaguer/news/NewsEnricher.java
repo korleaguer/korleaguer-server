@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -84,12 +85,13 @@ public class NewsEnricher {
 
     private boolean enrich(NewsArticle article, Instant now) {
         try {
-            Optional<byte[]> html = fetcher.fetch(URI.create(article.getUrl()));
-            if (html.isEmpty()) {
+            // 조건부 요청(fetch)을 쓰지 않는다: 요약이 실패한 뒤 다시 받을 때 304(안 바뀜)로 본문을 못 받게 된다
+            Optional<PoliteFetcher.Fetched> html = fetcher.get(URI.create(article.getUrl()), Map.of());
+            if (html.isEmpty() || !html.get().modified() || html.get().body() == null) {
                 article.enrichFailed(now);
                 return false;
             }
-            ArticlePage page = ArticlePage.parse(html.get());
+            ArticlePage page = ArticlePage.parse(html.get().body());
             if (page.text().length() < MIN_BODY) {
                 log.warn("news: no article body found at {}", article.getUrl());
                 article.enrichFailed(now);
