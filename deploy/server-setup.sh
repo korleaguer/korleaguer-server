@@ -137,6 +137,8 @@ say "${DEPLOY_DIR} 준비"
 install -d -m 750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$DEPLOY_DIR" "$DEPLOY_DIR/backups"
 install -m 640 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$HERE/compose.yaml" "$DEPLOY_DIR/compose.yaml"
 install -m 640 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$HERE/Caddyfile" "$DEPLOY_DIR/Caddyfile"
+# 블루-그린: Caddy가 지금 받는 웹·API를 읽는 곳. 파일은 배포 스크립트가 쓴다(처음 배포 전에는 blue 자리를 가리킨다).
+install -d -m 755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$DEPLOY_DIR/live"
 random() { openssl rand -hex 24; }
 make_secret_file() {
   local file="$1"; shift

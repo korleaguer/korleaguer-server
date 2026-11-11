@@ -108,7 +108,8 @@ jobs:
     # 실행을 취소하면 배포하지 않는다(배포 단계가 이미 시작됐으면 서버는 교체를 끝까지 한다).
     if: ${{ !cancelled() && ((github.event_name == 'push' && needs.build.result == 'success') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # 서버는 앞 배포를 최대 10분 기다리고(잠금), 새 자리가 healthy(최대 5분)·데워지기(최대 3분)를 기다린다(블루-그린)
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: read
