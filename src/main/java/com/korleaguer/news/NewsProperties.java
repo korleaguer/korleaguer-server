@@ -1,6 +1,7 @@
 package com.korleaguer.news;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.time.Duration;
 import java.util.List;
@@ -11,16 +12,30 @@ import java.util.List;
  * @param enabled      스케줄 수집을 켤지. 꺼도 홈은 DB에 있는 기사를 그대로 보여 준다
  * @param cron         깨어나는 주기(UTC). 포스팅 협상 기간이 아니면 깨어나도 아무 요청도 하지 않는다
  * @param userAgent    우리가 누군지 밝히는 값. 브라우저인 척하지 않는다
- * @param robotsAgents robots.txt에서 확인할 이름. 하나라도 막혀 있으면 받지 않는다(우리 이름과 Claude 계열 이름)
- * @param sources      기사 제목을 받을 피드(RSS·Atom). robots.txt가 허용한 곳만 적는다
+ * @param robotsAgents   robots.txt에서 확인할 이름(우리 수집기 이름). 하나라도 막혀 있으면 받지 않는다
+ * @param aiRobotsAgents AI 요약 출처(preview: ai)를 받을 때 더 확인할 이름(Claude 계열). 그 사이트가 AI 수집기를 막았으면
+ *                       본문을 Claude에 보내지 않는다. 앞부분만 쓰는 출처는 AI에 보내지 않으므로 우리 이름만 본다
+ * @param sources        기사를 받을 피드(RSS·Atom·뉴스 사이트맵). robots.txt가 허용한 곳만 적는다
  */
 @ConfigurationProperties("korleaguer.news")
 public record NewsProperties(boolean enabled, String cron, String userAgent, List<String> robotsAgents,
-                             List<Source> sources) {
+                             List<String> aiRobotsAgents, List<Source> sources) {
 
+    @ConstructorBinding
     public NewsProperties {
         robotsAgents = robotsAgents == null ? List.of() : List.copyOf(robotsAgents);
+        aiRobotsAgents = aiRobotsAgents == null ? List.of() : List.copyOf(aiRobotsAgents);
         sources = sources == null ? List.of() : List.copyOf(sources);
+    }
+
+    public NewsProperties(boolean enabled, String cron, String userAgent, List<String> robotsAgents,
+                          List<Source> sources) {
+        this(enabled, cron, userAgent, robotsAgents, List.of(), sources);
+    }
+
+    /** AI 요약 출처를 받을 때 robots.txt에서 볼 이름 전부(우리 이름 + Claude 계열) */
+    public List<String> aiAgents() {
+        return java.util.stream.Stream.concat(robotsAgents.stream(), aiRobotsAgents.stream()).distinct().toList();
     }
 
     /**

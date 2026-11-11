@@ -57,7 +57,7 @@ class NewsCollectorTest {
     @Test
     void sampleModeNeverTouchesTheNetwork() {
         NewsCollector collector = new NewsCollector(properties(source("뉴시스", NEWS + "/rss.xml")), postings(),
-                fetcher(), articles, DataMode.SAMPLE, clock);
+                fetcher(), fetcher(), articles, DataMode.SAMPLE, clock);
 
         assertThat(collector.collect()).isZero();
         assertThat(http.requests).isEmpty();
@@ -174,6 +174,46 @@ class NewsCollectorTest {
     }
 
     @Test
+    void feedPhotosAreSavedAndFilledIntoOlderArticles() {
+        NewsArticle old = new NewsArticle("노시환", NEWS + "/view/8", NewsUrls.sha256(NEWS + "/view/8"), "노시환 옛 소식",
+                "연합뉴스", Instant.parse("2026-11-10T00:00:00Z"), Instant.parse("2026-11-10T00:10:00Z"));
+        saved.add(old);
+        when(articles.findBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
+                .filter(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1)))
+                .findFirst());
+        http.on(NEWS + "/photo.xml", ok("<rss version=\"2.0\"><channel><title>t</title>"
+                + "<item><title>노시환 새 소식</title><link>" + NEWS + "/view/9</link>"
+                + "<enclosure url=\"http://img.example.kr/9.jpg\" type=\"image/jpeg\"/></item>"
+                + "<item><title>노시환 옛 소식</title><link>" + NEWS + "/view/8</link>"
+                + "<description><![CDATA[<img src=\"https://img.example.kr/8.jpg\"> 본문]]></description></item>"
+                + "</channel></rss>"));
+
+        collector(new NewsProperties.Source("연합뉴스", NEWS + "/photo.xml", null, null, null, "lead")).collect();
+
+        assertThat(old.getImageUrl()).isEqualTo("https://img.example.kr/8.jpg");
+        assertThat(saved).filteredOn(a -> a.getUrl().endsWith("/view/9")).extracting(NewsArticle::getImageUrl)
+                .containsExactly("https://img.example.kr/9.jpg");
+    }
+
+    @Test
+    void aSiteThatBlocksAiCrawlersStillGivesLeadsButNotAiSources() {
+        String site = "https://noai.example.kr";
+        http.on(site + "/robots.txt", ok("User-agent: ClaudeBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n"))
+                .on(site + "/lead.xml", ok(rss(item("노시환 소식", site + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"))))
+                .on(site + "/ai.xml", ok(rss(item("노시환 다른 소식", site + "/view/2", "Wed, 11 Nov 2026 09:00:00 +0900"))));
+        PoliteFetcher plain = new PoliteFetcher(http, List.of("korleaguer"), clock, clock::advance);
+        PoliteFetcher ai = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance);
+        NewsCollector collector = new NewsCollector(properties(
+                new NewsProperties.Source("앞부분", site + "/lead.xml", null, null, null, "lead"),
+                new NewsProperties.Source("요약", site + "/ai.xml", null, null, null, "ai")),
+                postings(), plain, ai, articles, DataMode.MLB, clock);
+
+        assertThat(collector.collect()).isEqualTo(1);
+        assertThat(saved).extracting(NewsArticle::getPublisher).containsExactly("앞부분");
+        assertThat(http.urls()).doesNotContain(site + "/ai.xml");
+    }
+
+    @Test
     void mentionsIgnoresCaseAndHyphens() {
         List<String> names = List.of("노시환", "Si-Hwan Roh");
 
@@ -183,7 +223,7 @@ class NewsCollectorTest {
     }
 
     private NewsCollector collector(NewsProperties.Source... sources) {
-        return new NewsCollector(properties(sources), postings(), fetcher(), articles, DataMode.MLB, clock);
+        return new NewsCollector(properties(sources), postings(), fetcher(), fetcher(), articles, DataMode.MLB, clock);
     }
 
     private PoliteFetcher fetcher() {

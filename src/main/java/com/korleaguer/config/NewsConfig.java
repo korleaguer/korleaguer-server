@@ -47,10 +47,17 @@ public class NewsConfig {
                 .build(), model);
     }
 
+    /** 앞부분만 쓰는 출처(AI에 보내지 않음)용. robots.txt는 우리 수집기 이름으로 본다 */
     @Bean
     @Primary
     public PoliteFetcher politeFetcher(HttpGetter newsHttpGetter, NewsProperties properties, Clock clock) {
         return new PoliteFetcher(newsHttpGetter, properties.robotsAgents(), clock, NewsConfig::sleep);
+    }
+
+    /** AI 요약 출처(preview: ai)용. 우리 이름과 Claude 계열 이름이 모두 허용된 곳만 받는다 */
+    @Bean
+    public PoliteFetcher aiFetcher(HttpGetter newsHttpGetter, NewsProperties properties, Clock clock) {
+        return new PoliteFetcher(newsHttpGetter, properties.aiAgents(), clock, NewsConfig::sleep);
     }
 
     /**

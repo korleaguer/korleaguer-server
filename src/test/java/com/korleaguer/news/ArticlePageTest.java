@@ -47,12 +47,36 @@ class ArticlePageTest {
     }
 
     @Test
-    void noArticleBlockMeansNoBodyAndPlainHttpImagesAreIgnored() {
+    void withoutAnEntryContentBlockLongParagraphsInsideArticleAreUsed() {
         ArticlePage page = ArticlePage.parse("""
-                <meta content="http://cdn.example.com/x.jpg" property="og:image"><p>just a page</p>
+                <nav><p>Scores and schedules for every team in the league tonight and tomorrow night</p></nav>
+                <article><h1>Roh Posted</h1><p>Short line.</p>
+                <p>The Hanwha Eagles posted third baseman Si Hwan Roh, opening a 30-day window for all teams.</p>
+                <p>Roh hit 29 homers this season and is expected to draw interest from several clubs.</p></article>
                 """.getBytes(StandardCharsets.UTF_8));
 
-        assertThat(page.imageUrl()).isNull();
+        assertThat(page.text()).isEqualTo("The Hanwha Eagles posted third baseman Si Hwan Roh, opening a 30-day window for all teams.\n"
+                + "Roh hit 29 homers this season and is expected to draw interest from several clubs.");
+    }
+
+    @Test
+    void anEucKrPageIsReadInItsOwnCharset() {
+        byte[] html = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\">"
+                .concat("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\"></head></html>")
+                .getBytes(java.nio.charset.Charset.forName("EUC-KR"));
+
+        assertThat(ArticlePage.parse(html).description()).isEqualTo("노시환이 협상을 시작했다.");
+    }
+
+    @Test
+    void noArticleBlockMeansNoBodyAndHttpImagesBecomeHttps() {
+        ArticlePage page = ArticlePage.parse("""
+                <meta content="http://cdn.example.com/x.jpg" property="og:image">
+                <meta name="description" content="한 줄 &amp; 소개"><p>just a page</p>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.imageUrl()).isEqualTo("https://cdn.example.com/x.jpg");
+        assertThat(page.description()).isEqualTo("한 줄 & 소개");
         assertThat(page.text()).isEmpty();
     }
 }
