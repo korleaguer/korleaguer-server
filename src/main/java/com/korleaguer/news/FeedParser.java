@@ -21,8 +21,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * RSS 2.0·Atom 피드에서 기사마다 제목·링크·발행 시각만 읽는다. 본문(description·content)·사진은 읽지 않는다.
- * 외부 엔티티·DTD는 처리하지 않는다(XXE 방지).
+ * RSS 2.0·Atom 피드에서 기사마다 제목·링크·발행 시각과 첫머리(lead)를 읽는다. 첫머리는 소개 글(description·summary)이나
+ * 본문(content:encoded)의 앞 문단에서 글자만 200자 안팎 떼어 낸 것이다. 사진과 나머지 본문은 버린다.
+ * 첫머리를 화면에 쓸지는 출처마다 정한다(NewsProperties.Source.preview). 외부 엔티티·DTD는 처리하지 않는다(XXE 방지).
  */
 public final class FeedParser {
 
@@ -31,6 +32,7 @@ public final class FeedParser {
 
     private static final String ATOM = "http://www.w3.org/2005/Atom";
     private static final String DUBLIN_CORE = "http://purl.org/dc/elements/1.1/";
+    private static final String CONTENT = "http://purl.org/rss/1.0/modules/content/";
 
     private FeedParser() {
     }
@@ -38,7 +40,11 @@ public final class FeedParser {
     /**
      * 기사 하나. publishedAt은 피드에 없거나 읽을 수 없으면 null이다.
      */
-    public record Item(String title, String link, Instant publishedAt) {
+    public record Item(String title, String link, Instant publishedAt, String lead) {
+
+        public Item(String title, String link, Instant publishedAt) {
+            this(title, link, publishedAt, null);
+        }
     }
 
     /**
@@ -94,6 +100,12 @@ public final class FeedParser {
                         } else if (name.equals("updated") && ATOM.equals(ns) && draft.updated == null) {
                             draft.updated = text(reader);
                             depth--;
+                        } else if (isSummary(name, ns) && draft.summary == null) {
+                            draft.summary = text(reader);
+                            depth--;
+                        } else if (name.equals("encoded") && CONTENT.equals(ns) && draft.content == null) {
+                            draft.content = text(reader);
+                            depth--;
                         }
                     } else if (event == XMLStreamConstants.END_ELEMENT) {
                         if (draft != null && depth == itemDepth) {
@@ -121,6 +133,11 @@ public final class FeedParser {
 
     private static boolean plainOrAtom(String ns) {
         return ns == null || ns.isEmpty() || ATOM.equals(ns);
+    }
+
+    private static boolean isSummary(String name, String ns) {
+        return (name.equals("description") && (ns == null || ns.isEmpty()))
+                || (name.equals("summary") && ATOM.equals(ns));
     }
 
     private static boolean isDate(String name, String ns) {
@@ -158,6 +175,8 @@ public final class FeedParser {
         String link;
         String date;
         String updated;
+        String summary;
+        String content;
 
         Item toItem(ZoneId zone) {
             String cleanTitle = Texts.title(title);
@@ -169,7 +188,8 @@ public final class FeedParser {
             if (published == null) {
                 published = FeedDates.parse(updated, zone);
             }
-            return new Item(cleanTitle, cleanLink, published);
+            String lead = Texts.lead(summary);
+            return new Item(cleanTitle, cleanLink, published, lead != null ? lead : Texts.lead(content));
         }
 
         private static boolean isWebLink(String link) {
@@ -202,6 +222,50 @@ public final class FeedParser {
                 return null;
             }
             return text.length() > MAX_TITLE ? text.substring(0, MAX_TITLE - 1) + "…" : text;
+        }
+
+        static final int MAX_LEAD = 200;
+        private static final Pattern BLOCK_END = Pattern.compile("(?i)</p>|<br\\s*/?>|</div>|</h\\d>");
+        private static final Pattern ANY_TAG = Pattern.compile("(?s)<[^>]*>");
+        // 첫 문단 앞의 '[마이데일리 = 김진성 기자]' 같은 기자 표시
+        private static final Pattern BYLINE = Pattern.compile("^\\[[^\\]]{1,40}]\\s*");
+
+        /**
+         * 기사 첫머리: 태그·사진을 빼고 문단을 이어 붙여 앞에서 200자 안팎(문장이 끝나는 곳에서 자른다). 비면 null.
+         * 맨 앞 기자 표시([언론사 = 기자])는 뺀다(언론사는 화면에 따로 보인다).
+         */
+        static String lead(String raw) {
+            if (raw == null || raw.isBlank()) {
+                return null;
+            }
+            String text = ANY_TAG.matcher(BLOCK_END.matcher(raw).replaceAll("\n")).replaceAll(" ");
+            StringBuilder joined = new StringBuilder();
+            for (String paragraph : decode(text).split("\n")) {
+                String p = paragraph.replaceAll("[\\s\\u00A0]+", " ").trim();
+                if (joined.isEmpty()) {
+                    p = BYLINE.matcher(p).replaceFirst("");
+                }
+                if (p.isEmpty()) {
+                    continue;
+                }
+                if (!joined.isEmpty()) {
+                    joined.append(' ');
+                }
+                joined.append(p);
+                if (joined.length() >= MAX_LEAD) {
+                    break;
+                }
+            }
+            String lead = joined.toString().trim();
+            if (lead.isEmpty()) {
+                return null;
+            }
+            if (lead.length() <= MAX_LEAD) {
+                return lead;
+            }
+            String head = lead.substring(0, MAX_LEAD);
+            int end = Math.max(head.lastIndexOf(". "), head.lastIndexOf("” "));
+            return end >= MAX_LEAD / 2 ? head.substring(0, end + 1).trim() : head.trim() + "…";
         }
 
         static String decode(String text) {

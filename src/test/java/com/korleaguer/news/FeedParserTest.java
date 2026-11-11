@@ -10,13 +10,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** 피드 읽기: 기사마다 제목·링크·발행 시각만, 본문·사진 칸은 읽지 않는다. (아래 기사 내용은 지어낸 값) */
+/** 피드 읽기: 기사마다 제목·링크·발행 시각과 글자만 뗀 첫머리. 사진은 읽지 않는다. (아래 기사 내용은 지어낸 값) */
 class FeedParserTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     @Test
-    void rssItemKeepsOnlyTitleLinkAndDate() {
+    void rssItemKeepsTitleLinkDateAndLead() {
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"
@@ -43,7 +43,27 @@ class FeedParserTest {
         List<FeedParser.Item> items = FeedParser.parse(bytes(xml), SEOUL);
 
         assertThat(items).containsExactly(new FeedParser.Item("노시환, 협상 시작 \"좋은 소식 기다린다\"",
-                "https://news.example.kr/view/1001", Instant.parse("2026-11-11T02:10:23Z")));
+                "https://news.example.kr/view/1001", Instant.parse("2026-11-11T02:10:23Z"), "본문 전체가 여기 있다"));
+    }
+
+    @Test
+    void leadComesFromTheBodyWithoutPhotosOrByline() {
+        // 마이데일리 꼴: description 없이 content:encoded에 사진과 본문 전체
+        String xml = """
+                <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>t</title>
+                  <item>
+                    <title>노시환 소식</title><link>https://news.example.kr/view/7</link>
+                    <content:encoded><![CDATA[<img src="https://img.example.kr/a.jpg" alt="사진 설명 /게티이미지코리아"/><p>[예시일보 = 홍길동 기자] “메이저리그에서 뛰고 싶다.”</p><p> </p><p>노시환이 포스팅 협상을 시작했다. 30개 구단과 12월 1일까지 이야기할 수 있다. 미국 언론은 노시환을 3루수 보강 후보로 꼽는다. 한화는 이미 장기 계약을 맺어 두었다. 그래서 계약 규모가 관심을 모은다. 노시환은 2019년에 데뷔했고 올해 홈런 서른 개를 넘겼다. 수비에서도 꾸준했다.</p>]]></content:encoded>
+                  </item>
+                </channel></rss>
+                """;
+
+        String lead = FeedParser.parse(bytes(xml), SEOUL).getFirst().lead();
+
+        assertThat(lead).startsWith("“메이저리그에서 뛰고 싶다.” 노시환이 포스팅 협상을 시작했다.")
+                .doesNotContain("홍길동", "img", "게티이미지")
+                .endsWith(".");
+        assertThat(lead.length()).isBetween(100, FeedParser.Texts.MAX_LEAD);
     }
 
     @Test

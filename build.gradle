@@ -26,6 +26,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'com.github.ben-manes.caffeine:caffeine'
+	// 기사 요약(Claude API 공식 Java SDK). ANTHROPIC_API_KEY가 있을 때만 쓴다
+	implementation 'com.anthropic:anthropic-java:3.2.0'
 	implementation 'org.flywaydb:flyway-mysql'
 	runtimeOnly 'com.h2database:h2'
 	runtimeOnly 'com.mysql:mysql-connector-j'
