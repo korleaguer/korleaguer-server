@@ -137,22 +137,46 @@ class PhotoStoreTest {
 
     @Test
     void seasonPhotoIsFetchedOnceAndNeverAskedAgain() {
-        String past = "https://archive.example/web/2024/673490.jpg";
-        reply(past, 200, "padres", Map.of("content-type", "image/jpeg"));
-        PhotoStore store = storeWithPastPhoto(past);
-        assertThat(store.load("mlb-673490-2024")).isPresent();
+        String past = "https://kbo.example/2023/67341.jpg";
+        reply("https://kbo.example/robots.txt", 404, "", Map.of());
+        reply(past, 200, "heroes", Map.of("content-type", "image/jpeg"));
+        PhotoStore store = storeWithCareerPhoto();
+        assertThat(store.load("kbo-67341-2023")).isPresent();
         int before = requested.size();
 
         // 원본이 다른 팀 사진으로 바뀌어도, 7일이 아니라 한 해가 지나도 다시 묻지 않는다
-        reply(past, 200, "braves", Map.of("content-type", "image/jpeg"));
+        reply(past, 200, "giants", Map.of("content-type", "image/jpeg"));
         clock.advance(Duration.ofDays(400));
         store.refresh();
 
         assertThat(requested.stream().skip(before).filter(past::equals)).isEmpty();
-        assertThat(new String(saved.get("mlb-673490-2024").getData(), StandardCharsets.UTF_8)).isEqualTo("padres");
+        assertThat(new String(saved.get("kbo-67341-2023").getData(), StandardCharsets.UTF_8)).isEqualTo("heroes");
         assertThat(PhotoSources.seasonFixed("kbo-67341-2023")).isTrue();
         assertThat(PhotoSources.seasonFixed("mlb-808982")).isFalse();
         assertThat(PhotoSources.seasonFixed("kbo-si-hwan-roh")).isFalse();
+    }
+
+    @Test
+    void pastPostingPhotoIsOurEditedFileAndNeverFetched() throws Exception {
+        String original = "https://archive.example/web/2024/673490.jpg";
+        reply(original, 200, "padres", Map.of("content-type", "image/jpeg"));
+        byte[] edited;
+        try (var in = getClass().getClassLoader().getResourceAsStream("photos/posting-673490-2024.jpg")) {
+            edited = in.readAllBytes();
+        }
+
+        for (DataMode mode : List.of(DataMode.MLB, DataMode.SAMPLE)) { // 우리 파일이라 샘플 모드에서도 준다
+            PhotoStore store = storeWithPastPhoto(original, mode);
+            Optional<Photo> photo = store.load("posting-673490-2024");
+
+            assertThat(photo).map(Photo::getContentType).contains("image/jpeg");
+            assertThat(photo).map(Photo::getData).contains(edited);
+            assertThat(photo).map(Photo::getSha256).contains(PhotoStore.sha256(edited));
+            assertThat(store.refresh()).isZero();
+        }
+        assertThat(store(DataMode.MLB).load("mlb-673490-2024")).isEmpty(); // 원본은 더 받지 않는다
+        assertThat(requested).isEmpty();
+        assertThat(saved).isEmpty(); // 앱에 들어 있는 파일이라 DB에 두지 않는다
     }
 
     @Test
@@ -184,9 +208,28 @@ class PhotoStoreTest {
         return new PhotoStore(sources, repository, fetcher, mode, clock);
     }
 
-    /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진)만 있는 사진 목록 */
-    private PhotoStore storeWithPastPhoto(String photoUrl) {
-        reply("https://archive.example/robots.txt", 404, "", Map.of());
+    /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
+    private PhotoStore storeWithPastPhoto(String photoUrl, DataMode mode) {
+        PostingProperties.Past kim = new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4,
+                28_000_000L, null, 64300L, 673490L, 2024, photoUrl);
+        PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
+                new Postings(new PostingProperties(List.of(), List.of(kim))),
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
+        return new PhotoStore(sources, repository, fetcher(), mode, clock);
+    }
+
+    /** 명단 선수 한 명(이정후)의 과거 소속팀(키움, 2023) KBO 사진만 있는 사진 목록 */
+    private PhotoStore storeWithCareerPhoto() {
+        RosterProperties.Entry lee = new RosterProperties.Entry("이정후", 808982L, null, null, 67341L,
+                List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023)));
+        PhotoSources sources = new PhotoSources(new RosterProperties(List.of(lee)),
+                new Postings(new PostingProperties(List.of(), List.of())),
+                new KorleaguerProperties(null, null, null, null,
+                        new KorleaguerProperties.Images(true, null, "https://kbo.example/{season}/{kboId}.jpg"), null));
+        return new PhotoStore(sources, repository, fetcher(), DataMode.MLB, clock);
+    }
+
+    private PoliteFetcher fetcher() {
         HttpGetter http = (URI uri, Map<String, String> headers) -> {
             requested.add(uri.toString());
             sentHeaders.add(Map.copyOf(headers));
@@ -196,13 +239,7 @@ class PhotoStoreTest {
             }
             return queue.size() > 1 ? queue.poll() : queue.peek();
         };
-        PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance, false);
-        PostingProperties.Past kim = new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4,
-                28_000_000L, null, 64300L, 673490L, 2024, photoUrl);
-        PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
-                new Postings(new PostingProperties(List.of(), List.of(kim))),
-                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
-        return new PhotoStore(sources, repository, fetcher, DataMode.MLB, clock);
+        return new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance, false);
     }
 
     private void reply(String url, int status, String body, Map<String, String> headers) {

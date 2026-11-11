@@ -139,9 +139,9 @@ public class PostingFinder {
                 deal(past.result()), photo(past));
     }
 
-    /** 계약 구단 시절 MLB 공식 사진이 있으면 그것, 없으면 포스팅 당시 KBO 공식 등록 사진 */
+    /** 계약 구단 시절 MLB 공식 사진의 편집본(흰 바탕)이 있으면 그것, 없으면 포스팅 당시 KBO 공식 등록 사진 */
     private String photo(PastPosting past) {
-        String mlb = photos.mlbSeasonPath(past.mlbId(), past.photoSeason());
+        String mlb = photos.pastPostingPath(past.mlbId(), past.photoSeason());
         return mlb != null ? mlb : photos.careerPath(past.kboId(), past.season());
     }
 
