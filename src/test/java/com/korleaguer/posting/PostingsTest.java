@@ -39,11 +39,11 @@ class PostingsTest {
                         org.assertj.core.groups.Tuple.tuple("박병호", 7),
                         org.assertj.core.groups.Tuple.tuple("강정호", 8),
                         org.assertj.core.groups.Tuple.tuple("류현진", 0));
-        // KBO 선수 번호(포스팅 당시 KBO 공식 사진을 찾는 데 쓴다). 옛 제도 세 명은 MLB 사진만 쓰거나 사진이 없어 적지 않았다
+        // KBO 선수 번호(포스팅 당시 KBO 공식 사진을 찾는 데 쓴다). 옛 제도 세 명은 MLB 사진만 써서 적지 않았다
         assertThat(postings.history()).extracting(PastPosting::kboId)
                 .containsExactly(65357L, 67304L, 67341L, 67119L, 64300L, 77829L, null, null, null);
-        // 계약 구단 마지막 시즌 MLB 공식 사진(김하성·고우석은 인터넷 보관소의 2024 샌디에이고 사본).
-        // 류현진은 다저스 시절 사진을 아직 못 구해 사진이 없다(화면은 이름 원)
+        // 계약 구단 마지막 시즌 MLB 공식 사진(김하성·고우석은 인터넷 보관소의 2024 샌디에이고 사본,
+        // 류현진은 인터넷 보관소의 2019 다저스 사본)
         assertThat(postings.history()).extracting(PastPosting::mlbId, PastPosting::photoSeason)
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(823550L, 2026),
@@ -54,9 +54,8 @@ class PostingsTest {
                         org.assertj.core.groups.Tuple.tuple(547942L, 2021),
                         org.assertj.core.groups.Tuple.tuple(666560L, 2016),
                         org.assertj.core.groups.Tuple.tuple(628356L, 2019),
-                        org.assertj.core.groups.Tuple.tuple(null, null));
-        assertThat(postings.history().subList(0, 8)).allSatisfy(p -> assertThat(p.photoUrl()).startsWith("https://"));
-        assertThat(postings.history().get(8).photoUrl()).isNull();
+                        org.assertj.core.groups.Tuple.tuple(547943L, 2019));
+        assertThat(postings.history()).allSatisfy(p -> assertThat(p.photoUrl()).startsWith("https://"));
     }
 
     @Test
