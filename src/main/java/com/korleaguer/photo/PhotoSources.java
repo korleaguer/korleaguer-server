@@ -17,8 +17,9 @@ import java.util.Optional;
  * <ul>
  *   <li>mlb-{MLB 선수 번호}: 명단(baseball.yml)의 mlb-id로 만든 MLB 공식 사진(korleaguer.images.player-photo-template)</li>
  *   <li>kbo-{slug}: 포스팅 선수(posting.yml)의 photo-url(현 소속 KBO 구단 사진)</li>
- *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진, 지난 포스팅 선배(posting.yml
- *       history의 kbo-id)의 포스팅 당시 사진(korleaguer.images.kbo-photo-template)</li>
+ *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진, MLB 사진이 없는 지난 포스팅 선배의
+ *       포스팅 당시 사진(korleaguer.images.kbo-photo-template)</li>
+ *   <li>mlb-{MLB 선수 번호}-{시즌}: 지난 포스팅 선배의 계약 구단 시절 MLB 공식 사진(posting.yml history의 photo-url)</li>
  * </ul>
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
@@ -59,13 +60,19 @@ public class PhotoSources {
                         }
                     }
                 }
-                // 지난 포스팅 선배: 포스팅된 겨울(season)의 KBO 공식 등록 사진 = 포스팅 당시 구단의 마지막 시즌 사진.
+                // 지난 포스팅 선배 중 MLB 사진을 적지 않은 선배: 포스팅된 겨울(season)의 KBO 공식 등록 사진.
                 // 명단 선수의 과거 소속팀 사진과 이름이 같으면(이정후 2023 등) 하나만 받는다
                 for (PastPosting past : postings.history()) {
-                    if (past.kboId() != null) {
+                    if (past.photoUrl() == null && past.kboId() != null) {
                         all.putIfAbsent(careerKey(past.kboId(), past.season()),
                                 kboUrl(kboTemplate, past.kboId(), past.season()));
                     }
+                }
+            }
+            // 지난 포스팅 선배: 계약한 MLB 구단 시절 MLB 공식 사진(모두 같은 틀이라 크기가 고르다)
+            for (PastPosting past : postings.history()) {
+                if (past.photoUrl() != null) {
+                    all.putIfAbsent(mlbSeasonKey(past.mlbId(), past.photoSeason()), past.photoUrl());
                 }
             }
             for (PostingCase posting : postings.current()) {
@@ -102,12 +109,29 @@ public class PhotoSources {
         return kboId == null || season == null ? null : path(careerKey(kboId, season));
     }
 
+    /** 그 시즌 MLB 공식 사진의 우리 주소(/photos/mlb-673490-2024). 사진을 껐거나 목록에 없으면 null */
+    public String mlbSeasonPath(Long mlbId, Integer season) {
+        return mlbId == null || season == null ? null : path(mlbSeasonKey(mlbId, season));
+    }
+
+    /**
+     * 시즌이 정해진 사진(kbo-67341-2023, mlb-673490-2024)인가. 그 시즌의 모습이라 바뀔 일이 없으므로
+     * 한 번 받으면 원본에 다시 묻지 않는다(선수가 팀을 옮겨 원본 '현재 사진'이 바뀌어도 그 시즌 사진을 지킨다).
+     */
+    public static boolean seasonFixed(String key) {
+        return key.matches("(kbo|mlb)-\\d+-\\d{4}");
+    }
+
     private String path(String key) {
         return sources.containsKey(key) ? WEB_PATH + key : null;
     }
 
     static String mlbKey(Long mlbId) {
         return "mlb-" + mlbId;
+    }
+
+    static String mlbSeasonKey(Long mlbId, int season) {
+        return "mlb-" + mlbId + "-" + season;
     }
 
     static String careerKey(Long kboId, int season) {
