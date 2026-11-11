@@ -54,21 +54,23 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         if (cleaned.contains(stored)) {
             return null; // 이미 이 페이지의 제목이다
         }
+        // 꼬리를 뗀 후보부터, 글자가 맞는 첫 후보에서 결정한다(더 긴 후보로 넘어가면 꼬리 붙은 제목을 고를 수 있다)
         for (String clean : cleaned) {
             String letters = letters(clean);
-            boolean sameText = letters.equals(target) && marks(clean) > marks(stored); // 부호만 더 있다
-            boolean fuller = target.length() >= MIN_PREFIX_LETTERS && letters.length() > target.length()
-                    && letters.startsWith(target); // 잘린 제목의 뒤를 채운다
-            if (sameText || fuller) {
-                return clean;
+            if (letters.equals(target)) {
+                // 글자가 같다: 부호·한자가 더 있을 때만 바꾼다(부호가 있는 피드 제목은 그대로)
+                return nonSpace(clean) > nonSpace(stored) ? clean : null;
+            }
+            if (target.length() >= MIN_PREFIX_LETTERS && letters.startsWith(target)) {
+                return clean; // 잘린 피드 제목의 뒤를 채운다
             }
         }
         return null;
     }
 
-    /** 문장부호 수(공백 제외). 부호가 빠진 피드 제목을 부호가 있는 페이지 제목으로만 바꾸려고 센다 */
-    private static long marks(String text) {
-        return text.codePoints().filter(c -> !Character.isLetterOrDigit(c) && !Character.isWhitespace(c)).count();
+    /** 공백을 뺀 글자 수(부호·한자 포함). 빠진 것이 채워진 쪽이 더 많다 */
+    private static long nonSpace(String text) {
+        return text.codePoints().filter(c -> !Character.isWhitespace(c)).count();
     }
 
     /** 견줄 글자: 한글·영문·숫자만(부호·공백·한자는 뺀다. 사이트맵이 한자까지 빼고 주기 때문) */
@@ -93,7 +95,12 @@ record ArticlePage(String imageUrl, String text, String description, String titl
 
     static ArticlePage parse(byte[] html) {
         String page = new String(html, charset(html));
-        return new ArticlePage(meta(page, "og:image", "og:image:secure_url", "twitter:image", "twitter:image:src"), body(page),
+        // og:image를 먼저 보고, 없을 때만 twitter:image(트위터 카드에 사이트 로고를 두는 곳이 있다)
+        String image = meta(page, "og:image", "og:image:secure_url");
+        if (image == null) {
+            image = meta(page, "twitter:image", "twitter:image:src");
+        }
+        return new ArticlePage(image, body(page),
                 FeedParser.Texts.lead(meta(page, "og:description", "description")), meta(page, "og:title"));
     }
 

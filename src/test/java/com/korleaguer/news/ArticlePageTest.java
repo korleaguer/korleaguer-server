@@ -90,6 +90,30 @@ class ArticlePageTest {
     }
 
     @Test
+    void aSiteNameTailIsNeverAddedToATitle() {
+        // 리뷰 재현: 꼬리를 뗀 본제목이 맞지 않는다고 꼬리 붙은 전체 제목으로 넘어가면 안 된다
+        assertThat(titleFrom("노시환 좋은 소식 기다린다 - 스포츠조선").betterTitle("노시환 \"좋은 소식 기다린다\"")).isNull();
+        assertThat(titleFrom("노시환 '포스팅 개시' 공식 발표 | MK스포츠").betterTitle("노시환 \"포스팅 개시\" 공식 발표")).isNull();
+        // 한자만 빠진 사이트맵 제목은 한자가 있는 본제목으로(꼬리 없이)
+        assertThat(titleFrom("美 매체 노시환 3년 계약 전망 - 스포티비뉴스").betterTitle("매체 노시환 3년 계약 전망"))
+                .isEqualTo("美 매체 노시환 3년 계약 전망");
+    }
+
+    @Test
+    void ogImageWinsOverTwitterImage() {
+        ArticlePage page = ArticlePage.parse("""
+                <meta name="twitter:image" content="https://cdn.example.kr/logo.png">
+                <meta property="og:image" content="https://cdn.example.kr/photo.jpg">
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.imageUrl()).isEqualTo("https://cdn.example.kr/photo.jpg");
+    }
+
+    private static ArticlePage titleFrom(String ogTitle) {
+        return ArticlePage.parse(("<meta property=\"og:title\" content=\"" + ogTitle + "\">").getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void anEucKrPageIsReadInItsOwnCharset() {
         byte[] html = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\">"
                 .concat("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\"></head></html>")
