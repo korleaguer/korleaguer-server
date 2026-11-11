@@ -97,7 +97,9 @@ class MainlyMinorsHomeTest {
                 .andExpect(jsonPath("$.hitters[1].mainlyMinors").value(false))
                 .andExpect(jsonPath("$.hitters[2].games").value(3))
                 .andExpect(jsonPath("$.hitters[2].minorGames").value(40))
-                .andExpect(jsonPath("$.hitters[2].mainlyMinors").value(true));
+                .andExpect(jsonPath("$.hitters[2].mainlyMinors").value(true))
+                // 9/26~9/28에 우리 선수 구단 경기가 있었다(9/30 기준 일주일 안): 시즌 중이라 비시즌 정보가 없다
+                .andExpect(jsonPath("$.offseason").value(nullValue()));
     }
 
     @Test

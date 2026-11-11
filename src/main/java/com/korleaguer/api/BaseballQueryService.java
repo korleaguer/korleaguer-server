@@ -62,6 +62,7 @@ public class BaseballQueryService {
     private final MinorGameLogRepository minorGameLogs;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
+    private final OffSeasonFinder offSeasons;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
     private final CurrentSeason currentSeason;
@@ -71,8 +72,8 @@ public class BaseballQueryService {
                                 AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
                                 MinorSeasonRepository minorSeasons, MinorGameLogRepository minorGameLogs,
                                 GameLineAssembler gameLines,
-                                RecentGamesFinder recentGames, RosterProfiles profiles, DataMode dataMode,
-                                CurrentSeason currentSeason, Clock clock) {
+                                RecentGamesFinder recentGames, OffSeasonFinder offSeasons, RosterProfiles profiles,
+                                DataMode dataMode, CurrentSeason currentSeason, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -82,6 +83,7 @@ public class BaseballQueryService {
         this.minorGameLogs = minorGameLogs;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
+        this.offSeasons = offSeasons;
         this.profiles = profiles;
         this.dataMode = dataMode;
         this.currentSeason = currentSeason;
@@ -141,7 +143,8 @@ public class BaseballQueryService {
         }
 
         return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
-                recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers, minorHitters, minorPitchers);
+                recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers, minorHitters, minorPitchers,
+                offSeasons.find(roster, now));
     }
 
     /** 선수 번호 → 이번 시즌 마이너 출전 경기 수. 아직 받지 않은 선수는 빠진다. */
