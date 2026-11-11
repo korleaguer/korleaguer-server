@@ -194,6 +194,46 @@ class PostingFinderTest {
     }
 
     @Test
+    void theLatestSummarizedArticleTakesTheLastSlotWhenKoreanNewsFillsTheRest() {
+        List<NewsArticle> korean = new java.util.ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            korean.add(new NewsArticle("노시환", "https://news.example.kr/" + i, "k" + i, "노시환 소식 " + i, "마이데일리",
+                    Instant.parse("2026-11-10T10:00:00Z").minusSeconds(3600L * i), Instant.parse("2026-11-10T11:00:00Z")));
+        }
+        NewsArticle english = new NewsArticle("노시환", "https://mlb.example.com/roh", "e", "Roh Posted", "MLB Trade Rumors",
+                Instant.parse("2026-11-01T20:40:00Z"), Instant.parse("2026-11-01T21:00:00Z"));
+        english.enriched(null, "한화, 노시환 포스팅", "노시환이 포스팅됐다.", "claude-haiku-5-5", Instant.parse("2026-11-11T12:00:00Z"));
+        when(news.findLatest(eq("노시환"), any())).thenReturn(korean);
+        when(news.findLatestSummarized(eq("노시환"), any())).thenReturn(List.of(english));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly(
+                "https://news.example.kr/0", "https://news.example.kr/1", "https://news.example.kr/2",
+                "https://news.example.kr/3", "https://mlb.example.com/roh");
+    }
+
+    @Test
+    void noSlotIsTakenWhenASummarizedArticleIsAlreadyShown() {
+        NewsArticle english = new NewsArticle("노시환", "https://mlb.example.com/roh", "e", "Roh Posted", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T20:40:00Z"), Instant.parse("2026-11-10T21:00:00Z"));
+        english.enriched(null, "한화, 노시환 포스팅", "노시환이 포스팅됐다.", "claude-haiku-5-5", Instant.parse("2026-11-11T12:00:00Z"));
+        List<NewsArticle> latest = new java.util.ArrayList<>(List.of(english));
+        for (int i = 0; i < 5; i++) {
+            latest.add(new NewsArticle("노시환", "https://news.example.kr/" + i, "k" + i, "노시환 소식 " + i, "마이데일리",
+                    Instant.parse("2026-11-10T10:00:00Z").minusSeconds(3600L * i), Instant.parse("2026-11-10T11:00:00Z")));
+        }
+        when(news.findLatest(eq("노시환"), any())).thenReturn(latest);
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly(
+                "https://mlb.example.com/roh", "https://news.example.kr/0", "https://news.example.kr/1",
+                "https://news.example.kr/2", "https://news.example.kr/3");
+        org.mockito.Mockito.verify(news, org.mockito.Mockito.never()).findLatestSummarized(any(), any());
+    }
+
+    @Test
     void headlinesOfRemovedPublishersAreHidden() {
         // 뉴시스는 이용약관(자동 수집 금지)으로 sources.yml에서 뺐다. 이미 모은 기사도 응답에 나오지 않는다
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(
