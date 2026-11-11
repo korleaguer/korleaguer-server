@@ -30,7 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 시즌 날짜 받기: 올해 날짜만, 올해 개막일 전까지 하루 한 번. 개막한 뒤·오늘 받은 뒤엔 묻지 않음,
+ * 시즌 날짜 받기: 올해 개막일 전에는 올해 날짜, 정규시즌이 끝난 뒤에는 내년 날짜를 하루 한 번. 시즌 중·오늘 받은 뒤엔 묻지 않음,
  * 발표 전인 해, 실패하면 다음 실행에 다시, 403/429 중단, 시즌을 고정하면 묻지 않음
  */
 class SeasonDatesRefresherTest {
@@ -81,15 +81,39 @@ class SeasonDatesRefresherTest {
     }
 
     @Test
-    void noRequestsOnceThisYearsSeasonHasOpened() {
-        // 2026-11-10: 올해(2026) 개막일이 지났고 날짜는 오래전에 받았다. 내년 날짜는 결정을 바꾸지 못하니 묻지 않는다.
-        clock.set(Instant.parse("2026-11-10T03:00:00Z"));
+    void noRequestsDuringTheRegularSeason() {
+        // 2026-07-01: 올해(2026) 개막일이 지났고 정규시즌(9/27까지)이 이어진다. 날짜는 오래전에 받았다.
+        clock.set(Instant.parse("2026-07-01T12:00:00Z"));
         when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, "2026-01-02T00:00:00Z")));
 
         assertThat(refresher.refresh()).isEmpty();
-        clock.set(Instant.parse("2026-12-31T12:00:00Z"));
+        // 정규시즌 마지막 날(미국 날짜)까지는 묻지 않는다.
+        clock.set(Instant.parse("2026-09-27T23:00:00Z"));
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).isEmpty();
+    }
+
+    @Test
+    void asksNextYearOncePerUtcDayAfterTheRegularSeason() {
+        // 2026-11-10: 올해 정규시즌이 끝났다. 비시즌 홈의 '개막까지 남은 날'에 쓰려고 내년(2027) 날짜를 받는다.
+        clock.set(Instant.parse("2026-11-10T03:00:00Z"));
+        when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, "2026-01-02T00:00:00Z")));
+
+        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
+        verify(writer).saveSeasonDates(eq(2027), eq(SEASON_2027), any());
+        // 내년 날짜는 지금 시즌을 바꾸지 못하니 기억한 시즌을 버리지 않는다.
+        verify(currentSeason, never()).forget();
+
+        // 같은 날(UTC) 다시 돌면 묻지 않는다.
+        clock.set(Instant.parse("2026-11-10T20:00:00Z"));
+        assertThat(refresher.refresh()).isEmpty();
+        assertThat(asked).containsExactly(2027);
+
+        // 다음 날(UTC): 어제 받은 값이라 다시 받는다(MLB가 날짜를 바꿀 수 있다).
+        when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, "2026-11-10T03:00:00Z")));
+        clock.set(Instant.parse("2026-11-11T03:00:00Z"));
+        assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
+        assertThat(asked).containsExactly(2027, 2027);
     }
 
     @Test
