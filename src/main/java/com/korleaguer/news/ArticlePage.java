@@ -44,17 +44,24 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         }
         java.util.List<String> candidates = new java.util.ArrayList<>();
         for (String separator : TITLE_SEPARATORS) {
-            int at = title.lastIndexOf(separator);
-            if (at > 0) {
-                candidates.add(title.substring(0, at));
+            // 꼬리가 여러 겹이면(제목 < 해외야구 < 야구 < 기사본문 - 스포츠Q) 처음 나온 곳에서도 자른다
+            int first = title.indexOf(separator);
+            int last = title.lastIndexOf(separator);
+            if (first > 0) {
+                candidates.add(title.substring(0, first));
+            }
+            if (last > first) {
+                candidates.add(title.substring(0, last));
             }
         }
         candidates.add(title);
-        java.util.List<String> cleaned = candidates.stream().map(FeedParser.Texts::title).filter(Objects::nonNull).toList();
+        // 짧은 후보(본제목)부터 본다. 긴 후보에는 꼬리·경로가 붙어 있다
+        java.util.List<String> cleaned = candidates.stream().map(FeedParser.Texts::title).filter(Objects::nonNull)
+                .distinct().sorted(java.util.Comparator.comparingInt(String::length)).toList();
         if (cleaned.contains(stored)) {
             return null; // 이미 이 페이지의 제목이다
         }
-        // 꼬리를 뗀 후보부터, 글자가 맞는 첫 후보에서 결정한다(더 긴 후보로 넘어가면 꼬리 붙은 제목을 고를 수 있다)
+        // 짧은 후보부터, 글자가 맞는 첫 후보에서 결정한다(더 긴 후보로 넘어가면 꼬리 붙은 제목을 고를 수 있다)
         for (String clean : cleaned) {
             String letters = letters(clean);
             if (letters.equals(target)) {
