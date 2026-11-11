@@ -149,6 +149,7 @@ public class NewsEnricher {
             }
             ArticlePage page = ArticlePage.parse(html.body());
             article.pageRead(page.description(), page.imageUrl(), now);
+            article.retitle(page.betterTitle(article.getTitle()));
             return Outcome.DONE;
         } catch (RuntimeException e) {
             log.warn("news: could not read the page {}: {}", article.getUrl(), e.getMessage());

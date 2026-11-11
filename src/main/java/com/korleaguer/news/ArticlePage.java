@@ -3,6 +3,7 @@ package com.korleaguer.news;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -12,10 +13,76 @@ import java.util.regex.Pattern;
  * (MLB Trade Rumors 구조, 2026-11-11 확인). 그 칸이 없는 사이트(MLB.com·CBS Sports 등)는 article 칸(없으면 페이지 전체)의
  * 긴 문단(LONG_PARAGRAPH자 이상, 메뉴·광고 문구 같은 짧은 줄은 뺀다)을 모은다. 못 찾으면 빈 문자열이다.
  */
-record ArticlePage(String imageUrl, String text, String description) {
+record ArticlePage(String imageUrl, String text, String description, String title) {
 
     ArticlePage(String imageUrl, String text) {
-        this(imageUrl, text, null);
+        this(imageUrl, text, null, null);
+    }
+
+    ArticlePage(String imageUrl, String text, String description) {
+        this(imageUrl, text, description, null);
+    }
+
+    /** 사이트 이름 꼬리를 떼어 볼 구분자(제목 - 엑스포츠뉴스, 제목 | MK스포츠 …) */
+    private static final String[] TITLE_SEPARATORS = {" - ", " | ", " :: ", " : ", " < ", " — "};
+
+    /** 제목이 이 글자 수(한글·영문·숫자)보다 짧으면 앞부분이 같다는 것만으로는 바꾸지 않는다 */
+    static final int MIN_PREFIX_LETTERS = 10;
+
+    /**
+     * 피드 제목이 문장부호를 빼거나 뒤를 자른 것이면(엑스포츠뉴스 사이트맵: 부호·한자를 빼고 앞부분만) 이 페이지의 제목
+     * (og:title, 사이트 이름 꼬리를 뗀 것을 먼저)을 돌려준다. 한글·영문·숫자만 견줘 같거나, 피드 제목이 그 앞부분일 때만
+     * 바꾼다(다른 기사·바뀐 제목이면 그대로). 바꿀 것이 없으면 null
+     */
+    String betterTitle(String stored) {
+        if (title == null || stored == null) {
+            return null;
+        }
+        String target = letters(stored);
+        if (target.isEmpty()) {
+            return null;
+        }
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        for (String separator : TITLE_SEPARATORS) {
+            // 꼬리가 여러 겹이면(제목 < 해외야구 < 야구 < 기사본문 - 스포츠Q) 처음 나온 곳에서도 자른다
+            int first = title.indexOf(separator);
+            int last = title.lastIndexOf(separator);
+            if (first > 0) {
+                candidates.add(title.substring(0, first));
+            }
+            if (last > first) {
+                candidates.add(title.substring(0, last));
+            }
+        }
+        candidates.add(title);
+        // 짧은 후보(본제목)부터 본다. 긴 후보에는 꼬리·경로가 붙어 있다
+        java.util.List<String> cleaned = candidates.stream().map(FeedParser.Texts::title).filter(Objects::nonNull)
+                .distinct().sorted(java.util.Comparator.comparingInt(String::length)).toList();
+        if (cleaned.contains(stored)) {
+            return null; // 이미 이 페이지의 제목이다
+        }
+        // 짧은 후보부터, 글자가 맞는 첫 후보에서 결정한다(더 긴 후보로 넘어가면 꼬리 붙은 제목을 고를 수 있다)
+        for (String clean : cleaned) {
+            String letters = letters(clean);
+            if (letters.equals(target)) {
+                // 글자가 같다: 부호·한자가 더 있을 때만 바꾼다(부호가 있는 피드 제목은 그대로)
+                return nonSpace(clean) > nonSpace(stored) ? clean : null;
+            }
+            if (target.length() >= MIN_PREFIX_LETTERS && letters.startsWith(target)) {
+                return clean; // 잘린 피드 제목의 뒤를 채운다
+            }
+        }
+        return null;
+    }
+
+    /** 공백을 뺀 글자 수(부호·한자 포함). 빠진 것이 채워진 쪽이 더 많다 */
+    private static long nonSpace(String text) {
+        return text.codePoints().filter(c -> !Character.isWhitespace(c)).count();
+    }
+
+    /** 견줄 글자: 한글·영문·숫자만(부호·공백·한자는 뺀다. 사이트맵이 한자까지 빼고 주기 때문) */
+    private static String letters(String text) {
+        return text.replaceAll("[^\\p{IsHangul}\\p{IsLatin}\\p{N}]", "").toLowerCase(Locale.ROOT);
     }
 
     static final int MAX_TEXT = 8000;
@@ -35,8 +102,13 @@ record ArticlePage(String imageUrl, String text, String description) {
 
     static ArticlePage parse(byte[] html) {
         String page = new String(html, charset(html));
-        return new ArticlePage(meta(page, "og:image", "og:image:secure_url"), body(page),
-                FeedParser.Texts.lead(meta(page, "og:description", "description")));
+        // og:image를 먼저 보고, 없을 때만 twitter:image(트위터 카드에 사이트 로고를 두는 곳이 있다)
+        String image = meta(page, "og:image", "og:image:secure_url");
+        if (image == null) {
+            image = meta(page, "twitter:image", "twitter:image:src");
+        }
+        return new ArticlePage(image, body(page),
+                FeedParser.Texts.lead(meta(page, "og:description", "description")), meta(page, "og:title"));
     }
 
     /** 페이지 앞부분의 meta charset(EUC-KR 등). 없거나 모르는 이름이면 UTF-8 */
@@ -78,7 +150,7 @@ record ArticlePage(String imageUrl, String text, String description) {
                 }
             }
             if (property != null && wanted.contains(property) && content != null && !content.isBlank()) {
-                if (property.startsWith("og:image")) {
+                if (property.contains("image")) {
                     String url = FeedParser.Texts.imageUrl(content);
                     if (url != null) {
                         return url;
