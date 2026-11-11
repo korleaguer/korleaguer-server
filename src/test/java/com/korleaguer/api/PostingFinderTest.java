@@ -5,11 +5,13 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.photo.PhotoSources;
+import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -75,6 +77,21 @@ class PostingFinderTest {
         assertThat(roh.status()).isEqualTo("CLOSED");
         assertThat(roh.daysLeft()).isNull();
         assertThat(roh.elapsedRatio()).isEqualTo(1.0);
+    }
+
+    @Test
+    void timeKeyChangesWithStatusVisibilityAndEachPercentOfTheBar() {
+        PostingCase roh = new Postings(new PostingProperties(List.of(roh(null)), List.of())).current().getFirst();
+
+        // 협상 시작(한국 11/2 22:00) 전후로 상태가 바뀐다
+        assertThat(PostingFinder.timeKey(roh, Instant.parse("2026-11-02T12:59:00Z"))).isEqualTo("UPCOMING:true:0");
+        assertThat(PostingFinder.timeKey(roh, Instant.parse("2026-11-02T13:00:00Z"))).isEqualTo("NEGOTIATING:true:0");
+        // 진행 막대는 1% 단위(705시간의 1%는 약 7시간)
+        assertThat(PostingFinder.timeKey(roh, Instant.parse("2026-11-11T01:00:00Z"))).isEqualTo("NEGOTIATING:true:29");
+        // 마감(한국 12/2 07:00)이 지나면 마감, 60일 뒤에는 홈에서 빠진다
+        Instant deadline = Instant.parse("2026-12-01T22:00:00Z");
+        assertThat(PostingFinder.timeKey(roh, deadline)).isEqualTo("CLOSED:true:100");
+        assertThat(PostingFinder.timeKey(roh, deadline.plus(Duration.ofDays(60)))).isEqualTo("CLOSED:false:100");
     }
 
     @Test

@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
  *       재활 경기를 보이며, 마이너에 있으면 큰 숫자·막대를 마이너 기록으로 채우고, FA·시즌 끝이면 시즌 합계(메이저·마이너)를
  *       준다. 상태·소식은 끝난 경기로만 정한다(진행 중 경기의 중간 기록으로 바뀌지 않게).</li>
  * </ul>
- * 응답은 선수 조합(ids 글자 그대로)과 days마다 캐시한다(AppConfig.MY_CACHE). 데이터는 수집 때만 바뀌고 그때 비운다.
+ * 응답은 선수 조합(ids 글자 그대로)과 days마다 캐시한다(AppConfig.MY_CACHE). 데이터나 날짜가 바뀔 때 비운다(ResponseCaches).
  * 비시즌 홈은 명단 전원을 늘 같은 순서로 부르므로, 따라잡기 뒤에 CacheWarmer가 미리 채워 둔다.
  */
 @Service
