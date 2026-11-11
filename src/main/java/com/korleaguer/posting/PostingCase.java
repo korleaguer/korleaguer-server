@@ -10,10 +10,11 @@ import java.util.List;
  * @param searchNames 기사 제목에서 찾을 이름. 한글 이름이 맨 앞에 있다
  * @param windowOpens 30일 협상 시작 시각
  * @param deadline    협상 마감 시각
- * @param photoUrl    프로필 사진 주소(현 소속 KBO 구단 공식 사진). 없으면 null
+ * @param slug        영문 짧은 이름(사진 주소에 쓴다). 없으면 null
+ * @param photoUrl    프로필 사진 원본 주소(현 소속 KBO 구단 사진). 없으면 null
  * @param result      결과가 났으면 결과, 아니면 null
  */
-public record PostingCase(String nameKo, String kboTeam, String positionKo, Integer birthYear,
+public record PostingCase(String nameKo, String slug, String kboTeam, String positionKo, Integer birthYear,
                           List<String> searchNames, Instant windowOpens, Instant deadline, String source,
                           String photoUrl, PostingResult result) {
 

@@ -38,6 +38,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
 | `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수 관련 기사 제목 수집(30분마다). 기본 `true`. 포스팅 협상 기간(시작 3일 전 ~ 마감 3일 뒤)이 아니면 켜 있어도 요청하지 않는다. `false`여도 홈은 DB에 있는 기사를 보여 준다 |
 | `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines only; personal, non-commercial)` |
+| `KORLEAGUER_PHOTOS_ENABLED` | 선수 사진 미리 받기(앱이 뜰 때와 6시간마다). 기본 `true`. 꺼도 사진은 처음 요청될 때 받아 저장한다 |
 | `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
 
 > **MLB 이용 고지:** 응답에 붙는 MLB 저작권 안내(`gdx.mlb.com/components/copyright.txt`)는 "개인적·비상업적·대량이 아닌 사용(individual, non-commercial, non-bulk use)"만 허락한다.
@@ -135,6 +136,14 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 선수 상태 변경(SC)은 설명 글에 부상자 명단(등재·해제·이동)이나 출장 정지가 있을 때만 남기고 나머지("roster status changed", 그냥 "activated")는 뺀다. MLB가 같은 날 같은 내용을 두 번 준 줄도 하나만 남긴다.
   - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`), 마이너 팀 등은 MLB가 준 영어 이름 그대로(`St. Paul Saints`).
 
+### 선수 사진 호스팅(`GET /api/photos/{이름}`, 표 `photo`)
+- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
+- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, 포스팅 선수는 `posting.yml`의 `photo-url`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
+- 원본에 마지막으로 물어본 지 7일이 지나면 조건부 요청(If-None-Match·If-Modified-Since)으로 바뀌었는지만 묻는다. 304거나 본문(SHA-256)이 같으면 다시 쓰지 않는다. 원본 주소가 바뀌면 새로 받는다.
+- 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
+- 응답은 `ETag`(SHA-256)와 `Cache-Control: public, max-age=86400`. 같은 ETag로 물으면 304.
+- 사진의 권리는 MLB·각 구단에 있다(공식 사진을 끄면 `photoUrl`이 모두 null).
+
 ### 이번 겨울 MLB 도전(홈의 `posting`)
 - 비시즌 홈에만 붙는다. 포스팅 선수(`players`)와 지금 포스팅 제도(2018~)의 지난 기록(`history`)이다.
 - 자료는 사람이 `roster/posting.yml`에 적는다. 협상 시작·마감 시각, 지난 기록의 마감일·합의 보도일·보장 계약은 근거 기사(MLB Trade Rumors 등) 원문으로 확인한 값만 넣는다.
@@ -183,6 +192,7 @@ com.korleaguer
 ├── domain   JPA 엔티티와 리포지토리
 ├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder)
 ├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
+├── photo    선수 사진 호스팅: 원본 목록(PhotoSources), 한 번 받아 저장·재확인(PhotoStore)·주기 작업
 ├── news     관련 기사 제목 수집: 피드 읽기(FeedParser), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher), 수집(NewsCollector)·스케줄
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```

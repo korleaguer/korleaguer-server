@@ -3,6 +3,9 @@ package com.korleaguer.api;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Player;
 import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.photo.PhotoSources;
+import com.korleaguer.posting.PostingProperties;
+import com.korleaguer.posting.Postings;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,7 +35,8 @@ class RosterProfilesTest {
         RosterProfiles profiles = profiles(true, TEMPLATE);
         Player jungHoo = new Player("이정후");
 
-        assertThat(profiles.photoUrl(jungHoo)).isEqualTo("https://img.example.test/people/808982/headshot/current");
+        // 사진은 우리가 호스팅하는 주소다(원본은 TEMPLATE, PhotoStore가 한 번 받아 둔다)
+        assertThat(profiles.photoUrl(jungHoo)).isEqualTo("/photos/mlb-808982");
         assertThat(profiles.mlbUrl(jungHoo)).isEqualTo("https://www.mlb.com/player/808982");
         assertThat(profiles.careerKo(jungHoo)).isEqualTo("넥센·키움 히어로즈 (2017–2023)");
     }
@@ -75,6 +79,7 @@ class RosterProfilesTest {
     private RosterProfiles profiles(boolean officialPhotos, String template) {
         KorleaguerProperties properties = new KorleaguerProperties(2026, null, null, null,
                 new KorleaguerProperties.Images(officialPhotos, template), null);
-        return new RosterProfiles(roster, properties);
+        return new RosterProfiles(roster, new PhotoSources(roster,
+                new Postings(new PostingProperties(List.of(), List.of())), properties));
     }
 }
