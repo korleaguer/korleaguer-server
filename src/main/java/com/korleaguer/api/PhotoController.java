@@ -22,7 +22,8 @@ import java.util.regex.Pattern;
 @RestController
 public class PhotoController {
 
-    private static final Pattern KEY = Pattern.compile("mlb-\\d{1,10}|kbo-[a-z0-9-]{1,40}");
+    // mlb-808982(지금 MLB 사진), mlb-673490-2024(그 시즌 MLB 사진: 포스팅 선배의 계약 구단 시절), kbo-…(KBO 사진)
+    private static final Pattern KEY = Pattern.compile("mlb-\\d{1,10}(-\\d{4})?|kbo-[a-z0-9-]{1,40}");
     private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofDays(1)).cachePublic();
 
     private final PhotoStore store;
