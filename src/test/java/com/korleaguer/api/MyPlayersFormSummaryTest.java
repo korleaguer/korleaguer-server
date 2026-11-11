@@ -26,8 +26,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * 최근 폼 요약(이슈 #33)을 샘플 데이터로 본다. 2026-09-27 22:00 KST.
  * 고우석은 지금 소속이 마이너 팀(St. Paul Saints)이고, 샘플 마이너 경기 12번 등판(9월 9일 ~ 20일, 지어낸 값)이 있다.
+ * 실제 명단(baseball.yml)에서는 고우석이 LG 트윈스로 돌아갔다(returned-ko)지만, 이 테스트는 그를 마이너 투수 샘플로 쓰므로
+ * 돌아간 팀이 없는 같은 명단을 직접 둔다(DB도 따로 쓴다).
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:form-summary;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "roster.baseball[0].name-ko=이정후",
+        "roster.baseball[0].mlb-id=808982",
+        "roster.baseball[1].name-ko=김혜성",
+        "roster.baseball[1].mlb-id=808975",
+        "roster.baseball[2].name-ko=김하성",
+        "roster.baseball[2].mlb-id=673490",
+        "roster.baseball[3].name-ko=송성문",
+        "roster.baseball[3].mlb-id=823550",
+        "roster.baseball[4].name-ko=고우석",
+        "roster.baseball[4].mlb-id=808970",
+        "roster.baseball[5].name-ko=배지환",
+        "roster.baseball[5].mlb-id=678225"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class MyPlayersFormSummaryTest {
