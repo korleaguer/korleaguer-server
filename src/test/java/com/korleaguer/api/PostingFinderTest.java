@@ -214,6 +214,22 @@ class PostingFinderTest {
     }
 
     @Test
+    void anOlderSummarizedArticleIsAddedWhenFewerThanFiveAreShown() {
+        NewsArticle korean = new NewsArticle("노시환", "https://news.example.kr/0", "k0", "노시환 소식", "마이데일리",
+                Instant.parse("2026-11-10T10:00:00Z"), Instant.parse("2026-11-10T11:00:00Z"));
+        NewsArticle english = new NewsArticle("노시환", "https://mlb.example.com/roh", "e", "Roh Posted", "MLB Trade Rumors",
+                Instant.parse("2026-11-01T20:40:00Z"), Instant.parse("2026-11-01T21:00:00Z"));
+        english.enriched(null, "한화, 노시환 포스팅", "노시환이 포스팅됐다.", "claude-haiku-5-5", Instant.parse("2026-11-11T12:00:00Z"));
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(korean));
+        when(news.findLatestSummarized(eq("노시환"), any())).thenReturn(List.of(english));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url)
+                .containsExactly("https://news.example.kr/0", "https://mlb.example.com/roh");
+    }
+
+    @Test
     void noSlotIsTakenWhenASummarizedArticleIsAlreadyShown() {
         NewsArticle english = new NewsArticle("노시환", "https://mlb.example.com/roh", "e", "Roh Posted", "MLB Trade Rumors",
                 Instant.parse("2026-11-10T20:40:00Z"), Instant.parse("2026-11-10T21:00:00Z"));

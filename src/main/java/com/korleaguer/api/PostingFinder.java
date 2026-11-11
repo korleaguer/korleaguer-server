@@ -54,7 +54,7 @@ public class PostingFinder {
     /**
      * 그 선수의 관련 기사(늦은 순 NEWS_PER_PLAYER건, 지금 수집하는 언론사만).
      * 국내 기사가 많으면 영어 기사의 AI 요약이 밀려 안 보이므로, 그 안에 요약 기사가 없으면 가장 최근 요약 기사 하나를
-     * 마지막 자리에 넣는다(사용자가 원한 것이 영어 기사의 한국어 요약이다). 늦은 순은 그대로다(더 오래된 기사라 맨 뒤).
+     * 마지막 자리에 넣는다(덜 찼으면 맨 뒤에 붙인다. 사용자가 원한 것이 영어 기사의 한국어 요약이다). 늦은 순은 그대로다.
      */
     private List<NewsArticle> headlines(String player) {
         // 뺀 언론사의 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
@@ -63,11 +63,18 @@ public class PostingFinder {
                 .filter(a -> publishers.contains(a.getPublisher()))
                 .limit(NEWS_PER_PLAYER)
                 .toList());
-        if (picked.size() == NEWS_PER_PLAYER && picked.stream().noneMatch(a -> a.getSummary() != null)) {
+        if (picked.stream().noneMatch(a -> a.getSummary() != null)) {
+            // 고른 기사보다 오래된 기사라 마지막 자리(덜 찼으면 맨 뒤)에 두어도 늦은 순이 그대로다
             news.findLatestSummarized(player, PageRequest.of(0, NEWS_PER_PLAYER)).stream()
                     .filter(a -> publishers.contains(a.getPublisher()))
                     .findFirst()
-                    .ifPresent(a -> picked.set(NEWS_PER_PLAYER - 1, a));
+                    .ifPresent(a -> {
+                        if (picked.size() == NEWS_PER_PLAYER) {
+                            picked.set(NEWS_PER_PLAYER - 1, a);
+                        } else {
+                            picked.add(a);
+                        }
+                    });
         }
         return picked;
     }
