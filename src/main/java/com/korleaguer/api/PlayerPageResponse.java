@@ -27,6 +27,7 @@ public record PlayerPageResponse(
      * batsThrowsKo는 "우투좌타"처럼 투구 먼저 쓴다.
      * level·levelTeam·freeAgent는 선수 목록(PlayerSummary)과 같다: 지금 메이저(MLB)인지 마이너(MINORS)인지,
      * MLB가 알려 준 지금 팀 이름, MLB 이동 기록상 FA인지. returnedKo도 목록과 같다(국내 리그로 돌아간 팀, 없으면 null).
+     * careerPhotos는 과거 소속팀(KBO) 시절 공식 사진(오래된 팀부터, 없으면 빈 목록)이다.
      */
     public record PlayerInfo(
             long id,
@@ -52,7 +53,17 @@ public record PlayerPageResponse(
             Level level,
             String levelTeam,
             boolean freeAgent,
-            String returnedKo) {
+            String returnedKo,
+            List<CareerPhoto> careerPhotos) {
+    }
+
+    /**
+     * 과거 소속팀(KBO) 시절 공식 사진 한 장(명단 baseball.yml의 career-photos). 우리가 호스팅하는 주소다(/photos/kbo-67341-2023).
+     *
+     * @param teamKo 팀 이름(예: "키움 히어로즈")
+     * @param years  그 팀에서 뛴 해(예: "2017–2023")
+     */
+    public record CareerPhoto(String teamKo, String years, String photoUrl) {
     }
 
     /**

@@ -16,6 +16,7 @@ import java.util.Optional;
  * <ul>
  *   <li>mlb-{MLB 선수 번호}: 명단(baseball.yml)의 mlb-id로 만든 MLB 공식 사진(korleaguer.images.player-photo-template)</li>
  *   <li>kbo-{slug}: 포스팅 선수(posting.yml)의 photo-url(현 소속 KBO 구단 사진)</li>
+ *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진(korleaguer.images.kbo-photo-template)</li>
  * </ul>
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
@@ -25,6 +26,8 @@ public class PhotoSources {
 
     public static final String WEB_PATH = "/photos/";
     private static final String MLB_ID_PLACEHOLDER = "{mlbId}";
+    private static final String KBO_ID_PLACEHOLDER = "{kboId}";
+    private static final String SEASON_PLACEHOLDER = "{season}";
 
     private final Map<String, String> sources;
 
@@ -38,6 +41,21 @@ public class PhotoSources {
                     if (entry.mlbId() != null) {
                         all.putIfAbsent(mlbKey(entry.mlbId()), template.replace(MLB_ID_PLACEHOLDER,
                                 String.valueOf(entry.mlbId())));
+                    }
+                }
+            }
+            String kboTemplate = images.kboPhotoTemplate();
+            if (kboTemplate != null && !kboTemplate.isBlank()) {
+                for (RosterProperties.Entry entry : roster.baseball()) {
+                    if (entry.kboId() == null) {
+                        continue;
+                    }
+                    for (RosterProperties.CareerPhoto photo : entry.careerPhotos()) {
+                        if (photo.season() != null) {
+                            all.putIfAbsent(careerKey(entry.kboId(), photo.season()), kboTemplate
+                                    .replace(KBO_ID_PLACEHOLDER, String.valueOf(entry.kboId()))
+                                    .replace(SEASON_PLACEHOLDER, String.valueOf(photo.season())));
+                        }
                     }
                 }
             }
@@ -70,12 +88,21 @@ public class PhotoSources {
         return slug == null ? null : path(kboKey(slug));
     }
 
+    /** 과거 소속팀(KBO) 시절 사진의 우리 주소(/photos/kbo-67341-2023). 사진을 껐거나 목록에 없으면 null */
+    public String careerPath(Long kboId, Integer season) {
+        return kboId == null || season == null ? null : path(careerKey(kboId, season));
+    }
+
     private String path(String key) {
         return sources.containsKey(key) ? WEB_PATH + key : null;
     }
 
     static String mlbKey(Long mlbId) {
         return "mlb-" + mlbId;
+    }
+
+    static String careerKey(Long kboId, int season) {
+        return "kbo-" + kboId + "-" + season;
     }
 
     static String kboKey(String slug) {

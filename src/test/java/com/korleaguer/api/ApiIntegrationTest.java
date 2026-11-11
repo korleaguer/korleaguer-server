@@ -216,6 +216,10 @@ class ApiIntegrationTest {
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.player.photoUrl").value(JUNG_HOO_PHOTO))
                 .andExpect(jsonPath("$.player.mlbUrl").value("https://www.mlb.com/player/808982"))
+                // 과거 소속팀(KBO) 시절 공식 사진: 명단의 kbo-id·career-photos, 우리가 호스팅하는 주소
+                .andExpect(jsonPath("$.player.careerPhotos[0].teamKo").value("키움 히어로즈"))
+                .andExpect(jsonPath("$.player.careerPhotos[0].years").value("2017–2023"))
+                .andExpect(jsonPath("$.player.careerPhotos[0].photoUrl").value("/photos/kbo-67341-2023"))
                 .andExpect(jsonPath("$.player.jersey").value("51"))
                 .andExpect(jsonPath("$.player.birthDate").value("1998-08-20"))
                 .andExpect(jsonPath("$.player.age").value(28))
