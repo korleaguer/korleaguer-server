@@ -18,8 +18,11 @@
 #   season: 포스팅된 겨울이 시작한 해(2023-24 겨울이면 2023)
 #   deadline: 협상 마감 미국 날짜, agreed-on: 계약 합의가 처음 보도된 미국 날짜
 #   years·guaranteed-usd: 보장 연수와 보장액(달러). 옵션·인센티브는 넣지 않는다.
-#   kbo-id: KBO 선수 번호(한국어 위키백과 선수 문서의 KBO 기록 링크 playerId). 있으면 season 시즌의 KBO 공식 등록 사진
+#   kbo-id: KBO 선수 번호(한국어 위키백과 선수 문서의 KBO 기록 링크 playerId). MLB 사진(photo-url)이 없을 때 season 시즌의 KBO 공식 등록 사진
 #           (포스팅 당시 구단의 마지막 시즌, 정면)을 우리 서버가 KBO 사진 서버에서 한 번 받아 호스팅한다. 권리는 KBO·구단에 있다.
+#   mlb-id·photo-season·photo-url: 계약한 MLB 구단에서의 마지막 시즌 MLB 공식 사진(headshot/67, 모두 같은 틀이라 크기가 고르다).
+#           지금도 그 구단이면 MLB 현재 사진 주소, 팀을 옮겼으면 인터넷 보관소(web.archive.org, 'id_' 원본 사본)에 남은 그 시즌 사진 주소를 적는다.
+#           우리 서버가 mlb-{번호}-{시즌}으로 한 번 받아 호스팅하고 다시 받지 않는다(팀을 옮겨도 그 시즌 사진 유지). 권리는 MLB·구단에 있다.
 # 2026-11-11 MLB Trade Rumors 원문으로 확인했다.
 posting:
   current:
@@ -46,6 +49,9 @@ posting:
       years: 4
       guaranteed-usd: 15000000
       source: https://www.mlbtraderumors.com/2025/12/padres-to-sign-sung-mun-song.html
+      mlb-id: 823550
+      photo-season: 2026
+      photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/823550/headshot/67/current
     - name-ko: 김혜성
       kbo-id: 67304
       season: 2024
@@ -55,6 +61,9 @@ posting:
       years: 3
       guaranteed-usd: 12500000
       source: https://www.mlbtraderumors.com/2025/01/dodgers-to-sign-hyeseong-kim.html
+      mlb-id: 808975
+      photo-season: 2026
+      photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/808975/headshot/67/current
     - name-ko: 이정후
       kbo-id: 67341
       season: 2023
@@ -64,6 +73,9 @@ posting:
       years: 6
       guaranteed-usd: 113000000
       source: https://www.mlbtraderumors.com/2023/12/giants-jung-hoo-lee-agree-to-six-year-deal.html
+      mlb-id: 808982
+      photo-season: 2026
+      photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/808982/headshot/67/current
     - name-ko: 고우석
       kbo-id: 67119
       season: 2023
@@ -73,6 +85,10 @@ posting:
       years: 2
       guaranteed-usd: 4500000
       source: https://www.mlbtraderumors.com/2024/01/padres-woo-suk-go-agree-to-two-year-deal.html
+      mlb-id: 808970
+      # 지금 MLB 사진은 다른 팀(미네소타)이라 인터넷 보관소에 남은 2024-03-01 샌디에이고 사진
+      photo-season: 2024
+      photo-url: https://web.archive.org/web/20240301011222id_/https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/808970/headshot/67/current
     - name-ko: 김하성
       kbo-id: 64300
       season: 2020
@@ -83,6 +99,10 @@ posting:
       years: 4
       guaranteed-usd: 28000000
       source: https://www.mlbtraderumors.com/2020/12/padres-sign-ha-seong-kim.html
+      mlb-id: 673490
+      # 지금 MLB 사진은 다른 팀(애틀랜타)이라 인터넷 보관소에 남은 2024-03-04 샌디에이고 사진(마지막 샌디에이고 시즌)
+      photo-season: 2024
+      photo-url: https://web.archive.org/web/20240304053528id_/https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/673490/headshot/67/current
     - name-ko: 김광현
       kbo-id: 77829
       season: 2019
@@ -92,3 +112,7 @@ posting:
       years: 2
       guaranteed-usd: 8000000
       source: https://www.mlbtraderumors.com/2019/12/cardinals-to-sign-kwang-hyun-kim.html
+      mlb-id: 547942
+      # MLB 마지막 시즌(2021) 세인트루이스 사진. 인터넷 보관소 2022-09-08 사본과 같은 파일
+      photo-season: 2021
+      photo-url: https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/547942/headshot/67/current

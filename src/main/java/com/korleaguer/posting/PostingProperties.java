@@ -51,10 +51,13 @@ public record PostingProperties(List<Current> current, List<Past> history) {
      *
      * @param season   포스팅된 겨울이 시작한 해
      * @param deadline 협상 마감 미국 날짜(yyyy-MM-dd)
-     * @param kboId    KBO 선수 번호(선택). 있으면 season 시즌의 KBO 공식 등록 사진(포스팅 당시 구단의 마지막 시즌)을
-     *                 우리 서버가 한 번 받아 호스팅한다
+     * @param kboId       KBO 선수 번호(선택). MLB 사진이 없으면 season 시즌의 KBO 공식 등록 사진을 쓴다
+     * @param mlbId       MLB 선수 번호(선택, photo-url과 함께)
+     * @param photoSeason photo-url 사진의 시즌(계약한 MLB 구단에서의 마지막 시즌)
+     * @param photoUrl    계약한 MLB 구단 시절 MLB 공식 사진 원본 주소(선택). 우리 서버가 한 번 받아 호스팅한다
      */
     public record Past(String nameKo, Integer season, String mlbTeam, String deadline, String agreedOn,
-                       Integer years, Long guaranteedUsd, String source, Long kboId) {
+                       Integer years, Long guaranteedUsd, String source, Long kboId,
+                       Long mlbId, Integer photoSeason, String photoUrl) {
     }
 }

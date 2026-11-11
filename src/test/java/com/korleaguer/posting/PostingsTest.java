@@ -38,6 +38,24 @@ class PostingsTest {
         // 선배마다 KBO 선수 번호(포스팅 당시 KBO 공식 사진을 찾는 데 쓴다)
         assertThat(postings.history()).extracting(PastPosting::kboId)
                 .containsExactly(65357L, 67304L, 67341L, 67119L, 64300L, 77829L);
+        // 선배마다 계약 구단 마지막 시즌 MLB 공식 사진(김하성·고우석은 인터넷 보관소의 2024 샌디에이고 사본)
+        assertThat(postings.history()).extracting(PastPosting::mlbId, PastPosting::photoSeason)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(823550L, 2026),
+                        org.assertj.core.groups.Tuple.tuple(808975L, 2026),
+                        org.assertj.core.groups.Tuple.tuple(808982L, 2026),
+                        org.assertj.core.groups.Tuple.tuple(808970L, 2024),
+                        org.assertj.core.groups.Tuple.tuple(673490L, 2024),
+                        org.assertj.core.groups.Tuple.tuple(547942L, 2021));
+        assertThat(postings.history()).allSatisfy(p -> assertThat(p.photoUrl()).startsWith("https://"));
+    }
+
+    @Test
+    void historyPhotoNeedsMlbIdAndSeason() {
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(), List.of(
+                new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4, 1L, null, null,
+                        null, 2024, "https://archive.example/kim.jpg")))))
+                .hasMessageContaining("posting.history 김하성: mlb-id is required when photo-url is set");
     }
 
     @Test
@@ -91,7 +109,7 @@ class PostingsTest {
     @Test
     void pastAgreementCannotComeAfterTheDeadline() {
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(), List.of(
-                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2024-01-04", 6, 1L, null, null)))))
+                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2024-01-04", 6, 1L, null, null, null, null, null)))))
                 .hasMessageContaining("posting.history 이정후: agreed-on must not be after deadline");
     }
 
