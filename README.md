@@ -173,9 +173,10 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 
 ## 배포
 
-develop에 병합되면 Actions(`.github/workflows/deploy.yml`)가 테스트 → 이미지(`Dockerfile`, GHCR `ghcr.io/korleaguer/korleaguer-server:sha-<커밋>`) →
+develop에 병합되면 Actions(`.github/workflows/deploy.yml`)가 테스트와 이미지(`Dockerfile`, GHCR `ghcr.io/korleaguer/korleaguer-server:sha-<커밋>`)를 동시에 만들고 →
 SSH로 서버(pigeon.ddns.net)에 접속해 새 컨테이너로 바꾸기(끊김 없이, 새 것이 정상이 안 되면 옛 것 유지)까지 알아서 한다(지속 배포, 버전 번호 없이 커밋 해시로 구분). 서버 구성(Caddy·web·api·MySQL),
 처음 준비, 되돌리기, 백업은 [`deploy/README.md`](deploy/README.md).
+PR에서 테스트를 통과한 코드와 병합한 코드가 똑같으면 테스트를 다시 돌리지 않는다. 배포 차례가 왔을 때 develop에 더 새 배포 대상 커밋이 있으면 그 커밋이 함께 내보내므로 건너뛴다(최신만 배포).
 
 ```bash
 docker build -t korleaguer-server:local .   # 이미지만 만들어 보기
