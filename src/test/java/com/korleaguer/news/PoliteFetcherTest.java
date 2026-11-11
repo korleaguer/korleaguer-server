@@ -172,6 +172,29 @@ class PoliteFetcherTest {
         assertThat(http.urls()).containsExactly(ROBOTS, FEED, other + "/robots.txt");
     }
 
+    @Test
+    void photoFetcherTreatsForbiddenRobotsAsNoRobotsLikeTheStandard() {
+        PoliteFetcher photos = new PoliteFetcher(http, AGENTS, clock, clock::advance, false);
+        http.on(ROBOTS, reply(403, "")).on(FEED, reply(200, "img", "Content-Type", "image/webp", "ETag", "\"p1\""));
+
+        Optional<PoliteFetcher.Fetched> got = photos.get(URI.create(FEED), java.util.Map.of("Accept", "image/webp"));
+
+        assertThat(got).hasValueSatisfying(f -> {
+            assertThat(f.modified()).isTrue();
+            assertThat(f.contentType()).isEqualTo("image/webp");
+            assertThat(f.etag()).isEqualTo("\"p1\"");
+        });
+        assertThat(http.requests.get(1).headers()).containsEntry("Accept", "image/webp");
+    }
+
+    @Test
+    void getReportsNotModified() {
+        http.on(ROBOTS, ok("")).on(FEED, reply(304, "", "ETag", "\"p1\""));
+
+        assertThat(fetcher.get(URI.create(FEED), java.util.Map.of("If-None-Match", "\"p1\"")))
+                .hasValueSatisfying(f -> assertThat(f.modified()).isFalse());
+    }
+
     private Optional<byte[]> fetch(String url) {
         return fetcher.fetch(URI.create(url));
     }

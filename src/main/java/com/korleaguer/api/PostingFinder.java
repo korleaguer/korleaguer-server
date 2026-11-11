@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PastPosting;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.PostingResult;
@@ -31,12 +31,12 @@ public class PostingFinder {
 
     private final Postings postings;
     private final NewsArticleRepository news;
-    private final boolean officialPhotos;
+    private final PhotoSources photos;
 
-    public PostingFinder(Postings postings, NewsArticleRepository news, KorleaguerProperties properties) {
+    public PostingFinder(Postings postings, NewsArticleRepository news, PhotoSources photos) {
         this.postings = postings;
         this.news = news;
-        this.officialPhotos = properties.images() == null || properties.images().officialPhotos();
+        this.photos = photos;
     }
 
     PostingSummary find(Instant now) {
@@ -63,7 +63,7 @@ public class PostingFinder {
                 .map(a -> new PostingSummary.Headline(a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt()))
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
-                officialPhotos ? p.photoUrl() : null, status,
+                photos.postingPath(p.slug()), status,
                 p.windowOpens(), p.deadline(), daysLeft, elapsedRatio(p, now), deal(p.result()), headlines);
     }
 

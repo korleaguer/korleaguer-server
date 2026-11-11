@@ -167,7 +167,7 @@ class NewsCollectorTest {
     }
 
     private static Postings postings() {
-        return new Postings(new PostingProperties(List.of(new PostingProperties.Current("노시환", "한화 이글스", "3루수",
+        return new Postings(new PostingProperties(List.of(new PostingProperties.Current("노시환", null, "한화 이글스", "3루수",
                 2000, List.of("Si-Hwan Roh", "Si Hwan Roh"), "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00",
                 null, null, null)), List.of()));
     }

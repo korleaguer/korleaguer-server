@@ -94,7 +94,8 @@ class PostingsTest {
 
     private static PostingProperties.Current current(List<String> names, String opens, String deadline,
                                                      PostingProperties.Result result) {
-        return new PostingProperties.Current("노시환", "한화 이글스", "3루수", 2000, names, opens, deadline, null, null,
+        return new PostingProperties.Current("노시환", null, "한화 이글스", "3루수", 2000, names, opens, deadline, null,
+                null,
                 result);
     }
 

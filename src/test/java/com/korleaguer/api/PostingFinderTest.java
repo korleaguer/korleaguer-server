@@ -3,6 +3,8 @@ package com.korleaguer.api;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,16 +125,17 @@ class PostingFinderTest {
     }
 
     @Test
-    void photoFollowsTheOfficialPhotosSwitch() {
+    void photoIsOurHostedPathAndFollowsTheOfficialPhotosSwitch() {
         Instant now = Instant.parse("2026-11-11T01:00:00Z");
 
-        assertThat(finder(roh(null)).find(now).players().getFirst().photoUrl()).isEqualTo("https://example.kr/roh.png");
+        assertThat(finder(roh(null)).find(now).players().getFirst().photoUrl()).isEqualTo("/photos/kbo-si-hwan-roh");
         assertThat(finder(roh(null), false).find(now).players().getFirst().photoUrl()).isNull();
     }
 
     @Test
     void nothingToShowIsNull() {
-        PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news, photos(true));
+        PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news,
+                photos(new Postings(new PostingProperties(List.of(), List.of())), true));
 
         assertThat(finder.find(Instant.parse("2026-11-11T01:00:00Z"))).isNull();
     }
@@ -145,16 +148,17 @@ class PostingFinderTest {
         List<PostingProperties.Past> history = List.of(
                 new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6, 113_000_000L, null),
                 new PostingProperties.Past("나성범", 2020, null, "2021-01-09", null, null, null, null));
-        return new PostingFinder(new Postings(new PostingProperties(List.of(current), history)), news,
-                photos(officialPhotos));
+        Postings postings = new Postings(new PostingProperties(List.of(current), history));
+        return new PostingFinder(postings, news, photos(postings, officialPhotos));
     }
 
-    private static KorleaguerProperties photos(boolean on) {
-        return new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(on, null), null);
+    private static PhotoSources photos(Postings postings, boolean on) {
+        return new PhotoSources(new RosterProperties(List.of()), postings,
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(on, null), null));
     }
 
     private static PostingProperties.Current roh(PostingProperties.Result result) {
-        return new PostingProperties.Current("노시환", "한화 이글스", "3루수", 2000, List.of("Si-Hwan Roh"), OPENS,
+        return new PostingProperties.Current("노시환", "si-hwan-roh", "한화 이글스", "3루수", 2000, List.of("Si-Hwan Roh"), OPENS,
                 DEADLINE, null, "https://example.kr/roh.png", result);
     }
 }
