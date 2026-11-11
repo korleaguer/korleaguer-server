@@ -14,8 +14,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 캐시는 지금 메모리(Caffeine, 15분 만료)에 둔다. 설정은 application.properties의 spring.cache.*.
- * 데이터는 수집 때만 바뀌고 그때 캐시를 비운다(IngestService). 따라잡기가 끝나면 CacheWarmer가 다시 채운다.
+ * 캐시는 지금 메모리(Caffeine)에 둔다. 설정은 application.properties의 spring.cache.*.
+ * 보이는 것이 실제로 바뀔 때만 비우고(ResponseCaches), 비운 뒤와 따라잡기 뒤에 CacheWarmer가 다시 채운다.
  * 서버를 여러 대로 늘리면 Redis로 바꿀 자리다(spring-boot-starter-data-redis + spring.cache.type=redis).
  */
 @Configuration
