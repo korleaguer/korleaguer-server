@@ -88,7 +88,7 @@ class NewsCollectorTest {
                 item("NL West Notes: Padres, Giants", MLB + "/2026/11/nl-west-notes.html",
                         "Tue, 10 Nov 2026 18:00:00 +0000"))));
         NewsProperties.Source playerFeed = new NewsProperties.Source("MLB Trade Rumors",
-                MLB + "/players/si-hwan-roh/feed", "UTC", "노시환", null);
+                MLB + "/players/si-hwan-roh/feed", "UTC", "노시환", null, null);
 
         assertThat(collector(playerFeed).collect()).isEqualTo(1);
         assertThat(saved).extracting(NewsArticle::getTitle).containsExactly("NL West Notes: Padres, Giants");
@@ -109,7 +109,7 @@ class NewsCollectorTest {
     void bigFeedWaitsForItsInterval() {
         http.on(NEWS + "/big.xml", ok(rss(item("노시환 소식", NEWS + "/view/9", "Wed, 11 Nov 2026 09:00:00 +0900"))));
         NewsCollector collector = collector(new NewsProperties.Source("마이데일리", NEWS + "/big.xml", null, null,
-                Duration.ofHours(2)));
+                Duration.ofHours(2), null));
 
         collector.collect();
         clock.advance(Duration.ofMinutes(30));
@@ -141,6 +141,22 @@ class NewsCollectorTest {
     }
 
     @Test
+    void leadIsKeptOnlyWhereTheSourceAllowsIt() {
+        String body = "<rss version=\"2.0\" xmlns:content=\"http://purl.org/rss/1.0/modules/content/\"><channel><title>t</title>"
+                + "<item><title>노시환 소식</title><link>%s</link><pubDate>Wed, 11 Nov 2026 09:00:00 +0900</pubDate>"
+                + "<content:encoded><![CDATA[<p>노시환이 협상을 시작했다.</p>]]></content:encoded></item></channel></rss>";
+        http.on(NEWS + "/lead.xml", ok(body.formatted(NEWS + "/view/1")))
+                .on(NEWS + "/plain.xml", ok(body.formatted(NEWS + "/view/2")));
+
+        collector(new NewsProperties.Source("마이데일리", NEWS + "/lead.xml", null, null, null, "lead"),
+                source("다른 곳", NEWS + "/plain.xml")).collect();
+
+        assertThat(saved).extracting(NewsArticle::getUrl, NewsArticle::getLeadText).containsExactly(
+                org.assertj.core.groups.Tuple.tuple(NEWS + "/view/1", "노시환이 협상을 시작했다."),
+                org.assertj.core.groups.Tuple.tuple(NEWS + "/view/2", null));
+    }
+
+    @Test
     void mentionsIgnoresCaseAndHyphens() {
         List<String> names = List.of("노시환", "Si-Hwan Roh");
 
@@ -163,7 +179,7 @@ class NewsCollectorTest {
     }
 
     private static NewsProperties.Source source(String publisher, String url) {
-        return new NewsProperties.Source(publisher, url, null, null, null);
+        return new NewsProperties.Source(publisher, url, null, null, null, null);
     }
 
     private static Postings postings() {

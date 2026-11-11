@@ -1,5 +1,6 @@
 # 관련 기사 제목을 받을 피드(RSS). robots.txt가 허용한 곳만 적는다(수집기도 받을 때마다 다시 확인한다).
-# 제목·링크·언론사·발행 시각만 쓰고 본문·사진·요약은 쓰지 않는다. 언론사가 원하지 않으면 여기서 빼고 DB의 기사도 지운다.
+# 제목·링크·언론사·발행 시각을 쓰고, 그 밖에는 언론사 이용약관이 허락하는 만큼만 쓴다(preview).
+# 언론사가 원하지 않으면 여기서 뺀다(뺀 언론사의 기사는 응답에서 바로 빠진다).
 # 2026-11-11 확인:
 #   - 넣지 않은 곳: 네이버(검색·뉴스)·구글 뉴스(robots.txt가 모든 수집기를 막음),
 #     OSEN·일간스포츠(저작권 규약이 허가 없는 정보서비스·데이터베이스 이용을 금지), 스타뉴스(무단 이용 단속 공지).
@@ -13,6 +14,11 @@
 #   zone: 발행 시각에 시간대 표시가 없을 때 쓸 시간대(비우면 Asia/Seoul)
 #   subject: 선수 한 명만 다루는 피드면 그 선수 한글 이름(제목에 이름이 없어도 그 선수 기사로 본다)
 #   interval: 다시 받는 최소 간격. 비우면 깨어날 때마다(30분). 큰 피드는 길게 둔다.
+#   preview: 제목 아래 보여 줄 것. 비우면 제목만.
+#     lead: 피드가 준 기사 첫머리 200자 안팎(글자만, 사진·나머지 본문은 버림)
+#     ai: 기사 페이지를 한 번 받아 대표 사진(og:image) 원본 주소와 Claude 한국어 요약. 본문은 저장하지 않는다
+#   - MLB Trade Rumors(ai): 이용 조건에 자동 수집·요약 제한이 없다(11-11 확인).
+#   - 마이데일리(lead): 이용약관이 AI 이용과 사진 등 콘텐츠 이용을 막는다. 피드가 주는 첫머리만 출처·원문 링크와 함께 쓴다.
 korleaguer:
   news:
     sources:
@@ -20,13 +26,17 @@ korleaguer:
       - publisher: MLB Trade Rumors
         feed-url: https://www.mlbtraderumors.com/players/si-hwan-roh/feed
         subject: 노시환
+        preview: ai
       # KBO 태그 피드(새로 포스팅되는 선수도 여기서 잡힌다)
       - publisher: MLB Trade Rumors
         feed-url: https://www.mlbtraderumors.com/korea-baseball-organization/feed
+        preview: ai
       # 해외야구·야구 피드. 압축 없이 한 번에 약 0.8MB, 2주치가 들어 있어 2시간마다만 받는다(안내: mydaily.co.kr/rss_service)
       - publisher: 마이데일리
         feed-url: https://www.mydaily.co.kr/wbaseball_rss.xml
         interval: 2h
+        preview: lead
       - publisher: 마이데일리
         feed-url: https://www.mydaily.co.kr/kbo_rss.xml
         interval: 2h
+        preview: lead

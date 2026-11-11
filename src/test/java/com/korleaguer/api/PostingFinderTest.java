@@ -34,8 +34,8 @@ class PostingFinderTest {
     private static final String DEADLINE = "2026-12-01T17:00:00-05:00";
     /** 지금 수집하는 언론사(뉴시스는 이용약관으로 뺐다) */
     private static final NewsProperties NEWS = new NewsProperties(false, null, null, null, List.of(
-            new NewsProperties.Source("MLB Trade Rumors", "https://example.com/mlbtr", null, null, null),
-            new NewsProperties.Source("마이데일리", "https://example.com/mydaily", null, null, null)));
+            new NewsProperties.Source("MLB Trade Rumors", "https://example.com/mlbtr", null, null, null, null),
+            new NewsProperties.Source("마이데일리", "https://example.com/mydaily", null, null, null, null)));
 
     private final NewsArticleRepository news = mock(NewsArticleRepository.class);
 
@@ -171,6 +171,25 @@ class PostingFinderTest {
                         Instant.parse("2026-11-10T03:00:00Z")),
                 new PostingSummary.Headline("노시환 첫 소식", "https://news.example.kr/1", "마이데일리",
                         Instant.parse("2026-11-02T03:00:00Z")));
+    }
+
+    @Test
+    void headlineCarriesLeadSummaryAndImage() {
+        NewsArticle mlbtr = new NewsArticle("노시환", "https://mlb.example.com/1", "h1", "Roh Posted", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z"));
+        mlbtr.enriched("https://cdn.example.com/roh.jpg", "노시환이 포스팅됐다.", "claude-haiku-5-5",
+                Instant.parse("2026-11-10T03:20:00Z"));
+        NewsArticle mydaily = new NewsArticle("노시환", "https://news.example.kr/2", "h2", "노시환 소식", "마이데일리",
+                Instant.parse("2026-11-10T02:00:00Z"), Instant.parse("2026-11-10T02:10:00Z"));
+        mydaily.setLeadText("노시환이 협상을 시작했다.");
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(mlbtr, mydaily));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::summary, PostingSummary.Headline::imageUrl,
+                PostingSummary.Headline::lead).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("노시환이 포스팅됐다.", "https://cdn.example.com/roh.jpg", null),
+                org.assertj.core.groups.Tuple.tuple(null, null, "노시환이 협상을 시작했다."));
     }
 
     @Test
