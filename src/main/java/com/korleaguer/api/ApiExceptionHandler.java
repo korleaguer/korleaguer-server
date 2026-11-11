@@ -17,6 +17,12 @@ public class ApiExceptionHandler {
         return new ErrorResponse("player not found");
     }
 
+    @ExceptionHandler(NewsNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse newsNotFound() {
+        return new ErrorResponse("news not found");
+    }
+
     @ExceptionHandler(IngestAlreadyRunningException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse ingestAlreadyRunning() {

@@ -20,9 +20,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 홈의 포스팅 묶음(PostingSummary)을 만든다. posting.yml(Postings)과 DB의 관련 기사만 읽는다.
@@ -45,10 +43,7 @@ public class PostingFinder {
         this.postings = postings;
         this.news = news;
         this.photos = photos;
-        this.publishers = newsProperties.sources().stream()
-                .map(NewsProperties.Source::publisher)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toUnmodifiableSet());
+        this.publishers = newsProperties.publishers();
     }
 
     /**
@@ -99,8 +94,7 @@ public class PostingFinder {
                 ? (int) ChronoUnit.DAYS.between(KoreanTime.kstDate(now), KoreanTime.kstDate(p.deadline()))
                 : null;
         List<PostingSummary.Headline> headlines = headlines(p.nameKo()).stream()
-                .map(a -> new PostingSummary.Headline(a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt(),
-                        a.getTitleKo(), a.getLeadText(), a.getSummary(), a.getImageUrl()))
+                .map(PostingSummary.Headline::of)
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
                 photos.postingPath(p.slug()), status,
