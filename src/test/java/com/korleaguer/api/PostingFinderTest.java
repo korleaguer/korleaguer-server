@@ -4,6 +4,7 @@ import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.PostingProperties;
@@ -31,6 +32,10 @@ class PostingFinderTest {
 
     private static final String OPENS = "2026-11-02T08:00:00-05:00";
     private static final String DEADLINE = "2026-12-01T17:00:00-05:00";
+    /** 지금 수집하는 언론사(뉴시스는 이용약관으로 뺐다) */
+    private static final NewsProperties NEWS = new NewsProperties(false, null, null, null, List.of(
+            new NewsProperties.Source("MLB Trade Rumors", "https://example.com/mlbtr", null, null, null),
+            new NewsProperties.Source("마이데일리", "https://example.com/mydaily", null, null, null)));
 
     private final NewsArticleRepository news = mock(NewsArticleRepository.class);
 
@@ -154,7 +159,7 @@ class PostingFinderTest {
     @Test
     void headlinesComeLatestFirst() {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(
-                new NewsArticle("노시환", "https://news.example.kr/2", "h2", "노시환 두 번째 소식", "뉴시스",
+                new NewsArticle("노시환", "https://news.example.kr/2", "h2", "노시환 두 번째 소식", "MLB Trade Rumors",
                         Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z")),
                 new NewsArticle("노시환", "https://news.example.kr/1", "h1", "노시환 첫 소식", "마이데일리",
                         Instant.parse("2026-11-02T03:00:00Z"), Instant.parse("2026-11-02T03:10:00Z"))));
@@ -162,10 +167,24 @@ class PostingFinderTest {
         PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
 
         assertThat(roh.news()).containsExactly(
-                new PostingSummary.Headline("노시환 두 번째 소식", "https://news.example.kr/2", "뉴시스",
+                new PostingSummary.Headline("노시환 두 번째 소식", "https://news.example.kr/2", "MLB Trade Rumors",
                         Instant.parse("2026-11-10T03:00:00Z")),
                 new PostingSummary.Headline("노시환 첫 소식", "https://news.example.kr/1", "마이데일리",
                         Instant.parse("2026-11-02T03:00:00Z")));
+    }
+
+    @Test
+    void headlinesOfRemovedPublishersAreHidden() {
+        // 뉴시스는 이용약관(자동 수집 금지)으로 sources.yml에서 뺐다. 이미 모은 기사도 응답에 나오지 않는다
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(
+                new NewsArticle("노시환", "https://news.example.kr/n", "hn", "노시환 뉴시스 소식", "뉴시스",
+                        Instant.parse("2026-11-10T05:00:00Z"), Instant.parse("2026-11-10T05:10:00Z")),
+                new NewsArticle("노시환", "https://news.example.kr/m", "hm", "노시환 마이데일리 소식", "마이데일리",
+                        Instant.parse("2026-11-10T04:00:00Z"), Instant.parse("2026-11-10T04:10:00Z"))));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::publisher).containsExactly("마이데일리");
     }
 
     @Test
@@ -179,7 +198,7 @@ class PostingFinderTest {
     @Test
     void nothingToShowIsNull() {
         PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news,
-                photos(new Postings(new PostingProperties(List.of(), List.of())), true));
+                photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS);
 
         assertThat(finder.find(Instant.parse("2026-11-11T01:00:00Z"))).isNull();
     }
@@ -190,7 +209,7 @@ class PostingFinderTest {
 
     private PostingFinder finder(PostingProperties.Current current, boolean officialPhotos) {
         Postings postings = postings(current);
-        return new PostingFinder(postings, news, photos(postings, officialPhotos));
+        return new PostingFinder(postings, news, photos(postings, officialPhotos), NEWS);
     }
 
     private static Postings postings(PostingProperties.Current current) {
