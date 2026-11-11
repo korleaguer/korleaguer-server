@@ -60,7 +60,7 @@ public class Postings {
                 .forEach(names::add);
         PostingResult result = c.result() == null ? null : result(c.result(), who);
         return new PostingCase(c.nameKo().trim(), c.kboTeam().trim(), c.positionKo().trim(), c.birthYear(), names,
-                opens, deadline, c.source(), result);
+                opens, deadline, c.source(), blankToNull(c.photoUrl()), result);
     }
 
     private static PostingResult result(PostingProperties.Result r, String who) {
@@ -102,6 +102,10 @@ public class Postings {
             throw invalid(who, "guaranteed-usd is required");
         }
         return new PostingResult(PostingResult.Outcome.SIGNED, teamId, agreed, years, guaranteedUsd);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static String require(String value, String who, String field) {

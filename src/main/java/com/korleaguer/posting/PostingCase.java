@@ -10,11 +10,12 @@ import java.util.List;
  * @param searchNames 기사 제목에서 찾을 이름. 한글 이름이 맨 앞에 있다
  * @param windowOpens 30일 협상 시작 시각
  * @param deadline    협상 마감 시각
+ * @param photoUrl    프로필 사진 주소(현 소속 KBO 구단 공식 사진). 없으면 null
  * @param result      결과가 났으면 결과, 아니면 null
  */
 public record PostingCase(String nameKo, String kboTeam, String positionKo, Integer birthYear,
                           List<String> searchNames, Instant windowOpens, Instant deadline, String source,
-                          PostingResult result) {
+                          String photoUrl, PostingResult result) {
 
     /** 관련 기사를 모으기 시작하는 때: 협상 시작 며칠 전(공시 소식부터 잡는다) */
     static final Duration NEWS_LEAD = Duration.ofDays(3);

@@ -15,6 +15,7 @@ public record PostingSummary(List<Player> players, List<Past> history) {
     /**
      * 포스팅 선수 한 명.
      *
+     * @param photoUrl      프로필 사진(현 소속 KBO 구단 공식 사진). 없거나 공식 사진을 껐으면 null
      * @param status        UPCOMING(협상 시작 전) · NEGOTIATING(협상 중) · SIGNED(계약) · NO_DEAL(결렬) ·
      *                      CLOSED(마감이 지났는데 결과를 아직 적지 않음)
      * @param windowOpensAt 30일 협상 시작 시각
@@ -24,7 +25,8 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param deal          계약했으면 계약 내용, 아니면 null
      * @param news          관련 기사 제목(발행 시각이 늦은 순, 최대 5건)
      */
-    public record Player(String nameKo, String kboTeam, String positionKo, Integer birthYear, String status,
+    public record Player(String nameKo, String kboTeam, String positionKo, Integer birthYear, String photoUrl,
+                         String status,
                          Instant windowOpensAt, Instant deadlineAt, Integer daysLeft, double elapsedRatio,
                          Deal deal, List<Headline> news) {
     }
