@@ -35,6 +35,9 @@ class PostingsTest {
                         org.assertj.core.groups.Tuple.tuple("고우석", 0),
                         org.assertj.core.groups.Tuple.tuple("김하성", 4),
                         org.assertj.core.groups.Tuple.tuple("김광현", 19));
+        // 선배마다 KBO 선수 번호(포스팅 당시 KBO 공식 사진을 찾는 데 쓴다)
+        assertThat(postings.history()).extracting(PastPosting::kboId)
+                .containsExactly(65357L, 67304L, 67341L, 67119L, 64300L, 77829L);
     }
 
     @Test
@@ -88,7 +91,7 @@ class PostingsTest {
     @Test
     void pastAgreementCannotComeAfterTheDeadline() {
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(), List.of(
-                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2024-01-04", 6, 1L, null)))))
+                new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2024-01-04", 6, 1L, null, null)))))
                 .hasMessageContaining("posting.history 이정후: agreed-on must not be after deadline");
     }
 
