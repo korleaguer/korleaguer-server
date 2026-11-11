@@ -151,6 +151,6 @@ public class PostingFinder {
         }
         String abbreviation = MlbTeams.abbreviation(result.mlbTeamId());
         return new PostingSummary.Deal(result.mlbTeamId(), TeamNames.korean(abbreviation, abbreviation),
-                result.agreedOn(), result.years(), result.guaranteedUsd());
+                result.agreedOn(), result.years(), result.guaranteedUsd(), result.krwPerUsd());
     }
 }

@@ -18,6 +18,10 @@ import java.util.Locale;
 @Component
 public class Postings {
 
+    /** 원/달러 환율(1달러당 원)로 받는 범위 */
+    static final double MIN_KRW_PER_USD = 500;
+    static final double MAX_KRW_PER_USD = 3000;
+
     private final List<PostingCase> current;
     private final List<PastPosting> history;
 
@@ -78,7 +82,7 @@ public class Postings {
         String outcome = require(r.outcome(), who, "result.outcome").trim().toUpperCase(Locale.ROOT);
         return switch (outcome) {
             case "NO_DEAL" -> PostingResult.noDeal();
-            case "SIGNED" -> signed(r.mlbTeam(), r.agreedOn(), r.years(), r.guaranteedUsd(), who + " result");
+            case "SIGNED" -> signed(r.mlbTeam(), r.agreedOn(), r.years(), r.guaranteedUsd(), r.krwPerUsd(), who + " result");
             default -> throw invalid(who, "result.outcome must be SIGNED or NO_DEAL: " + r.outcome());
         };
     }
@@ -92,7 +96,7 @@ public class Postings {
         LocalDate deadline = date(require(p.deadline(), who, "deadline"), who, "deadline");
         PostingResult result = p.agreedOn() == null || p.agreedOn().isBlank()
                 ? PostingResult.noDeal()
-                : signed(p.mlbTeam(), p.agreedOn(), p.years(), p.guaranteedUsd(), who);
+                : signed(p.mlbTeam(), p.agreedOn(), p.years(), p.guaranteedUsd(), p.krwPerUsd(), who);
         if (result.agreedOn() != null && result.agreedOn().isAfter(deadline)) {
             throw invalid(who, "agreed-on must not be after deadline");
         }
@@ -116,7 +120,7 @@ public class Postings {
     }
 
     private static PostingResult signed(String mlbTeam, String agreedOn, Integer years, Long guaranteedUsd,
-                                        String who) {
+                                        Double krwPerUsd, String who) {
         Long teamId = MlbTeams.id(require(mlbTeam, who, "mlb-team").trim().toUpperCase(Locale.ROOT));
         if (teamId == null) {
             throw invalid(who, "unknown mlb-team: " + mlbTeam);
@@ -128,7 +132,12 @@ public class Postings {
         if (guaranteedUsd == null || guaranteedUsd < 0) {
             throw invalid(who, "guaranteed-usd is required");
         }
-        return new PostingResult(PostingResult.Outcome.SIGNED, teamId, agreed, years, guaranteedUsd);
+        // 원/달러 환율은 1990년대 이후 700~2,000원 사이였다. 달러당이 아닌 값(예: 0.00068)이나 자릿수 실수를 막는다
+        if (krwPerUsd != null && (krwPerUsd.isNaN() || krwPerUsd < MIN_KRW_PER_USD || krwPerUsd > MAX_KRW_PER_USD)) {
+            throw invalid(who, "krw-per-usd must be won per dollar between " + (int) MIN_KRW_PER_USD + " and "
+                    + (int) MAX_KRW_PER_USD + ": " + krwPerUsd);
+        }
+        return new PostingResult(PostingResult.Outcome.SIGNED, teamId, agreed, years, guaranteedUsd, krwPerUsd);
     }
 
     private static String blankToNull(String value) {

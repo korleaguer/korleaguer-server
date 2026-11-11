@@ -211,7 +211,7 @@ class PhotoStoreTest {
     /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
     private PhotoStore storeWithPastPhoto(String photoUrl, DataMode mode) {
         PostingProperties.Past kim = new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4,
-                28_000_000L, null, 64300L, 673490L, 2024, photoUrl);
+                28_000_000L, null, 64300L, 673490L, 2024, photoUrl, null);
         PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
                 new Postings(new PostingProperties(List.of(), List.of(kim))),
                 new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
