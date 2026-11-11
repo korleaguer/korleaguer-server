@@ -57,6 +57,7 @@ class NewsEnricherTest {
         assertThat(done).isEqualTo(1);
         assertThat(article.getSummary()).isEqualTo("노시환이 MLB 30개 구단과 협상을 시작했다.");
         assertThat(article.getImageUrl()).isEqualTo("https://cdn.example.com/roh.jpg");
+        assertThat(article.getTitleKo()).isEqualTo("한화, 노시환 포스팅");
         assertThat(article.getSummaryModel()).isEqualTo("test-model");
         assertThat(asked).containsExactly("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|" + BODY.trim());
         assertThat(http.urls()).containsExactly(MLB + "/robots.txt", MLB + "/2026/11/roh.html");
@@ -76,11 +77,11 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<String> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
                 if (calls[0]++ == 0) {
                     throw new Summarizer.Failure("529 overloaded", false, null);
                 }
-                return Optional.of("두 번째에 요약했다.");
+                return Optional.of(new Summarizer.Summary(null, "두 번째에 요약했다."));
             }
 
             @Override
@@ -137,7 +138,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<String> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
                 throw new Summarizer.Failure("UnauthorizedException: invalid x-api-key", false, null);
             }
 
@@ -209,9 +210,9 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<String> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
                 asked.add(player + "|" + title + "|" + body);
-                return Optional.of(answer);
+                return Optional.of(new Summarizer.Summary("한화, 노시환 포스팅", answer));
             }
 
             @Override

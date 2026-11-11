@@ -177,7 +177,7 @@ class PostingFinderTest {
     void headlineCarriesLeadSummaryAndImage() {
         NewsArticle mlbtr = new NewsArticle("노시환", "https://mlb.example.com/1", "h1", "Roh Posted", "MLB Trade Rumors",
                 Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z"));
-        mlbtr.enriched("https://cdn.example.com/roh.jpg", "노시환이 포스팅됐다.", "claude-haiku-5-5",
+        mlbtr.enriched("https://cdn.example.com/roh.jpg", "한화, 노시환 포스팅", "노시환이 포스팅됐다.", "claude-haiku-5-5",
                 Instant.parse("2026-11-10T03:20:00Z"));
         NewsArticle mydaily = new NewsArticle("노시환", "https://news.example.kr/2", "h2", "노시환 소식", "마이데일리",
                 Instant.parse("2026-11-10T02:00:00Z"), Instant.parse("2026-11-10T02:10:00Z"));
@@ -186,10 +186,11 @@ class PostingFinderTest {
 
         PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
 
-        assertThat(roh.news()).extracting(PostingSummary.Headline::summary, PostingSummary.Headline::imageUrl,
-                PostingSummary.Headline::lead).containsExactly(
-                org.assertj.core.groups.Tuple.tuple("노시환이 포스팅됐다.", "https://cdn.example.com/roh.jpg", null),
-                org.assertj.core.groups.Tuple.tuple(null, null, "노시환이 협상을 시작했다."));
+        assertThat(roh.news()).extracting(PostingSummary.Headline::titleKo, PostingSummary.Headline::summary,
+                PostingSummary.Headline::imageUrl, PostingSummary.Headline::lead).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("한화, 노시환 포스팅", "노시환이 포스팅됐다.", "https://cdn.example.com/roh.jpg",
+                        null),
+                org.assertj.core.groups.Tuple.tuple(null, null, null, "노시환이 협상을 시작했다."));
     }
 
     @Test

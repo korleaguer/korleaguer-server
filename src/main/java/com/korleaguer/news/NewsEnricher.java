@@ -122,12 +122,13 @@ public class NewsEnricher {
                 article.enrichFailed(now);
                 return Outcome.FAILED;
             }
-            Optional<String> summary = summarizer.summarize(article.getSubject(), article.getTitle(), page.text());
+            Optional<Summarizer.Summary> summary = summarizer.summarize(article.getSubject(), article.getTitle(),
+                    page.text());
             if (summary.isEmpty()) {
                 article.enrichFailed(now); // 거절·빈 답
                 return Outcome.FAILED;
             }
-            article.enriched(page.imageUrl(), summary.get(), summarizer.model(), now);
+            article.enriched(page.imageUrl(), summary.get().titleKo(), summary.get().text(), summarizer.model(), now);
             return Outcome.DONE;
         } catch (Summarizer.Failure e) {
             log.warn("news: summary service failed for {}: {}", article.getUrl(), e.getMessage());

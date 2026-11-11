@@ -12,7 +12,7 @@ public interface Summarizer {
         }
 
         @Override
-        public Optional<String> summarize(String player, String title, String body) {
+        public Optional<Summary> summarize(String player, String title, String body) {
             return Optional.empty();
         }
 
@@ -26,10 +26,19 @@ public interface Summarizer {
 
     /**
      * @param player 기사가 다루는 포스팅 선수의 한글 이름(영어 표기를 한글로 바꾸게)
-     * @return 요약(줄마다 한 문장). 거절·빈 응답이면 empty
+     * @return 한국어 제목과 요약(줄마다 한 문장). 거절·빈 응답이면 empty
      * @throws Failure 요약 서비스가 답하지 못했을 때
      */
-    Optional<String> summarize(String player, String title, String body);
+    Optional<Summary> summarize(String player, String title, String body);
+
+    /**
+     * 요약 결과.
+     *
+     * @param titleKo 기사 제목을 한국어로 옮긴 것(영어 기사 제목 대신 보인다). 받지 못했으면 null
+     * @param text    요약(줄마다 한 문장)
+     */
+    record Summary(String titleKo, String text) {
+    }
 
     /** 요약한 모델 이름(기록용) */
     String model();
