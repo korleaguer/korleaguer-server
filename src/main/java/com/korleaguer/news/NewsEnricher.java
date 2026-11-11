@@ -3,6 +3,8 @@ package com.korleaguer.news;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsBlockedHost;
+import com.korleaguer.domain.NewsBlockedHostRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,11 +60,15 @@ public class NewsEnricher {
     private final Summarizer summarizer;
     private final DataMode dataMode;
     private final Clock clock;
-    // 기사 페이지를 막은 사이트(호스트)와 다시 읽어 볼 시각. 서버가 다시 뜨면 비어 한 번 더 시도한다
+    // 기사 페이지를 막은 사이트(호스트)와 다시 읽어 볼 시각(DB news_blocked_host를 처음 쓸 때 읽어 둔다)
     private final Map<String, Instant> pagesBlockedUntil = new HashMap<>();
+    private final NewsBlockedHostRepository blockedHosts;
+    private boolean blockedHostsLoaded;
 
     public NewsEnricher(NewsProperties properties, PoliteFetcher fetcher, @Qualifier("aiFetcher") PoliteFetcher aiFetcher,
-                        NewsArticleRepository articles, Summarizer summarizer, DataMode dataMode, Clock clock) {
+                        NewsArticleRepository articles, NewsBlockedHostRepository blockedHosts, Summarizer summarizer,
+                        DataMode dataMode, Clock clock) {
+        this.blockedHosts = blockedHosts;
         this.properties = properties;
         this.fetcher = fetcher;
         this.aiFetcher = aiFetcher;
@@ -128,19 +134,14 @@ public class NewsEnricher {
         try {
             URI uri = URI.create(article.getUrl());
             String host = uri.getHost();
-            Instant blocked = host == null ? null : pagesBlockedUntil.get(host);
-            if ((blocked != null && now.isBefore(blocked)) || fetcher.paused(uri)) {
+            if (pageBlocked(host, now) || fetcher.paused(uri)) {
                 return Outcome.WAIT;
             }
             PoliteFetcher.Page html = fetcher.getPage(uri);
             if (!html.ok()) {
                 int status = html.status();
                 if (status == 401 || status == 403 || status == 451) {
-                    // 기사 페이지를 막은 사이트다. PoliteFetcher가 그 사이트를 하루 쉬게 했으니, 그 뒤로도 페이지를 또 읽어
-                    // 매일 하루씩 피드까지 멈추지 않게 페이지 읽기만 오래 끈다(피드는 계속 받는다)
-                    pagesBlockedUntil.put(host, now.plus(PAGE_BLOCK));
-                    log.warn("news: {} refused an article page ({}); not reading its pages for {} days", host, status,
-                            PAGE_BLOCK.toDays());
+                    blockPages(host, status, now); // 페이지를 막은 사이트: 페이지 읽기만 오래 끈다(피드는 계속)
                     return Outcome.WAIT;
                 }
                 if (status == 429 || status == 503 || (status == 0 && fetcher.paused(uri))) {
@@ -158,6 +159,28 @@ public class NewsEnricher {
             article.enrichFailed(now);
             return Outcome.FAILED;
         }
+    }
+
+    private boolean pageBlocked(String host, Instant now) {
+        if (host == null) {
+            return false;
+        }
+        if (!blockedHostsLoaded) {
+            blockedHosts.findAll().forEach(b -> pagesBlockedUntil.put(b.getHost(), b.getBlockedUntil()));
+            blockedHostsLoaded = true;
+        }
+        Instant until = pagesBlockedUntil.get(host);
+        return until != null && now.isBefore(until);
+    }
+
+    private void blockPages(String host, int status, Instant now) {
+        if (host == null) {
+            return;
+        }
+        Instant until = now.plus(PAGE_BLOCK);
+        pagesBlockedUntil.put(host, until);
+        blockedHosts.save(new NewsBlockedHost(host, until));
+        log.warn("news: {} refused an article page ({}); not reading its pages until {}", host, status, until);
     }
 
     private Set<String> publishers(java.util.function.Predicate<NewsProperties.Source> kind) {
@@ -216,17 +239,14 @@ public class NewsEnricher {
         try {
             URI uri = URI.create(article.getUrl());
             String host = uri.getHost();
-            Instant blocked = host == null ? null : pagesBlockedUntil.get(host);
-            if ((blocked != null && now.isBefore(blocked)) || pages.paused(uri)) {
+            if (pageBlocked(host, now) || pages.paused(uri)) {
                 return Outcome.SKIP;
             }
             PoliteFetcher.Page html = pages.getPage(uri);
             if (!html.ok()) {
                 int status = html.status();
                 if (status == 401 || status == 403 || status == 451) {
-                    pagesBlockedUntil.put(host, now.plus(PAGE_BLOCK)); // 페이지를 막은 사이트: 피드는 계속, 페이지만 쉰다
-                    log.warn("news: {} refused an article page ({}); not reading its pages for {} days", host, status,
-                            PAGE_BLOCK.toDays());
+                    blockPages(host, status, now); // 페이지를 막은 사이트: 피드는 계속, 페이지만 쉰다
                     return Outcome.SKIP;
                 }
                 if (status == 429 || status == 503 || (status == 0 && pages.paused(uri))) {

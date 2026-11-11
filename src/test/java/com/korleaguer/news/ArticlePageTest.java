@@ -118,6 +118,23 @@ class ArticlePageTest {
     }
 
     @Test
+    void theBodyBoxIsReadAndRelatedHeadlinesAndCopyrightAreLeftOut() {
+        // 엑스포츠뉴스 꼴: 제목·사이드바가 본문 칸 밖에, 본문 끝에 ▶ 관련 기사와 저작권 줄
+        ArticlePage page = ArticlePage.parse("""
+                <div class="aside"><div>많이 본 뉴스: 김하성, 애틀랜타와 재계약 협상 중이라는 현지 보도가 나왔다고 한다</div></div>
+                <div class="news_contents">(엑스포츠뉴스 이우진 기자) 미국 메이저리그(MLB) 필라델피아 필리스가 김하성의 영입에 관심을 보이고 있다.<br>
+                필라델피아가 김하성을 데려오면 노시환 영입에도 도움이 될 것이라는 현지 매체의 분석이 나왔다.<br>
+                사진=연합뉴스 / X / 엑스포츠뉴스DB 사진 설명이 길게 들어간 줄도 본문으로 넣지 않는다<br>
+                이우진 기자 wzyfooty@xportsnews.com</div>
+                <ul class="another_ats"><li>▶ KBO 45년史 최초 홀드왕, NPB 우승팀 파격 제안→결별 확정이라는 다른 기사 제목</li></ul>
+                <div class="copyright">ⓒ 엑스포츠뉴스 무단전재 및 재배포 금지 / 서울시 어딘가 주소와 발행인 이름이 길게 이어진다</div>
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).contains("필라델피아 필리스가 김하성의 영입", "노시환 영입에도 도움")
+                .doesNotContain("많이 본 뉴스", "홀드왕", "무단전재", "사진=");
+    }
+
+    @Test
     void ogImageWinsOverTwitterImage() {
         ArticlePage page = ArticlePage.parse("""
                 <meta name="twitter:image" content="https://cdn.example.kr/logo.png">

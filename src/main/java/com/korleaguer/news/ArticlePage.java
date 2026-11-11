@@ -94,6 +94,12 @@ record ArticlePage(String imageUrl, String text, String description, String titl
     static final int LONG_LINE = 40;
     private static final Pattern NOISE = Pattern.compile("(?is)<(script|style|noscript|nav|footer)[\\s>].*?</\\1>");
     private static final Pattern LINE_BREAK = Pattern.compile("(?i)<br\\s*/?>|</p>|</div>|</li>|</h\\d>|</td>");
+    /** 국내 언론사의 기사 본문 칸(엑스포츠뉴스 news_contents, 마이데일리 article_content, ndsoft article-view-content-div 등) */
+    private static final Pattern BODY_BOX = Pattern.compile("(?i)<(?:div|section|article)\\b[^>]*(?:itemprop=[\"']articleBody[\"']"
+            + "|id=[\"']article-view-content-div[\"']|class=[\"'][^\"']*\\b(?:news_contents|article_content|article_body|articleBody"
+            + "|article-body|news_body|view_con|article_txt|news_view|art_body)\\b)[^>]*>|<article\\b[^>]*>");
+    /** 본문이 끝나는 줄: 저작권·무단 전재 안내, ▶로 시작하는 관련 기사 */
+    private static final Pattern BODY_STOP = Pattern.compile("(?i)무단\\s?전재|무단\\s?복제|재배포\\s?금지|copyright|저작권자|^▶");
     private static final Pattern ARTICLE = Pattern.compile("(?is)<article[\\s>].*?</article>");
     static final int MAX_IMAGE_URL = 1000;
 
@@ -179,16 +185,29 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         return lines.length() > text.length() ? lines : text;
     }
 
-    /** 줄바꿈·칸 경계로 나눈 줄 중 LONG_LINE자 이상인 것(스크립트·메뉴·꼬리 칸은 뺀다). MAX_TEXT자까지 */
+    /**
+     * 줄바꿈·칸 경계로 나눈 줄 중 LONG_LINE자 이상인 것. 기사 본문 칸(BODY_BOX)을 찾으면 거기서부터 보고(사이드바의 다른 기사
+     * 제목이 섞이지 않게), 저작권 안내나 ▶ 관련 기사 줄에서 멈춘다. 스크립트·메뉴·꼬리 칸과 '사진=' 줄은 뺀다. MAX_TEXT자까지
+     */
     private static String longLines(String page) {
         String clean = NOISE.matcher(page).replaceAll(" ");
+        Matcher box = BODY_BOX.matcher(clean);
+        if (box.find()) {
+            clean = clean.substring(box.end());
+        }
         StringBuilder text = new StringBuilder();
         for (String raw : LINE_BREAK.split(clean)) {
             if (text.length() >= MAX_TEXT) {
                 break;
             }
             String line = FeedParser.Texts.decode(TAG.matcher(raw).replaceAll(" ")).replaceAll("[\\s\\u00A0]+", " ").trim();
-            if (line.length() >= LONG_LINE) {
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (BODY_STOP.matcher(line).find()) {
+                break; // 본문이 끝났다(저작권·관련 기사)
+            }
+            if (line.length() >= LONG_LINE && !line.startsWith("사진=")) {
                 text.append(line).append('\n');
             }
         }
@@ -209,7 +228,11 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             }
             return paragraphs(page.substring(start, end), 1);
         }
-        // 기사 칸이 없는 사이트: article 칸들(없으면 페이지 전체)의 긴 문단만
+        // 기사 칸이 없는 사이트: 국내 언론사 본문 칸부터, 없으면 article 칸들(없으면 페이지 전체)의 긴 문단만
+        Matcher box = BODY_BOX.matcher(page);
+        if (box.find()) {
+            return paragraphs(page.substring(box.end()), LONG_PARAGRAPH);
+        }
         StringBuilder articles = new StringBuilder();
         Matcher article = ARTICLE.matcher(page);
         while (article.find()) {
@@ -225,6 +248,9 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         while (p.find() && text.length() < MAX_TEXT) {
             String line = FeedParser.Texts.decode(TAG.matcher(p.group()).replaceAll(" "))
                     .replaceAll("[\\s\\u00A0]+", " ").trim();
+            if (BODY_STOP.matcher(line).find()) {
+                break; // 본문이 끝났다(저작권·관련 기사)
+            }
             if (line.length() >= minLength) {
                 text.append(line).append('\n');
             }

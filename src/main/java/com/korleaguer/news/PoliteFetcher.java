@@ -114,8 +114,9 @@ public class PoliteFetcher {
     }
 
     /**
-     * 기사 페이지용: 조건 없이 한 번 받는다(304로 본문을 놓치지 않게). 404·410은 그 기사만 없어진 것이라 사이트를 쉬게
-     * 하지 않는다(피드 주소가 404면 하루 쉬는 것과 다르다). robots.txt·간격·429·403 등 나머지 규칙은 같다.
+     * 기사 페이지용: 조건 없이 한 번 받는다(304로 본문을 놓치지 않게). 404·410(기사 없어짐)과 401·403·451(페이지를 막음)은
+     * 사이트를 쉬게 하지 않는다(피드는 계속 받는다. 페이지를 막은 사이트는 부르는 쪽이 페이지 읽기를 끈다).
+     * robots.txt·간격·429·503 등 나머지 규칙은 같다.
      */
     public synchronized Page getPage(URI uri) {
         lastStatus = 0;
@@ -196,8 +197,10 @@ public class PoliteFetcher {
             pause(site, retryAfter(reply), "answered " + status);
             return Optional.empty();
         }
-        if ((status == 404 || status == 410) && !missingPausesSite) {
-            log.info("fetch: {} answered {} (page gone)", uri, status);
+        if (!missingPausesSite && (status == 404 || status == 410 || status == 401 || status == 403 || status == 451)) {
+            // 기사 페이지: 그 페이지가 없거나 페이지를 막았을 뿐이다. 사이트(피드)는 쉬게 하지 않고, 페이지를 막은 사이트는
+            // 부르는 쪽(NewsEnricher)이 페이지 읽기만 오래 끈다
+            log.info("fetch: {} answered {} (article page)", uri, status);
             return Optional.empty();
         }
         if (status == 401 || status == 403 || status == 404 || status == 410 || status == 451) {
