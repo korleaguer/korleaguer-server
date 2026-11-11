@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PostingsTest {
 
     @Test
-    void realFileHasRohAndTheEightPastPostings() throws IOException {
+    void realFileHasRohAndTheSixSignedPostings() throws IOException {
         Postings postings = new Postings(load());
 
         PostingCase roh = postings.current().getFirst();
@@ -34,9 +34,7 @@ class PostingsTest {
                         org.assertj.core.groups.Tuple.tuple("이정후", 22),
                         org.assertj.core.groups.Tuple.tuple("고우석", 0),
                         org.assertj.core.groups.Tuple.tuple("김하성", 4),
-                        org.assertj.core.groups.Tuple.tuple("나성범", null),
-                        org.assertj.core.groups.Tuple.tuple("김광현", 19),
-                        org.assertj.core.groups.Tuple.tuple("김재환", null));
+                        org.assertj.core.groups.Tuple.tuple("김광현", 19));
     }
 
     @Test
@@ -96,7 +94,8 @@ class PostingsTest {
 
     private static PostingProperties.Current current(List<String> names, String opens, String deadline,
                                                      PostingProperties.Result result) {
-        return new PostingProperties.Current("노시환", "한화 이글스", "3루수", 2000, names, opens, deadline, null, result);
+        return new PostingProperties.Current("노시환", "한화 이글스", "3루수", 2000, names, opens, deadline, null, null,
+                result);
     }
 
     private static PostingProperties load() throws IOException {

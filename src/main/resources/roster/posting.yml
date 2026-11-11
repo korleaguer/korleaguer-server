@@ -7,10 +7,12 @@
 #   window-opens: 30일 협상 시작 시각(MLB가 구단들에 공시한 다음 날 오전 8시, 미국 동부)
 #   deadline: 협상 마감 시각(30일째 오후 5시, 미국 동부). 11월 첫 일요일부터는 표준시(-05:00)다.
 #   source: 공시·마감 시각의 근거 기사
+#   photo-url: 프로필 사진 주소(선택, 현 소속 KBO 구단 공식 사진). 없으면 화면이 구단 색 원에 이름 첫 글자를 보인다
 #   result: 결과가 나면 적는다. outcome은 SIGNED(계약) 또는 NO_DEAL(결렬).
 #           SIGNED면 mlb-team(약어, 예: SD), agreed-on(합의 보도 미국 날짜), years(보장 연수), guaranteed-usd(보장액)를 같이 적는다.
 #
-# history: 지금 포스팅 제도(2018년 KBO·MLB 합의, 30일 동안 모든 구단과 협상) 기록. agreed-on이 없으면 결렬이다.
+# history: 지금 포스팅 제도(2018년 KBO·MLB 합의, 30일 동안 모든 구단과 협상)에서 MLB 구단과 계약한 기록.
+#   결렬(나성범 2020·김재환 2019)은 화면에 넣지 않기로 해 적지 않는다(사용자 결정 11-11). agreed-on이 없으면 결렬로 읽는다.
 #   season: 포스팅된 겨울이 시작한 해(2023-24 겨울이면 2023)
 #   deadline: 협상 마감 미국 날짜, agreed-on: 계약 합의가 처음 보도된 미국 날짜
 #   years·guaranteed-usd: 보장 연수와 보장액(달러). 옵션·인센티브는 넣지 않는다.
@@ -68,10 +70,6 @@ posting:
       years: 4
       guaranteed-usd: 28000000
       source: https://www.mlbtraderumors.com/2020/12/padres-sign-ha-seong-kim.html
-    - name-ko: 나성범
-      season: 2020
-      deadline: 2021-01-09
-      source: https://www.mlbtraderumors.com/2021/01/sung-bum-na-returning-to-nc-dinos.html
     - name-ko: 김광현
       season: 2019
       mlb-team: STL
@@ -80,7 +78,3 @@ posting:
       years: 2
       guaranteed-usd: 8000000
       source: https://www.mlbtraderumors.com/2019/12/cardinals-to-sign-kwang-hyun-kim.html
-    - name-ko: 김재환
-      season: 2019
-      deadline: 2020-01-05
-      source: https://www.mlbtraderumors.com/2020/01/jae-hwan-kim-to-return-to-kbo-in-2020.html
