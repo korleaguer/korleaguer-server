@@ -68,7 +68,25 @@ class ArticlePageTest {
         assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
                 .isEqualTo("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나");
         assertThat(page.betterTitle("전혀 다른 기사 제목")).isNull();
+        assertThat(page.betterTitle("노시환")).isNull();
+        // 피드 제목에 부호가 더 많으면(페이지 제목이 부호를 뺀 경우) 바꾸지 않는다
+        ArticlePage plain = ArticlePage.parse("<meta property=\"og:title\" content=\"노시환 좋은 소식 기다린다\">"
+                .getBytes(StandardCharsets.UTF_8));
+        assertThat(plain.betterTitle("노시환 \"좋은 소식 기다린다\"")).isNull();
         assertThat(page.betterTitle("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나")).isNull();
+    }
+
+    @Test
+    void aShortenedSitemapTitleGetsTheFullPageTitleAndTwitterImageIsAPhoto() {
+        // 엑스포츠뉴스 실제 꼴: 사이트맵은 부호·한자를 빼고 앞부분만, 페이지는 og:image 없이 twitter:image
+        ArticlePage page = ArticlePage.parse("""
+                <meta property="og:title" content="노시환-김하성 동반 영입! ML 초대형 입단설 터졌다…韓 야구 깜짝 낭보 나오나 &quot;KIM 데려오면 ROH 확보에 도움&quot;" >
+                <meta name="twitter:image" content="https://image.example.kr/1794383296653257.webp">
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
+                .isEqualTo("노시환-김하성 동반 영입! ML 초대형 입단설 터졌다…韓 야구 깜짝 낭보 나오나 \"KIM 데려오면 ROH 확보에 도움\"");
+        assertThat(page.imageUrl()).isEqualTo("https://image.example.kr/1794383296653257.webp");
     }
 
     @Test

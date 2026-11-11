@@ -3,6 +3,7 @@ package com.korleaguer.news;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,9 +26,13 @@ record ArticlePage(String imageUrl, String text, String description, String titl
     /** 사이트 이름 꼬리를 떼어 볼 구분자(제목 - 엑스포츠뉴스, 제목 | MK스포츠 …) */
     private static final String[] TITLE_SEPARATORS = {" - ", " | ", " :: ", " : ", " < ", " — "};
 
+    /** 제목이 이 글자 수(한글·영문·숫자)보다 짧으면 앞부분이 같다는 것만으로는 바꾸지 않는다 */
+    static final int MIN_PREFIX_LETTERS = 10;
+
     /**
-     * 피드 제목이 문장부호를 뺀 글자면(엑스포츠뉴스 사이트맵 등) 이 페이지의 제목(og:title, 사이트 이름 꼬리 제외)을 돌려준다.
-     * 글자(부호·공백을 뺀 문자·숫자)가 같을 때만 바꾼다. 바꿀 것이 없으면 null
+     * 피드 제목이 문장부호를 빼거나 뒤를 자른 것이면(엑스포츠뉴스 사이트맵: 부호·한자를 빼고 앞부분만) 이 페이지의 제목
+     * (og:title, 사이트 이름 꼬리를 뗀 것을 먼저)을 돌려준다. 한글·영문·숫자만 견줘 같거나, 피드 제목이 그 앞부분일 때만
+     * 바꾼다(다른 기사·바뀐 제목이면 그대로). 바꿀 것이 없으면 null
      */
     String betterTitle(String stored) {
         if (title == null || stored == null) {
@@ -38,24 +43,37 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             return null;
         }
         java.util.List<String> candidates = new java.util.ArrayList<>();
-        candidates.add(title);
         for (String separator : TITLE_SEPARATORS) {
             int at = title.lastIndexOf(separator);
             if (at > 0) {
                 candidates.add(title.substring(0, at));
             }
         }
-        for (String candidate : candidates) {
-            String clean = FeedParser.Texts.title(candidate);
-            if (clean != null && !clean.equals(stored) && letters(clean).equals(target)) {
+        candidates.add(title);
+        java.util.List<String> cleaned = candidates.stream().map(FeedParser.Texts::title).filter(Objects::nonNull).toList();
+        if (cleaned.contains(stored)) {
+            return null; // 이미 이 페이지의 제목이다
+        }
+        for (String clean : cleaned) {
+            String letters = letters(clean);
+            boolean sameText = letters.equals(target) && marks(clean) > marks(stored); // 부호만 더 있다
+            boolean fuller = target.length() >= MIN_PREFIX_LETTERS && letters.length() > target.length()
+                    && letters.startsWith(target); // 잘린 제목의 뒤를 채운다
+            if (sameText || fuller) {
                 return clean;
             }
         }
         return null;
     }
 
+    /** 문장부호 수(공백 제외). 부호가 빠진 피드 제목을 부호가 있는 페이지 제목으로만 바꾸려고 센다 */
+    private static long marks(String text) {
+        return text.codePoints().filter(c -> !Character.isLetterOrDigit(c) && !Character.isWhitespace(c)).count();
+    }
+
+    /** 견줄 글자: 한글·영문·숫자만(부호·공백·한자는 뺀다. 사이트맵이 한자까지 빼고 주기 때문) */
     private static String letters(String text) {
-        return text.replaceAll("[^\\p{L}\\p{N}]", "").toLowerCase(Locale.ROOT);
+        return text.replaceAll("[^\\p{IsHangul}\\p{IsLatin}\\p{N}]", "").toLowerCase(Locale.ROOT);
     }
 
     static final int MAX_TEXT = 8000;
@@ -75,7 +93,7 @@ record ArticlePage(String imageUrl, String text, String description, String titl
 
     static ArticlePage parse(byte[] html) {
         String page = new String(html, charset(html));
-        return new ArticlePage(meta(page, "og:image", "og:image:secure_url"), body(page),
+        return new ArticlePage(meta(page, "og:image", "og:image:secure_url", "twitter:image", "twitter:image:src"), body(page),
                 FeedParser.Texts.lead(meta(page, "og:description", "description")), meta(page, "og:title"));
     }
 
@@ -118,7 +136,7 @@ record ArticlePage(String imageUrl, String text, String description, String titl
                 }
             }
             if (property != null && wanted.contains(property) && content != null && !content.isBlank()) {
-                if (property.startsWith("og:image")) {
+                if (property.contains("image")) {
                     String url = FeedParser.Texts.imageUrl(content);
                     if (url != null) {
                         return url;
