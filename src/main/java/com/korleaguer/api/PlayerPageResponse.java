@@ -26,7 +26,7 @@ public record PlayerPageResponse(
      * age는 생년월일이 있으면 한국 시간 오늘 기준 만 나이, 없으면 MLB가 준 나이(currentAge)다.
      * batsThrowsKo는 "우투좌타"처럼 투구 먼저 쓴다.
      * level·levelTeam·freeAgent는 선수 목록(PlayerSummary)과 같다: 지금 메이저(MLB)인지 마이너(MINORS)인지,
-     * MLB가 알려 준 지금 팀 이름, MLB 이동 기록상 FA인지.
+     * MLB가 알려 준 지금 팀 이름, MLB 이동 기록상 FA인지. returnedKo도 목록과 같다(국내 리그로 돌아간 팀, 없으면 null).
      */
     public record PlayerInfo(
             long id,
@@ -51,7 +51,8 @@ public record PlayerPageResponse(
             String careerKo,
             Level level,
             String levelTeam,
-            boolean freeAgent) {
+            boolean freeAgent,
+            String returnedKo) {
     }
 
     /**

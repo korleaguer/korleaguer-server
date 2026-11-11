@@ -310,7 +310,8 @@ public class MyPlayersService {
         Player player = member.player();
         Period range = card.range();
         MyPlayersResponse.CardStatus status = card.resolved().status();
-        PlayerSummary summary = PlayerSummary.of(player, profiles.photoUrl(player), member.team(), today);
+        PlayerSummary summary = PlayerSummary.of(player, profiles.photoUrl(player), member.team(), today,
+                profiles.returnedKo(player));
         if (!statsAvailable) {
             return new MyPlayersResponse.MyPlayer(summary, range.fromKst(), range.toKst(), range.fallback(),
                     null, null, null, lines, status, null, null, MyPlayersResponse.Basis.NONE, null, null);
@@ -327,8 +328,8 @@ public class MyPlayersService {
         List<FormFacts.GameStat> minorStats = card.minorSeason().stream().map(MinorRecords::stat).toList();
         String kind = card.kind();
 
-        // FA·시즌 끝: 기간 대신 시즌 합계와 시즌 최장 연속 기록
-        if ("FA".equals(kind) || "SEASON_OVER".equals(kind)) {
+        // FA·시즌 끝·KBO 복귀: 기간 대신 시즌 합계와 시즌 최장 연속 기록
+        if ("FA".equals(kind) || "SEASON_OVER".equals(kind) || "KBO".equals(kind)) {
             List<Appearance> majorRegular = card.majorSeason().stream()
                     .filter(a -> REGULAR.equals(a.getGame().getSeasonType()))
                     .toList();
@@ -418,6 +419,13 @@ public class MyPlayersService {
         // 단계는 지금 팀에서 뛴 마지막 경기로 정한다. 새 팀에서 아직 안 뛰었으면 단계를 모른다(배지는 '마이너'만).
         MinorGameLog lastLog = minorSeason.isEmpty() ? null : minorSeason.getLast();
         String level = lastLog != null && Objects.equals(lastLog.getTeamName(), teamName) ? lastLog.getLevel() : null;
+        // 국내 리그로 돌아간 선수(명단의 returned-ko): MLB 기록상 FA여도 'KBO 복귀'다. 이동 기록·시즌 끝보다 먼저 본다.
+        String returnedKo = profiles.returnedKo(player);
+        if (returnedKo != null) {
+            return new CardStatuses.Resolved(new MyPlayersResponse.CardStatus("KBO", null, null, null, returnedKo,
+                    lastGame == null ? null : lastGame.date(), lastGame == null ? null : lastGame.level()),
+                    null, CardStatuses.Start.OTHER);
+        }
         return CardStatuses.resolve(player, moves.findNewestFirst(player.getId()), lastGame,
                 new CardStatuses.MinorSpot(level, teamName), today);
     }

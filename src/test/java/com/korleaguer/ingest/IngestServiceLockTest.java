@@ -42,7 +42,7 @@ class IngestServiceLockTest {
         when(ingestLogs.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         PlayerRepository players = mock(PlayerRepository.class);
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of());
-        RosterProperties roster = new RosterProperties(List.of(new RosterProperties.Entry("김하성", 673490L, null)));
+        RosterProperties roster = new RosterProperties(List.of(new RosterProperties.Entry("김하성", 673490L, null, null)));
         CurrentSeason currentSeason = new CurrentSeason(new KorleaguerProperties(2026, null, null, null, null, null),
                 DataMode.MLB, mock(SeasonDatesRepository.class), Clock.systemUTC());
         IngestService service = new IngestService(new SampleMlbClient(SampleMlbClient.Data.empty()),

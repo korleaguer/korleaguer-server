@@ -50,6 +50,12 @@ class RosterProfiles {
         return entry == null ? null : entry.careerKo();
     }
 
+    /** 국내 리그로 돌아간 팀(명단의 returned-ko). 해외에서 뛰고 있으면 null */
+    String returnedKo(Player player) {
+        RosterProperties.Entry entry = byNameKo.get(player.getNameKo());
+        return entry == null ? null : entry.returnedKo();
+    }
+
     private Long mlbId(Player player) {
         RosterProperties.Entry entry = byNameKo.get(player.getNameKo());
         return entry == null ? null : entry.mlbId();

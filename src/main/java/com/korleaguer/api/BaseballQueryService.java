@@ -179,7 +179,8 @@ public class BaseballQueryService {
                 .collect(Collectors.toMap(m -> m.player().getId(), RosterMember::team));
         LocalDate today = KoreanTime.kstDate(clock.instant());
         return players.findAll(Sort.by("id")).stream()
-                .map(p -> PlayerSummary.of(p, profiles.photoUrl(p), teamByPlayer.get(p.getId()), today))
+                .map(p -> PlayerSummary.of(p, profiles.photoUrl(p), teamByPlayer.get(p.getId()), today,
+                        profiles.returnedKo(p)))
                 .toList();
     }
 
@@ -218,7 +219,7 @@ public class BaseballQueryService {
                 BirthDates.age(player.getBirthDate(), player.getAge(), KoreanTime.kstDate(now)),
                 BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
                 BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
-                player.getLevel(), player.getLevelTeamName(), player.isFreeAgent());
+                player.getLevel(), player.getLevelTeamName(), player.isFreeAgent(), profiles.returnedKo(player));
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())));
     }
