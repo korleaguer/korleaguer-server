@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>홈(GET /api/home)</li>
  *   <li>선수 페이지 전부(GET /api/players/{id}). 컨트롤러의 시즌 바로 받기(OnDemandSeason)는 거치지 않는다(MLB를 부르지 않는다).</li>
+ *   <li>내 선수 카드: 명단 전원 × 7·14·30일(MyPlayersService.card). 어떤 '내 선수' 조합이든 이 카드를 모아 바로 답한다.</li>
  *   <li>비시즌 홈의 선수 카드(GET /api/my, 명단 전원·7일). 웹(OffseasonPlayers)이 부르는 ids 순서·days와 같아야 캐시가 맞는다.</li>
  * </ul>
  * 언제 채우나:
@@ -49,6 +50,9 @@ public class CacheWarmer {
 
     /** 웹 비시즌 홈(web의 src/components/home/OffseasonPlayers.tsx, DAYS)이 /api/my에 넘기는 기간 */
     static final int OFFSEASON_CARD_DAYS = 7;
+
+    /** 내 선수 화면이 고를 수 있는 기간(웹의 7·14·30일 탭). 명단 전원의 카드를 기간마다 채워 둔다 */
+    static final List<Integer> CARD_DAYS = List.of(7, 14, 30);
 
     /** 캐시를 지운 뒤 다시 지우고 채우기까지 기다리는 시간(그사이 끝나는 요청이 넣은 옛 응답을 걷어 낸다) */
     private static final Duration SETTLE = Duration.ofSeconds(5);
@@ -171,6 +175,15 @@ public class CacheWarmer {
                 filled++;
             } catch (RuntimeException e) {
                 log.warn("cache warm: player {} failed", player.id(), e);
+            }
+            // 내 선수 카드: 어떤 조합이든 이 카드들을 모아 바로 답한다
+            for (int days : CARD_DAYS) {
+                try {
+                    myPlayers.card(player.id(), days);
+                    filled++;
+                } catch (RuntimeException e) {
+                    log.warn("cache warm: card {} ({} days) failed", player.id(), days, e);
+                }
             }
         }
 
