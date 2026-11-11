@@ -25,8 +25,9 @@ SERVICE="${1:-}"
 VERSION="${SSH_ORIGINAL_COMMAND:-${2:-}}"
 HEALTH_TIMEOUT="${KORLEAGUER_HEALTH_TIMEOUT:-300}"
 WARM_TIMEOUT="${KORLEAGUER_WARM_TIMEOUT:-180}"
-# Caddy가 새 자리로 보낸 뒤 옛 자리를 멈추기까지 기다리는 시간(옛 자리로 이미 간 요청이 끝나게)
-DRAIN_SECONDS="${KORLEAGUER_DRAIN_SECONDS:-5}"
+# Caddy가 새 자리로 보낸 뒤 옛 자리를 멈추기까지 기다리는 시간(옛 자리로 이미 간 요청이 끝나게).
+# API는 멈출 때도 하던 요청을 마치지만(graceful), 웹(Next.js)은 그렇지 않아 넉넉히 기다린다.
+DRAIN_SECONDS="${KORLEAGUER_DRAIN_SECONDS:-15}"
 BACKUP_BIN="${KORLEAGUER_BACKUP_BIN:-/usr/local/bin/korleaguer-backup}"
 KEEP_IMAGES=3
 
@@ -97,10 +98,13 @@ EOF
   mv "$tmp" "live/${svc}.caddy"
 }
 
-# Caddy가 읽는 live 파일이 없으면 만든다(처음 설치). 아직 배포 전이면 blue 자리를 가리킨다(배포 전에는 502).
+# Caddy가 읽는 live 파일이 없으면 만든다. 지금 받는 자리(.env의 *_LIVE)를, 아직 배포 전이면 blue를 가리킨다(배포 전에는 502).
 ensure_live() {
-  [ -f live/web.caddy ] || write_live web "$(container web blue):3000"
-  [ -f live/api.caddy ] || write_live api "$(container api blue):8080"
+  local web_live api_live
+  web_live="$(env_value WEB_LIVE)"
+  api_live="$(env_value API_LIVE)"
+  [ -f live/web.caddy ] || write_live web "$(container web "${web_live:-blue}"):3000"
+  [ -f live/api.caddy ] || write_live api "$(container api "${api_live:-blue}"):8080"
 }
 
 caddy_reload() { docker exec "$CADDY" caddy reload --config /etc/caddy/Caddyfile > /dev/null; }
