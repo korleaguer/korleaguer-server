@@ -120,6 +120,13 @@ public class NewsArticle {
         return pageReadAt;
     }
 
+    /** 제목을 더 나은 표기로 바꾼다(피드가 부호를 뺀 제목을 줄 때, 기사 페이지의 제목으로) */
+    public void retitle(String title) {
+        if (title != null && !title.isBlank()) {
+            this.title = title;
+        }
+    }
+
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
     }

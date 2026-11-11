@@ -60,6 +60,63 @@ class ArticlePageTest {
     }
 
     @Test
+    void aTitleWithoutPunctuationIsReplacedByThePageTitle() {
+        ArticlePage page = ArticlePage.parse("""
+                <meta property="og:title" content="노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나 - 엑스포츠뉴스">
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
+                .isEqualTo("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나");
+        assertThat(page.betterTitle("전혀 다른 기사 제목")).isNull();
+        assertThat(page.betterTitle("노시환")).isNull();
+        // 피드 제목에 부호가 더 많으면(페이지 제목이 부호를 뺀 경우) 바꾸지 않는다
+        ArticlePage plain = ArticlePage.parse("<meta property=\"og:title\" content=\"노시환 좋은 소식 기다린다\">"
+                .getBytes(StandardCharsets.UTF_8));
+        assertThat(plain.betterTitle("노시환 \"좋은 소식 기다린다\"")).isNull();
+        assertThat(page.betterTitle("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나")).isNull();
+    }
+
+    @Test
+    void aShortenedSitemapTitleGetsTheFullPageTitleAndTwitterImageIsAPhoto() {
+        // 엑스포츠뉴스 실제 꼴: 사이트맵은 부호·한자를 빼고 앞부분만, 페이지는 og:image 없이 twitter:image
+        ArticlePage page = ArticlePage.parse("""
+                <meta property="og:title" content="노시환-김하성 동반 영입! ML 초대형 입단설 터졌다…韓 야구 깜짝 낭보 나오나 &quot;KIM 데려오면 ROH 확보에 도움&quot;" >
+                <meta name="twitter:image" content="https://image.example.kr/1794383296653257.webp">
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
+                .isEqualTo("노시환-김하성 동반 영입! ML 초대형 입단설 터졌다…韓 야구 깜짝 낭보 나오나 \"KIM 데려오면 ROH 확보에 도움\"");
+        assertThat(page.imageUrl()).isEqualTo("https://image.example.kr/1794383296653257.webp");
+    }
+
+    @Test
+    void aSiteNameTailIsNeverAddedToATitle() {
+        // 리뷰 재현: 꼬리를 뗀 본제목이 맞지 않는다고 꼬리 붙은 전체 제목으로 넘어가면 안 된다
+        assertThat(titleFrom("노시환 좋은 소식 기다린다 - 스포츠조선").betterTitle("노시환 \"좋은 소식 기다린다\"")).isNull();
+        assertThat(titleFrom("노시환 '포스팅 개시' 공식 발표 | MK스포츠").betterTitle("노시환 \"포스팅 개시\" 공식 발표")).isNull();
+        // 경로식 og:title(스포츠Q)에 온전한 피드 제목이면 그대로
+        assertThat(titleFrom("노시환, 컵스 숨은 표적 美 매체 조명 < 해외야구 < 야구 < 기사본문 - 스포츠Q")
+                .betterTitle("노시환, 컵스 숨은 표적 美 매체 조명")).isNull();
+        // 한자만 빠진 사이트맵 제목은 한자가 있는 본제목으로(꼬리 없이)
+        assertThat(titleFrom("美 매체 노시환 3년 계약 전망 - 스포티비뉴스").betterTitle("매체 노시환 3년 계약 전망"))
+                .isEqualTo("美 매체 노시환 3년 계약 전망");
+    }
+
+    @Test
+    void ogImageWinsOverTwitterImage() {
+        ArticlePage page = ArticlePage.parse("""
+                <meta name="twitter:image" content="https://cdn.example.kr/logo.png">
+                <meta property="og:image" content="https://cdn.example.kr/photo.jpg">
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.imageUrl()).isEqualTo("https://cdn.example.kr/photo.jpg");
+    }
+
+    private static ArticlePage titleFrom(String ogTitle) {
+        return ArticlePage.parse(("<meta property=\"og:title\" content=\"" + ogTitle + "\">").getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void anEucKrPageIsReadInItsOwnCharset() {
         byte[] html = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\">"
                 .concat("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\"></head></html>")
