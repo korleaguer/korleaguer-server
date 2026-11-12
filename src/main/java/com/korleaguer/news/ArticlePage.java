@@ -107,6 +107,8 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             + "|article-body|news_body|view_con|article_txt|news_view|art_body)\\b)[^>]*>");
     /** 구체적인 본문 칸이 없을 때만 쓰는 일반 article 칸 */
     private static final Pattern ARTICLE_OPEN = Pattern.compile("(?i)<(article)\\b[^>]*>");
+    /** 로그용: 여는 태그의 이름 */
+    private static final Pattern TAG_NAME = Pattern.compile("^<\\s*([a-zA-Z][a-zA-Z0-9]*)");
     /** 로그용: 첫 긴 문단을 담은 칸을 찾을 때 보는 여는 태그 */
     private static final Pattern CONTAINER_OPEN = Pattern.compile("(?i)<(?:div|section|article|main)\\b[^>]*>");
     /** 본문이 끝나는 줄: 저작권·무단 전재 안내 */
@@ -274,9 +276,22 @@ record ArticlePage(String imageUrl, String text, String description, String titl
                 html.length, paragraphs, longParagraphs, articles, found, around, page.contains(ARC_CONTENT) ? "yes" : "no");
     }
 
-    /** 로그용 여는 태그: 공백을 줄이고 120자까지 */
+    /**
+     * 로그용 여는 태그: 태그 이름과 id·class·itemprop 값만 남긴다(data-title·aria-label 같은 다른 속성에는 기사 제목이
+     * 들어 있을 수 있다). 120자까지
+     */
     private static String openTag(String tag) {
-        String one = tag.replaceAll("\\s+", " ");
+        Matcher name = TAG_NAME.matcher(tag);
+        StringBuilder out = new StringBuilder("<").append(name.find() ? name.group(1).toLowerCase(Locale.ROOT) : "?");
+        Matcher attr = ATTR.matcher(tag);
+        while (attr.find()) {
+            String key = attr.group(1).toLowerCase(Locale.ROOT);
+            if (key.equals("id") || key.equals("class") || key.equals("itemprop")) {
+                String value = attr.group(3) != null ? attr.group(3) : attr.group(4);
+                out.append(' ').append(key).append("=\"").append(value.replaceAll("\\s+", " ").trim()).append('"');
+            }
+        }
+        String one = out.append('>').toString();
         return one.length() > 120 ? one.substring(0, 120) + "…" : one;
     }
 

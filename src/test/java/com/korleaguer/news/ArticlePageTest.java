@@ -227,13 +227,14 @@ class ArticlePageTest {
     void theOutlineOfAPageWithoutABodyTellsWhereTheParagraphsAreWithoutTheirText() {
         // 연합뉴스처럼 우리가 열어 볼 수 없는 사이트는 운영 로그의 이 모양으로 원인을 찾는다(이슈 #107)
         String html = "<html><body><article class=\"top-news\"><p>속보</p></article>"
-                + "<div class=\"story-x\"><p>" + "본문 첫 문단은 이렇게 길게 이어진다. ".repeat(4) + "</p></div></body></html>";
+                + "<div class=\"story-x\" data-title=\"노시환 메츠 계약\" id=\"body1\"><p>" + "본문 첫 문단은 이렇게 길게 이어진다. ".repeat(4)
+                + "</p></div></body></html>";
 
         String outline = ArticlePage.outline(html.getBytes(StandardCharsets.UTF_8));
 
         assertThat(outline).contains("2 p (1 long)").contains("1 article").contains("box -")
-                .contains("first long p in <div class=\"story-x\">").contains("arc json no")
-                .doesNotContain("본문 첫 문단");
+                .contains("first long p in <div class=\"story-x\" id=\"body1\">").contains("arc json no")
+                .doesNotContain("본문 첫 문단").doesNotContain("메츠 계약"); // 다른 속성(data-title)의 제목도 남기지 않는다
         assertThat(ArticlePage.outline(ARC_PAGE.getBytes(StandardCharsets.UTF_8))).contains("arc json yes");
     }
 }
