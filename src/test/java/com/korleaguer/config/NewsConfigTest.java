@@ -18,7 +18,7 @@ class NewsConfigTest {
         // 키로 요청하지는 않는다(만들기만 한다)
         Summarizer summarizer = new NewsConfig().summarizer("test-key", "claude-haiku-5-5");
         assertThat(summarizer).isInstanceOf(com.korleaguer.news.ClaudeSummarizer.class);
-        assertThat(summarizer.version()).isEqualTo("claude-haiku-5-5/v2");
+        assertThat(summarizer.version()).isEqualTo("claude-haiku-5-5/v3");
     }
 
     @Test

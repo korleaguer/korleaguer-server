@@ -30,7 +30,7 @@ class ClaudeSummarizerTest {
 
     @Test
     void theVersionNamesTheModelAndThePromptEdition() {
-        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v2");
+        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v3");
     }
 
     @Test
@@ -76,24 +76,50 @@ class ClaudeSummarizerTest {
 
     @Test
     void changingThePromptNeedsANewVersion() throws Exception {
-        // 요약을 바꾸는 입력(지시문, 요청 틀, 분량 규칙, effort·답 길이)을 바꿨으면 PROMPT_VERSION을 올리고
+        // 요약을 바꾸는 입력(지시문, 요청 틀, 분량 규칙, effort·답 길이, 본문 손질)을 바꿨으면 PROMPT_VERSION을 올리고
         // (옛 판 요약을 다시 만들게) 이 지문을 새 값으로 고친다
         String inputs = String.join("\n--\n", ClaudeSummarizer.SYSTEM, ClaudeSummarizer.USER_MESSAGE,
                 ClaudeSummarizer.BODY_CHARS_PER_SENTENCE + "|" + ClaudeSummarizer.MIN_SENTENCES + "|"
                         + ClaudeSummarizer.MAX_SENTENCES + "|" + ClaudeSummarizer.ENGLISH_LENGTH_FACTOR + "|"
-                        + ClaudeSummarizer.EFFORT + "|" + ClaudeSummarizer.MAX_TOKENS + "|" + ClaudeSummarizer.LENGTH_SLACK);
+                        + ClaudeSummarizer.EFFORT + "|" + ClaudeSummarizer.MAX_TOKENS + "|" + ClaudeSummarizer.LENGTH_SLACK,
+                // 본문 손질(영어 'last <달>'에 연도 붙이기)도 요약을 바꾼다
+                ClaudeSummarizer.absoluteMonths("signed last February 14th, this past March, last November, at last May",
+                        java.time.LocalDate.of(2026, 11, 2)));
         String print = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(inputs.getBytes(java.nio.charset.StandardCharsets.UTF_8))).substring(0, 16);
         assertThat(ClaudeSummarizer.PROMPT_VERSION + " " + print)
                 .as("지시문·요청 틀·분량 규칙을 바꿨으면 ClaudeSummarizer.PROMPT_VERSION을 올리고 이 지문을 고친다")
-                .isEqualTo("v2 327dee11fafb013f");
+                .isEqualTo("v3 ae11e07f8b9e62f9");
     }
 
     @Test
     void theRequestNamesTheMostSentences() {
-        assertThat(String.format(java.util.Locale.ROOT, ClaudeSummarizer.USER_MESSAGE, "노시환", "제목",
-                java.time.LocalDate.of(2026, 11, 2), 4, "본문"))
+        assertThat(ClaudeSummarizer.userMessage("노시환", "제목", java.time.LocalDate.of(2026, 11, 2), 4, "본문"))
                 .isEqualTo("이 기사가 다루는 한국 선수: 노시환\n제목: 제목\n기사 날짜: 2026-11-02\n요약 분량: 4문장 이내\n\n본문:\n본문");
+        assertThat(ClaudeSummarizer.userMessage("노시환", "제목", java.time.LocalDate.of(2026, 11, 2), 6,
+                "an 11-year contract extension signed last February."))
+                .endsWith("\n본문:\nan 11-year contract extension signed February 2026.");
+    }
+
+    @Test
+    void anEnglishLastMonthIsSentWithTheYearOfTheMostRecentSuchMonth() {
+        // 기사 날짜를 주고 지시문에 예까지 적어도, 11월 기사의 'signed last February'를 30번 중 7번 '지난해 2월'로 옮겼다(#105)
+        java.time.LocalDate nov2 = java.time.LocalDate.of(2026, 11, 2);
+        assertThat(ClaudeSummarizer.absoluteMonths("an extension signed last February. That extension", nov2))
+                .isEqualTo("an extension signed February 2026. That extension");
+        assertThat(ClaudeSummarizer.absoluteMonths("Last November he hit 30 homers.", nov2))
+                .isEqualTo("November 2025 he hit 30 homers."); // 기사 달과 같은 달은 한 해 앞
+        assertThat(ClaudeSummarizer.absoluteMonths("signed this past March 14th, then", nov2))
+                .isEqualTo("signed March 14, 2026, then");
+        assertThat(ClaudeSummarizer.absoluteMonths("traded last December 3 to", java.time.LocalDate.of(2027, 1, 15)))
+                .isEqualTo("traded December 3, 2026 to");
+        assertThat(ClaudeSummarizer.absoluteMonths("camp ran last March 14-16 in Arizona", nov2))
+                .isEqualTo("camp ran March 14-16, 2026 in Arizona");
+        // 연도가 이미 붙은 것(일·서수·줄바꿈이 끼어도), 달이 아닌 것, 'at last'(드디어), '그 달의 마지막', 한국어는 그대로
+        String untouched = "last February 2025, signed last February 20, 2025, last February 1st, 2025, last February\n2025, "
+                + "last season, last may be, at last May came, in his last April start, the last February day, His last May start, 지난 2월";
+        assertThat(ClaudeSummarizer.absoluteMonths(untouched, nov2)).isEqualTo(untouched);
+        assertThat(ClaudeSummarizer.absoluteMonths("last February", null)).isEqualTo("last February");
     }
 
     @Test

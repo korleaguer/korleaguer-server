@@ -143,7 +143,7 @@ public class NewsArticle {
     }
 
     /**
-     * 요약을 붙였다(사진 주소·한국어 제목은 없을 수 있다). summaryModel은 요약한 모델과 지시문 판(예: claude-haiku-5-5/v2)이다.
+     * 요약을 붙였다(사진 주소·한국어 제목은 없을 수 있다). summaryModel은 요약한 모델과 지시문 판(예: claude-haiku-5-5/v3)이다.
      * 시도 횟수는 '요약하지 못한 횟수'라 0으로 돌린다. 그래야 지시문을 바꿀 때마다 이 기사를 다시 요약할 수 있다.
      */
     public void enriched(String imageUrl, String titleKo, String summary, String summaryModel, Instant at) {
