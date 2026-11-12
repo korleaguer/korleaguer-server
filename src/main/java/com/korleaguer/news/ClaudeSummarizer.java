@@ -92,11 +92,15 @@ public final class ClaudeSummarizer implements Summarizer {
     private static final Pattern HANGUL = Pattern.compile("[가-힣]");
     private static final Pattern LETTER = Pattern.compile("[가-힣A-Za-z]");
     /**
-     * 영어 'last February'·'this past March 14th' 같은 지난 달 표현. 달 이름은 대문자로 시작하는 것만 본다.
-     * 뒤에 연도가 이미 붙었으면(last February 2025) 건드리지 않는다. 'at last May …'(드디어)는 달 표현이 아니다
+     * 영어 'last February'·'this past March 14th'·'last March 14-16' 같은 지난 달 표현. 달 이름은 대문자로 시작하는 것만
+     * 본다. 연도가 이미 붙었으면(last February 2025, last February 20, 2025) 건드리지 않는다. 'at last May …'(드디어)와
+     * 'his last April start'·'the last February day'(그 달의 마지막)는 지난 달 표현이 아니다
      */
-    private static final Pattern LAST_MONTH = Pattern.compile("(?<![Aa]t )\\b(?:[Ll]ast|[Tt]his past) (January|February|March|April|May|"
-            + "June|July|August|September|October|November|December)(?! \\d{3})(?: (\\d{1,2})(?:st|nd|rd|th)?\\b)?\\b");
+    private static final Pattern LAST_MONTH = Pattern.compile(
+            "(?<!\\b(?:[Aa]t|the|his|her|their|its|my|our|your) )\\b(?:[Ll]ast|[Tt]his past) "
+                    + "(January|February|March|April|May|June|July|August|September|October|November|December)"
+                    + "(?!(?: \\d{1,2}(?:[-–]\\d{1,2})?(?:st|nd|rd|th)?,?)?\\s\\d{4}\\b)"
+                    + "(?: (\\d{1,2}(?:[-–]\\d{1,2})?)(?:st|nd|rd|th)?\\b)?\\b");
     /** 요청 사용자 메시지 틀: 선수, 제목, 기사 날짜(한국 날짜, 2026-11-02), 최대 문장 수(maxSentences), 본문 */
     static final String USER_MESSAGE = "이 기사가 다루는 한국 선수: %s\n제목: %s\n기사 날짜: %s\n요약 분량: %d문장 이내\n\n본문:\n%s";
     static final long MAX_TOKENS = 1500;

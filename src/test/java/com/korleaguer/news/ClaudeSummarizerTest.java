@@ -113,8 +113,11 @@ class ClaudeSummarizerTest {
                 .isEqualTo("signed March 14, 2026, then");
         assertThat(ClaudeSummarizer.absoluteMonths("traded last December 3 to", java.time.LocalDate.of(2027, 1, 15)))
                 .isEqualTo("traded December 3, 2026 to");
-        // 연도가 이미 붙은 것, 달이 아닌 것, 'at last'(드디어), 한국어는 그대로
-        String untouched = "last February 2025, last season, last may be, at last May came, 지난 2월";
+        assertThat(ClaudeSummarizer.absoluteMonths("camp ran last March 14-16 in Arizona", nov2))
+                .isEqualTo("camp ran March 14-16, 2026 in Arizona");
+        // 연도가 이미 붙은 것(일·서수·줄바꿈이 끼어도), 달이 아닌 것, 'at last'(드디어), '그 달의 마지막', 한국어는 그대로
+        String untouched = "last February 2025, signed last February 20, 2025, last February 1st, 2025, last February\n2025, "
+                + "last season, last may be, at last May came, in his last April start, the last February day, 지난 2월";
         assertThat(ClaudeSummarizer.absoluteMonths(untouched, nov2)).isEqualTo(untouched);
         assertThat(ClaudeSummarizer.absoluteMonths("last February", null)).isEqualTo("last February");
     }
