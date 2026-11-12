@@ -30,7 +30,7 @@ class ClaudeSummarizerTest {
 
     @Test
     void theVersionNamesTheModelAndThePromptEdition() {
-        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v3");
+        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v4");
     }
 
     @Test
@@ -43,8 +43,9 @@ class ClaudeSummarizerTest {
     @Test
     void theLengthFollowsTheArticleInsteadOfAFixedCount() {
         // 사용자 의견(11-12): 쓸 내용이 많은데 지나치게 줄이지 말고, 내용이 없는데 억지로 늘리지도 말 것
-        assertThat(ClaudeSummarizer.SYSTEM).doesNotContain("130자").contains("'요약 분량'")
-                .contains("쓸 사실이 떨어지면 거기서 멈춘다").contains("기사에 없는 말을 보태지 않는다")
+        // 11-12 두 번째 의견: "2문장은 너무 짧다고 그런 것만 좀 늘려달란 거였는데 전체적인 길이가 너무 길어졌어"(이슈 #111)
+        assertThat(ClaudeSummarizer.SYSTEM).doesNotContain("130자").contains("'요약 분량'에 적힌 수에 맞춘다")
+                .contains("그보다 적게 쓰지도 않는다").contains("기사에 없는 말을 보태지 않는다")
                 .contains("총액·연봉·연평균").contains("연도로 바꾸지 않는다").contains("'기사 날짜'를 기준으로")
                 .contains("이 기사가 다루는 한국 선수 이야기")
                 .doesNotContain("307"); // 예시는 가상 금액(실제 선수 금액이 다른 기사 요약에 섞이지 않게)
@@ -56,22 +57,26 @@ class ClaudeSummarizerTest {
         assertThat(ClaudeSummarizer.tidy("제목: 사토는 청신호인데 노시환은?\n노시환이 기사에 직접 언급된 한국 선수다. "
                 + "미국 언론에서 사토만큼 관심을 받지 못하고 있다. 요약 분량 기준으로 4문장 이내로 쓴다.", false, 7, "노시환")).isEmpty();
         assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장이내로 쓴다.", false, 7, "노시환")).isEmpty(); // 붙여 써도
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 3문장으로 요약한다.", false, 7, "노시환")).isEmpty(); // '이내' 없는 틀
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환 기사를 4문장으로 정리했다.", false, 7, "노시환")).isEmpty();
         assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장의 짧은 인터뷰를 남겼다.", false, 7, "노시환")).isPresent();
     }
 
     @Test
-    void theMostSentencesGrowWithTheBodyBetweenThreeAndSeven() {
+    void theSentencesAreThreeAndFourOnlyForLongArticles() {
         assertThat(ClaudeSummarizer.maxSentences("")).isEqualTo(3);
-        assertThat(ClaudeSummarizer.maxSentences("가".repeat(467))).isEqualTo(3); // 짧은 기사는 지금처럼 3문장
-        assertThat(ClaudeSummarizer.maxSentences("가".repeat(1116))).isEqualTo(4); // 운영 기사 중간값
-        assertThat(ClaudeSummarizer.maxSentences("가".repeat(1879))).isEqualTo(7);
-        assertThat(ClaudeSummarizer.maxSentences("가".repeat(5000))).isEqualTo(7); // 7문장이 끝
+        assertThat(ClaudeSummarizer.maxSentences("가".repeat(467))).isEqualTo(3); // 짧은 기사는 예전처럼 3문장
+        assertThat(ClaudeSummarizer.maxSentences("가".repeat(1116))).isEqualTo(3); // 운영 기사 중간값
+        assertThat(ClaudeSummarizer.maxSentences("가".repeat(1350))).isEqualTo(3);
+        assertThat(ClaudeSummarizer.maxSentences("가".repeat(1351))).isEqualTo(4); // 긴 기사만 한 문장 더
+        assertThat(ClaudeSummarizer.maxSentences("가".repeat(5000))).isEqualTo(4); // 4문장이 끝
     }
 
     @Test
     void anEnglishBodyIsCountedAsItsKoreanLength() {
-        // 같은 내용이 영어로 2.5배쯤 길다: MLB Trade Rumors 3,842자 기사는 한국어 1,537자 기사처럼 6문장
-        assertThat(ClaudeSummarizer.maxSentences("Roh was posted. ".repeat(241).substring(0, 3842))).isEqualTo(6);
+        // 같은 내용이 영어로 2.5배쯤 길다: MLB Trade Rumors 3,842자 기사는 한국어 1,537자 기사처럼 4문장
+        assertThat(ClaudeSummarizer.maxSentences("Roh was posted. ".repeat(241).substring(0, 3842))).isEqualTo(4);
+        assertThat(ClaudeSummarizer.maxSentences("Roh was posted. ".repeat(200).substring(0, 3000))).isEqualTo(3); // 1,200자 꼴
     }
 
     @Test
@@ -89,13 +94,13 @@ class ClaudeSummarizerTest {
                 .digest(inputs.getBytes(java.nio.charset.StandardCharsets.UTF_8))).substring(0, 16);
         assertThat(ClaudeSummarizer.PROMPT_VERSION + " " + print)
                 .as("지시문·요청 틀·분량 규칙을 바꿨으면 ClaudeSummarizer.PROMPT_VERSION을 올리고 이 지문을 고친다")
-                .isEqualTo("v3 ae11e07f8b9e62f9");
+                .isEqualTo("v4 886605563400827a");
     }
 
     @Test
     void theRequestNamesTheMostSentences() {
         assertThat(ClaudeSummarizer.userMessage("노시환", "제목", java.time.LocalDate.of(2026, 11, 2), 4, "본문"))
-                .isEqualTo("이 기사가 다루는 한국 선수: 노시환\n제목: 제목\n기사 날짜: 2026-11-02\n요약 분량: 4문장 이내\n\n본문:\n본문");
+                .isEqualTo("이 기사가 다루는 한국 선수: 노시환\n제목: 제목\n기사 날짜: 2026-11-02\n요약 분량: 4문장\n\n본문:\n본문");
         assertThat(ClaudeSummarizer.userMessage("노시환", "제목", java.time.LocalDate.of(2026, 11, 2), 6,
                 "an 11-year contract extension signed last February."))
                 .endsWith("\n본문:\nan 11-year contract extension signed February 2026.");
@@ -123,10 +128,10 @@ class ClaudeSummarizerTest {
     }
 
     @Test
-    void sentencesWellBeyondTheMostAreDroppedAndEachSentenceGetsItsOwnLine() {
-        // 모델이 상한(7문장)에 13문장을 쓴 일이 있다. 1문장 넘는 것까지는 두고(뒤쪽에 쓴 계약 금액이 빠지지 않게) 그 뒤는 버린다
+    void sentencesBeyondTheCountAreDroppedAndEachSentenceGetsItsOwnLine() {
+        // 4문장에 6문장을 쓴 일이 있다(시험 30건 중 6건 넘김). 3~4문장으로 길이를 지키려고 넘긴 문장은 버린다(#111)
         assertThat(ClaudeSummarizer.tidy("제목: 노시환\n노시환은 첫째다. 둘째다.\n셋째다. 넷째다. 다섯째다.", false, 3, "노시환"))
-                .contains(new Summarizer.Summary("노시환", "노시환은 첫째다.\n둘째다.\n셋째다.\n넷째다."));
+                .contains(new Summarizer.Summary("노시환", "노시환은 첫째다.\n둘째다.\n셋째다."));
     }
 
     @Test
@@ -134,7 +139,7 @@ class ClaudeSummarizerTest {
         // 사토가 주인공인 기사(시험 5번): 노시환 문장이 7번째라 잘리면 노시환 기사 페이지에 노시환이 한 번도 안 나온다
         assertThat(ClaudeSummarizer.tidy("제목: 사토\n사토는 MVP다. 사토는 3루수다. 사토는 포스팅됐다. 사토는 삼진이 많다. "
                 + "사토는 1루로 옮길 것이다. 노시환도 포지션 변경 평가를 받는다.", false, 3, "노시환"))
-                .contains(new Summarizer.Summary("사토", "사토는 MVP다.\n사토는 3루수다.\n사토는 포스팅됐다.\n"
+                .contains(new Summarizer.Summary("사토", "사토는 MVP다.\n사토는 3루수다.\n"
                         + "노시환도 포지션 변경 평가를 받는다."));
     }
 
