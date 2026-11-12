@@ -298,7 +298,11 @@ jobs:
     name: main을 배포한 커밋에 맞추기
     needs: deploy
     # 건너뛴 배포(더 새 커밋이 내보냄)는 main을 옮기지 않는다. main은 '병합으로 마지막에 배포한 코드'다.
-    if: github.event_name == 'push' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
+    # !cancelled()가 있어야 테스트를 건너뛴 배포(PR에서 같은 코드가 통과)에서도 돈다. 상태 함수가 없으면 GitHub이
+    # success()를 붙이는데, success()는 서버에 배포가 성공해도 그 앞의 테스트가 건너뛰어졌으면 거짓이라 이 잡까지 건너뛰었다.
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && needs.deploy.result == 'success' &&
+      needs.deploy.outputs.deployed == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
