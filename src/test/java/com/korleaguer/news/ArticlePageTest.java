@@ -232,9 +232,58 @@ class ArticlePageTest {
 
         String outline = ArticlePage.outline(html.getBytes(StandardCharsets.UTF_8));
 
-        assertThat(outline).contains("2 p (1 long)").contains("1 article").contains("box -")
-                .contains("first long p in <div class=\"story-x\" id=\"body1\">").contains("arc json no")
+        assertThat(outline).contains("2 p (1 long, 0 long in article)").contains("1 article (first <article class=\"top-news\">)")
+                .contains("box -").contains("first long p #2 in <div class=\"story-x\" id=\"body1\">").contains("first stop p #-1")
+                .contains("arc json no")
                 .doesNotContain("본문 첫 문단").doesNotContain("메츠 계약"); // 다른 속성(data-title)의 제목도 남기지 않는다
         assertThat(ArticlePage.outline(ARC_PAGE.getBytes(StandardCharsets.UTF_8))).contains("arc json yes");
+    }
+
+    /** 긴 문단(LONG_PARAGRAPH 60자 이상)이 되는 지어낸 문장 */
+    private static final String LONG = "노시환은 한화의 요청으로 포스팅됐고 30일 동안 메이저리그 구단과 협상할 수 있으며 미국 현지의 관심도 크다고 기사는 전했다. ";
+
+    @Test
+    void whenTheBodyIsOutsideEveryArticleBlockTheWholePageIsReadUpToTheCopyrightLine() {
+        // 연합뉴스(운영 로그 11-12): article 칸 2개, 긴 문단 12개, 첫 긴 문단은 사진 칸 뒤. 첫 article 칸만 봐서 못 찾았다(#109)
+        ArticlePage page = ArticlePage.parse(("<html><body><nav><p>" + LONG + "</p></nav>"
+                + "<article class=\"top-news\"><p>속보 한 줄</p></article>"
+                + "<div class=\"story-x\"><div class=\"img-con01\"><img src=\"a.jpg\"></div>"
+                + "<p>(서울=신문) 기자 = " + LONG + "</p><p>둘째 문단도 길다. " + LONG + "</p><p>셋째 문단. " + LONG + "</p>"
+                + "<p class=\"txt-copyright\">저작권자(c) 신문, 무단 전재-재배포 금지</p></div>"
+                + "<article class=\"related\"><p>관련 기사 요약은 저작권 줄 뒤라 읽지 않는다. " + LONG + "</p></article>"
+                + "<footer><p>" + LONG + "</p></footer></body></html>").getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).startsWith("(서울=신문) 기자 = 노시환은").contains("둘째 문단도 길다.").contains("셋째 문단.")
+                .doesNotContain("관련 기사").doesNotContain("저작권자");
+        assertThat(page.text().lines()).hasSize(3);
+    }
+
+    @Test
+    void theBodyInTheSecondArticleBlockIsFound() {
+        ArticlePage page = ArticlePage.parse(("<article class=\"promo\"><p>짧은 홍보</p></article>"
+                + "<article class=\"story\"><p>첫째. " + LONG + "</p><p>둘째. " + LONG + "</p><p>셋째. " + LONG + "</p></article>")
+                .getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).startsWith("첫째. 노시환은").contains("셋째.");
+    }
+
+    @Test
+    void aKnownBodyBoxIsNotWidenedEvenWhenItIsShort() {
+        // 알려진 본문 칸이 있는데 짧으면 짧은 기사다. 다른 칸의 긴 글(다른 기사 소개 등)을 본문으로 긁지 않는다
+        ArticlePage page = ArticlePage.parse(("<div class=\"article_body\"><p>짧은 본문</p></div>"
+                + "<div class=\"other\"><p>" + LONG + "</p><p>" + LONG + "</p><p>" + LONG + "</p></div>")
+                .getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).doesNotContain("포스팅됐고");
+    }
+
+    @Test
+    void withoutACopyrightLineTheWholePageIsNotRead() {
+        // 본문 끝(저작권 안내 줄)을 알 수 없으면 관련 기사 소개를 본문으로 읽을 수 있다. 그럴 바엔 '본문 없음'이 낫다
+        ArticlePage page = ArticlePage.parse(("<article class=\"video\"><p>영상 설명 한 줄</p></article>"
+                + "<div class=\"related\"><p>관련 기사 하나. " + LONG + "</p><p>관련 기사 둘. " + LONG + "</p>"
+                + "<p>관련 기사 셋. " + LONG + "</p><p>관련 기사 넷. " + LONG + "</p></div>").getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).doesNotContain("관련 기사");
     }
 }

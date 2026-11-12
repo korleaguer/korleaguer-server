@@ -210,7 +210,52 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         }
         // 국내 언론사 다수는 본문을 p 없이 <br>로 나눠 쓴다: 칸·줄 경계로 나눈 긴 줄을 모은다
         String lines = longLines(page);
-        return lines.length() > text.length() ? lines : text;
+        String best = lines.length() > text.length() ? lines : text;
+        if (best.length() >= MIN_BODY_TEXT) {
+            return best;
+        }
+        // 그래도 못 찾았으면 본문이 첫 article 칸 밖에 있을 수 있다(연합뉴스, 이슈 #109). 위에서 찾은 사이트는 바뀌지 않는다
+        String wider = widerParagraphs(page);
+        return wider.length() > best.length() ? wider : best;
+    }
+
+    /**
+     * 알려진 본문 칸(BODY_BOX)이 없을 때만: 모든 article 칸의 긴 문단, 모자라면 페이지 전체(스크립트·메뉴·꼬리 칸 뺀)의
+     * 긴 문단을 저작권 안내 줄까지 모은다(그 줄이 있는 페이지만). 지금 코드는 article 칸이 있으면 첫 칸만 보는데, 연합뉴스는 article 칸이 2개고
+     * 긴 문단 12개 가운데 본문이 그 밖에 있었다(운영 로그 11-12). 알려진 본문 칸이 있으면 짧아도 다른 곳을 긁지 않는다
+     */
+    private static String widerParagraphs(String page) {
+        if (BODY_BOX.matcher(page).find()) {
+            return "";
+        }
+        StringBuilder articles = new StringBuilder();
+        Matcher article = ARTICLE.matcher(page);
+        while (article.find()) {
+            articles.append(article.group()).append('\n');
+        }
+        String inArticles = articles.isEmpty() ? "" : paragraphs(articles.toString(), LONG_PARAGRAPH);
+        if (inArticles.length() >= MIN_BODY_TEXT) {
+            return inArticles;
+        }
+        // 페이지 전체는 저작권 안내 줄(멈춤 줄)이 있을 때만 읽는다. 본문 끝을 알 수 없으면 관련 기사 소개·댓글 같은 긴 글을
+        // 본문으로 읽을 수 있어서다(그럴 바엔 '본문 없음'으로 실패한다)
+        String clean = NOISE.matcher(page).replaceAll(" ");
+        if (!hasStopParagraph(clean)) {
+            return inArticles;
+        }
+        String whole = paragraphs(clean, LONG_PARAGRAPH);
+        return whole.length() > inArticles.length() ? whole : inArticles;
+    }
+
+    /** 저작권 안내 같은 멈춤 줄(BODY_STOP)이 문단(p)으로 있나 */
+    private static boolean hasStopParagraph(String html) {
+        Matcher p = PARAGRAPH.matcher(html);
+        while (p.find()) {
+            if (BODY_STOP.matcher(TAG.matcher(p.group()).replaceAll(" ")).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -238,8 +283,9 @@ record ArticlePage(String imageUrl, String text, String description, String titl
     }
 
     /**
-     * 본문을 못 찾았을 때 로그에 남길 페이지 모양. 기사 내용은 남기지 않는다: 크기, 문단(p) 수와 긴 문단 수, article 칸 수,
-     * 찾은 본문 칸(BODY_BOX), 첫 긴 문단 바로 앞의 칸 태그(본문이 어느 칸에 있는지), 본문 JSON(Arc XP)이 있는지
+     * 본문을 못 찾았을 때 로그에 남길 페이지 모양. 기사 내용은 남기지 않는다: 크기, 문단(p) 수와 긴 문단 수(그 가운데 article
+     * 칸 안), article 칸 수와 첫 칸 태그, 찾은 본문 칸(BODY_BOX), 첫 긴 문단의 순서와 바로 앞 칸 태그(본문이 어느 칸에
+     * 있는지), 처음 멈춤 줄(저작권 안내)이 나온 문단 순서, 본문 JSON(Arc XP)이 있는지. 순서는 1부터, 없으면 -1
      */
     static String outline(byte[] html) {
         String page = new String(html, charset(html));
@@ -247,14 +293,31 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         int paragraphs = 0;
         int longParagraphs = 0;
         int firstLong = -1;
+        int firstLongIndex = -1;
+        int firstStop = -1;
         Matcher p = PARAGRAPH.matcher(clean);
         while (p.find()) {
             paragraphs++;
             String line = FeedParser.Texts.decode(TAG.matcher(p.group()).replaceAll(" ")).replaceAll("[\\s\\u00A0]+", " ").trim();
+            if (firstStop < 0 && BODY_STOP.matcher(line).find()) {
+                firstStop = paragraphs;
+            }
             if (line.length() >= LONG_PARAGRAPH) {
                 longParagraphs++;
                 if (firstLong < 0) {
                     firstLong = p.start();
+                    firstLongIndex = paragraphs;
+                }
+            }
+        }
+        int longInArticles = 0;
+        Matcher block = ARTICLE.matcher(clean);
+        while (block.find()) {
+            Matcher q = PARAGRAPH.matcher(block.group());
+            while (q.find()) {
+                String line = FeedParser.Texts.decode(TAG.matcher(q.group()).replaceAll(" ")).replaceAll("[\\s\\u00A0]+", " ").trim();
+                if (line.length() >= LONG_PARAGRAPH) {
+                    longInArticles++;
                 }
             }
         }
@@ -268,12 +331,17 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             }
         }
         int articles = 0;
+        String firstArticle = "-";
         Matcher article = ARTICLE_OPEN.matcher(clean);
         while (article.find()) {
-            articles++;
+            if (articles++ == 0) {
+                firstArticle = openTag(article.group());
+            }
         }
-        return String.format(Locale.ROOT, "%,d bytes, %d p (%d long), %d article, box %s, first long p in %s, arc json %s",
-                html.length, paragraphs, longParagraphs, articles, found, around, page.contains(ARC_CONTENT) ? "yes" : "no");
+        return String.format(Locale.ROOT, "%,d bytes, %d p (%d long, %d long in article), %d article (first %s), box %s, "
+                        + "first long p #%d in %s, first stop p #%d, arc json %s",
+                html.length, paragraphs, longParagraphs, longInArticles, articles, firstArticle, found, firstLongIndex, around,
+                firstStop, page.contains(ARC_CONTENT) ? "yes" : "no");
     }
 
     /**
