@@ -72,6 +72,22 @@ class PhotoControllerTest {
     }
 
     @Test
+    void editedPastTeamPhotoIsATransparentPng() throws Exception {
+        // baseball.yml 이정후 career-photos(키움 2023): MLB 배경 없는 사진과 같은 틀의 편집본. 샘플 모드에서도 준다
+        byte[] edited;
+        try (var in = getClass().getClassLoader().getResourceAsStream("photos/career-67341-2023.png")) {
+            edited = in.readAllBytes();
+        }
+
+        mockMvc.perform(get("/api/photos/career-67341-2023"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content().bytes(edited));
+        mockMvc.perform(get("/api/photos/kbo-67341-2023")).andExpect(status().isNotFound()); // 원본(KBO 94×118)은 주지 않는다
+        mockMvc.perform(get("/api/photos/career-67341-2019")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void unknownOrOddNamesAreNotFound() throws Exception {
         mockMvc.perform(get("/api/photos/mlb-1")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/photos/..%2Fsecret")).andExpect(status().isNotFound());
