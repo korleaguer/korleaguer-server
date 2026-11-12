@@ -52,10 +52,12 @@ public final class ClaudeSummarizer implements Summarizer {
     private static final Pattern BULLET = Pattern.compile("^[-•·*]\\s+");
     private static final Pattern BOLD = Pattern.compile("\\*\\*");
     /**
-     * 요약 대신 지시를 옮겨 쓴 답('요약 분량 기준으로 4문장 이내로 쓴다'). 시험 319번 중 1번 나왔다.
+     * 요약 대신 지시를 옮겨 쓴 답('요약 분량 기준으로 4문장 이내로 쓴다'). 시험 319번 중 1번 나왔다. 요청 틀에서 '이내'를 뺀
+     * 뒤로는 '3문장으로 요약한다' 꼴도 본다(지금까지 응답 453건에서 진짜 1건만 걸리고 잘못 걸린 것은 없었다, 이슈 #111).
      * 이런 답은 버리고 다음 차례에 다시 요약한다(옛 요약이 있으면 그대로 둔다)
      */
-    private static final Pattern ECHOED_INSTRUCTION = Pattern.compile("요약 분량|\\d+\\s*문장\\s*이내");
+    private static final Pattern ECHOED_INSTRUCTION =
+            Pattern.compile("요약 분량|\\d+\\s*문장\\s*(?:이내|으로\\s*(?:쓴|쓰|요약|정리|맞))");
 
     static final String SYSTEM = """
             너는 한국 야구 팬 사이트에서 야구 기사(한국어나 영어)를 한국어로 요약한다.

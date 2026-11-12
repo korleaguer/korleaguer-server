@@ -57,6 +57,8 @@ class ClaudeSummarizerTest {
         assertThat(ClaudeSummarizer.tidy("제목: 사토는 청신호인데 노시환은?\n노시환이 기사에 직접 언급된 한국 선수다. "
                 + "미국 언론에서 사토만큼 관심을 받지 못하고 있다. 요약 분량 기준으로 4문장 이내로 쓴다.", false, 7, "노시환")).isEmpty();
         assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장이내로 쓴다.", false, 7, "노시환")).isEmpty(); // 붙여 써도
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 3문장으로 요약한다.", false, 7, "노시환")).isEmpty(); // '이내' 없는 틀
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환 기사를 4문장으로 정리했다.", false, 7, "노시환")).isEmpty();
         assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장의 짧은 인터뷰를 남겼다.", false, 7, "노시환")).isPresent();
     }
 
