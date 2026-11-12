@@ -115,6 +115,39 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
+    public List<MlbSeasonSplit> getYearByYear(long personId, Group group) {
+        return seasonSplits(get("people/" + personId + "/stats yearByYear " + group.value(),
+                uri -> uri.path("/api/v1/people/{id}/stats")
+                        .queryParam("stats", "yearByYear")
+                        .queryParam("group", group.value())
+                        .queryParam("sportId", MLB)
+                        .build(personId),
+                MlbResponses.SeasonStats.class));
+    }
+
+    @Override
+    public List<MlbSeasonSplit> getSabermetrics(long personId, Group group, int season) {
+        return seasonSplits(get("people/" + personId + "/stats sabermetrics " + group.value() + " " + season,
+                uri -> uri.path("/api/v1/people/{id}/stats")
+                        .queryParam("stats", "sabermetrics")
+                        .queryParam("group", group.value())
+                        .queryParam("season", season)
+                        .queryParam("sportId", MLB)
+                        .build(personId),
+                MlbResponses.SeasonStats.class));
+    }
+
+    private static List<MlbSeasonSplit> seasonSplits(MlbResponses.SeasonStats body) {
+        if (body == null || body.stats() == null) {
+            return List.of();
+        }
+        return body.stats().stream()
+                .filter(statGroup -> statGroup.splits() != null)
+                .flatMap(statGroup -> statGroup.splits().stream())
+                .toList();
+    }
+
+    @Override
     public List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season) {
         if (teamIds.isEmpty()) {
             return List.of();

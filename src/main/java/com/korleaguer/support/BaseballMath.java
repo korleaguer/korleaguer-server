@@ -63,6 +63,19 @@ public final class BaseballMath {
         return outs;
     }
 
+    /** MLB가 주는 이닝 글자("50.2" = 50⅔이닝)를 아웃 수(152)로. 비었거나 숫자가 아니면 null */
+    public static Integer outsFromInnings(String innings) {
+        if (innings == null || innings.isBlank()) {
+            return null;
+        }
+        try {
+            return outsFromIp(Double.parseDouble(innings.trim()));
+        } catch (NumberFormatException e) {
+            log.warn("unreadable innings value '{}'", innings);
+            return null;
+        }
+    }
+
     /** 아웃 수를 "5⅔"처럼 쓴다. 0이닝 2아웃은 "⅔"이다. */
     public static String inningsText(int outs) {
         int whole = outs / 3;

@@ -116,6 +116,22 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void offSeasonHomeCarriesSeasonReports() throws Exception {
+        // 지표를 아직 받지 않았어도(앱 시작 때 따라잡기는 받지 않는다) 경기별 기록의 양으로 성적표를 만든다
+        mockMvc.perform(get("/api/home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offseason.playerIds", hasSize(6)))
+                .andExpect(jsonPath("$.offseason.report").isArray())
+                .andExpect(jsonPath("$.offseason.report[0].playerId").isNumber())
+                .andExpect(jsonPath("$.offseason.report[0].tier").isString())
+                .andExpect(jsonPath("$.offseason.report[0].label").isString())
+                .andExpect(jsonPath("$.offseason.report[0].headline").isString())
+                .andExpect(jsonPath("$.offseason.report[0].level").isString())
+                .andExpect(jsonPath("$.offseason.report[0].stories").isArray())
+                .andExpect(jsonPath("$.offseason.report[0].winterMoves").isArray());
+    }
+
+    @Test
     void hitterSeasonTotals() throws Exception {
         // 이정후: 12타수 5안타(2루타 2, 홈런 1) 2볼넷 → .417 / .500 / .833 / 1.333
         mockMvc.perform(get("/api/home"))
