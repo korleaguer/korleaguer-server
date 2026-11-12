@@ -6,7 +6,9 @@
 #                MLB 데이터에는 KBO 계약이 없어 사람이 적는다. 해외파가 아니게 됐으니 다음 시즌이 시작되면 명단에서 뺀다.
 #   kbo-id: KBO 선수 번호(선택). 위키백과 선수 문서의 KBO 기록 링크(playerId)에서 확인했다(11-11).
 #   career-photos: 과거 소속팀(KBO) 시절 공식 사진(선택). team·years는 화면에 그대로, season은 사진 시즌(그 팀 마지막 해).
-#                  KBO 사진 서버의 그 시즌 선수 등록 사진을 우리 서버가 한 번 받아 호스팅한다(권리는 KBO·구단).
+#                  그 시즌 KBO 공식 선수 등록 사진을 MLB 배경 없는 사진과 같은 틀로 맞춘 편집본
+#                  (src/main/resources/photos/career-{kbo-id}-{season}.png)을 우리 서버가 준다(권리는 KBO·구단).
+#                  새로 적으면 편집본도 만든다(tools/posting-photo/README.md). 편집본이 없으면 서버가 뜨지 않는다.
 # career-ko는 손으로 적은 값이라 공개 전에 다시 확인한다.
 roster:
   baseball:
