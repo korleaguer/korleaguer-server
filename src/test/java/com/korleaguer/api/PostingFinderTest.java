@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -376,13 +377,68 @@ class PostingFinderTest {
     }
 
     @Test
+    void copiesOfTheSameStoryCountOnceAndTheMajorityStanceWins() {
+        // 1·2번은 같은 글(묶음 대표 1번), 한쪽만 메츠 거론. 3·4·5번은 같은 글인데 거론 둘·반대 하나
+        Map<Long, Long> storyOf = Map.of(1L, 1L, 2L, 1L, 3L, 3L, 4L, 3L, 5L, 3L);
+        List<DestinationMention> once = PostingFinder.onePerStory(List.of(
+                mention(1, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T02:00:00Z"),
+                mention(2, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:00:00Z"),
+                mention(3, "PHI", NewsDestination.Stance.LINKED, "2026-11-11T10:00:00Z"),
+                mention(4, "PHI", NewsDestination.Stance.LINKED, "2026-11-11T11:00:00Z"),
+                mention(5, "PHI", NewsDestination.Stance.DOUBTED, "2026-11-11T12:00:00Z"),
+                mention(6, "SD", NewsDestination.Stance.LINKED, "2026-11-11T12:00:00Z")), storyOf);
+
+        assertThat(once).containsExactlyInAnyOrder(
+                mention(1, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:00:00Z"),
+                mention(3, "PHI", NewsDestination.Stance.LINKED, "2026-11-11T10:00:00Z"),
+                mention(6, "SD", NewsDestination.Stance.LINKED, "2026-11-11T12:00:00Z"));
+    }
+
+    @Test
+    void aTieInsideAStoryCountsAsLinked() {
+        List<DestinationMention> once = PostingFinder.onePerStory(List.of(
+                mention(1, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T02:00:00Z"),
+                mention(2, "NYM", NewsDestination.Stance.DOUBTED, "2026-11-12T03:00:00Z")), Map.of(1L, 1L, 2L, 1L));
+
+        assertThat(once).extracting(DestinationMention::stance).containsExactly(NewsDestination.Stance.LINKED);
+    }
+
+    @Test
+    void homeCountsCopiesFromOtherOutletsOnce() {
+        Instant now = Instant.parse("2026-11-12T10:00:00Z");
+        NewsArticle original = article(41L, "https://a.example/1", "노시환 메츠행 급부상", "마이데일리", "2026-11-12T01:00:00Z");
+        NewsArticle copy = article(42L, "https://b.example/1", "노시환 메츠행 급부상", "마이데일리", "2026-11-12T01:30:00Z");
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(copy, original));
+        when(destinations.findMentions(eq("노시환"), any(), any())).thenReturn(List.of(
+                mention(41, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:00:00Z"),
+                mention(42, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:30:00Z")));
+
+        assertThat(finder(roh(null)).find(now).players().getFirst().linkedTeams().teams())
+                .containsExactly(new PostingSummary.LinkedTeam("NYM", "뉴욕 메츠", 1, 0, true));
+    }
+
+    private static NewsArticle article(long id, String url, String title, String publisher, String publishedAt) {
+        NewsArticle a = new NewsArticle("노시환", url, url, title, publisher, Instant.parse(publishedAt),
+                Instant.parse(publishedAt));
+        org.springframework.test.util.ReflectionTestUtils.setField(a, "id", id);
+        return a;
+    }
+
+    @Test
     void noMentionsIsAnEmptyList() {
         assertThat(finder(roh(null)).find(Instant.parse("2026-11-12T10:00:00Z")).players().getFirst().linkedTeams().teams())
                 .isEmpty();
     }
 
+    private static final java.util.concurrent.atomic.AtomicLong ARTICLE_IDS = new java.util.concurrent.atomic.AtomicLong(1000);
+
+    /** 기사 한 건의 거론(기사 번호는 매번 새로) */
     private static DestinationMention mention(String team, NewsDestination.Stance stance, String publishedAt) {
-        return new DestinationMention(team, stance, Instant.parse(publishedAt));
+        return mention(ARTICLE_IDS.incrementAndGet(), team, stance, publishedAt);
+    }
+
+    private static DestinationMention mention(long articleId, String team, NewsDestination.Stance stance, String publishedAt) {
+        return new DestinationMention(articleId, team, stance, Instant.parse(publishedAt));
     }
 
     @Test
