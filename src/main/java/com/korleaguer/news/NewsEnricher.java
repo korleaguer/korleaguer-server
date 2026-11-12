@@ -15,6 +15,8 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +57,7 @@ public class NewsEnricher {
     /** 이보다 짧은 본문은 요약할 거리가 없다(페이지 구조가 바뀐 경우 등) */
     static final int MIN_BODY = 200;
     private static final java.util.regex.Pattern HANGUL = java.util.regex.Pattern.compile("\\p{IsHangul}");
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final NewsProperties properties;
     private final PoliteFetcher fetcher;
@@ -269,8 +272,9 @@ public class NewsEnricher {
                 article.enrichFailed(now);
                 return Outcome.FAILED;
             }
+            // 기사 날짜(한국 날짜)를 함께 준다. 모델이 '올해'·'last February'를 학습 시점의 해로 잘못 옮기지 않게
             Optional<Summarizer.Summary> summary = summarizer.summarize(article.getSubject(), article.getTitle(),
-                    page.text());
+                    LocalDate.ofInstant(article.getPublishedAt(), SEOUL), page.text());
             if (summary.isEmpty()) {
                 article.enrichFailed(now); // 거절·빈 답
                 return Outcome.FAILED;

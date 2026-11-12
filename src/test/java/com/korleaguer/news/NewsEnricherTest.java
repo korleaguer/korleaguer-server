@@ -87,7 +87,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 if (calls[0]++ == 0) {
                     throw new Summarizer.Failure("529 overloaded", null);
                 }
@@ -163,7 +163,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 throw new Summarizer.Failure("UnauthorizedException: invalid x-api-key", null);
             }
 
@@ -330,7 +330,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 throw new Summarizer.Failure("529 overloaded", null);
             }
 
@@ -387,7 +387,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 asked.add(player + "|" + title + "|" + body);
                 return Optional.of(new Summarizer.Summary(titleKo, answer));
             }
@@ -457,7 +457,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 asked.add(player + "|" + title + "|" + body);
                 return Optional.of(new Summarizer.Summary("한화, 노시환 포스팅", answer));
             }
