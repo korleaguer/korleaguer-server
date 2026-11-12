@@ -89,17 +89,31 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param lead     기사 첫머리(피드가 준 글자 200자 안팎). 없으면 null
      * @param summary  Claude가 쓴 한국어 요약(줄마다 한 문장). 없으면 null
      * @param imageUrl 기사 대표 사진의 원본 주소(언론사 서버, https). 없으면 null
+     * @param alsoBy   같은 글을 실은 다른 언론사(낸 순). 언론사만 다른 같은 기사는 한 줄로 묶는다(SameArticles). 없으면 빈 목록
      */
     public record Headline(Long id, String title, String url, String publisher, Instant publishedAt, String titleKo,
-                           String lead, String summary, String imageUrl) {
+                           String lead, String summary, String imageUrl, List<String> alsoBy) {
+
+        public Headline {
+            alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);
+        }
 
         public Headline(String title, String url, String publisher, Instant publishedAt) {
-            this(null, title, url, publisher, publishedAt, null, null, null, null);
+            this(null, title, url, publisher, publishedAt, null, null, null, null, List.of());
         }
 
         static Headline of(NewsArticle a) {
+            return of(a, List.of());
+        }
+
+        /** 같은 기사 묶음의 대표 기사와 같은 글을 실은 다른 언론사 */
+        static Headline of(SameArticles.Group g) {
+            return of(g.article(), g.alsoBy());
+        }
+
+        private static Headline of(NewsArticle a, List<String> alsoBy) {
             return new Headline(a.getId(), a.getTitle(), a.getUrl(), a.getPublisher(), a.getPublishedAt(),
-                    a.getTitleKo(), a.getLeadText(), a.getSummary(), a.getImageUrl());
+                    a.getTitleKo(), a.getLeadText(), a.getSummary(), a.getImageUrl(), alsoBy);
         }
     }
 }

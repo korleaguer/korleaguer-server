@@ -59,31 +59,58 @@ public class PostingFinder {
     }
 
     /**
-     * 그 선수의 관련 기사(늦은 순 NEWS_PER_PLAYER건, 지금 수집하는 언론사만).
-     * 국내 기사가 많으면 영어 기사의 AI 요약이 밀려 안 보이므로, 그 안에 요약 기사가 없으면 가장 최근 요약 기사 하나를
+     * 그 선수의 관련 기사(늦은 순 NEWS_PER_PLAYER건, 지금 수집하는 언론사만). 언론사만 다른 같은 기사는 한 줄로 묶어
+     * 서로 다른 기사로 채운다(SameArticles, 이슈 #113).
+     * 국내 기사가 많으면 영어 기사의 AI 요약이 밀려 안 보이므로, 그 안에 요약 기사가 없으면 가장 최근 요약 기사의 묶음을
      * 마지막 자리에 넣는다(덜 찼으면 맨 뒤에 붙인다. 사용자가 원한 것이 영어 기사의 한국어 요약이다). 늦은 순은 그대로다.
      */
-    private List<NewsArticle> headlines(String player) {
-        // 뺀 언론사의 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
-        List<NewsArticle> picked = new ArrayList<>(news.findLatest(player, PageRequest.of(0, NEWS_PER_PLAYER * 4))
-                .stream()
-                .filter(a -> publishers.contains(a.getPublisher()))
-                .limit(NEWS_PER_PLAYER)
-                .toList());
-        if (picked.stream().noneMatch(a -> a.getSummary() != null)) {
-            // 고른 기사보다 오래된 기사라 마지막 자리(덜 찼으면 맨 뒤)에 두어도 늦은 순이 그대로다
-            news.findLatestSummarized(player, PageRequest.of(0, NEWS_PER_PLAYER)).stream()
-                    .filter(a -> publishers.contains(a.getPublisher()))
-                    .findFirst()
-                    .ifPresent(a -> {
-                        if (picked.size() == NEWS_PER_PLAYER) {
-                            picked.set(NEWS_PER_PLAYER - 1, a);
-                        } else {
-                            picked.add(a);
-                        }
-                    });
+    private List<SameArticles.Group> headlines(String player) {
+        // 뺀 언론사의 기사와 같은 기사를 걸러 내고도 NEWS_PER_PLAYER건이 남도록 넉넉히 읽는다
+        List<NewsArticle> recent = kept(news.findLatest(player, PageRequest.of(0, NEWS_PER_PLAYER * 4)));
+        List<SameArticles.Group> picked = first(SameArticles.group(recent));
+        if (picked.stream().anyMatch(g -> g.article().getSummary() != null)) {
+            return picked;
         }
-        return picked;
+        NewsArticle summarized = kept(news.findLatestSummarized(player, PageRequest.of(0, NEWS_PER_PLAYER))).stream()
+                .findFirst()
+                .orElse(null);
+        if (summarized == null) {
+            return picked;
+        }
+        // 요약 기사도 최근 기사와 함께 묶는다. 최근 기사에 든 그 사본(요약 없는)이 따로 한 줄로 남지 않고 alsoBy가 된다
+        List<NewsArticle> all = new ArrayList<>(recent);
+        if (recent.stream().noneMatch(a -> sameRow(a, summarized))) {
+            all.add(summarized);
+        }
+        List<SameArticles.Group> groups = SameArticles.group(all);
+        List<SameArticles.Group> result = new ArrayList<>(first(groups));
+        if (result.stream().noneMatch(g -> g.article().getSummary() != null)) {
+            // 요약 기사의 묶음은 고른 묶음보다 오래되어 마지막 자리(덜 찼으면 맨 뒤)에 두어도 늦은 순이 그대로다
+            SameArticles.Group withSummary = groups.stream()
+                    .filter(g -> g.members().stream().anyMatch(m -> sameRow(m, summarized)))
+                    .findFirst()
+                    .orElseThrow();
+            if (result.size() == NEWS_PER_PLAYER) {
+                result.set(NEWS_PER_PLAYER - 1, withSummary);
+            } else {
+                result.add(withSummary);
+            }
+        }
+        return result;
+    }
+
+    /** 지금 수집하는 언론사의 기사만 */
+    private List<NewsArticle> kept(List<NewsArticle> articles) {
+        return articles.stream().filter(a -> publishers.contains(a.getPublisher())).toList();
+    }
+
+    private static List<SameArticles.Group> first(List<SameArticles.Group> groups) {
+        return groups.stream().limit(NEWS_PER_PLAYER).toList();
+    }
+
+    /** 같은 기사 행인지. 저장한 기사는 번호로, 번호가 없으면(시험) 같은 객체인지로 본다 */
+    private static boolean sameRow(NewsArticle a, NewsArticle b) {
+        return a == b || (a.getId() != null && a.getId().equals(b.getId()));
     }
 
     PostingSummary find(Instant now) {
@@ -106,7 +133,7 @@ public class PostingFinder {
                 ? (int) ChronoUnit.DAYS.between(KoreanTime.kstDate(now), KoreanTime.kstDate(p.deadline()))
                 : null;
         List<PostingSummary.Headline> headlines = headlines(p.nameKo()).stream()
-                .map(PostingSummary.Headline::of)
+                .map(g -> PostingSummary.Headline.of(g))
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
                 photos.postingPath(p.slug()), status,
