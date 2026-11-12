@@ -268,7 +268,8 @@ public class NewsEnricher {
             article.pageRead(page.description(), page.imageUrl(), now);
             article.retitle(page.betterTitle(article.getTitle()));
             if (page.text().length() < MIN_BODY) {
-                log.warn("news: no article body found at {}", article.getUrl());
+                // 왜 못 찾았는지 다음에 고칠 수 있게 페이지 모양을 남긴다(기사 내용은 남기지 않는다, 이슈 #107)
+                log.warn("news: no article body found at {} ({})", article.getUrl(), ArticlePage.outline(html.body()));
                 article.enrichFailed(now);
                 return Outcome.FAILED;
             }

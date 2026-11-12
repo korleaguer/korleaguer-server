@@ -185,4 +185,55 @@ class ArticlePageTest {
         assertThat(page.description()).isEqualTo("한 줄 & 소개");
         assertThat(page.text()).isEmpty();
     }
+
+    /** Arc XP(조선일보) 꼴: HTML에 문단이 없고 본문이 Fusion.globalContent JSON에 있다. 내용은 지어낸 값 */
+    private static final String ARC_PAGE = """
+            <html><head>
+            <meta property="og:image" content="https://cdn.example.com/arc/roh.jpg" />
+            </head><body><div id="fusion-app"><div class="article-body"></div></div>
+            <script>window.Fusion=window.Fusion||{};Fusion.arcSite="chosun";Fusion.globalContent={"_id":"X1",\
+            "content_elements":[{"type":"image","caption":"사진 설명은 본문이 아니다","url":"https://cdn.example.com/a.jpg"},\
+            {"type":"text","content":"[스포츠 기자] 메이저리그 진출에 도전하는 <b>노시환</b>에 대한 관심이 높아지고 있다."},\
+            {"type":"text","content":"미국 매체는 노시환이 3루는 물론 1루와 유격수까지 맡을 수 있는 수비가 좋은 선수라고 평가했다."},\
+            {"type":"raw_html","content":"<custom-ad><b> ▲ 광고 문구는 본문이 아니다 </b></custom-ad>"},\
+            {"type":"text","content":"매체는 &quot;타구를 띄우는 스윙&quot;을 장점으로 꼽았고, 콘택트 비율은 아직 다듬을 부분이라고 짚었다."},\
+            {"type":"text","content":"노시환은 올해 초 한화와 다년계약을 맺었고, 포스팅에 성공하면 그 계약은 사라진다."},\
+            {"type":"text","content":"Copyright ⓒ 신문사 & example.com 무단 전재 및 재배포 금지"},\
+            {"type":"text","content":"저작권 안내 뒤의 글은 읽지 않는다."}]};Fusion.globalContentConfig={"source":"content-api"};</script>
+            </body></html>
+            """;
+
+    @Test
+    void anArcXpPageIsReadFromItsContentJson() {
+        // 조선일보: 화면을 자바스크립트로 그려 HTML에 본문 문단이 하나도 없다(11-12, 이슈 #107)
+        ArticlePage page = ArticlePage.parse(ARC_PAGE.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.imageUrl()).isEqualTo("https://cdn.example.com/arc/roh.jpg");
+        assertThat(page.text()).isEqualTo("[스포츠 기자] 메이저리그 진출에 도전하는 노시환 에 대한 관심이 높아지고 있다.\n"
+                + "미국 매체는 노시환이 3루는 물론 1루와 유격수까지 맡을 수 있는 수비가 좋은 선수라고 평가했다.\n"
+                + "매체는 \"타구를 띄우는 스윙\"을 장점으로 꼽았고, 콘택트 비율은 아직 다듬을 부분이라고 짚었다.\n"
+                + "노시환은 올해 초 한화와 다년계약을 맺었고, 포스팅에 성공하면 그 계약은 사라진다.");
+    }
+
+    @Test
+    void aBrokenArcJsonFallsBackToTheHtml() {
+        ArticlePage page = ArticlePage.parse(("<script>Fusion.globalContent={\"content_elements\":[{\"type\":</script>"
+                + "<article><p>" + "노시환이 포스팅됐다. ".repeat(12) + "</p></article>").getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).startsWith("노시환이 포스팅됐다.");
+    }
+
+    @Test
+    void theOutlineOfAPageWithoutABodyTellsWhereTheParagraphsAreWithoutTheirText() {
+        // 연합뉴스처럼 우리가 열어 볼 수 없는 사이트는 운영 로그의 이 모양으로 원인을 찾는다(이슈 #107)
+        String html = "<html><body><article class=\"top-news\"><p>속보</p></article>"
+                + "<div class=\"story-x\"><p>" + "본문 첫 문단은 이렇게 길게 이어진다. ".repeat(4) + "</p></div></body></html>";
+
+        String outline = ArticlePage.outline(html.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(outline).contains("2 p (1 long)").contains("1 article").contains("box -")
+                .contains("first long p in <div class=\"story-x\">").contains("arc json no")
+                .doesNotContain("본문 첫 문단");
+        assertThat(ArticlePage.outline(ARC_PAGE.getBytes(StandardCharsets.UTF_8))).contains("arc json yes");
+    }
 }

@@ -1,5 +1,10 @@
 package com.korleaguer.news;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -11,7 +16,9 @@ import java.util.regex.Pattern;
  * 기사 페이지(HTML)에서 대표 사진 주소(og:image)와 본문 글자를 꺼낸다. 요약에만 쓰고 본문은 저장하지 않는다.
  * 본문은 WordPress 기사 칸(entry-content)부터 그 뒤 공유·댓글 칸(entry-footer, 댓글) 앞까지의 문단이다
  * (MLB Trade Rumors 구조, 2026-11-11 확인). 그 칸이 없는 사이트(MLB.com·CBS Sports 등)는 article 칸(없으면 페이지 전체)의
- * 긴 문단(LONG_PARAGRAPH자 이상, 메뉴·광고 문구 같은 짧은 줄은 뺀다)을 모은다. 못 찾으면 빈 문자열이다.
+ * 긴 문단(LONG_PARAGRAPH자 이상, 메뉴·광고 문구 같은 짧은 줄은 뺀다)을 모은다. Arc XP 사이트(조선일보)는 화면을
+ * 자바스크립트로 그려 HTML에 문단이 없으므로 페이지에 담긴 본문 JSON(Fusion.globalContent)의 글 요소를 읽는다.
+ * 못 찾으면 빈 문자열이다.
  */
 record ArticlePage(String imageUrl, String text, String description, String title) {
 
@@ -100,6 +107,8 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             + "|article-body|news_body|view_con|article_txt|news_view|art_body)\\b)[^>]*>");
     /** 구체적인 본문 칸이 없을 때만 쓰는 일반 article 칸 */
     private static final Pattern ARTICLE_OPEN = Pattern.compile("(?i)<(article)\\b[^>]*>");
+    /** 로그용: 첫 긴 문단을 담은 칸을 찾을 때 보는 여는 태그 */
+    private static final Pattern CONTAINER_OPEN = Pattern.compile("(?i)<(?:div|section|article|main)\\b[^>]*>");
     /** 본문이 끝나는 줄: 저작권·무단 전재 안내 */
     private static final Pattern BODY_STOP = Pattern.compile("(?i)무단\\s?전재|무단\\s?복제|재배포\\s?금지|copyright|저작권자");
     /** 본문을 어느 정도 모은 뒤 나오면 끝으로 보는 줄: ▶ 관련 기사(본문 첫머리의 ▶ 요약 줄에서는 멈추지 않는다) */
@@ -115,6 +124,15 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             Pattern.compile("(?i)<[a-z]+\\s[^>]*class\\s*=\\s*[\"'][^\"']*\\bentry-content\\b[^>]*>");
     private static final Pattern CHARSET = Pattern.compile("(?i)<meta[^>]+charset\\s*=\\s*[\"']?([\\w-]+)");
     private static final String[] BODY_ENDS = {"class=\"entry-footer", "id=\"comments\"", "class=\"comments", "</article>"};
+    /**
+     * Arc XP 기사 페이지가 본문을 담는 JSON(Fusion.globalContent={...};). 조선일보는 HTML에 본문 문단이 하나도 없고
+     * 이 JSON의 content_elements 가운데 type이 text인 요소(문단 HTML)가 본문이다(11-12 확인, 이슈 #107)
+     */
+    private static final String ARC_CONTENT = "Fusion.globalContent=";
+    /** 본문 JSON 뒤에 이어지는 스크립트(;Fusion.globalContentConfig=…)는 읽지 않는다 */
+    private static final JsonMapper JSON = JsonMapper.builder()
+            .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .build();
 
     static ArticlePage parse(byte[] html) {
         String page = new String(html, charset(html));
@@ -180,6 +198,10 @@ record ArticlePage(String imageUrl, String text, String description, String titl
     }
 
     private static String body(String page) {
+        String arc = arcBody(page);
+        if (arc.length() >= MIN_BODY_TEXT) {
+            return arc;
+        }
         String text = paragraphBody(page);
         if (text.length() >= MIN_BODY_TEXT) {
             return text;
@@ -187,6 +209,75 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         // 국내 언론사 다수는 본문을 p 없이 <br>로 나눠 쓴다: 칸·줄 경계로 나눈 긴 줄을 모은다
         String lines = longLines(page);
         return lines.length() > text.length() ? lines : text;
+    }
+
+    /**
+     * Arc XP 본문 JSON의 글 요소(type text)를 문단으로 읽는다. 사진·광고(raw_html) 요소는 뺀다. 문단 다듬기와 멈춤(저작권
+     * 안내·▶ 관련 기사)은 HTML 문단과 같다. JSON이 없거나 읽을 수 없으면 빈 문자열
+     */
+    private static String arcBody(String page) {
+        int at = page.indexOf(ARC_CONTENT);
+        if (at < 0) {
+            return "";
+        }
+        JsonNode content;
+        try {
+            content = JSON.readTree(page.substring(at + ARC_CONTENT.length()));
+        } catch (JacksonException e) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder();
+        for (JsonNode element : content.path("content_elements")) {
+            if ("text".equals(element.path("type").asString(""))) {
+                html.append("<p>").append(element.path("content").asString("")).append("</p>\n");
+            }
+        }
+        return paragraphs(html.toString(), 1);
+    }
+
+    /**
+     * 본문을 못 찾았을 때 로그에 남길 페이지 모양. 기사 내용은 남기지 않는다: 크기, 문단(p) 수와 긴 문단 수, article 칸 수,
+     * 찾은 본문 칸(BODY_BOX), 첫 긴 문단 바로 앞의 칸 태그(본문이 어느 칸에 있는지), 본문 JSON(Arc XP)이 있는지
+     */
+    static String outline(byte[] html) {
+        String page = new String(html, charset(html));
+        String clean = NOISE.matcher(page).replaceAll(" ");
+        int paragraphs = 0;
+        int longParagraphs = 0;
+        int firstLong = -1;
+        Matcher p = PARAGRAPH.matcher(clean);
+        while (p.find()) {
+            paragraphs++;
+            String line = FeedParser.Texts.decode(TAG.matcher(p.group()).replaceAll(" ")).replaceAll("[\\s\\u00A0]+", " ").trim();
+            if (line.length() >= LONG_PARAGRAPH) {
+                longParagraphs++;
+                if (firstLong < 0) {
+                    firstLong = p.start();
+                }
+            }
+        }
+        Matcher box = BODY_BOX.matcher(clean);
+        String found = box.find() ? openTag(box.group()) : "-";
+        String around = "-";
+        if (firstLong >= 0) {
+            Matcher open = CONTAINER_OPEN.matcher(clean.substring(0, firstLong));
+            while (open.find()) {
+                around = openTag(open.group());
+            }
+        }
+        int articles = 0;
+        Matcher article = ARTICLE_OPEN.matcher(clean);
+        while (article.find()) {
+            articles++;
+        }
+        return String.format(Locale.ROOT, "%,d bytes, %d p (%d long), %d article, box %s, first long p in %s, arc json %s",
+                html.length, paragraphs, longParagraphs, articles, found, around, page.contains(ARC_CONTENT) ? "yes" : "no");
+    }
+
+    /** 로그용 여는 태그: 공백을 줄이고 120자까지 */
+    private static String openTag(String tag) {
+        String one = tag.replaceAll("\\s+", " ");
+        return one.length() > 120 ? one.substring(0, 120) + "…" : one;
     }
 
     /**
