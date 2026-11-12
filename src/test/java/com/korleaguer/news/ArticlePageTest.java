@@ -276,4 +276,14 @@ class ArticlePageTest {
 
         assertThat(page.text()).doesNotContain("포스팅됐고");
     }
+
+    @Test
+    void withoutACopyrightLineTheWholePageIsNotRead() {
+        // 본문 끝(저작권 안내 줄)을 알 수 없으면 관련 기사 소개를 본문으로 읽을 수 있다. 그럴 바엔 '본문 없음'이 낫다
+        ArticlePage page = ArticlePage.parse(("<article class=\"video\"><p>영상 설명 한 줄</p></article>"
+                + "<div class=\"related\"><p>관련 기사 하나. " + LONG + "</p><p>관련 기사 둘. " + LONG + "</p>"
+                + "<p>관련 기사 셋. " + LONG + "</p><p>관련 기사 넷. " + LONG + "</p></div>").getBytes(StandardCharsets.UTF_8));
+
+        assertThat(page.text()).doesNotContain("관련 기사");
+    }
 }

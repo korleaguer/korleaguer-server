@@ -221,7 +221,7 @@ record ArticlePage(String imageUrl, String text, String description, String titl
 
     /**
      * 알려진 본문 칸(BODY_BOX)이 없을 때만: 모든 article 칸의 긴 문단, 모자라면 페이지 전체(스크립트·메뉴·꼬리 칸 뺀)의
-     * 긴 문단을 저작권 안내 줄까지 모은다. 지금 코드는 article 칸이 있으면 첫 칸만 보는데, 연합뉴스는 article 칸이 2개고
+     * 긴 문단을 저작권 안내 줄까지 모은다(그 줄이 있는 페이지만). 지금 코드는 article 칸이 있으면 첫 칸만 보는데, 연합뉴스는 article 칸이 2개고
      * 긴 문단 12개 가운데 본문이 그 밖에 있었다(운영 로그 11-12). 알려진 본문 칸이 있으면 짧아도 다른 곳을 긁지 않는다
      */
     private static String widerParagraphs(String page) {
@@ -237,8 +237,25 @@ record ArticlePage(String imageUrl, String text, String description, String titl
         if (inArticles.length() >= MIN_BODY_TEXT) {
             return inArticles;
         }
-        String whole = paragraphs(NOISE.matcher(page).replaceAll(" "), LONG_PARAGRAPH);
+        // 페이지 전체는 저작권 안내 줄(멈춤 줄)이 있을 때만 읽는다. 본문 끝을 알 수 없으면 관련 기사 소개·댓글 같은 긴 글을
+        // 본문으로 읽을 수 있어서다(그럴 바엔 '본문 없음'으로 실패한다)
+        String clean = NOISE.matcher(page).replaceAll(" ");
+        if (!hasStopParagraph(clean)) {
+            return inArticles;
+        }
+        String whole = paragraphs(clean, LONG_PARAGRAPH);
         return whole.length() > inArticles.length() ? whole : inArticles;
+    }
+
+    /** 저작권 안내 같은 멈춤 줄(BODY_STOP)이 문단(p)으로 있나 */
+    private static boolean hasStopParagraph(String html) {
+        Matcher p = PARAGRAPH.matcher(html);
+        while (p.find()) {
+            if (BODY_STOP.matcher(TAG.matcher(p.group()).replaceAll(" ")).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
