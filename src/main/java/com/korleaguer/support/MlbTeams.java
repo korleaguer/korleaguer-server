@@ -47,6 +47,16 @@ public final class MlbTeams {
         return mlbTeamId == null ? null : ABBREVIATION_BY_ID.get(mlbTeamId);
     }
 
+    /** 30개 구단의 대표 약어(가나다 순이 아니라 약어 알파벳 순) */
+    public static java.util.List<String> abbreviations() {
+        return CLUBS.keySet().stream().sorted().toList();
+    }
+
+    /** 다른 곳에서 쓰는 약어(SFG, AZ 등)까지 받아 대표 약어로. MLB 구단 약어가 아니면 null */
+    public static String canonical(String abbreviation) {
+        return abbreviation(id(abbreviation));
+    }
+
     /** MLB 30개 구단 중 하나인지 */
     public static boolean isClub(Long mlbTeamId) {
         return abbreviation(mlbTeamId) != null;

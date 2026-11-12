@@ -1,7 +1,10 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.DestinationMention;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsDestination;
+import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PastPosting;
@@ -16,10 +19,13 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -31,17 +37,23 @@ public class PostingFinder {
 
     /** 협상 마감 뒤 이만큼 지나면 이번 겨울 선수 목록에서 뺀다(결과를 보여 줄 기간) */
     static final Duration SHOW_AFTER_DEADLINE = Duration.ofDays(60);
-    static final int NEWS_PER_PLAYER = 5;
+    /** 관련 기사 수. PC는 카드 오른쪽 칸 전체가 기사다(사용자 11-12 결정, 5건에서 늘림) */
+    static final int NEWS_PER_PLAYER = 12;
+    /** '행선지로 거론된 구단'을 세는 날 수(한국 날짜, 오늘 포함) */
+    static final int LINKED_DAYS = 7;
 
     private final Postings postings;
     private final NewsArticleRepository news;
+    private final NewsDestinationRepository destinations;
     private final PhotoSources photos;
     /** 지금 news/sources.yml에 있는 언론사. 뺀 언론사(이용약관으로 뺀 뉴시스 등)의 예전 기사는 보이지 않는다 */
     private final Set<String> publishers;
 
-    public PostingFinder(Postings postings, NewsArticleRepository news, PhotoSources photos, NewsProperties newsProperties) {
+    public PostingFinder(Postings postings, NewsArticleRepository news, NewsDestinationRepository destinations,
+                         PhotoSources photos, NewsProperties newsProperties) {
         this.postings = postings;
         this.news = news;
+        this.destinations = destinations;
         this.photos = photos;
         this.publishers = newsProperties.publishers();
     }
@@ -53,7 +65,7 @@ public class PostingFinder {
      * 마지막 자리에 넣는다(덜 찼으면 맨 뒤에 붙인다. 사용자가 원한 것이 영어 기사의 한국어 요약이다). 늦은 순은 그대로다.
      */
     private List<SameArticles.Group> headlines(String player) {
-        // 뺀 언론사의 기사와 같은 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
+        // 뺀 언론사의 기사와 같은 기사를 걸러 내고도 NEWS_PER_PLAYER건이 남도록 넉넉히 읽는다
         List<NewsArticle> recent = kept(news.findLatest(player, PageRequest.of(0, NEWS_PER_PLAYER * 4)));
         List<SameArticles.Group> picked = first(SameArticles.group(recent));
         if (picked.stream().anyMatch(g -> g.article().getSummary() != null)) {
@@ -125,7 +137,42 @@ public class PostingFinder {
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
                 photos.postingPath(p.slug()), status,
-                p.windowOpens(), p.deadline(), daysLeft, elapsedRatio(p, now), deal(p.result()), headlines);
+                p.windowOpens(), p.deadline(), daysLeft, elapsedRatio(p, now), deal(p.result()), headlines,
+                linkedTeams(p.nameKo(), now));
+    }
+
+    private PostingSummary.LinkedTeams linkedTeams(String player, Instant now) {
+        LocalDate today = KoreanTime.kstDate(now);
+        Instant since = KoreanTime.startOfKstDay(today.minusDays(LINKED_DAYS - 1));
+        // 관련 기사 목록처럼 지금 수집하는 언론사의 기사만 센다(뺀 언론사 기사는 숫자에도 넣지 않는다)
+        return linkedTeams(destinations.findMentions(player, since, publishers), today);
+    }
+
+    /**
+     * 구단별로 센다. 순서: 거론(linked)이 많은 순 → 오늘 거론된 구단 → 마지막 거론이 늦은 순 → 약어 순.
+     * 오늘(today)은 한국 날짜로 오늘 나온 기사에서 거론(linked)된 구단이다(반대 전망은 '오늘'로 치지 않는다)
+     */
+    static PostingSummary.LinkedTeams linkedTeams(List<DestinationMention> mentions, LocalDate today) {
+        record Tally(String team, int linked, int doubted, boolean today, Instant last) {
+        }
+        Map<String, Tally> byTeam = new LinkedHashMap<>();
+        for (DestinationMention m : mentions) {
+            boolean linked = m.stance() == NewsDestination.Stance.LINKED;
+            boolean todayLinked = linked && KoreanTime.kstDate(m.publishedAt()).equals(today);
+            byTeam.merge(m.team(), new Tally(m.team(), linked ? 1 : 0, linked ? 0 : 1, todayLinked,
+                            linked ? m.publishedAt() : Instant.EPOCH),
+                    (a, b) -> new Tally(a.team(), a.linked() + b.linked(), a.doubted() + b.doubted(),
+                            a.today() || b.today(), a.last().isAfter(b.last()) ? a.last() : b.last()));
+        }
+        List<PostingSummary.LinkedTeam> teams = byTeam.values().stream()
+                .sorted(Comparator.comparingInt(Tally::linked).reversed()
+                        .thenComparing(Tally::today, Comparator.reverseOrder())
+                        .thenComparing(Tally::last, Comparator.reverseOrder())
+                        .thenComparing(Tally::team))
+                .map(t -> new PostingSummary.LinkedTeam(t.team(), TeamNames.korean(t.team(), t.team()), t.linked(),
+                        t.doubted(), t.today()))
+                .toList();
+        return new PostingSummary.LinkedTeams(LINKED_DAYS, teams);
     }
 
     static String status(PostingCase p, Instant now) {

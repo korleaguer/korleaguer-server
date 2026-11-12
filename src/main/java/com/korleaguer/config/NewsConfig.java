@@ -1,7 +1,9 @@
 package com.korleaguer.config;
 
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.korleaguer.news.ClaudeDestinationTagger;
 import com.korleaguer.news.ClaudeSummarizer;
+import com.korleaguer.news.DestinationTagger;
 import com.korleaguer.news.HttpGetter;
 import com.korleaguer.news.JdkHttpGetter;
 import com.korleaguer.news.NewsProperties;
@@ -32,6 +34,28 @@ public class NewsConfig {
      * 기사 요약기. 서버 환경 변수 ANTHROPIC_API_KEY(Claude Console에서 만든 키, /srv/korleaguer/api.env)가 있을 때만 켠다.
      * 없으면 요약도 기사 페이지 받기도 하지 않는다.
      */
+    /**
+     * 기사에서 행선지로 거론된 구단을 고르는 분류기(이슈 #115). 요약기와 같은 키·모델을 쓰고, 키가 없으면 끈다.
+     */
+    @Bean
+    public DestinationTagger destinationTagger(@Value("${ANTHROPIC_API_KEY:}") String apiKey,
+                                               @Value("${korleaguer.news.summary-model:claude-haiku-5-5}") String model) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return DestinationTagger.OFF;
+        }
+        if (!ClaudeDestinationTagger.fitsRecord(model)) {
+            LoggerFactory.getLogger(NewsConfig.class).error(
+                    "news: korleaguer.news.summary-model '{}' is too long to record, destination tagging is off", model);
+            return DestinationTagger.OFF;
+        }
+        // 요약기와 같은 이유로 오래 기다리지 않는다(30분마다 도는 수집 스레드)
+        return new ClaudeDestinationTagger(AnthropicOkHttpClient.builder()
+                .apiKey(apiKey.trim())
+                .timeout(Duration.ofSeconds(30))
+                .maxRetries(1)
+                .build(), model);
+    }
+
     @Bean
     public Summarizer summarizer(@Value("${ANTHROPIC_API_KEY:}") String apiKey,
                                  @Value("${korleaguer.news.summary-model:claude-haiku-5-5}") String model) {
