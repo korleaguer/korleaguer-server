@@ -37,6 +37,9 @@ public class NewsArticle {
     private Instant enrichedAt;
     private int enrichAttempts;
     private Instant pageReadAt;
+    private Instant destinationsAt;
+    private String destinationsModel;
+    private int destinationAttempts;
 
     protected NewsArticle() {
     }
@@ -162,5 +165,32 @@ public class NewsArticle {
     public void enrichFailed(Instant at) {
         this.enrichedAt = at;
         this.enrichAttempts++;
+    }
+
+    public Instant getDestinationsAt() {
+        return destinationsAt;
+    }
+
+    public String getDestinationsModel() {
+        return destinationsModel;
+    }
+
+    public int getDestinationAttempts() {
+        return destinationAttempts;
+    }
+
+    /**
+     * 행선지로 거론된 구단을 골랐다(구단 줄은 NewsDestination에 따로 둔다. 거론된 구단이 없어도 고른 것으로 적는다).
+     * model은 고른 모델과 지시문 판이다. 판이 바뀌면 다시 고른다
+     */
+    public void destinationsTagged(String model, Instant at) {
+        this.destinationsModel = model;
+        this.destinationsAt = at;
+        this.destinationAttempts = 0;
+    }
+
+    /** 이번에는 구단을 고르지 못했다(기사 탓, 몇 번까지만 다시 해 본다). 전에 고른 구단이 있으면 그대로 둔다 */
+    public void destinationsFailed() {
+        this.destinationAttempts++;
     }
 }

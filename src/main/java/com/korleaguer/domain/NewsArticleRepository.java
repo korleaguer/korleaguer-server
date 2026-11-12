@@ -48,4 +48,15 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     List<NewsArticle> findOutdatedSummaries(@Param("publishers") Collection<String> publishers,
                                             @Param("version") String version, @Param("maxAttempts") int maxAttempts,
                                             @Param("since") Instant since, Pageable page);
+
+    /**
+     * 행선지로 거론된 구단을 아직 고르지 않았거나 지금과 다른 판(version)으로 고른 기사(시도 횟수가 남고 since 뒤에 나온 것,
+     * 최근 순). 요약이 있거나(요약을 읽고 고른다), 요약을 포기한 기사(제목·앞부분으로 고른다)만. 요약이 곧 붙을 기사는 기다린다
+     */
+    @Query("select a from NewsArticle a where (a.destinationsAt is null or a.destinationsModel <> :version)"
+            + " and a.destinationAttempts < :maxAttempts and a.publishedAt >= :since"
+            + " and (a.summary is not null or a.enrichAttempts >= :maxAttempts)"
+            + " order by a.publishedAt desc, a.id desc")
+    List<NewsArticle> findToTagDestinations(@Param("version") String version, @Param("maxAttempts") int maxAttempts,
+                                            @Param("since") Instant since, Pageable page);
 }
