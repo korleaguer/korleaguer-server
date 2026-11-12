@@ -36,6 +36,8 @@ class NewsEnricherTest {
     private final List<String> asked = new ArrayList<>();
     private final PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance);
     private final List<NewsArticle> queue = new ArrayList<>();
+    /** 옛 지시문 판으로 요약한 기사들(findOutdatedSummaries가 고르는 조건으로 거른다) */
+    private final List<NewsArticle> outdated = new ArrayList<>();
     private NewsArticle article;
 
     @BeforeEach
@@ -48,6 +50,11 @@ class NewsEnricherTest {
                     .filter(a -> a.getSummary() == null && a.getEnrichAttempts() < (int) inv.getArgument(1))
                     .toList();
         });
+        when(articles.findOutdatedSummaries(anyCollection(), any(), anyInt(), any(), any())).thenAnswer(inv ->
+                outdated.stream()
+                        .filter(a -> a.getSummary() != null && !inv.getArgument(1).equals(a.getSummaryModel())
+                                && a.getEnrichAttempts() < (int) inv.getArgument(2))
+                        .toList());
         http.on(MLB + "/robots.txt", ok("User-agent: *\nDisallow: /wp-admin/\nCrawl-delay: 1\n"))
                 .on(MLB + "/2026/11/roh.html", ok("<meta property=\"og:image\" content=\"https://cdn.example.com/roh.jpg\">"
                         + "<div class=\"entry-content\"><p>" + BODY + "</p></div><div class=\"entry-footer\"></div>"));
@@ -99,7 +106,7 @@ class NewsEnricherTest {
         enricher.enrich();
 
         assertThat(article.getSummary()).isEqualTo("두 번째에 요약했다.");
-        assertThat(article.getEnrichAttempts()).isEqualTo(1);
+        assertThat(article.getEnrichAttempts()).isZero(); // 시도 횟수는 '요약하지 못한 횟수'라 요약하면 0
         assertThat(http.requests).filteredOn(r -> r.uri().getPath().endsWith("etag.html"))
                 .allSatisfy(r -> assertThat(r.headers()).doesNotContainKey("If-None-Match"));
     }
@@ -278,6 +285,39 @@ class NewsEnricherTest {
         assertThat(article.getLeadText()).isEqualTo("(예시 홍길동 기자) 노시환이 메츠의 관심을 받는다.");
         assertThat(asked).singleElement().asString().contains("노시환이 뉴욕 메츠의 3루 보강 후보");
         assertThat(http.urls()).filteredOn(u -> u.endsWith("/article/1")).hasSize(1); // 페이지는 한 번만
+    }
+
+    @Test
+    void summariesFromAnOlderPromptAreRedoneAfterTheArticlesWithoutOne() {
+        NewsArticle old = new NewsArticle("노시환", MLB + "/2026/11/old.html", "o", "Roh Old Notes", "MLB Trade Rumors",
+                Instant.parse("2026-11-09T20:40:00Z"), NOV_11);
+        old.enriched(null, "옛 제목", "옛 요약이다.", "test-model/v1", NOV_11.minus(java.time.Duration.ofDays(1)));
+        outdated.add(old);
+        http.on(MLB + "/2026/11/old.html", ok("<div class=\"entry-content\"><p>" + BODY + "</p></div>"));
+
+        int done = enricher(summarizer("새 요약이다.")).enrich();
+
+        assertThat(done).isEqualTo(2);
+        assertThat(asked).hasSize(2);
+        assertThat(asked.getFirst()).startsWith("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|"); // 요약이 없던 기사가 먼저
+        assertThat(old.getSummary()).isEqualTo("새 요약이다.");
+        assertThat(old.getSummaryModel()).isEqualTo("test-model");
+        assertThat(enricher(summarizer("또 요약")).enrich()).isZero(); // 이제 같은 판이라 다시 하지 않는다
+    }
+
+    @Test
+    void anOldSummaryStaysWhenItCannotBeRedone() {
+        NewsArticle old = new NewsArticle("노시환", MLB + "/2026/11/old-gone.html", "og", "Roh Old Notes", "MLB Trade Rumors",
+                Instant.parse("2026-11-09T20:40:00Z"), NOV_11);
+        old.enriched(null, "옛 제목", "옛 요약이다.", "test-model/v1", NOV_11.minus(java.time.Duration.ofDays(1)));
+        outdated.add(old);
+        http.on(MLB + "/2026/11/old-gone.html", FakeHttp.reply(404, ""));
+
+        enricher(summarizer("새 요약이다.")).enrich();
+
+        assertThat(old.getSummary()).isEqualTo("옛 요약이다.");
+        assertThat(old.getSummaryModel()).isEqualTo("test-model/v1");
+        assertThat(old.getEnrichAttempts()).isEqualTo(1);
     }
 
     @Test

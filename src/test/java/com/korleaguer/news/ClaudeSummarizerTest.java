@@ -28,6 +28,18 @@ class ClaudeSummarizerTest {
     }
 
     @Test
+    void theVersionNamesTheModelAndThePromptEdition() {
+        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v2");
+    }
+
+    @Test
+    void theLengthFollowsTheArticleInsteadOfAFixedCount() {
+        // 사용자 의견(11-12): 쓸 내용이 많은데 지나치게 줄이지 말고, 내용이 없는데 억지로 늘리지도 말 것
+        assertThat(ClaudeSummarizer.SYSTEM).doesNotContain("130자").contains("2~3문장").contains("4~7문장")
+                .contains("기사에 없는 말을 보태지 않는다");
+    }
+
+    @Test
     void aCutOffAnswerLosesItsUnfinishedLastLine() {
         assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환이 포스팅됐다.\n협상 마감은 12월", true))
                 .contains(new Summarizer.Summary("노시환 포스팅", "노시환이 포스팅됐다."));

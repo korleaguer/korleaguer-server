@@ -2,7 +2,7 @@ package com.korleaguer.news;
 
 import java.util.Optional;
 
-/** 기사 본문을 한국어 3~4줄로 요약한다. API 키가 없으면 OFF(아무것도 하지 않음)다. */
+/** 기사 본문을 한국어로 요약한다(길이는 기사 분량을 따른다). API 키가 없으면 OFF(아무것도 하지 않음)다. */
 public interface Summarizer {
 
     Summarizer OFF = new Summarizer() {
@@ -42,6 +42,14 @@ public interface Summarizer {
 
     /** 요약한 모델 이름(기록용) */
     String model();
+
+    /**
+     * 요약을 만든 모델과 지시문 판. 요약마다 적어 두고(summary_model), 지금 판과 다른 옛 요약은 차례로 다시 요약한다.
+     * 지시문이 따로 없는 요약기는 모델 이름 그대로다
+     */
+    default String version() {
+        return model();
+    }
 
     /**
      * 요약 서비스가 이번에 답하지 못했다(키·결제·모델 설정, 사용량 제한, 서버 문제, 연결 실패, 요청 거절).

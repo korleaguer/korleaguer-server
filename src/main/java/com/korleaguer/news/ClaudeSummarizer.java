@@ -20,13 +20,20 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Claude API(공식 Java SDK)로 영어 야구 기사를 한국어 3~4줄로 요약한다.
+ * Claude API(공식 Java SDK)로 야구 기사(한국어·영어)를 한국어로 요약한다. 길이는 기사에 담긴 사실의 양을 따른다
+ * (짧은 기사 2~3문장, 사실이 많은 기사 4~7문장).
  * 모델은 korleaguer.news.summary-model(기본 claude-haiku-5-5: 요약처럼 단순한 일에 가장 싸고 빠르다).
- * 깊이 생각할 일이 아니라 effort는 low에 생각(thinking)은 끄고, 답 길이는 1000토큰까지. 기사 한 건에 약 0.0005달러.
+ * 깊이 생각할 일이 아니라 effort는 low에 생각(thinking)은 끄고, 답 길이는 1500토큰까지. 기사 한 건에 약 0.001달러 안쪽.
  * 키가 거절되면(401·403) 서버를 다시 띄울 때까지 요약을 끈다(키를 고치면 어차피 다시 띄운다).
  */
 public class ClaudeSummarizer implements Summarizer {
 
+    /**
+     * 요약 지시문(SYSTEM)의 판. 지시문을 바꾸면 올린다. 요약에 모델 이름과 함께 적고(summary_model),
+     * 옛 판으로 만든 요약은 차례로 다시 요약한다(NewsEnricher). v1: 2~3문장 130자 안팎(11-11),
+     * v2: 분량에 맞춰 2~7문장(11-12, 이슈 #103 "쓸 내용이 많은데 지나치게 줄이지 말라")
+     */
+    static final String PROMPT_VERSION = "v2";
     static final int MAX_SUMMARY = 1200;
     static final int MAX_TITLE = 100;
     // '제목: …'. 모델이 마크다운으로 꾸며도(**제목:** …, # 제목: …) 알아본다
@@ -38,7 +45,12 @@ public class ClaudeSummarizer implements Summarizer {
             너는 한국 야구 팬 사이트에서 야구 기사(한국어나 영어)를 한국어로 요약한다.
             규칙:
             - 기사에 쓰인 사실만 쓴다. 추측·평가·전망을 덧붙이지 않는다(기사가 전한 전망은 '~라고 전했다'처럼 출처를 살린다).
-            - 요약은 2~3문장, 모두 합쳐 130자 안팎. 가장 중요한 사실부터 쓴다.
+            - 가장 중요한 사실부터 쓴다.
+            - 분량은 기사에 담긴 사실의 양을 따른다. 전할 사실이 적은 짧은 기사는 2~3문장이면 된다.
+              기록·계약 조건·구단이나 매체의 평가·선수나 감독의 말처럼 전할 사실이 많은 기사는 줄이지 말고,
+              중요한 사실을 빠뜨리지 않게 4~7문장으로 쓴다.
+            - 문장 수를 채우려고 같은 말을 되풀이하거나 기사에 없는 말을 보태지 않는다.
+            - 한 문장은 80자 안쪽으로 짧게 끊는다.
             - 한 줄에 한 문장, 줄바꿈으로 나눈다. 머리 기호·인사말은 쓰지 않는다.
             - 존댓말 말고 기사체(~했다, ~이다)로 쓴다.
             - 한국 선수 이름은 한글로 쓴다(예: Si Hwan Roh → 노시환, Ha-Seong Kim → 김하성, Jung Hoo Lee → 이정후).
@@ -47,7 +59,7 @@ public class ClaudeSummarizer implements Summarizer {
             - 기자 이름·광고·댓글·다른 기사 소개는 넣지 않는다.
             출력 형식(이 형식만 쓴다):
             제목: <기사 제목을 한국어 기사 제목처럼 옮긴 것(한국어 기사면 원래 제목을 그대로), 35자 이내>
-            <요약 2~3문장, 한 줄에 한 문장>
+            <요약 2~7문장, 한 줄에 한 문장>
             """;
 
     private static final Logger log = LoggerFactory.getLogger(ClaudeSummarizer.class);
@@ -70,7 +82,7 @@ public class ClaudeSummarizer implements Summarizer {
     public Optional<Summary> summarize(String player, String title, String body) {
         MessageCreateParams params = MessageCreateParams.builder()
                 .model(model)
-                .maxTokens(1000L)
+                .maxTokens(1500L)
                 .thinking(ThinkingConfigDisabled.builder().build())
                 .system(SYSTEM)
                 .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
@@ -136,5 +148,11 @@ public class ClaudeSummarizer implements Summarizer {
     @Override
     public String model() {
         return model;
+    }
+
+    /** 모델과 지시문 판(예: claude-haiku-5-5/v2). 요약에 적어 두고, 이 값이 다른 옛 요약은 다시 요약한다 */
+    @Override
+    public String version() {
+        return model + "/" + PROMPT_VERSION;
     }
 }

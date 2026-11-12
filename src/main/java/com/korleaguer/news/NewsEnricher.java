@@ -15,6 +15,7 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,8 @@ import java.util.stream.Collectors;
  *   <li>AI 요약 출처(preview: ai): 요약기가 켜져 있으면(ANTHROPIC_API_KEY) 페이지 본문으로 한국어 제목·요약을 만들고
  *       대표 사진 주소를 둔다. robots.txt는 Claude 계열 이름까지 본다(aiFetcher). 본문은 요약에만 쓰고 버린다.</li>
  *   <li>한 번에 최근 기사 몇 건만 한다. 기사 탓인 실패(페이지가 없어짐, 본문 없음, 요약 거절)는 세 번까지 다시 해 본다.</li>
+ *   <li>요약 지시문을 바꾸면(Summarizer.version) 옛 판으로 만든 요약도 차례로 다시 요약한다. 아직 요약이 없는 기사가 먼저다.
+ *       새 요약을 받을 때까지는 옛 요약을 그대로 보이고, 다시 요약하지 못하면 옛 요약을 둔다.</li>
  *   <li>기사 탓이 아닌 실패(사이트가 쉬는 중·429·503·연결 실패, 요약 서비스 장애·키 문제)는 세지 않는다. 요약은 이번 차례를
  *       멈추고(다음 차례에 다시), 페이지 읽기는 그 기사만 건너뛴다. 그 기사만 403·5xx를 주면 기사 탓으로 센다.</li>
  *   <li>샘플 모드에서는 아무것도 받지 않는다.</li>
@@ -203,8 +206,11 @@ public class NewsEnricher {
             return 0;
         }
         Set<String> aiPublishers = publishers(NewsProperties.Source::ai);
-        List<NewsArticle> todo = articles.findToEnrich(publishers, MAX_ATTEMPTS, now.minus(OLDEST),
-                PageRequest.of(0, PAGE_CANDIDATES));
+        // 아직 요약이 없는 기사가 먼저, 그다음 지시문을 바꾸기 전 판으로 요약한 기사(옛 요약은 새 요약을 받을 때까지 그대로)
+        List<NewsArticle> todo = new ArrayList<>(articles.findToEnrich(publishers, MAX_ATTEMPTS, now.minus(OLDEST),
+                PageRequest.of(0, PAGE_CANDIDATES)));
+        todo.addAll(articles.findOutdatedSummaries(publishers, summarizer.version(), MAX_ATTEMPTS, now.minus(OLDEST),
+                PageRequest.of(0, PAGE_CANDIDATES)));
         int requested = 0;
         int done = 0;
         for (NewsArticle article : todo) {
@@ -271,7 +277,11 @@ public class NewsEnricher {
             }
             // 국내 기사는 언론사 제목을 그대로 둔다(AI 제목은 영어 기사에만). 사진은 pageRead가 채웠다
             String titleKo = HANGUL.matcher(article.getTitle()).find() ? null : summary.get().titleKo();
-            article.enriched(null, titleKo, summary.get().text(), summarizer.model(), now);
+            String replaced = article.getSummary() == null ? "" : " (replaced " + article.getSummaryModel() + ")";
+            article.enriched(null, titleKo, summary.get().text(), summarizer.version(), now);
+            // 요약 길이가 본문 분량을 따르는지 보려고 둘 다 남긴다(지시문 v2, 이슈 #103)
+            log.info("news: summarized {}: body {} chars -> summary {} chars{}", article.getUrl(), page.text().length(),
+                    summary.get().text().length(), replaced);
             return Outcome.DONE;
         } catch (Summarizer.Failure e) {
             log.warn("news: summary service failed for {}: {}", article.getUrl(), e.getMessage());
