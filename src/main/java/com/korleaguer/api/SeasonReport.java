@@ -16,7 +16,7 @@ import java.util.List;
  * @param level       카드가 앞세울 시즌 합계. 마이너 시즌이면 MINORS, 아니면 MLB
  * @param war         메이저 WAR(소수 첫째 자리). 모르면 null. 화면은 좋은 시즌·제 몫 한 시즌에만 보인다
  * @param stories     자랑거리(연속 안타·최고 경기, 두 개까지). 출전이 적었던·아쉬운 시즌은 늘 비어 있다
- * @param winterMoves 정규시즌이 끝난 뒤 이동 기록(FA 선언 등), 최신순 세 개까지
+ * @param winterMoves 정규시즌이 끝나고 3일 뒤부터의 이동 기록(FA 선언 등), 최신순 세 개까지
  */
 public record SeasonReport(long playerId, SeasonTier tier, String label, String headline, String reason, Level level,
                            Double war, List<String> stories, List<WinterMove> winterMoves) {

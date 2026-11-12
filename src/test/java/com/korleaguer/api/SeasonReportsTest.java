@@ -42,7 +42,14 @@ class SeasonReportsTest {
         assertThat(games.get(75).date()).isBefore(LocalDate.of(2026, 7, 1));
         assertThat(games.get(76).date()).isAfter(LocalDate.of(2026, 6, 30));
 
-        SeasonReport report = build(hitter(808982, new Line(2026, 579, 0, 101.8, 0.97), games, List.of(), List.of(),
+        // 짧은 부상자 명단 두 번보다 전·후반 흐름을 쓴다. 정규시즌 이틀 뒤 해제는 겨울 이동이 아니다
+        List<Move> moves = List.of(
+                move("2026-05-22", "SC", "San Francisco Giants placed RF Jung Hoo Lee on the 10-day injured list "
+                        + "retroactive to May 19, 2026. Mid-back strain."),
+                move("2026-09-21", "SC", "San Francisco Giants placed RF Jung Hoo Lee on the 10-day injured list. "
+                        + "Groin contusion."),
+                move("2026-09-29", "SC", "San Francisco Giants activated RF Jung Hoo Lee from the 10-day injured list."));
+        SeasonReport report = build(hitter(808982, new Line(2026, 579, 0, 101.8, 0.97), games, List.of(), moves,
                 false, new Line(2025, 617, 0, 107.0, 2.0)));
 
         assertThat(report.tier()).isEqualTo(SeasonTier.SOLID);
@@ -52,6 +59,7 @@ class SeasonReportsTest {
         assertThat(report.level()).isEqualTo(Level.MLB);
         assertThat(report.war()).isEqualTo(1.0);
         assertThat(report.stories()).hasSizeLessThanOrEqualTo(2);
+        assertThat(report.winterMoves()).isEmpty();
     }
 
     @Test
@@ -88,7 +96,8 @@ class SeasonReportsTest {
                 .toList();
         List<Move> moves = List.of(
                 move("2026-05-28", "OPT", "Los Angeles Dodgers optioned 2B Hyeseong Kim to Oklahoma City Comets."),
-                move("2026-09-20", "CU", "Los Angeles Dodgers recalled 2B Hyeseong Kim from Oklahoma City Comets."));
+                // 정규시즌(9/27) 다음 날 포스트시즌 명단 콜업도 시즌 이야기다
+                move("2026-09-28", "CU", "Los Angeles Dodgers recalled 2B Hyeseong Kim from Oklahoma City Comets."));
 
         SeasonReport report = build(hitter(808975, new Line(2026, 131, 0, 83.0, 0.35), majors, minors, moves, false,
                 new Line(2025, 170, 0, 90.0, 0.4)));
@@ -96,6 +105,7 @@ class SeasonReportsTest {
         assertThat(report.tier()).isEqualTo(SeasonTier.MINORS);
         assertThat(report.headline()).isEqualTo("메이저 43경기, 나머지는 트리플A");
         assertThat(report.reason()).isEqualTo("5월 말 트리플A로 · 9월 말 다시 메이저");
+        assertThat(report.winterMoves()).isEmpty();
     }
 
     @Test
@@ -141,8 +151,9 @@ class SeasonReportsTest {
                 .mapToObj(i -> hitting(LocalDate.of(2026, 4, 10).plusDays(i * 2L), i < 63 ? 2 : 1, hits[i], 0, 0, 0))
                 .toList();
         List<Move> moves = List.of(
-                move("2026-03-23", "SC", "San Diego Padres placed 2B Sung-Mun Song on the 10-day injured list "
-                        + "retroactive to March 20, 2026. Right oblique strain."),
+                // 개막일 당일 등재도 개막 직전 부상이다
+                move("2026-03-25", "SC", "San Diego Padres placed 3B Sung-Mun Song on the 10-day injured list. "
+                        + "Right oblique strain."),
                 move("2026-04-09", "SC", "San Diego Padres activated 2B Sung-Mun Song from the 10-day injured list."),
                 move("2026-05-10", "OPT", "San Diego Padres optioned 2B Sung-Mun Song to El Paso Chihuahuas."),
                 move("2026-06-02", "CU", "San Diego Padres recalled 2B Sung-Mun Song from El Paso Chihuahuas."),

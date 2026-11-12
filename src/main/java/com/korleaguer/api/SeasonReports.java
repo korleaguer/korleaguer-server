@@ -25,11 +25,13 @@ import java.util.stream.Stream;
  * <ul>
  *   <li>판정: SeasonVerdict. 메이저 합계·지표를 아직 받지 못했으면 경기별 기록으로 양만 세어 판정한다.</li>
  *   <li>한 줄 요약(headline): 판정마다 정해진 틀에 경기 수·타율·평균자책점과 wRC+(ERA-) 말을 넣는다.</li>
- *   <li>이유(reason): 부상자 명단 등재, 트리플A 강등·콜업, 짧은 메이저 출전, 전·후반 타율 차이 중 두 개까지.
- *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 없으면 null.</li>
+ *   <li>이유(reason): 부상자 명단 등재, 트리플A 강등·콜업, 짧은 메이저 출전 중 두 개까지.
+ *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 좋은 시즌·제 몫 한 시즌 타자는 전·후반 타율 차이가 크면
+ *       그것 하나만 쓴다. 개막일(당일 포함)까지 오른 부상자 명단은 '개막 직전'이다. 없으면 null.</li>
  *   <li>자랑거리(stories): 좋은·짧았지만 좋았던·제 몫 한·마이너 시즌만. 시즌 최장 연속 안타(8경기 이상)·무실점 등판(5번 이상),
  *       최고 경기(2홈런 이상·3안타 이상, 투수는 7이닝 이상 승리·무실점 또는 10탈삼진 이상). 두 개까지.</li>
- *   <li>겨울 이동: 정규시즌 마지막 날 뒤의 이동 기록, 최신순 세 개까지.</li>
+ *   <li>겨울 이동: 정규시즌 마지막 날 SEASON_WRAP_DAYS(3일) 뒤의 이동 기록, 최신순 세 개까지.
+ *       그 사이 이동(포스트시즌 명단 콜업 등)은 이유 쪽에서 시즌 이야기로 쓴다.</li>
  * </ul>
  * 글은 사실만 짧게 쓴다. 부진·실패 같은 평가 말(FORBIDDEN_WORDS)은 쓰지 않는다.
  */
@@ -50,6 +52,10 @@ final class SeasonReports {
     static final int SHORT_STINT_GAMES = 10;
     /** 마지막 부상 뒤 경기가 없고, 시즌 끝보다 이만큼 이상 일찍 다쳤으면 '일찍 시즌 마감' */
     static final int EARLY_END_DAYS = 14;
+    /**
+     * 정규시즌이 끝나고 이 날수까지의 이동(포스트시즌 명단 콜업, 부상자 명단 해제 등)은 시즌 이야기로 보고 겨울 이동에 넣지 않는다.
+     */
+    static final int SEASON_WRAP_DAYS = 3;
     /** 마이너 양 중 트리플A 밖(더블A 등)이 이만큼 이상이면 '마이너에서 보낸 시즌' */
     static final double MIXED_MINORS_SHARE = 0.2;
 
@@ -299,18 +305,19 @@ final class SeasonReports {
     }
 
     private static String reason(Input in, SeasonTier tier, List<GameDay> majors, List<GameDay> minors) {
+        if (in.role() == Role.HITTER && (tier == SeasonTier.GOOD || tier == SeasonTier.SOLID)) {
+            // 다 뛴 시즌은 전·후반 흐름이 가장 큰 이야기다(짧은 부상자 명단보다 먼저)
+            Fact half = halfFact(majors);
+            if (half != null) {
+                return half.text();
+            }
+        }
         List<Fact> facts = new ArrayList<>(injuryFacts(in, majors, minors));
         Fact stint = tier == SeasonTier.MINORS ? stintFact(majors) : null;
         if (stint != null) {
             facts.add(stint);
         } else {
             facts.addAll(moveFacts(in));
-        }
-        if (in.role() == Role.HITTER && (tier == SeasonTier.GOOD || tier == SeasonTier.SOLID)) {
-            Fact half = halfFact(majors);
-            if (half != null) {
-                facts.add(half);
-            }
         }
         List<String> chosen = facts.stream()
                 .sorted(Comparator.comparingInt(Fact::priority).thenComparing(Fact::date))
@@ -346,7 +353,7 @@ final class SeasonReports {
             String text;
             if (part != null && seen.contains(part)) {
                 text = day.getMonthValue() + "월 같은 곳 다시 이탈";
-            } else if (day.isBefore(in.openingDay())) {
+            } else if (!day.isAfter(in.openingDay())) {
                 text = "개막 직전 " + (part == null ? "부상" : part + " 부상");
             } else if (i == placements.size() - 1 && (lastGame == null || !lastGame.isAfter(day))
                     && !day.isAfter(in.lastRegularDay().minusDays(EARLY_END_DAYS))) {
@@ -380,11 +387,11 @@ final class SeasonReports {
         return new Fact(first, 1, text);
     }
 
-    /** 정규시즌 중 트리플A 강등(옵션·아웃라이트)과 메이저 콜업 */
+    /** 정규시즌 중(끝나고 SEASON_WRAP_DAYS일까지) 트리플A 강등(옵션·아웃라이트)과 메이저 콜업 */
     private static List<Fact> moveFacts(Input in) {
         List<Move> inSeason = in.moves().stream()
                 .filter(m -> m.date() != null && !m.date().isBefore(in.openingDay())
-                        && !m.date().isAfter(in.lastRegularDay()))
+                        && !m.date().isAfter(in.lastRegularDay().plusDays(SEASON_WRAP_DAYS)))
                 .sorted(Comparator.comparing(Move::date))
                 .toList();
         List<Move> down = inSeason.stream().filter(m -> isCode(m, "OPT", "OUT")).toList();
@@ -578,7 +585,7 @@ final class SeasonReports {
         Set<Key> seen = new HashSet<>();
         List<SeasonReport.WinterMove> result = new ArrayList<>();
         List<Move> newestFirst = in.moves().stream()
-                .filter(m -> m.date() != null && m.date().isAfter(in.lastRegularDay()))
+                .filter(m -> m.date() != null && m.date().isAfter(in.lastRegularDay().plusDays(SEASON_WRAP_DAYS)))
                 .sorted(Comparator.comparing(Move::date).reversed())
                 .toList();
         for (Move move : newestFirst) {
