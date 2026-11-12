@@ -7,6 +7,7 @@ import com.korleaguer.client.MlbMinorGameLog;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbSeason;
+import com.korleaguer.client.MlbSeasonSplit;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
@@ -120,6 +121,18 @@ class GameIngestTest {
         public MlbMinorGameLog getMinorGameLog(long personId, int season) {
             requests++;
             return delegate.getMinorGameLog(personId, season);
+        }
+
+        @Override
+        public List<MlbSeasonSplit> getYearByYear(long personId, Group group) {
+            requests++;
+            return delegate.getYearByYear(personId, group);
+        }
+
+        @Override
+        public List<MlbSeasonSplit> getSabermetrics(long personId, Group group, int season) {
+            requests++;
+            return delegate.getSabermetrics(personId, group, season);
         }
 
         @Override

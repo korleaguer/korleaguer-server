@@ -29,6 +29,8 @@ import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeason;
+import com.korleaguer.domain.PlayerSeasonMetric;
+import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.PlayerSeasonRepository;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
@@ -81,11 +83,13 @@ public class IngestWriter {
     private final MinorSeasonRepository minorSeasons;
     private final MinorGameLogRepository minorGameLogs;
     private final SeasonDatesRepository seasonDates;
+    private final PlayerSeasonMetricRepository seasonMetrics;
 
     public IngestWriter(TeamRepository teams, PlayerRepository players, AffiliationRepository affiliations,
                         GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves,
                         PlayerSeasonRepository seasons, MinorSeasonRepository minorSeasons,
-                        MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates) {
+                        MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates,
+                        PlayerSeasonMetricRepository seasonMetrics) {
         this.teams = teams;
         this.players = players;
         this.affiliations = affiliations;
@@ -96,6 +100,7 @@ public class IngestWriter {
         this.minorSeasons = minorSeasons;
         this.minorGameLogs = minorGameLogs;
         this.seasonDates = seasonDates;
+        this.seasonMetrics = seasonMetrics;
     }
 
     /**
@@ -215,6 +220,24 @@ public class IngestWriter {
         row.update(start, end, date(source.postSeasonEndDate()), fetchedAt);
         seasonDates.save(row);
         return true;
+    }
+
+    /**
+     * 선수의 시즌 합계를 새 값으로 덮어쓴다. metrics가 null이면(이번에 묻지 않음) 지표는 지난 값을 둔다.
+     */
+    public void saveSeasonMetric(long playerId, int season, PlayerSeasonMetric.Group group, Integer plateAppearances,
+                                 Integer inningsOuts, Integer gamesStarted, SeasonMetrics metrics, Instant fetchedAt) {
+        PlayerSeasonMetric row = seasonMetrics.find(playerId, season, group)
+                .orElseGet(() -> new PlayerSeasonMetric(players.getReferenceById(playerId), season, group));
+        row.updateTotals(plateAppearances, inningsOuts, gamesStarted, fetchedAt);
+        if (metrics != null) {
+            row.updateMetrics(metrics.wrcPlus(), metrics.eraMinus(), metrics.war());
+        }
+        seasonMetrics.save(row);
+    }
+
+    /** 한 시즌 고급 지표. 모르는 칸은 null */
+    public record SeasonMetrics(Double wrcPlus, Double eraMinus, Double war) {
     }
 
     /**

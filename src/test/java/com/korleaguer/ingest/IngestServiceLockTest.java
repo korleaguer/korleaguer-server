@@ -47,7 +47,8 @@ class IngestServiceLockTest {
         CurrentSeason currentSeason = new CurrentSeason(new KorleaguerProperties(2026, null, null, null, null, null),
                 DataMode.MLB, mock(SeasonDatesRepository.class), Clock.systemUTC());
         IngestService service = new IngestService(new SampleMlbClient(SampleMlbClient.Data.empty()),
-                mock(IngestWriter.class), blockingRefresher, mock(SeasonDatesRefresher.class), mock(GameIngest.class),
+                mock(IngestWriter.class), blockingRefresher, mock(SeasonDatesRefresher.class),
+                mock(SeasonMetricRefresher.class), mock(GameIngest.class),
                 players, mock(PlayerSeasonRepository.class), ingestLogs, roster, currentSeason,
                 mock(ResponseCaches.class), Clock.systemUTC());
 

@@ -30,6 +30,12 @@ public interface MlbClient {
     /** 선수의 한 시즌 마이너리그(트리플A ~ 루키) 경기별 기록(정규시즌). 타격·투구를 한 번에 묻는다. */
     MlbMinorGameLog getMinorGameLog(long personId, int season);
 
+    /** 선수의 시즌별 메이저 합계(정규시즌, 전 시즌). 여러 팀에서 뛴 시즌은 팀별 줄과 합친 줄이 같이 온다. */
+    List<MlbSeasonSplit> getYearByYear(long personId, Group group);
+
+    /** 선수의 한 시즌 메이저 고급 지표(wRC+·ERA-·WAR, 정규시즌). 그 시즌 메이저 기록이 없으면 빈 목록 */
+    List<MlbSeasonSplit> getSabermetrics(long personId, Group group, int season);
+
     /** 팀들의 한 시즌 메이저 일정(시범경기·포스트시즌 포함). 점수와 상태도 들어 있다. */
     List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season);
 

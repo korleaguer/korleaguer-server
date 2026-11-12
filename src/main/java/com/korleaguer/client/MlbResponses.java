@@ -34,6 +34,15 @@ public final class MlbResponses {
     public record StatGroup(List<MlbGameLogSplit> splits) {
     }
 
+    /** /api/v1/people/{id}/stats?stats=yearByYear · stats=sabermetrics */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record SeasonStats(List<SeasonStatGroup> stats) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record SeasonStatGroup(List<MlbSeasonSplit> splits) {
+    }
+
     /** /api/v1/people/{id}/stats?stats=gameLog (묶음을 여러 개 물을 때). group은 hitting / pitching */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record GameLogGroups(List<GameLogGroup> stats) {
