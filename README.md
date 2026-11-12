@@ -179,7 +179,11 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 배포 뒤 운영 요약 32건(11-12, v2): 본문 길이와 요약 글자 수의 순위 상관 0.04 → 0.85, 짧은 기사(900자 미만 7건) 글자 중간값 205 → 200자, 긴 기사(1,800자 이상 5건) 191 → 417자, 3~8문장, 선수 이야기가 빠진 요약 없음.
   - 요약마다 모델과 지시문 판을 적는다(`summary_model`, 예 `claude-haiku-5-5/v4`). 지시문·요청 틀·본문 손질을 바꾸면 `ClaudeSummarizer.PROMPT_VERSION`을 올리고, 테스트의 지문도 고친다.
   - 옛 판 요약은 새 요약을 받을 때까지 그대로 보이고, 30분마다 새 기사 다음 차례로 다시 요약된다(한 번에 10건, 최근 45일 기사). 모델을 바꿔도(`KORLEAGUER_NEWS_SUMMARY_MODEL`) 같이 다시 요약된다.
-- 홈(`GET /api/home`)은 선수마다 최근 기사 5건(제목과 기사 번호 `id`)을, 기사 페이지(`GET /api/news/{id}`)는 한 건의 사진·요약·원문 주소와 같은 선수의 다른 기사 5건을 준다. `sources.yml`에서 뺀 언론사의 기사는 둘 다 내지 않는다.
+- 행선지로 거론된 구단(이슈 #115): 요약이 붙은 기사마다 같은 Claude 모델이 요약·제목을 읽고 '이 선수의 행선지로 거론된 MLB 구단'과 방향(거론 `LINKED` / '필요 없다'는 전망 `DOUBTED`)을 고른다(`NewsTagger`, `ClaudeDestinationTagger`, 표 `news_destination`). 키워드로 세면 틀려서('워싱턴 코치'는 사람, 애틀랜타는 김하성 이야기) 글을 읽고 고른다.
+  - 30분마다 요약 다음에 최근 기사부터 20건씩 한다(최근 30일). 요약을 포기한 기사는 제목·앞부분으로 고른다. 답을 읽을 수 없으면 3번까지만 다시 한다.
+  - 지시문을 바꾸면 `ClaudeDestinationTagger.PROMPT_VERSION`을 올린다. 기사마다 적은 판(`destinations_model`)과 다르면 다시 고른다.
+  - 홈은 포스팅 선수마다 최근 7일(한국 날짜, 오늘 포함) 구단별 거론 수·반대 전망 수·오늘 거론 여부를 준다(`linkedTeams`).
+- 홈(`GET /api/home`)은 선수마다 최근 기사 12건(제목과 기사 번호 `id`)을, 기사 페이지(`GET /api/news/{id}`)는 한 건의 사진·요약·원문 주소와 같은 선수의 다른 기사 5건을 준다. `sources.yml`에서 뺀 언론사의 기사는 둘 다 내지 않는다.
 - 출처는 `news/sources.yml`(넣은 곳과 뺀 곳의 근거는 그 파일 머리말). robots.txt가 우리 수집기(`korleaguer`)를 허용하고 피드(RSS·Atom·뉴스 사이트맵)가 있는 곳만 넣었다. 네이버·구글 뉴스는 robots.txt가 막아 넣지 않았다.
 - 요청 예절(`PoliteFetcher`):
   - 사이트마다 robots.txt를 하루 한 번 받아 지킨다(RFC 9309). 우리 이름(`korleaguer`)이 막혀 있으면 받지 않는다. 영어 출처(`preview: ai`)는 Claude 계열 이름도 본다.
@@ -222,7 +226,7 @@ com.korleaguer
 ├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder)
 ├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
 ├── photo    선수 사진 호스팅: 원본 목록(PhotoSources), 한 번 받아 저장·재확인(PhotoStore)·주기 작업
-├── news     관련 기사 수집: 피드 읽기(FeedParser), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher), 수집(NewsCollector)·기사 페이지 읽기(ArticlePage)·요약(NewsEnricher, ClaudeSummarizer)·스케줄
+├── news     관련 기사 수집: 피드 읽기(FeedParser), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher), 수집(NewsCollector)·기사 페이지 읽기(ArticlePage)·요약(NewsEnricher, ClaudeSummarizer)·행선지 구단 고르기(NewsTagger, ClaudeDestinationTagger)·스케줄
 └── support  한국 시간, 야구 계산(타율·ERA·이닝), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 요청 제한
 ```
 

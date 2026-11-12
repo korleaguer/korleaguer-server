@@ -2,7 +2,10 @@ package com.korleaguer.api;
 
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.NewsArticle;
+import com.korleaguer.domain.DestinationMention;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsDestination;
+import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
@@ -39,6 +42,7 @@ class PostingFinderTest {
             new NewsProperties.Source("마이데일리", "https://example.com/mydaily", null, null, null, null)));
 
     private final NewsArticleRepository news = mock(NewsArticleRepository.class);
+    private final NewsDestinationRepository destinations = mock(NewsDestinationRepository.class);
 
     @BeforeEach
     void setUp() {
@@ -214,7 +218,7 @@ class PostingFinderTest {
     @Test
     void theLatestSummarizedArticleTakesTheLastSlotWhenKoreanNewsFillsTheRest() {
         List<NewsArticle> korean = new java.util.ArrayList<>();
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i <= PostingFinder.NEWS_PER_PLAYER; i++) {
             korean.add(new NewsArticle("노시환", "https://news.example.kr/" + i, "k" + i, "노시환 소식 " + i, "마이데일리",
                     Instant.parse("2026-11-10T10:00:00Z").minusSeconds(3600L * i), Instant.parse("2026-11-10T11:00:00Z")));
         }
@@ -226,13 +230,16 @@ class PostingFinderTest {
 
         PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
 
-        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly(
-                "https://news.example.kr/0", "https://news.example.kr/1", "https://news.example.kr/2",
-                "https://news.example.kr/3", "https://mlb.example.com/roh");
+        List<String> expected = new java.util.ArrayList<>();
+        for (int i = 0; i < PostingFinder.NEWS_PER_PLAYER - 1; i++) {
+            expected.add("https://news.example.kr/" + i);
+        }
+        expected.add("https://mlb.example.com/roh");
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactlyElementsOf(expected);
     }
 
     @Test
-    void anOlderSummarizedArticleIsAddedWhenFewerThanFiveAreShown() {
+    void anOlderSummarizedArticleIsAddedWhenTheListIsNotFull() {
         NewsArticle korean = new NewsArticle("노시환", "https://news.example.kr/0", "k0", "노시환 소식", "마이데일리",
                 Instant.parse("2026-11-10T10:00:00Z"), Instant.parse("2026-11-10T11:00:00Z"));
         NewsArticle english = new NewsArticle("노시환", "https://mlb.example.com/roh", "e", "Roh Posted", "MLB Trade Rumors",
@@ -253,7 +260,7 @@ class PostingFinderTest {
                 Instant.parse("2026-11-10T20:40:00Z"), Instant.parse("2026-11-10T21:00:00Z"));
         english.enriched(null, "한화, 노시환 포스팅", "노시환이 포스팅됐다.", "claude-haiku-5-5", Instant.parse("2026-11-11T12:00:00Z"));
         List<NewsArticle> latest = new java.util.ArrayList<>(List.of(english));
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < PostingFinder.NEWS_PER_PLAYER; i++) {
             latest.add(new NewsArticle("노시환", "https://news.example.kr/" + i, "k" + i, "노시환 소식 " + i, "마이데일리",
                     Instant.parse("2026-11-10T10:00:00Z").minusSeconds(3600L * i), Instant.parse("2026-11-10T11:00:00Z")));
         }
@@ -261,9 +268,11 @@ class PostingFinderTest {
 
         PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
 
-        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly(
-                "https://mlb.example.com/roh", "https://news.example.kr/0", "https://news.example.kr/1",
-                "https://news.example.kr/2", "https://news.example.kr/3");
+        List<String> expected = new java.util.ArrayList<>(List.of("https://mlb.example.com/roh"));
+        for (int i = 0; i < PostingFinder.NEWS_PER_PLAYER - 1; i++) {
+            expected.add("https://news.example.kr/" + i);
+        }
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactlyElementsOf(expected);
         org.mockito.Mockito.verify(news, org.mockito.Mockito.never()).findLatestSummarized(any(), any());
     }
 
@@ -282,6 +291,50 @@ class PostingFinderTest {
     }
 
     @Test
+    void linkedTeamsCountLinkedAndDoubtedArticlesPerTeamOverTheLastSevenKoreanDays() {
+        Instant now = Instant.parse("2026-11-12T10:00:00Z"); // 한국 11/12 19시
+        Instant since = Instant.parse("2026-11-05T15:00:00Z"); // 한국 11/6 0시(오늘 포함 7일)
+        when(destinations.findMentions("노시환", since)).thenReturn(List.of(
+                mention("NYM", NewsDestination.Stance.LINKED, "2026-11-11T01:00:00Z"),
+                mention("NYM", NewsDestination.Stance.LINKED, "2026-11-12T02:00:00Z"), // 한국 11/12(오늘)
+                mention("NYM", NewsDestination.Stance.DOUBTED, "2026-11-12T08:00:00Z"),
+                mention("PHI", NewsDestination.Stance.LINKED, "2026-11-11T18:37:00Z"), // 한국 11/12 03:37(오늘)
+                mention("SD", NewsDestination.Stance.LINKED, "2026-11-07T01:00:00Z"),
+                mention("CHC", NewsDestination.Stance.DOUBTED, "2026-11-08T01:00:00Z")));
+
+        PostingSummary.LinkedTeams linked = finder(roh(null)).find(now).players().getFirst().linkedTeams();
+
+        assertThat(linked.days()).isEqualTo(7);
+        assertThat(linked.teams()).containsExactly(
+                new PostingSummary.LinkedTeam("NYM", "뉴욕 메츠", 2, 1, true),
+                new PostingSummary.LinkedTeam("PHI", "필라델피아", 1, 0, true),
+                new PostingSummary.LinkedTeam("SD", "샌디에이고", 1, 0, false),
+                new PostingSummary.LinkedTeam("CHC", "시카고 컵스", 0, 1, false));
+    }
+
+    @Test
+    void aDoubtOnlyTodayIsNotTodaysLinkAndTiesGoToTheLaterMention() {
+        LocalDate today = LocalDate.parse("2026-11-12");
+        PostingSummary.LinkedTeams linked = PostingFinder.linkedTeams(List.of(
+                mention("NYY", NewsDestination.Stance.LINKED, "2026-11-08T01:00:00Z"),
+                mention("MIA", NewsDestination.Stance.LINKED, "2026-11-10T01:00:00Z"),
+                mention("NYY", NewsDestination.Stance.DOUBTED, "2026-11-12T01:00:00Z")), today);
+
+        assertThat(linked.teams()).extracting(PostingSummary.LinkedTeam::abbreviation).containsExactly("MIA", "NYY");
+        assertThat(linked.teams()).extracting(PostingSummary.LinkedTeam::today).containsExactly(false, false);
+    }
+
+    @Test
+    void noMentionsIsAnEmptyList() {
+        assertThat(finder(roh(null)).find(Instant.parse("2026-11-12T10:00:00Z")).players().getFirst().linkedTeams().teams())
+                .isEmpty();
+    }
+
+    private static DestinationMention mention(String team, NewsDestination.Stance stance, String publishedAt) {
+        return new DestinationMention(team, stance, Instant.parse(publishedAt));
+    }
+
+    @Test
     void photoIsOurHostedPathAndFollowsTheOfficialPhotosSwitch() {
         Instant now = Instant.parse("2026-11-11T01:00:00Z");
 
@@ -292,7 +345,7 @@ class PostingFinderTest {
     @Test
     void nothingToShowIsNull() {
         PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news,
-                photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS);
+                destinations, photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS);
 
         assertThat(finder.find(Instant.parse("2026-11-11T01:00:00Z"))).isNull();
     }
@@ -303,7 +356,7 @@ class PostingFinderTest {
 
     private PostingFinder finder(PostingProperties.Current current, boolean officialPhotos) {
         Postings postings = postings(current);
-        return new PostingFinder(postings, news, photos(postings, officialPhotos), NEWS);
+        return new PostingFinder(postings, news, destinations, photos(postings, officialPhotos), NEWS);
     }
 
     private static Postings postings(PostingProperties.Current current) {
