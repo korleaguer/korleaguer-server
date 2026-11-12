@@ -184,8 +184,8 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 같은 사이트 요청 사이 1초 이상(crawl-delay가 더 길면 그만큼), 조건부 요청(ETag·Last-Modified), gzip, 본문 2MB까지.
   - 429·503은 Retry-After만큼, 401·403·404·410·451은 하루, 그 밖의 실패는 30분부터 두 배씩(최대 하루) 그 사이트를 쉰다.
   - 큰 피드는 출처마다 간격(`interval`)을 둔다.
-- 기사 본문 읽기(`ArticlePage`): WordPress 기사 칸, 국내 언론사 본문 칸, article 칸의 긴 문단, 줄바꿈으로 쓴 긴 줄 순으로 찾는다. Arc XP 사이트(조선일보)는 화면을 자바스크립트로 그려 HTML에 문단이 없으므로 페이지 속 본문 JSON(`Fusion.globalContent`)의 글 요소를 읽는다(이슈 #107).
-  - 본문이 200자 안 되면 요약하지 않고 시도로 센다(3번이면 포기). 그때 로그에 페이지 모양(크기, 문단 수, 찾은 본문 칸, 첫 긴 문단을 담은 칸, 본문 JSON 여부)을 남긴다. 기사 내용은 남기지 않는다.
+- 기사 본문 읽기(`ArticlePage`): WordPress 기사 칸, 국내 언론사 본문 칸, article 칸의 긴 문단, 줄바꿈으로 쓴 긴 줄 순으로 찾는다. 그래도 없고 알려진 본문 칸도 없으면 모든 article 칸, 그다음 페이지 전체(스크립트·메뉴·꼬리 칸 뺀)의 긴 문단을 저작권 안내 줄까지 읽는다(연합뉴스: 본문이 첫 article 칸 밖, 이슈 #109). Arc XP 사이트(조선일보)는 화면을 자바스크립트로 그려 HTML에 문단이 없으므로 페이지 속 본문 JSON(`Fusion.globalContent`)의 글 요소를 읽는다(이슈 #107).
+  - 본문이 200자 안 되면 요약하지 않고 시도로 센다(3번이면 포기). 그때 로그에 페이지 모양(크기, 문단 수와 그 가운데 article 칸 안의 긴 문단 수, 첫 article 칸, 찾은 본문 칸, 첫 긴 문단의 순서와 담은 칸, 처음 멈춤 줄의 순서, 본문 JSON 여부)을 남긴다. 기사 내용은 남기지 않는다(태그는 이름과 id·class·itemprop만).
   - 연합뉴스는 robots.txt가 우리 수집기는 허용하지만 Claude 계열(ClaudeBot·Claude-Web·anthropic-ai)을 막아, 개발 중 조사로는 페이지를 열지 않는다. 본문을 못 찾으면 이 로그로 원인을 본다.
 - 같은 선수에 같은 주소(추적 매개변수를 뺀 주소)는 한 번만 저장한다. 언론사가 내려 달라고 하면 `sources.yml`에서 빼고 그 언론사 줄을 지운다(`delete from news_article where publisher = '...'`).
 
