@@ -1,0 +1,113 @@
+package com.korleaguer.news;
+
+import com.korleaguer.config.DataMode;
+import com.korleaguer.domain.NewsArticle;
+import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsDestination;
+import com.korleaguer.domain.NewsDestinationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * 기사마다 그 선수의 행선지로 거론된 MLB 구단을 골라 둔다(DestinationTagger, 이슈 #115). 홈 MLB 도전 카드의
+ * '행선지로 거론된 구단'이 센다. NewsScheduler가 요약(NewsEnricher) 다음에 부른다.
+ * <ul>
+ *   <li>요약이 붙은 기사는 요약을 읽고, 요약을 포기한 기사는 제목·앞부분으로 고른다. 요약이 곧 붙을 기사는 기다린다.</li>
+ *   <li>최근 기사부터 한 번에 PER_RUN건. 답을 읽을 수 없으면(기사 탓) MAX_ATTEMPTS번까지만 다시 해 본다.</li>
+ *   <li>AI 서비스가 답하지 못하면(키·사용량·장애) 이번 차례를 멈추고 다음 차례에 다시 한다(세지 않는다).</li>
+ *   <li>지시문 판(DestinationTagger.version)이 바뀌거나, 고른 뒤 요약이 붙거나 다시 요약되면 다시 고른다.</li>
+ *   <li>샘플 모드에서는 하지 않는다.</li>
+ * </ul>
+ */
+@Component
+public class NewsTagger {
+
+    private static final Logger log = LoggerFactory.getLogger(NewsTagger.class);
+
+    static final int PER_RUN = 20;
+    static final int MAX_ATTEMPTS = 3;
+    /** 홈은 최근 7일만 센다. 그보다 넉넉히 고른다 */
+    static final Duration OLDEST = Duration.ofDays(30);
+
+    private final NewsArticleRepository articles;
+    private final NewsDestinationRepository destinations;
+    private final DestinationTagger tagger;
+    private final DataMode dataMode;
+    private final Clock clock;
+    private final TransactionTemplate transaction;
+
+    public NewsTagger(NewsArticleRepository articles, NewsDestinationRepository destinations, DestinationTagger tagger,
+                      DataMode dataMode, Clock clock, PlatformTransactionManager transactions) {
+        this.articles = articles;
+        this.destinations = destinations;
+        this.tagger = tagger;
+        this.dataMode = dataMode;
+        this.clock = clock;
+        this.transaction = new TransactionTemplate(transactions);
+    }
+
+    /** 구단을 고른 기사 수(거론된 구단이 없던 기사도 센다) */
+    public synchronized int tag() {
+        if (dataMode == DataMode.SAMPLE || !tagger.enabled()) {
+            return 0;
+        }
+        Instant now = clock.instant();
+        String version = tagger.version();
+        List<NewsArticle> todo = articles.findToTagDestinations(version, MAX_ATTEMPTS, NewsEnricher.MAX_ATTEMPTS,
+                now.minus(OLDEST), PageRequest.of(0, PER_RUN));
+        int done = 0;
+        for (NewsArticle article : todo) {
+            Optional<List<DestinationTagger.Destination>> picked;
+            try {
+                picked = tagger.tag(article.getSubject(), title(article), text(article));
+            } catch (Summarizer.Failure e) {
+                log.warn("news: could not tag destinations, trying again next run: {}", e.getMessage());
+                break;
+            }
+            if (picked.isEmpty()) {
+                article.destinationsFailed();
+                articles.save(article);
+                continue;
+            }
+            save(article, picked.get(), version, now);
+            done++;
+        }
+        if (done > 0) {
+            log.info("news: tagged destinations on {} article(s)", done);
+        }
+        return done;
+    }
+
+    /** 전에 고른 구단을 지우고 새로 고른 구단을 둔다(한 번에) */
+    private void save(NewsArticle article, List<DestinationTagger.Destination> picked, String version, Instant now) {
+        transaction.executeWithoutResult(status -> {
+            destinations.deleteByArticle(article.getId());
+            destinations.flush();
+            for (DestinationTagger.Destination d : picked) {
+                destinations.save(new NewsDestination(article.getId(), d.team(), d.stance()));
+            }
+            article.destinationsTagged(version, now);
+            articles.save(article);
+        });
+    }
+
+    /** 영어 기사는 한국어 제목과 원래 제목을 함께 */
+    static String title(NewsArticle article) {
+        return article.getTitleKo() == null ? article.getTitle() : article.getTitleKo() + " (" + article.getTitle() + ")";
+    }
+
+    /** 요약, 없으면 앞부분 */
+    static String text(NewsArticle article) {
+        return article.getSummary() != null ? article.getSummary() : article.getLeadText();
+    }
+}

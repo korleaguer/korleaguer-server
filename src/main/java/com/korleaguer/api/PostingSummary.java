@@ -25,12 +25,35 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param daysLeft      한국 날짜로 마감일까지 남은 날(마감 당일 0). 협상 시작 전·협상 중일 때만, 그 밖에는 null
      * @param elapsedRatio  협상 기간 중 지난 비율(0~1, 소수 셋째 자리)
      * @param deal          계약했으면 계약 내용, 아니면 null
-     * @param news          관련 기사 제목(발행 시각이 늦은 순, 최대 5건)
+     * @param news          관련 기사 제목(발행 시각이 늦은 순, 최대 12건)
+     * @param linkedTeams   최근 며칠 기사에서 이 선수의 행선지로 거론된 MLB 구단(이슈 #115)
      */
     public record Player(String nameKo, String kboTeam, String positionKo, Integer birthYear, String photoUrl,
                          String status,
                          Instant windowOpensAt, Instant deadlineAt, Integer daysLeft, double elapsedRatio,
-                         Deal deal, List<Headline> news) {
+                         Deal deal, List<Headline> news, LinkedTeams linkedTeams) {
+    }
+
+    /**
+     * 최근 days일(한국 날짜, 오늘 포함) 기사에서 이 선수의 행선지로 거론된 MLB 구단. 기사마다 AI로 고른 것을 센다
+     * (news.NewsTagger). 같은 기사를 여러 언론사가 실으면 따로 센다.
+     *
+     * @param teams 거론(linked)이 많은 순 → 오늘 거론된 구단 → 최근에 거론된 순. 반대 전망만 있는 구단도 넣는다.
+     *              기사가 없거나 아직 고르지 않았으면 빈 목록
+     */
+    public record LinkedTeams(int days, List<LinkedTeam> teams) {
+    }
+
+    /**
+     * 거론된 구단 하나.
+     *
+     * @param abbreviation MLB 대표 약어(NYM). 웹이 로고·팀 색을 찾는다
+     * @param nameKo       한글 이름(뉴욕 메츠)
+     * @param linked       갈 수 있다·관심 있다는 거론이 나온 기사 수
+     * @param doubted      필요 없다·안 갈 것이라는 전망이 나온 기사 수
+     * @param today        오늘(한국 날짜) 나온 기사에서 거론(linked)됐나
+     */
+    public record LinkedTeam(String abbreviation, String nameKo, int linked, int doubted, boolean today) {
     }
 
     /**
