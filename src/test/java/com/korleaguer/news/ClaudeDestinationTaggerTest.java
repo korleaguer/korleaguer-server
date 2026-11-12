@@ -34,6 +34,26 @@ class ClaudeDestinationTaggerTest {
     }
 
     @Test
+    void readsDecoratedAnswersSeenInProduction() {
+        // 운영 첫 차례에 읽지 못한 꼴(이슈 #123): 굵은 글씨, 부호 뒤 쌍점·설명, 괄호, 번호, 한글 구단 이름
+        assertThat(ClaudeDestinationTagger.parse("**NYM +**: 메츠 관심 보도\nPHI +: 김하성과 동반 영입").orElseThrow()).containsExactly(
+                new DestinationTagger.Destination("NYM", Stance.LINKED),
+                new DestinationTagger.Destination("PHI", Stance.LINKED));
+        assertThat(ClaudeDestinationTagger.parse("1. NYM (+)\n2. `SD -`").orElseThrow()).containsExactly(
+                new DestinationTagger.Destination("NYM", Stance.LINKED),
+                new DestinationTagger.Destination("SD", Stance.DOUBTED));
+        assertThat(ClaudeDestinationTagger.parse("뉴욕 메츠 +\n- LA 다저스 -").orElseThrow()).containsExactly(
+                new DestinationTagger.Destination("NYM", Stance.LINKED),
+                new DestinationTagger.Destination("LAD", Stance.DOUBTED));
+    }
+
+    @Test
+    void aSentenceThatOnlyMentionsATeamIsNotRead() {
+        assertThat(ClaudeDestinationTagger.parse("메츠가 관심을 보였다는 기사다")).isEmpty();
+        assertThat(ClaudeDestinationTagger.parse("THE + sign")).isEmpty();
+    }
+
+    @Test
     void keepsTheFirstLineForATeamAndSkipsWhatIsNotAnMlbClub() {
         assertThat(ClaudeDestinationTagger.parse("NYM +\nNYM -\nLG +\n한화 +\n뉴욕 메츠가 관심").orElseThrow())
                 .containsExactly(new DestinationTagger.Destination("NYM", Stance.LINKED));
