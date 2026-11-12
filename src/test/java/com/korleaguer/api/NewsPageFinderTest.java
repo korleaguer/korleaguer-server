@@ -101,8 +101,8 @@ class NewsPageFinderTest {
 
     @Test
     void anOldArticleStillHidesItsCopiesFromMore() {
-        // 이 기사가 최근 목록(MORE * 4건) 밖이어도 같은 글을 실은 최근 기사는 '다른 기사'에 넣지 않는다
-        NewsArticle old = article(9L, "노시환", "노시환이 유격수?", "마이데일리", "2026-11-01T00:00:00Z");
+        // 이 기사가 최근 목록(MORE * 4건) 밖이어도(기사가 몰린 날) 하루 뒤 같은 글을 실은 최근 기사는 '다른 기사'에 넣지 않는다
+        NewsArticle old = article(9L, "노시환", "노시환이 유격수?", "마이데일리", "2026-11-11T00:00:00Z");
         NewsArticle copy = article(10L, "노시환", "노시환이 유격수?", "MLB Trade Rumors", "2026-11-12T00:00:00Z");
         when(news.findById(9L)).thenReturn(Optional.of(old));
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(copy));

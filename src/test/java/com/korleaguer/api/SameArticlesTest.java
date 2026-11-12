@@ -50,6 +50,17 @@ class SameArticlesTest {
     }
 
     @Test
+    void theSameTitleDaysApartIsNotTheSameArticle() {
+        // 연재 제목처럼 다른 날 같은 제목으로 나온 새 기사는 옛 기사와 묶지 않는다(NEAR 이틀)
+        NewsArticle earlier = article(1, "[MLB 오늘] 노시환 소식", "스포츠신문", "2026-11-02T00:00:00Z", null);
+        NewsArticle later = article(2, "[MLB 오늘] 노시환 소식", "스포츠신문", "2026-11-05T00:00:00Z", null);
+
+        assertThat(SameArticles.same(earlier, later)).isFalse();
+        assertThat(SameArticles.group(List.of(later, earlier))).extracting(g -> g.article().getId())
+                .containsExactly(2L, 1L);
+    }
+
+    @Test
     void aGroupShowsTheFirstPublishedArticleAndTheOtherOutletsInOrder() {
         NewsArticle wire = summarized(article(1, "노시환과 메츠 코치의 인연", "연합뉴스", "2026-11-11T00:30:00Z", WIRE));
         NewsArticle tv = summarized(article(2, "노시환과 메츠 코치의 인연, 현지도 관심", "SBS", "2026-11-11T01:44:00Z", COPY));

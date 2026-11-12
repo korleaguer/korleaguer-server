@@ -2,6 +2,8 @@ package com.korleaguer.api;
 
 import com.korleaguer.domain.NewsArticle;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -16,9 +18,10 @@ import java.util.regex.Pattern;
 
 /**
  * 언론사만 다른 같은 기사(전재)를 목록에서 한 줄로 묶는다(사용자가 고른 '같은 기사 묶기', 11-12, 이슈 #113).
- * 같은 기사: 제목 글자(한글·영문·숫자)가 같거나, 기사 첫머리(맨 앞 통신사·기자 표시를 뗀 것)의 3글자 조각이
- * LEAD_OVERLAP 넘게 겹친다. 운영 기사 37건으로 정했다: 제목이 같은 쌍 4개(첫머리 겹침 0.49~0.52)와 연합뉴스 글을 제목만
- * 바꿔 실은 노컷뉴스·SBS(0.48)는 묶이고, 같은 소식을 각자 쓴 연합뉴스·뉴시스(0.39)는 묶이지 않는다.
+ * 같은 기사: 발행 시각이 NEAR 안이고, 제목 글자(한글·영문·숫자)가 같거나 기사 첫머리(맨 앞 통신사·기자 표시를 뗀 것)의
+ * 3글자 조각이 LEAD_OVERLAP 넘게 겹친다. 운영 기사 37건으로 정했다: 제목이 같은 쌍 4개(첫머리 겹침 0.49~0.52)와 연합뉴스
+ * 글을 제목만 바꿔 실은 노컷뉴스·SBS(0.48)는 묶이고, 같은 소식을 각자 쓴 연합뉴스·뉴시스(0.39)는 묶이지 않는다.
+ * 묶인 쌍은 모두 같은 날 2시간 안에 나왔다.
  */
 final class SameArticles {
 
@@ -26,6 +29,11 @@ final class SameArticles {
     static final double LEAD_OVERLAP = 0.45;
     /** 첫머리가 이보다 짧으면(글자만 센다) 견주지 않는다. 짧은 글은 우연히 겹치기 쉽다 */
     static final int MIN_LEAD_LETTERS = 40;
+    /**
+     * 발행 시각이 이보다 멀면 같은 글로 보지 않는다. 연재 제목처럼 다른 날 같은 제목으로 나온 새 기사가 옛 기사 뒤에 숨지 않고,
+     * 잘못 이어진 한 쌍이 먼 기사들까지 한 묶음으로 끌어오지 않게 한다
+     */
+    static final Duration NEAR = Duration.ofDays(2);
 
     private static final Pattern NOT_LETTER = Pattern.compile("[^\\p{IsHangul}\\p{IsLatin}\\p{N}]");
     /** 맨 앞 출처 표시: (서울=연합뉴스), [스포츠조선 기자], 【…】 */
@@ -57,11 +65,13 @@ final class SameArticles {
         for (int i = 0; i < parent.length; i++) {
             parent[i] = i;
         }
+        List<Instant> times = list.stream().map(NewsArticle::getPublishedAt).toList();
         List<String> titles = list.stream().map(a -> letters(a.getTitle())).toList();
         List<Set<String>> leads = list.stream().map(a -> trigrams(a.getLeadText())).toList();
         for (int i = 0; i < list.size(); i++) {
             for (int j = i + 1; j < list.size(); j++) {
-                if (same(titles.get(i), leads.get(i), titles.get(j), leads.get(j))) {
+                if (near(times.get(i), times.get(j))
+                        && same(titles.get(i), leads.get(i), titles.get(j), leads.get(j))) {
                     parent[root(parent, i)] = root(parent, j);
                 }
             }
@@ -88,9 +98,14 @@ final class SameArticles {
                 .toList();
     }
 
-    /** 두 기사가 같은 글인지(제목 글자가 같거나 첫머리가 거의 같다) */
+    /** 두 기사가 같은 글인지(NEAR 안에 나왔고, 제목 글자가 같거나 첫머리가 거의 같다) */
     static boolean same(NewsArticle a, NewsArticle b) {
-        return same(letters(a.getTitle()), trigrams(a.getLeadText()), letters(b.getTitle()), trigrams(b.getLeadText()));
+        return near(a.getPublishedAt(), b.getPublishedAt())
+                && same(letters(a.getTitle()), trigrams(a.getLeadText()), letters(b.getTitle()), trigrams(b.getLeadText()));
+    }
+
+    private static boolean near(Instant a, Instant b) {
+        return Duration.between(a, b).abs().compareTo(NEAR) <= 0;
     }
 
     private static boolean same(String titleA, Set<String> leadA, String titleB, Set<String> leadB) {
