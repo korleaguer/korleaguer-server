@@ -84,7 +84,7 @@ class NewsTaggerTest {
 
         assertThat(tagger(fake).tag()).isEqualTo(3);
 
-        assertThat(destinations.findMentions("노시환", Instant.parse("2026-11-05T15:00:00Z")))
+        assertThat(destinations.findMentions("노시환", Instant.parse("2026-11-05T15:00:00Z"), java.util.Set.of("마이데일리")))
                 .extracting(DestinationMention::team, DestinationMention::stance)
                 .containsExactlyInAnyOrder(
                         org.assertj.core.groups.Tuple.tuple("NYM", Stance.LINKED),
@@ -119,8 +119,21 @@ class NewsTaggerTest {
         second.version = "fake/d2";
         assertThat(tagger(second).tag()).isEqualTo(1);
 
-        assertThat(destinations.findMentions("노시환", Instant.parse("2026-11-01T00:00:00Z")))
+        assertThat(destinations.findMentions("노시환", Instant.parse("2026-11-01T00:00:00Z"), java.util.Set.of("마이데일리")))
                 .extracting(DestinationMention::team).containsExactly("NYM");
+    }
+
+    @Test
+    void aSummaryArrivingAfterTaggingTagsTheArticleAgain() {
+        NewsArticle article = article("요약 포기한 기사", "2026-11-12T01:00:00Z", false, 3);
+        FakeTagger fake = new FakeTagger(Map.of());
+        tagger(fake).tag();
+        article.enriched(null, null, "늦게 붙은 요약.", "claude-haiku-5-5/v4", NOW.plusSeconds(60));
+        articles.save(article);
+
+        tagger(fake).tag();
+
+        assertThat(fake.asked).containsExactly("요약 포기한 기사", "요약 포기한 기사");
     }
 
     @Test

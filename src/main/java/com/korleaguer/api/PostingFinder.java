@@ -144,7 +144,8 @@ public class PostingFinder {
     private PostingSummary.LinkedTeams linkedTeams(String player, Instant now) {
         LocalDate today = KoreanTime.kstDate(now);
         Instant since = KoreanTime.startOfKstDay(today.minusDays(LINKED_DAYS - 1));
-        return linkedTeams(destinations.findMentions(player, since), today);
+        // 관련 기사 목록처럼 지금 수집하는 언론사의 기사만 센다(뺀 언론사 기사는 숫자에도 넣지 않는다)
+        return linkedTeams(destinations.findMentions(player, since, publishers), today);
     }
 
     /**

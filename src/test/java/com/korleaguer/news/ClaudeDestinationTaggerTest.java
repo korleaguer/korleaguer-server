@@ -27,6 +27,13 @@ class ClaudeDestinationTaggerTest {
     }
 
     @Test
+    void ignoresAnExplanationAfterTheSign() {
+        assertThat(ClaudeDestinationTagger.parse("NYM + (메츠 관심 보도)\nPHI - 필요 없다는 전망").orElseThrow()).containsExactly(
+                new DestinationTagger.Destination("NYM", Stance.LINKED),
+                new DestinationTagger.Destination("PHI", Stance.DOUBTED));
+    }
+
+    @Test
     void keepsTheFirstLineForATeamAndSkipsWhatIsNotAnMlbClub() {
         assertThat(ClaudeDestinationTagger.parse("NYM +\nNYM -\nLG +\n한화 +\n뉴욕 메츠가 관심").orElseThrow())
                 .containsExactly(new DestinationTagger.Destination("NYM", Stance.LINKED));

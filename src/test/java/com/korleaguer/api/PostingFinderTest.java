@@ -345,7 +345,7 @@ class PostingFinderTest {
     void linkedTeamsCountLinkedAndDoubtedArticlesPerTeamOverTheLastSevenKoreanDays() {
         Instant now = Instant.parse("2026-11-12T10:00:00Z"); // 한국 11/12 19시
         Instant since = Instant.parse("2026-11-05T15:00:00Z"); // 한국 11/6 0시(오늘 포함 7일)
-        when(destinations.findMentions("노시환", since)).thenReturn(List.of(
+        when(destinations.findMentions(eq("노시환"), eq(since), any())).thenReturn(List.of(
                 mention("NYM", NewsDestination.Stance.LINKED, "2026-11-11T01:00:00Z"),
                 mention("NYM", NewsDestination.Stance.LINKED, "2026-11-12T02:00:00Z"), // 한국 11/12(오늘)
                 mention("NYM", NewsDestination.Stance.DOUBTED, "2026-11-12T08:00:00Z"),

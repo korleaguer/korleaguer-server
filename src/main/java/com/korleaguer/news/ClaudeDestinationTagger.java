@@ -35,7 +35,7 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     static final String PROMPT_VERSION = "d1";
     /** destinations_model 칸 길이(V18 마이그레이션 varchar(50)) */
     static final int MAX_VERSION = 50;
-    static final long MAX_TOKENS = 200;
+    static final long MAX_TOKENS = 300;
     static final OutputConfig.Effort EFFORT = OutputConfig.Effort.LOW;
 
     static final String SYSTEM = """
@@ -59,7 +59,7 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     /** 요약은 1200자 안쪽이다. 앞부분만 있는 기사도 이만큼이면 된다 */
     static final int MAX_TEXT = 2000;
 
-    private static final Pattern LINE = Pattern.compile("^\\s*(?:[-*•]\\s+)?([A-Za-z]{2,3})\\s*([+\\-−])\\s*$");
+    private static final Pattern LINE = Pattern.compile("^\\s*(?:[-*•]\\s+)?([A-Za-z]{2,3})\\s*([+\\-−])(?:\\s.*)?$");
     private static final Pattern NONE = Pattern.compile("^\\s*없음\\s*[.]?\\s*$");
     private static final Logger log = LoggerFactory.getLogger(ClaudeDestinationTagger.class);
 
@@ -124,7 +124,8 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
         } catch (AnthropicException e) {
             throw new Summarizer.Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
         }
-        if (message.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
+        // 거절이나 길이 제한에 잘린 답은 믿지 않는다(뒤쪽 구단 줄을 잃었을 수 있다). 기사 탓 실패로 센다
+        if (message.stopReason().filter(r -> r.equals(StopReason.REFUSAL) || r.equals(StopReason.MAX_TOKENS)).isPresent()) {
             return Optional.empty();
         }
         String answer = message.content().stream()
@@ -143,7 +144,7 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     }
 
     /**
-     * 답을 읽는다. 표에 있는 약어 줄만 받고(SFG 같은 다른 약어는 대표 약어로), 한 구단은 처음 나온 줄만 받는다.
+     * 답을 읽는다. 표에 있는 약어 줄만 받고(SFG 같은 다른 약어는 대표 약어로, 부호 뒤 덧붙인 설명은 무시), 한 구단은 처음 나온 줄만 받는다.
      * '없음'이면 빈 목록. 읽을 줄이 하나도 없으면 empty(기사 탓 실패로 센다)
      */
     static Optional<List<Destination>> parse(String answer) {
