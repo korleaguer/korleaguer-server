@@ -46,6 +46,18 @@ class BaseballMathTest {
     }
 
     @Test
+    void inningsTextFromMlbIsReadAsThirds() {
+        // MLB 시즌 합계의 inningsPitched: "50.2" = 50⅔이닝 = 152아웃
+        assertThat(BaseballMath.outsFromInnings("50.2")).isEqualTo(152);
+        assertThat(BaseballMath.outsFromInnings("4.0")).isEqualTo(12);
+        assertThat(BaseballMath.outsFromInnings("0.1")).isEqualTo(1);
+        assertThat(BaseballMath.outsFromInnings(" 67.0 ")).isEqualTo(201);
+        assertThat(BaseballMath.outsFromInnings(null)).isNull();
+        assertThat(BaseballMath.outsFromInnings("")).isNull();
+        assertThat(BaseballMath.outsFromInnings("-.--")).isNull();
+    }
+
+    @Test
     void inningsText() {
         assertThat(BaseballMath.inningsText(17)).isEqualTo("5⅔");
         assertThat(BaseballMath.inningsText(16)).isEqualTo("5⅓");

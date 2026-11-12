@@ -54,7 +54,7 @@ class OffSeasonFinderTest {
         when(seasonDates.findById(2027)).thenReturn(Optional.of(dates(2027, "2027-03-25", "2027-09-26")));
 
         assertThat(finder.find(roster(1L, 2L, 3L), NOV_11)).isEqualTo(
-                new OffSeason(2026, 2027, LocalDate.parse("2027-03-25"), 134, List.of(1L, 2L, 3L)));
+                new OffSeason(2026, 2027, LocalDate.parse("2027-03-25"), 134, List.of(1L, 2L, 3L), List.of()));
     }
 
     @Test

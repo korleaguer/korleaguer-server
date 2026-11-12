@@ -147,6 +147,28 @@ public class SampleMlbClient implements MlbClient {
     }
 
     @Override
+    public List<MlbSeasonSplit> getYearByYear(long personId, Group group) {
+        requestCount.incrementAndGet();
+        return data.yearByYear().stream()
+                .filter(s -> isOf(s, personId, group))
+                .toList();
+    }
+
+    @Override
+    public List<MlbSeasonSplit> getSabermetrics(long personId, Group group, int season) {
+        requestCount.incrementAndGet();
+        return data.sabermetrics().stream()
+                .filter(s -> isOf(s, personId, group))
+                .filter(s -> String.valueOf(season).equals(s.season()))
+                .toList();
+    }
+
+    private static boolean isOf(MlbSeasonSplit split, long personId, Group group) {
+        return split.player() != null && Objects.equals(split.player().id(), personId)
+                && split.group() != null && group.value().equals(split.group().displayName());
+    }
+
+    @Override
     public List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season) {
         requestCount.incrementAndGet();
         return data.schedule().stream()
@@ -216,6 +238,7 @@ public class SampleMlbClient implements MlbClient {
      * boxscores는 gamePk → 박스스코어, minorGames는 선수 번호 → 그 시즌 마이너 출전 경기 수다(없으면 0경기).
      * 마이너 경기별 기록은 이 경기 수만큼 지어서 돌려준다(madeUpMinorLog).
      * seasons는 시즌 날짜(seasons/{year}의 seasons)다. 없는 해는 발표 전으로 본다(null).
+     * yearByYear·sabermetrics는 시즌 합계·고급 지표 줄(MlbSeasonSplit)이고, split.player.id와 split.group으로 가른다.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Data(
@@ -227,61 +250,69 @@ public class SampleMlbClient implements MlbClient {
             List<MlbGameLogSplit> pitchingLogs,
             Map<Long, MlbBoxscore> boxscores,
             Map<Long, MlbMinorGames> minorGames,
-            List<MlbSeason> seasons) {
+            List<MlbSeason> seasons,
+            List<MlbSeasonSplit> yearByYear,
+            List<MlbSeasonSplit> sabermetrics) {
 
         public static Data empty() {
-            return new Data(null, null, null, null, null, null, null, null, null).orEmpty();
+            return new Data(null, null, null, null, null, null, null, null, null, null, null).orEmpty();
         }
 
         public Data withPeople(List<MlbPerson> people) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withTeams(List<MlbTeam> teams) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withTransactions(List<MlbTransaction> transactions) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withSchedule(List<MlbScheduleGame> schedule) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withHittingLogs(List<MlbGameLogSplit> hittingLogs) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withPitchingLogs(List<MlbGameLogSplit> pitchingLogs) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withBoxscores(Map<Long, MlbBoxscore> boxscores) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withMinorGames(Map<Long, MlbMinorGames> minorGames) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
         }
 
         public Data withSeasons(List<MlbSeason> seasons) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons);
+                    seasons, yearByYear, sabermetrics);
+        }
+
+        public Data withSeasonStats(List<MlbSeasonSplit> yearByYear, List<MlbSeasonSplit> sabermetrics) {
+            return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
+                    seasons, yearByYear, sabermetrics);
         }
 
         private Data orEmpty() {
             return new Data(orEmpty(people), orEmpty(teams), orEmpty(transactions), orEmpty(schedule),
                     orEmpty(hittingLogs), orEmpty(pitchingLogs), boxscores == null ? Map.of() : boxscores,
-                    minorGames == null ? Map.of() : minorGames, orEmpty(seasons));
+                    minorGames == null ? Map.of() : minorGames, orEmpty(seasons), orEmpty(yearByYear),
+                    orEmpty(sabermetrics));
         }
 
         private static <T> List<T> orEmpty(List<T> list) {

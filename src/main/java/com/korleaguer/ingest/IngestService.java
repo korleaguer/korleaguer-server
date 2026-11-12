@@ -47,6 +47,7 @@ public class IngestService {
     private final IngestWriter writer;
     private final PlayerRefresher playerRefresher;
     private final SeasonDatesRefresher seasonDatesRefresher;
+    private final SeasonMetricRefresher seasonMetricRefresher;
     private final GameIngest gameIngest;
     private final PlayerRepository players;
     private final PlayerSeasonRepository seasons;
@@ -58,13 +59,15 @@ public class IngestService {
     private final ReentrantLock lock = new ReentrantLock();
 
     public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher,
-                         SeasonDatesRefresher seasonDatesRefresher, GameIngest gameIngest, PlayerRepository players,
+                         SeasonDatesRefresher seasonDatesRefresher, SeasonMetricRefresher seasonMetricRefresher,
+                         GameIngest gameIngest, PlayerRepository players,
                          PlayerSeasonRepository seasons, IngestLogRepository ingestLogs, RosterProperties roster,
                          CurrentSeason currentSeason, ResponseCaches responseCaches, Clock clock) {
         this.client = client;
         this.writer = writer;
         this.playerRefresher = playerRefresher;
         this.seasonDatesRefresher = seasonDatesRefresher;
+        this.seasonMetricRefresher = seasonMetricRefresher;
         this.gameIngest = gameIngest;
         this.players = players;
         this.seasons = seasons;
@@ -115,6 +118,7 @@ public class IngestService {
     /**
      * 따라잡기에 lookAhead면 앞 일정 보기(하루 한 번 앞으로 7일 일정)를 더한다.
      * 스케줄이 비시즌일 때 이것으로 포스트시즌처럼 새로 잡힌 경기를 보고 시즌 중으로 돌아온다.
+     * 비시즌에는 시즌 성적표에 쓸 시즌 합계·고급 지표도 받는다(정규시즌이 끝난 뒤 하루 한 번, SeasonMetricRefresher).
      */
     public IngestLog catchUp(boolean refreshGames, boolean lookAhead) {
         return run(IngestKind.SCHEDULED, steps -> {
@@ -132,6 +136,7 @@ public class IngestService {
             steps.add(() -> gameIngest.fillLineups(LINEUP_GAMES_PER_RUN));
             if (lookAhead) {
                 steps.add(gameIngest::lookAhead);
+                steps.add(seasonMetricRefresher::refresh);
             }
         });
     }
