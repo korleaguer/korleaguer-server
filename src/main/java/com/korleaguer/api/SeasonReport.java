@@ -17,9 +17,18 @@ import java.util.List;
  * @param war         메이저 WAR(소수 첫째 자리). 모르면 null. 화면은 좋은 시즌·제 몫 한 시즌에만 보인다
  * @param stories     자랑거리(연속 안타·최고 경기, 두 개까지). 출전이 적었던·아쉬운 시즌은 늘 비어 있다
  * @param winterMoves 정규시즌이 끝나고 3일 뒤부터의 이동 기록(FA 선언 등), 최신순 세 개까지
+ * @param news        정규시즌이 끝난 뒤 나온 이 선수 관련 기사(늦은 순, 같은 기사는 한 줄, 최대 12건, 이슈 #119로 모은 것).
+ *                    화면은 '이번 겨울' 칸에 앞 두 건과 'n건 더 보기'를 보인다
  */
 public record SeasonReport(long playerId, SeasonTier tier, String label, String headline, String reason, Level level,
-                           Double war, List<String> stories, List<WinterMove> winterMoves) {
+                           Double war, List<String> stories, List<WinterMove> winterMoves,
+                           List<PostingSummary.Headline> news) {
+
+    /** 기사를 붙인 성적표(기사는 DB를 읽는 SeasonReportFinder가 붙인다) */
+    SeasonReport withNews(List<PostingSummary.Headline> headlines) {
+        return new SeasonReport(playerId, tier, label, headline, reason, level, war, stories, winterMoves,
+                List.copyOf(headlines));
+    }
 
     /** 겨울 이동 한 줄. label은 이동 기록 이름(support.MoveLabels) */
     public record WinterMove(LocalDate date, String label) {

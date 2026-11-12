@@ -155,10 +155,10 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 
 ### 시즌 성적표(홈의 `offseason.report`)
 - 비시즌 홈에만 붙는다. 명단 선수마다(국내 리그로 돌아간 선수 포함, 이번 시즌 기록이 없는 선수는 뺀다) 한 장:
-  `{playerId, tier, label, headline, reason, level, war, stories, winterMoves}`. 순서는 `tier`(`GOOD` → `SHORT_GOOD` → `SOLID` → `MINORS` → `SHORT` → `POOR`), 그 안에서 메이저 경기 많은 순.
+  `{playerId, tier, label, headline, reason, level, war, stories, winterMoves, news}`. 순서는 `tier`(`GOOD` → `SHORT_GOOD` → `SOLID` → `MINORS` → `SHORT` → `POOR`), 그 안에서 메이저 경기 많은 순.
 - 판정(`SeasonVerdict`)은 메이저 타석(투수는 이닝·선발)과 wRC+(ERA-)·WAR로 한다. 2020년은 기준을 60/162로 줄인다. 지표를 아직 받지 못했으면 경기별 기록의 양만으로 판정한다.
 - 지표는 비시즌 따라잡기가 정규시즌이 끝난 뒤 하루 한 번 받는다(`player_season_metric`, 선수마다 `yearByYear` 1번 + `sabermetrics` 이번 시즌과 아직 없는 지난 시즌). 앞 3시즌까지 둔다.
-- `headline`·`reason`은 정해진 틀로 만든다(부상자 명단·트리플A 강등·콜업·짧은 메이저 출전 중 두 개까지. 다 뛴 타자는 전후반 타율 차이가 .050 이상이면 그것 하나). `stories`(연속 안타·최고 경기)는 `SHORT`·`POOR`면 늘 비어 있다. `level`은 카드가 앞세울 합계(`MINORS`면 마이너). `winterMoves`는 정규시즌 마지막 날 3일 뒤부터의 이동 기록, 최신순 세 개까지(그 사이 포스트시즌 명단 콜업 등은 `reason` 쪽 시즌 이야기).
+- `headline`·`reason`은 정해진 틀로 만든다(부상자 명단·트리플A 강등·콜업·짧은 메이저 출전 중 두 개까지. 다 뛴 타자는 전후반 타율 차이가 .050 이상이면 그것 하나). `stories`(연속 안타·최고 경기)는 `SHORT`·`POOR`면 늘 비어 있다. `level`은 카드가 앞세울 합계(`MINORS`면 마이너). `winterMoves`는 정규시즌 마지막 날 3일 뒤부터의 이동 기록, 최신순 세 개까지(그 사이 포스트시즌 명단 콜업 등은 `reason` 쪽 시즌 이야기). `news`는 정규시즌이 끝난 뒤 나온 그 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 늦은 순 12건까지, 이슈 #119로 모은 것).
 - 성적표를 만들다 실패하면 그 선수만 빠지고, 전체가 실패하면 빈 목록이다(홈 응답은 그대로).
 
 ### 관련 기사(`news_article`)

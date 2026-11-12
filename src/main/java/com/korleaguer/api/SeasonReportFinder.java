@@ -4,6 +4,8 @@ import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Lineup;
+import com.korleaguer.domain.NewsArticle;
+import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.Player;
@@ -15,16 +17,20 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.GameIngest;
+import com.korleaguer.news.NewsProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,6 +41,7 @@ import java.util.stream.Stream;
  *   <li>메이저 합계·지표(player_season_metric)를 아직 받지 못했으면 경기별 기록으로 양만 세어 판정한다.</li>
  *   <li>정규시즌 날짜를 모르면 개막일은 그 시즌 첫 메이저 경기일, 마지막 날은 마지막 경기일로 본다.</li>
  *   <li>선수 한 명이 실패하면 그 선수만 빼고, 전체가 실패하면 빈 목록이다(홈 응답은 깨지지 않는다).</li>
+ *   <li>'이번 겨울' 기사: 정규시즌 마지막 날 뒤에 나온 이 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 최대 NEWS건).</li>
  * </ul>
  * 순서: 판정(SeasonTier) 순, 그 안에서 메이저 경기 많은 순.
  */
@@ -43,16 +50,24 @@ public class SeasonReportFinder {
 
     private static final Logger log = LoggerFactory.getLogger(SeasonReportFinder.class);
     private static final List<String> REGULAR_SEASON = List.of("regular");
+    /** 선수마다 붙이는 '이번 겨울' 기사 수(화면은 앞 두 건 + 'n건 더 보기') */
+    static final int NEWS = 12;
 
     private final AppearanceRepository appearances;
     private final MinorGameLogRepository minorGameLogs;
     private final PlayerMoveRepository moves;
     private final PlayerSeasonMetricRepository metrics;
     private final SeasonDatesRepository seasonDates;
+    private final NewsArticleRepository news;
+    /** 지금 news/sources.yml에 있는 언론사(뺀 언론사의 예전 기사는 보이지 않는다) */
+    private final Set<String> publishers;
 
     public SeasonReportFinder(AppearanceRepository appearances, MinorGameLogRepository minorGameLogs,
                               PlayerMoveRepository moves, PlayerSeasonMetricRepository metrics,
-                              SeasonDatesRepository seasonDates) {
+                              SeasonDatesRepository seasonDates, NewsArticleRepository news,
+                              NewsProperties newsProperties) {
+        this.news = news;
+        this.publishers = newsProperties.publishers();
         this.appearances = appearances;
         this.minorGameLogs = minorGameLogs;
         this.moves = moves;
@@ -109,11 +124,31 @@ public class SeasonReportFinder {
                 log.warn("season report for {} failed, left out: {}", player.getNameKo(), e.toString());
             }
         }
+        Map<Long, String> names = roster.stream()
+                .collect(Collectors.toMap(m -> m.player().getId(), m -> m.player().getNameKo(), (a, b) -> a));
+        Instant winterStart = lastRegularDay.plusDays(1).atStartOfDay(GameIngest.US_EASTERN).toInstant();
         return built.stream()
                 .sorted(Comparator.comparing((SeasonReports.Built b) -> b.report().tier())
                         .thenComparing(SeasonReports.Built::majorGames, Comparator.reverseOrder()))
                 .map(SeasonReports.Built::report)
+                .map(r -> r.withNews(winterNews(names.get(r.playerId()), winterStart)))
                 .toList();
+    }
+
+    /** 그 선수의 '이번 겨울' 기사(늦은 순, 같은 기사는 한 줄). 기사를 못 읽으면 빈 목록(성적표는 그대로 보인다) */
+    List<PostingSummary.Headline> winterNews(String nameKo, Instant since) {
+        if (nameKo == null) {
+            return List.of();
+        }
+        try {
+            List<NewsArticle> recent = news.findLatest(nameKo, PageRequest.of(0, NEWS * 4)).stream()
+                    .filter(a -> publishers.contains(a.getPublisher()) && !a.getPublishedAt().isBefore(since))
+                    .toList();
+            return SameArticles.group(recent).stream().limit(NEWS).map(PostingSummary.Headline::of).toList();
+        } catch (RuntimeException e) {
+            log.warn("winter news for {} failed, left out: {}", nameKo, e.toString());
+            return List.of();
+        }
     }
 
     /** 선수 한 명의 재료. 이번 시즌 기록이 하나도 없으면 null */
