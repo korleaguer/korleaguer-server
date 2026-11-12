@@ -36,7 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>원본 주소가 바뀌면(명단·포스팅 파일 수정) 새로 받는다.</li>
  *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).</li>
  *   <li>샘플 모드는 네트워크를 쓰지 않는다(저장본이 없으면 사진 없음).</li>
- *   <li>우리가 만든 사진(원본 주소 classpath:…, 포스팅 선배 편집본)은 받지 않고 그 파일을 그대로 준다. 샘플 모드에서도 준다.</li>
+ *   <li>우리가 만든 사진(원본 주소 classpath:…, 포스팅 선배·과거 소속팀 편집본)은 받지 않고 그 파일을 그대로 준다.
+ *       샘플 모드에서도 준다.</li>
  * </ul>
  */
 @Component
@@ -174,7 +175,10 @@ public class PhotoStore {
         }
     }
 
-    /** 우리 파일(classpath:photos/….jpg)을 읽는다. 앱에 들어 있는 파일이라 DB에 두지 않고 메모리에만 둔다 */
+    /**
+     * 우리 파일(classpath:photos/….jpg, 투명 바탕 편집본은 ….png)을 읽는다.
+     * 앱에 들어 있는 파일이라 DB에 두지 않고 메모리에만 둔다
+     */
     private Photo readBundled(String key, String source) {
         String resource = source.substring(PhotoSources.BUNDLED.length());
         try (InputStream in = PhotoStore.class.getClassLoader().getResourceAsStream(resource)) {
@@ -183,7 +187,8 @@ public class PhotoStore {
             }
             byte[] data = in.readAllBytes();
             Photo photo = new Photo(key);
-            photo.replace(source, "image/jpeg", data, sha256(data), null, null, clock.instant());
+            String type = resource.endsWith(".png") ? "image/png" : "image/jpeg";
+            photo.replace(source, type, data, sha256(data), null, null, clock.instant());
             return photo;
         } catch (IOException e) {
             throw new UncheckedIOException("cannot read bundled photo " + resource, e);

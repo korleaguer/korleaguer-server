@@ -17,12 +17,16 @@ import java.util.Optional;
  * <ul>
  *   <li>mlb-{MLB 선수 번호}: 명단(baseball.yml)의 mlb-id로 만든 MLB 공식 사진(korleaguer.images.player-photo-template)</li>
  *   <li>kbo-{slug}: 포스팅 선수(posting.yml)의 photo-url(현 소속 KBO 구단 사진)</li>
- *   <li>kbo-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진, MLB 사진이 없는 지난 포스팅 선배의
- *       포스팅 당시 사진(korleaguer.images.kbo-photo-template)</li>
+ *   <li>kbo-{KBO 선수 번호}-{시즌}: MLB 사진이 없는 지난 포스팅 선배의 포스팅 당시 KBO 공식 사진
+ *       (korleaguer.images.kbo-photo-template)</li>
+ *   <li>career-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진(baseball.yml career-photos)을
+ *       배경 없는 MLB 사진(mlb-…, headshot/silo)과 같은 틀(투명 바탕, 같은 얼굴 크기·위치)로 맞춘 편집본(PNG).
+ *       선수 페이지에서 지금 MLB 사진과 넘겨 보므로 원 안 얼굴 크기·배경·선명도가 같아야 한다</li>
  *   <li>posting-{MLB 선수 번호}-{시즌}: 지난 포스팅 선배의 계약 구단 시절 MLB 공식 사진(posting.yml history의 photo-url)을
- *       배경을 지워 흰 바탕에 놓고 얼굴 크기를 포스팅 선수 KBO 사진에 맞춘 편집본. 원본에서 받지 않고 우리가 만든 파일
- *       (src/main/resources/photos/, tools/posting-photo)을 그대로 준다</li>
+ *       배경을 지워 흰 바탕에 놓고 얼굴 크기를 포스팅 선수 KBO 사진에 맞춘 편집본</li>
  * </ul>
+ * 편집본(career-…, posting-…)은 원본에서 받지 않고 우리가 만든 파일(src/main/resources/photos/, tools/posting-photo)을
+ * 그대로 준다. 편집본이 빠졌으면 서버가 뜨지 않는다(원본을 그대로 보이면 원 안 배경·크기가 제각각이라).
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
  */
@@ -52,40 +56,35 @@ public class PhotoSources {
                     }
                 }
             }
-            String kboTemplate = images.kboPhotoTemplate();
-            if (kboTemplate != null && !kboTemplate.isBlank()) {
-                for (RosterProperties.Entry entry : roster.baseball()) {
-                    if (entry.kboId() == null) {
-                        continue;
-                    }
-                    for (RosterProperties.CareerPhoto photo : entry.careerPhotos()) {
-                        if (photo.season() != null) {
-                            all.putIfAbsent(careerKey(entry.kboId(), photo.season()),
-                                    kboUrl(kboTemplate, entry.kboId(), photo.season()));
-                        }
+            // 명단 선수의 과거 소속팀(KBO) 시절 사진: MLB 배경 없는 사진과 같은 틀의 편집본(tools/posting-photo silo)
+            for (RosterProperties.Entry entry : roster.baseball()) {
+                if (entry.kboId() == null) {
+                    continue;
+                }
+                for (RosterProperties.CareerPhoto photo : entry.careerPhotos()) {
+                    if (photo.season() != null) {
+                        String key = careerKey(entry.kboId(), photo.season());
+                        all.putIfAbsent(key, bundledFile(key, ".png", "roster/baseball.yml " + entry.nameKo()
+                                + " career-photos", "the season's KBO official photo with tools/posting-photo silo"));
                     }
                 }
-                // 지난 포스팅 선배 중 MLB 사진을 적지 않은 선배: 포스팅된 겨울(season)의 KBO 공식 등록 사진.
-                // 명단 선수의 과거 소속팀 사진과 이름이 같으면(이정후 2023 등) 하나만 받는다
+            }
+            String kboTemplate = images.kboPhotoTemplate();
+            if (kboTemplate != null && !kboTemplate.isBlank()) {
+                // 지난 포스팅 선배 중 MLB 사진을 적지 않은 선배: 포스팅된 겨울(season)의 KBO 공식 등록 사진
                 for (PastPosting past : postings.history()) {
                     if (past.photoUrl() == null && past.kboId() != null) {
-                        all.putIfAbsent(careerKey(past.kboId(), past.season()),
+                        all.putIfAbsent(kboSeasonKey(past.kboId(), past.season()),
                                 kboUrl(kboTemplate, past.kboId(), past.season()));
                     }
                 }
             }
-            // 지난 포스팅 선배: 계약한 MLB 구단 시절 MLB 공식 사진의 편집본(흰 바탕, 포스팅 선수 사진과 같은 얼굴 크기).
-            // 편집본 없이 원본을 그대로 보이면 원 안 배경·크기가 제각각이라, 편집본이 빠졌으면 뜨지 않는다
+            // 지난 포스팅 선배: 계약한 MLB 구단 시절 MLB 공식 사진의 편집본(흰 바탕, 포스팅 선수 사진과 같은 얼굴 크기)
             for (PastPosting past : postings.history()) {
                 if (past.photoUrl() != null) {
                     String key = pastPostingKey(past.mlbId(), past.photoSeason());
-                    String resource = BUNDLED_DIR + key + ".jpg";
-                    if (PhotoSources.class.getClassLoader().getResource(resource) == null) {
-                        throw new IllegalStateException("roster/posting.yml posting.history " + past.nameKo()
-                                + ": edited photo src/main/resources/" + resource
-                                + " is missing (make it from photo-url with tools/posting-photo)");
-                    }
-                    all.putIfAbsent(key, BUNDLED + resource);
+                    all.putIfAbsent(key, bundledFile(key, ".jpg", "roster/posting.yml posting.history "
+                            + past.nameKo(), "photo-url with tools/posting-photo cut"));
                 }
             }
             for (PostingCase posting : postings.current()) {
@@ -117,9 +116,14 @@ public class PhotoSources {
         return slug == null ? null : path(kboKey(slug));
     }
 
-    /** 과거 소속팀(KBO) 시절 사진의 우리 주소(/photos/kbo-67341-2023). 사진을 껐거나 목록에 없으면 null */
+    /** 명단 선수의 과거 소속팀(KBO) 시절 사진 편집본의 우리 주소(/photos/career-67341-2023). 사진을 껐거나 목록에 없으면 null */
     public String careerPath(Long kboId, Integer season) {
         return kboId == null || season == null ? null : path(careerKey(kboId, season));
+    }
+
+    /** 지난 포스팅 선배의 포스팅 당시 KBO 공식 사진의 우리 주소(/photos/kbo-67341-2023). 사진을 껐거나 목록에 없으면 null */
+    public String kboSeasonPath(Long kboId, Integer season) {
+        return kboId == null || season == null ? null : path(kboSeasonKey(kboId, season));
     }
 
     /** 지난 포스팅 선배 사진 편집본의 우리 주소(/photos/posting-673490-2024). 사진을 껐거나 목록에 없으면 null */
@@ -153,11 +157,25 @@ public class PhotoSources {
     }
 
     static String careerKey(Long kboId, int season) {
+        return "career-" + kboId + "-" + season;
+    }
+
+    static String kboSeasonKey(Long kboId, int season) {
         return "kbo-" + kboId + "-" + season;
     }
 
     static String kboKey(String slug) {
         return "kbo-" + slug;
+    }
+
+    /** 우리가 만든 편집본(src/main/resources/photos/{이름}{확장자})의 원본 주소. 파일이 없으면 서버가 뜨지 않는다 */
+    private static String bundledFile(String key, String extension, String owner, String howToMake) {
+        String resource = BUNDLED_DIR + key + extension;
+        if (PhotoSources.class.getClassLoader().getResource(resource) == null) {
+            throw new IllegalStateException(owner + ": edited photo src/main/resources/" + resource
+                    + " is missing (make it from " + howToMake + ")");
+        }
+        return BUNDLED + resource;
     }
 
     private static String kboUrl(String template, Long kboId, int season) {
