@@ -97,7 +97,7 @@ public final class ClaudeSummarizer implements Summarizer {
      * 'his last April start'·'the last February day'(그 달의 마지막)는 지난 달 표현이 아니다
      */
     private static final Pattern LAST_MONTH = Pattern.compile(
-            "(?<!\\b(?:[Aa]t|the|his|her|their|its|my|our|your) )\\b(?:[Ll]ast|[Tt]his past) "
+            "(?<!\\b(?i:at|the|his|her|their|its|my|our|your) )\\b(?:[Ll]ast|[Tt]his past) "
                     + "(January|February|March|April|May|June|July|August|September|October|November|December)"
                     + "(?!(?: \\d{1,2}(?:[-–]\\d{1,2})?(?:st|nd|rd|th)?,?)?\\s\\d{4}\\b)"
                     + "(?: (\\d{1,2}(?:[-–]\\d{1,2})?)(?:st|nd|rd|th)?\\b)?\\b");
