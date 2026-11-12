@@ -1,6 +1,5 @@
 package com.korleaguer.api;
 
-import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
@@ -47,27 +46,31 @@ public class PostingFinder {
     }
 
     /**
-     * 그 선수의 관련 기사(늦은 순 NEWS_PER_PLAYER건, 지금 수집하는 언론사만).
+     * 그 선수의 관련 기사(늦은 순 NEWS_PER_PLAYER건, 지금 수집하는 언론사만). 언론사만 다른 같은 기사는 한 줄로 묶어
+     * 서로 다른 기사로 채운다(SameArticles, 이슈 #113).
      * 국내 기사가 많으면 영어 기사의 AI 요약이 밀려 안 보이므로, 그 안에 요약 기사가 없으면 가장 최근 요약 기사 하나를
      * 마지막 자리에 넣는다(덜 찼으면 맨 뒤에 붙인다. 사용자가 원한 것이 영어 기사의 한국어 요약이다). 늦은 순은 그대로다.
      */
-    private List<NewsArticle> headlines(String player) {
-        // 뺀 언론사의 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
-        List<NewsArticle> picked = new ArrayList<>(news.findLatest(player, PageRequest.of(0, NEWS_PER_PLAYER * 4))
+    private List<SameArticles.Group> headlines(String player) {
+        // 뺀 언론사의 기사와 같은 기사를 걸러 내고도 다섯 건이 남도록 넉넉히 읽는다
+        List<SameArticles.Group> picked = new ArrayList<>(SameArticles.group(
+                        news.findLatest(player, PageRequest.of(0, NEWS_PER_PLAYER * 4)).stream()
+                                .filter(a -> publishers.contains(a.getPublisher()))
+                                .toList())
                 .stream()
-                .filter(a -> publishers.contains(a.getPublisher()))
                 .limit(NEWS_PER_PLAYER)
                 .toList());
-        if (picked.stream().noneMatch(a -> a.getSummary() != null)) {
+        if (picked.stream().noneMatch(g -> g.article().getSummary() != null)) {
             // 고른 기사보다 오래된 기사라 마지막 자리(덜 찼으면 맨 뒤)에 두어도 늦은 순이 그대로다
             news.findLatestSummarized(player, PageRequest.of(0, NEWS_PER_PLAYER)).stream()
                     .filter(a -> publishers.contains(a.getPublisher()))
                     .findFirst()
-                    .ifPresent(a -> {
+                    .map(a -> SameArticles.group(List.of(a)).getFirst())
+                    .ifPresent(g -> {
                         if (picked.size() == NEWS_PER_PLAYER) {
-                            picked.set(NEWS_PER_PLAYER - 1, a);
+                            picked.set(NEWS_PER_PLAYER - 1, g);
                         } else {
-                            picked.add(a);
+                            picked.add(g);
                         }
                     });
         }
@@ -94,7 +97,7 @@ public class PostingFinder {
                 ? (int) ChronoUnit.DAYS.between(KoreanTime.kstDate(now), KoreanTime.kstDate(p.deadline()))
                 : null;
         List<PostingSummary.Headline> headlines = headlines(p.nameKo()).stream()
-                .map(PostingSummary.Headline::of)
+                .map(g -> PostingSummary.Headline.of(g))
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
                 photos.postingPath(p.slug()), status,

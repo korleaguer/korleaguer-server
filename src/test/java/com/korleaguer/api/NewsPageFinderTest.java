@@ -82,6 +82,35 @@ class NewsPageFinderTest {
     }
 
     @Test
+    void moreLeavesOutCopiesOfThisArticleAndFoldsCopiesIntoOneLine() {
+        // 1번(이 기사)과 0번은 언론사만 다른 같은 글, 2·3번도 같은 글이다(이슈 #113)
+        NewsArticle original = article(0L, "노시환", "노시환이 유격수?", "MLB Trade Rumors", "2026-11-12T00:50:00Z");
+        NewsArticle current = article(1L, "노시환", "노시환이 유격수?", "마이데일리", "2026-11-12T02:00:00Z");
+        NewsArticle a = article(2L, "노시환", "노시환 수비 호평", "마이데일리", "2026-11-12T03:00:00Z");
+        NewsArticle aCopy = article(3L, "노시환", "노시환 수비 호평", "MLB Trade Rumors", "2026-11-12T03:30:00Z");
+        NewsArticle b = article(4L, "노시환", "노시환 타격 분석", "마이데일리", "2026-11-11T23:00:00Z");
+        when(news.findById(1L)).thenReturn(Optional.of(current));
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(aCopy, a, current, original, b));
+
+        NewsPageResponse page = finder.find(1L);
+
+        assertThat(page.more()).extracting(PostingSummary.Headline::id).containsExactly(2L, 4L);
+        assertThat(page.more().getFirst().alsoBy()).containsExactly("MLB Trade Rumors");
+        assertThat(page.more().get(1).alsoBy()).isEmpty();
+    }
+
+    @Test
+    void anOldArticleStillHidesItsCopiesFromMore() {
+        // 이 기사가 최근 목록(MORE * 4건) 밖이어도 같은 글을 실은 최근 기사는 '다른 기사'에 넣지 않는다
+        NewsArticle old = article(9L, "노시환", "노시환이 유격수?", "마이데일리", "2026-11-01T00:00:00Z");
+        NewsArticle copy = article(10L, "노시환", "노시환이 유격수?", "MLB Trade Rumors", "2026-11-12T00:00:00Z");
+        when(news.findById(9L)).thenReturn(Optional.of(old));
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(copy));
+
+        assertThat(finder.find(9L).more()).isEmpty();
+    }
+
+    @Test
     void unknownIdOrDroppedPublisherIsNotFound() {
         when(news.findById(1L)).thenReturn(Optional.empty());
         when(news.findById(2L)).thenReturn(Optional.of(article(2L, "노시환", "노시환 소식", "뉴시스", "2026-11-10T03:00:00Z")));
