@@ -69,7 +69,8 @@ class NewsEnricherTest {
         assertThat(article.getImageUrl()).isEqualTo("https://cdn.example.com/roh.jpg");
         assertThat(article.getTitleKo()).isEqualTo("한화, 노시환 포스팅");
         assertThat(article.getSummaryModel()).isEqualTo("test-model");
-        assertThat(asked).containsExactly("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|" + BODY.trim());
+        // 기사 시각 2026-11-01T20:40Z는 한국 날짜로 11월 2일이다('last February' 같은 말을 한국 날짜 기준으로 옮기게)
+        assertThat(asked).containsExactly("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|2026-11-02|" + BODY.trim());
         assertThat(http.urls()).containsExactly(MLB + "/robots.txt", MLB + "/2026/11/roh.html");
     }
 
@@ -388,7 +389,7 @@ class NewsEnricherTest {
 
             @Override
             public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
-                asked.add(player + "|" + title + "|" + body);
+                asked.add(player + "|" + title + "|" + published + "|" + body);
                 return Optional.of(new Summarizer.Summary(titleKo, answer));
             }
 
@@ -458,7 +459,7 @@ class NewsEnricherTest {
 
             @Override
             public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
-                asked.add(player + "|" + title + "|" + body);
+                asked.add(player + "|" + title + "|" + published + "|" + body);
                 return Optional.of(new Summarizer.Summary("한화, 노시환 포스팅", answer));
             }
 

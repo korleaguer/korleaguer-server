@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 /**
  * Claude API(공식 Java SDK)로 야구 기사(한국어·영어)를 한국어로 요약한다. 길이는 본문 분량을 따른다: 본문 길이로 최대 문장 수
- * (3~7, maxSentences)를 정해 기사 날짜와 함께 요청에 넣고, 넘긴 문장은 버린다(tidy). 모델에게 분량 판단만 맡기면
+ * (3~7, maxSentences)를 정해 기사 날짜와 함께 요청에 넣고, 그보다 크게 넘긴 문장은 버린다(tidy). 모델에게 분량 판단만 맡기면
  * 기사 길이와 상관없이 5~9문장을 써서(운영 기사 30건 시험, 이슈 #103) 짧은 기사까지 부풀렸다.
  * 모델은 korleaguer.news.summary-model(기본 claude-haiku-5-5: 요약처럼 단순한 일에 가장 싸고 빠르다).
  * 깊이 생각할 일이 아니라 effort는 low에 생각(thinking)은 끄고, 답 길이는 1500토큰까지. 기사 한 건에 약 0.001달러 안쪽.
@@ -81,6 +81,11 @@ public final class ClaudeSummarizer implements Summarizer {
     static final int BODY_CHARS_PER_SENTENCE = 300;
     static final int MIN_SENTENCES = 3;
     static final int MAX_SENTENCES = 7;
+    /**
+     * 모델이 최대 문장 수를 넘기면 이만큼 넘는 것까지는 둔다. 딱 맞춰 자르면 모델이 뒤쪽에 쓴 계약 금액이 자주 빠졌다
+     * (영어 기사 1번 10회 중 남은 횟수: 여유 0이면 5번, 1이면 8번). 13문장 같은 큰 초과는 자른다
+     */
+    static final int LENGTH_SLACK = 1;
     /** 영어 본문은 같은 내용도 한국어보다 길어 이만큼 나눠 센다 */
     static final double ENGLISH_LENGTH_FACTOR = 2.5;
     private static final Pattern HANGUL = Pattern.compile("[가-힣]");
@@ -153,17 +158,18 @@ public final class ClaudeSummarizer implements Summarizer {
                 .flatMap(block -> block.text().stream())
                 .map(t -> t.text())
                 .collect(Collectors.joining("\n"));
-        return tidy(text, stop.filter(StopReason.MAX_TOKENS::equals).isPresent(), most);
+        return tidy(text, stop.filter(StopReason.MAX_TOKENS::equals).isPresent(), most, player);
     }
 
     /**
      * 답을 제목 줄과 요약으로 나누고 빈 줄·머리 기호를 정리한다. 답이 길이 제한에서 잘렸으면(truncated) 끝나지 않은
      * 마지막 줄을 버린다. 첫 줄이 '제목:'이 아니면 제목 없이 모두 요약으로 본다. 요약이 남지 않으면 empty.
      * 요약 대신 지시('요약 분량 …문장 이내')를 옮겨 쓴 답도 empty다(화면에 내지 않고 다음 차례에 다시 요약한다).
-     * 요약은 문장마다 한 줄로 고르고, 최대 문장 수(most)를 넘긴 뒤 문장은 버린다. 모델이 상한을 넘기는 일이 있어서다
-     * (시험 30건 중 1~5건, 7문장 상한에 13문장까지). 중요한 사실부터 쓰게 했으므로 버리는 것은 뒤쪽이다.
+     * 요약은 문장마다 한 줄로 고르고, 최대 문장 수(most)에 LENGTH_SLACK을 더한 수를 넘는 문장은 버린다. 모델이 상한을
+     * 크게 넘기는 일이 있어서다(7문장 상한에 13문장). 버리다 선수(player) 이야기가 모두 빠지면, 버린 쪽에서 선수가
+     * 나오는 첫 문장을 마지막 자리에 둔다(다른 선수가 주인공인 기사도 이 선수의 기사 페이지에 뜬다).
      */
-    static Optional<Summary> tidy(String text, boolean truncated, int most) {
+    static Optional<Summary> tidy(String text, boolean truncated, int most, String player) {
         List<String> lines = Arrays.stream(text.split("\\R"))
                 .map(String::strip)
                 .filter(line -> !line.isEmpty())
@@ -190,12 +196,16 @@ public final class ClaudeSummarizer implements Summarizer {
         if (sentences.isEmpty()) {
             return Optional.empty();
         }
-        String summary = String.join("\n", sentences.subList(0, Math.min(most, sentences.size())));
-        return Optional.of(new Summary(titleKo, cap(summary, MAX_SUMMARY)));
+        List<String> kept = new ArrayList<>(sentences.subList(0, Math.min(most + LENGTH_SLACK, sentences.size())));
+        if (player != null && !player.isBlank() && kept.stream().noneMatch(s -> s.contains(player))) {
+            sentences.stream().skip(kept.size()).filter(s -> s.contains(player)).findFirst()
+                    .ifPresent(s -> kept.set(kept.size() - 1, s));
+        }
+        return Optional.of(new Summary(titleKo, cap(String.join("\n", kept), MAX_SUMMARY)));
     }
 
-    /** 문장 끝: 한글 + 마침표(+ 닫는 따옴표) 다음 빈칸 */
-    private static final Pattern SENTENCE_END = Pattern.compile("[가-힣]\\.[”\"]?(\\s+)");
+    /** 문장 끝: 한글 + 마침표(+ 닫는 따옴표) 다음 빈칸. 빈칸은 웹(JS \s)처럼 NBSP·전각 공백까지 */
+    private static final Pattern SENTENCE_END = Pattern.compile("[가-힣]\\.[”\"]?(\\s+)", Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
      * 요약을 문장으로 나눈다. 웹 기사 페이지(splitSentences)와 같은 규칙이다: 줄바꿈과 한국어 문장 끝에서 나누고,
@@ -235,7 +245,7 @@ public final class ClaudeSummarizer implements Summarizer {
     /**
      * 요약 최대 문장 수: 본문 300자마다 1문장, 3~7문장. 영어 본문(글자 가운데 한글이 30% 미만)은 같은 내용도 한국어보다 길어
      * 2.5로 나눠 센다. 운영 기사 30건(본문 467~3,842자)으로 시험해 짧은 기사는 지금처럼 3문장 안팎, 긴 기사는 6~7문장이 됐다
-     * (본문 길이와 요약 글자 수의 순위 상관 0.04 → 0.67).
+     * (본문 길이와 요약 글자 수의 순위 상관 0.04 → 0.75).
      */
     static int maxSentences(String body) {
         long hangul = HANGUL.matcher(body).results().count();

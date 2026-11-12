@@ -11,20 +11,20 @@ class ClaudeSummarizerTest {
     @Test
     void theTitleLineIsSplitOffAndBlankLinesAndBulletsAreTidied() {
         assertThat(ClaudeSummarizer.tidy("제목: 한화, 노시환 MLB 포스팅\n\n- 노시환이 포스팅됐다.  \n\n협상 마감은 12월 1일이다.\n",
-                false, 7)).contains(new Summarizer.Summary("한화, 노시환 MLB 포스팅", "노시환이 포스팅됐다.\n협상 마감은 12월 1일이다."));
+                false, 7, "노시환")).contains(new Summarizer.Summary("한화, 노시환 MLB 포스팅", "노시환이 포스팅됐다.\n협상 마감은 12월 1일이다."));
     }
 
     @Test
     void aMarkdownDecoratedTitleLineIsStillRecognised() {
-        assertThat(ClaudeSummarizer.tidy("**제목:** 한화, 노시환 포스팅\n**노시환**이 포스팅됐다.", false, 7))
+        assertThat(ClaudeSummarizer.tidy("**제목:** 한화, 노시환 포스팅\n**노시환**이 포스팅됐다.", false, 7, "노시환"))
                 .contains(new Summarizer.Summary("한화, 노시환 포스팅", "노시환이 포스팅됐다."));
-        assertThat(ClaudeSummarizer.tidy("# 제목: 노시환 포스팅\n노시환이 포스팅됐다.", false, 7))
+        assertThat(ClaudeSummarizer.tidy("# 제목: 노시환 포스팅\n노시환이 포스팅됐다.", false, 7, "노시환"))
                 .contains(new Summarizer.Summary("노시환 포스팅", "노시환이 포스팅됐다."));
     }
 
     @Test
     void withoutATitleLineEverythingIsTheSummary() {
-        assertThat(ClaudeSummarizer.tidy("노시환이 포스팅됐다.", false, 7))
+        assertThat(ClaudeSummarizer.tidy("노시환이 포스팅됐다.", false, 7, "노시환"))
                 .contains(new Summarizer.Summary(null, "노시환이 포스팅됐다."));
     }
 
@@ -54,9 +54,9 @@ class ClaudeSummarizerTest {
     void anAnswerThatEchoesTheLengthInstructionIsThrownAway() {
         // 시험 319번 중 1번: 요약 대신 '요약 분량' 지시를 옮겨 썼다
         assertThat(ClaudeSummarizer.tidy("제목: 사토는 청신호인데 노시환은?\n노시환이 기사에 직접 언급된 한국 선수다. "
-                + "미국 언론에서 사토만큼 관심을 받지 못하고 있다. 요약 분량 기준으로 4문장 이내로 쓴다.", false, 7)).isEmpty();
-        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장이내로 쓴다.", false, 7)).isEmpty(); // 붙여 써도
-        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장의 짧은 인터뷰를 남겼다.", false, 7)).isPresent();
+                + "미국 언론에서 사토만큼 관심을 받지 못하고 있다. 요약 분량 기준으로 4문장 이내로 쓴다.", false, 7, "노시환")).isEmpty();
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장이내로 쓴다.", false, 7, "노시환")).isEmpty(); // 붙여 써도
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환은 4문장의 짧은 인터뷰를 남겼다.", false, 7, "노시환")).isPresent();
     }
 
     @Test
@@ -81,12 +81,12 @@ class ClaudeSummarizerTest {
         String inputs = String.join("\n--\n", ClaudeSummarizer.SYSTEM, ClaudeSummarizer.USER_MESSAGE,
                 ClaudeSummarizer.BODY_CHARS_PER_SENTENCE + "|" + ClaudeSummarizer.MIN_SENTENCES + "|"
                         + ClaudeSummarizer.MAX_SENTENCES + "|" + ClaudeSummarizer.ENGLISH_LENGTH_FACTOR + "|"
-                        + ClaudeSummarizer.EFFORT + "|" + ClaudeSummarizer.MAX_TOKENS);
+                        + ClaudeSummarizer.EFFORT + "|" + ClaudeSummarizer.MAX_TOKENS + "|" + ClaudeSummarizer.LENGTH_SLACK);
         String print = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(inputs.getBytes(java.nio.charset.StandardCharsets.UTF_8))).substring(0, 16);
         assertThat(ClaudeSummarizer.PROMPT_VERSION + " " + print)
                 .as("지시문·요청 틀·분량 규칙을 바꿨으면 ClaudeSummarizer.PROMPT_VERSION을 올리고 이 지문을 고친다")
-                .isEqualTo("v2 331a2119354ecb66");
+                .isEqualTo("v2 327dee11fafb013f");
     }
 
     @Test
@@ -97,22 +97,33 @@ class ClaudeSummarizerTest {
     }
 
     @Test
-    void sentencesBeyondTheMostAreDroppedAndEachSentenceGetsItsOwnLine() {
-        // 모델이 상한(7문장)에 13문장을 쓴 일이 있다. 중요한 사실부터 쓰게 했으므로 뒤쪽을 버린다
-        assertThat(ClaudeSummarizer.tidy("제목: 노시환\n첫째다. 둘째다.\n셋째다. 넷째다.", false, 3))
-                .contains(new Summarizer.Summary("노시환", "첫째다.\n둘째다.\n셋째다."));
+    void sentencesWellBeyondTheMostAreDroppedAndEachSentenceGetsItsOwnLine() {
+        // 모델이 상한(7문장)에 13문장을 쓴 일이 있다. 1문장 넘는 것까지는 두고(뒤쪽에 쓴 계약 금액이 빠지지 않게) 그 뒤는 버린다
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환\n노시환은 첫째다. 둘째다.\n셋째다. 넷째다. 다섯째다.", false, 3, "노시환"))
+                .contains(new Summarizer.Summary("노시환", "노시환은 첫째다.\n둘째다.\n셋째다.\n넷째다."));
+    }
+
+    @Test
+    void whenCuttingDropsEveryPlayerSentenceTheFirstOneTakesTheLastPlace() {
+        // 사토가 주인공인 기사(시험 5번): 노시환 문장이 7번째라 잘리면 노시환 기사 페이지에 노시환이 한 번도 안 나온다
+        assertThat(ClaudeSummarizer.tidy("제목: 사토\n사토는 MVP다. 사토는 3루수다. 사토는 포스팅됐다. 사토는 삼진이 많다. "
+                + "사토는 1루로 옮길 것이다. 노시환도 포지션 변경 평가를 받는다.", false, 3, "노시환"))
+                .contains(new Summarizer.Summary("사토", "사토는 MVP다.\n사토는 3루수다.\n사토는 포스팅됐다.\n"
+                        + "노시환도 포지션 변경 평가를 받는다."));
     }
 
     @Test
     void aQuoteWithTwoSentencesStaysInOneSentence() {
         assertThat(ClaudeSummarizer.sentences("노시환은 “기회가 오면 잡겠다. 후회는 없다”고 말했다. 타율은 0.283이다."))
                 .containsExactly("노시환은 “기회가 오면 잡겠다. 후회는 없다”고 말했다.", "타율은 0.283이다.");
+        // 웹(JS \\s)처럼 NBSP·전각 공백 뒤에서도 나눈다
+        assertThat(ClaudeSummarizer.sentences("첫째다.\u00a0둘째다.\u3000셋째다.")).containsExactly("첫째다.", "둘째다.", "셋째다.");
     }
 
     @Test
     void aCutOffAnswerLosesItsUnfinishedLastLine() {
-        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환이 포스팅됐다.\n협상 마감은 12월", true, 7))
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환이 포스팅됐다.\n협상 마감은 12월", true, 7, "노시환"))
                 .contains(new Summarizer.Summary("노시환 포스팅", "노시환이 포스팅됐다."));
-        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환이 포스팅", true, 7)).isEmpty();
+        assertThat(ClaudeSummarizer.tidy("제목: 노시환 포스팅\n노시환이 포스팅", true, 7, "노시환")).isEmpty();
     }
 }
