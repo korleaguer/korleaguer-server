@@ -39,6 +39,13 @@ public class NewsConfig {
             LoggerFactory.getLogger(NewsConfig.class).info("news: ANTHROPIC_API_KEY is not set, article summaries are off");
             return Summarizer.OFF;
         }
+        // 요약에 적을 판(모델/지시문 판)이 DB 칸에 들어가지 않으면 요약만 끈다(API 전체가 뜨지 않게 하지는 않는다)
+        if (!ClaudeSummarizer.fitsRecord(model)) {
+            LoggerFactory.getLogger(NewsConfig.class).error(
+                    "news: korleaguer.news.summary-model '{}' is too long to record with the prompt version, article summaries are off",
+                    model);
+            return Summarizer.OFF;
+        }
         // SDK 기본(10분 기다림, 두 번 다시 시도)은 30분마다 도는 수집 스레드를 너무 오래 잡는다
         return new ClaudeSummarizer(AnthropicOkHttpClient.builder()
                 .apiKey(apiKey.trim())

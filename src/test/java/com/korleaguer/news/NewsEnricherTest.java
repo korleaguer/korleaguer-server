@@ -36,6 +36,8 @@ class NewsEnricherTest {
     private final List<String> asked = new ArrayList<>();
     private final PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance);
     private final List<NewsArticle> queue = new ArrayList<>();
+    /** 옛 지시문 판으로 요약한 기사들(findOutdatedSummaries가 고르는 조건으로 거른다) */
+    private final List<NewsArticle> outdated = new ArrayList<>();
     private NewsArticle article;
 
     @BeforeEach
@@ -48,6 +50,11 @@ class NewsEnricherTest {
                     .filter(a -> a.getSummary() == null && a.getEnrichAttempts() < (int) inv.getArgument(1))
                     .toList();
         });
+        when(articles.findOutdatedSummaries(anyCollection(), any(), anyInt(), any(), any())).thenAnswer(inv ->
+                outdated.stream()
+                        .filter(a -> a.getSummary() != null && !inv.getArgument(1).equals(a.getSummaryModel())
+                                && a.getEnrichAttempts() < (int) inv.getArgument(2))
+                        .toList());
         http.on(MLB + "/robots.txt", ok("User-agent: *\nDisallow: /wp-admin/\nCrawl-delay: 1\n"))
                 .on(MLB + "/2026/11/roh.html", ok("<meta property=\"og:image\" content=\"https://cdn.example.com/roh.jpg\">"
                         + "<div class=\"entry-content\"><p>" + BODY + "</p></div><div class=\"entry-footer\"></div>"));
@@ -62,7 +69,8 @@ class NewsEnricherTest {
         assertThat(article.getImageUrl()).isEqualTo("https://cdn.example.com/roh.jpg");
         assertThat(article.getTitleKo()).isEqualTo("한화, 노시환 포스팅");
         assertThat(article.getSummaryModel()).isEqualTo("test-model");
-        assertThat(asked).containsExactly("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|" + BODY.trim());
+        // 기사 시각 2026-11-01T20:40Z는 한국 날짜로 11월 2일이다('last February' 같은 말을 한국 날짜 기준으로 옮기게)
+        assertThat(asked).containsExactly("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|2026-11-02|" + BODY.trim());
         assertThat(http.urls()).containsExactly(MLB + "/robots.txt", MLB + "/2026/11/roh.html");
     }
 
@@ -80,7 +88,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 if (calls[0]++ == 0) {
                     throw new Summarizer.Failure("529 overloaded", null);
                 }
@@ -99,7 +107,7 @@ class NewsEnricherTest {
         enricher.enrich();
 
         assertThat(article.getSummary()).isEqualTo("두 번째에 요약했다.");
-        assertThat(article.getEnrichAttempts()).isEqualTo(1);
+        assertThat(article.getEnrichAttempts()).isZero(); // 시도 횟수는 '요약하지 못한 횟수'라 요약하면 0
         assertThat(http.requests).filteredOn(r -> r.uri().getPath().endsWith("etag.html"))
                 .allSatisfy(r -> assertThat(r.headers()).doesNotContainKey("If-None-Match"));
     }
@@ -156,7 +164,7 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
                 throw new Summarizer.Failure("UnauthorizedException: invalid x-api-key", null);
             }
 
@@ -281,6 +289,138 @@ class NewsEnricherTest {
     }
 
     @Test
+    void summariesFromAnOlderPromptAreRedoneAfterTheArticlesWithoutOne() {
+        NewsArticle old = oldSummary("/2026/11/old.html");
+        http.on(MLB + "/2026/11/old.html", ok("<div class=\"entry-content\"><p>" + BODY + "</p></div>"));
+
+        int done = enricher(versioned("새 요약이다.", "새 제목")).enrich();
+
+        assertThat(done).isEqualTo(2);
+        assertThat(asked).hasSize(2);
+        assertThat(asked.getFirst()).startsWith("노시환|KBO's Hanwha Eagles Post Si Hwan Roh|"); // 요약이 없던 기사가 먼저
+        assertThat(old.getSummary()).isEqualTo("새 요약이다.");
+        assertThat(old.getTitleKo()).isEqualTo("새 제목");
+        // 모델 이름(test-model)이 아니라 판(test-model/v2)을 적고, 같은 판으로 고른다
+        assertThat(old.getSummaryModel()).isEqualTo("test-model/v2");
+        org.mockito.Mockito.verify(articles).findOutdatedSummaries(anyCollection(),
+                org.mockito.ArgumentMatchers.eq("test-model/v2"), anyInt(), any(), any());
+        assertThat(enricher(versioned("또 요약", null)).enrich()).isZero(); // 이제 같은 판이라 다시 하지 않는다
+        assertThat(asked).hasSize(2);
+    }
+
+    @Test
+    void aRedoneSummaryWithoutATitleLineKeepsTheKoreanTitle() {
+        NewsArticle old = oldSummary("/2026/11/old-title.html");
+        http.on(MLB + "/2026/11/old-title.html", ok("<div class=\"entry-content\"><p>" + BODY + "</p></div>"));
+
+        enricher(versioned("새 요약이다.", null)).enrich();
+
+        assertThat(old.getSummary()).isEqualTo("새 요약이다.");
+        assertThat(old.getTitleKo()).isEqualTo("옛 제목");
+    }
+
+    @Test
+    void summaryServiceTroubleWhileRedoingKeepsTheOldSummaryAndUsesNoAttempts() {
+        article.enriched(null, "제목", "요약", "test-model/v2", NOV_11); // 새 기사는 없다
+        NewsArticle old = oldSummary("/2026/11/old-down.html");
+        http.on(MLB + "/2026/11/old-down.html", ok("<div class=\"entry-content\"><p>" + BODY + "</p></div>"));
+        Summarizer down = new Summarizer() {
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+
+            @Override
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
+                throw new Summarizer.Failure("529 overloaded", null);
+            }
+
+            @Override
+            public String model() {
+                return "test-model";
+            }
+
+            @Override
+            public String version() {
+                return "test-model/v2";
+            }
+        };
+
+        enricher(down).enrich();
+
+        assertThat(old.getSummary()).isEqualTo("옛 요약이다.");
+        assertThat(old.getSummaryModel()).isEqualTo("test-model/v1");
+        assertThat(old.getEnrichAttempts()).isZero();
+    }
+
+    @Test
+    void newArticlesFillTheRunBeforeAnyOldSummaryIsRedone() {
+        for (int i = 0; i < NewsEnricher.PER_RUN; i++) {
+            String path = "/2026/11/new" + i + ".html";
+            queue.add(new NewsArticle("노시환", MLB + path, "n" + i, "Roh News " + i, "MLB Trade Rumors",
+                    Instant.parse("2026-11-10T20:40:00Z").minusSeconds(i), NOV_11));
+            http.on(MLB + path, ok("<div class=\"entry-content\"><p>" + BODY + "</p></div>"));
+        }
+        NewsArticle old = oldSummary("/2026/11/old-later.html");
+
+        int done = enricher(versioned("새 요약이다.", null)).enrich();
+
+        assertThat(done).isEqualTo(NewsEnricher.PER_RUN);
+        assertThat(old.getSummary()).isEqualTo("옛 요약이다."); // 이번 차례에는 손대지 않는다
+        assertThat(http.urls()).doesNotContain(MLB + "/2026/11/old-later.html");
+    }
+
+    /** 옛 판(test-model/v1)으로 요약해 둔 영어 기사 */
+    private NewsArticle oldSummary(String path) {
+        NewsArticle old = new NewsArticle("노시환", MLB + path, "o" + path.hashCode(), "Roh Old Notes", "MLB Trade Rumors",
+                Instant.parse("2026-11-09T20:40:00Z"), NOV_11);
+        old.enriched(null, "옛 제목", "옛 요약이다.", "test-model/v1", NOV_11.minus(java.time.Duration.ofDays(1)));
+        outdated.add(old);
+        return old;
+    }
+
+    /** 판(version)을 모델 이름과 다르게 주는 요약기(운영의 claude-haiku-5-5 / claude-haiku-5-5/v2 처럼) */
+    private Summarizer versioned(String answer, String titleKo) {
+        return new Summarizer() {
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+
+            @Override
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
+                asked.add(player + "|" + title + "|" + published + "|" + body);
+                return Optional.of(new Summarizer.Summary(titleKo, answer));
+            }
+
+            @Override
+            public String model() {
+                return "test-model";
+            }
+
+            @Override
+            public String version() {
+                return "test-model/v2";
+            }
+        };
+    }
+
+    @Test
+    void anOldSummaryStaysWhenItCannotBeRedone() {
+        NewsArticle old = new NewsArticle("노시환", MLB + "/2026/11/old-gone.html", "og", "Roh Old Notes", "MLB Trade Rumors",
+                Instant.parse("2026-11-09T20:40:00Z"), NOV_11);
+        old.enriched(null, "옛 제목", "옛 요약이다.", "test-model/v1", NOV_11.minus(java.time.Duration.ofDays(1)));
+        outdated.add(old);
+        http.on(MLB + "/2026/11/old-gone.html", FakeHttp.reply(404, ""));
+
+        enricher(summarizer("새 요약이다.")).enrich();
+
+        assertThat(old.getSummary()).isEqualTo("옛 요약이다.");
+        assertThat(old.getSummaryModel()).isEqualTo("test-model/v1");
+        assertThat(old.getEnrichAttempts()).isEqualTo(1);
+    }
+
+    @Test
     void givesUpAfterThreeFailures() {
         article = new NewsArticle("노시환", MLB + "/2026/11/empty.html", "e", "Roh Notes", "MLB Trade Rumors",
                 Instant.parse("2026-11-02T20:40:00Z"), NOV_11);
@@ -318,8 +458,8 @@ class NewsEnricherTest {
             }
 
             @Override
-            public Optional<Summarizer.Summary> summarize(String player, String title, String body) {
-                asked.add(player + "|" + title + "|" + body);
+            public Optional<Summarizer.Summary> summarize(String player, String title, java.time.LocalDate published, String body) {
+                asked.add(player + "|" + title + "|" + published + "|" + body);
                 return Optional.of(new Summarizer.Summary("한화, 노시환 포스팅", answer));
             }
 

@@ -37,4 +37,15 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
             + " and a.enrichAttempts < :maxAttempts and a.publishedAt >= :since order by a.publishedAt desc, a.id desc")
     List<NewsArticle> findToEnrich(@Param("publishers") Collection<String> publishers,
                                    @Param("maxAttempts") int maxAttempts, @Param("since") Instant since, Pageable page);
+
+    /**
+     * 지금과 다른 모델·지시문 판(version)으로 요약한 그 언론사들의 기사(시도 횟수가 남고 since 뒤에 나온 것, 최근 순).
+     * 요약 지시문을 바꾸면 이 기사들을 차례로 다시 요약한다. 새 요약을 받을 때까지는 옛 요약을 그대로 보인다
+     */
+    @Query("select a from NewsArticle a where a.publisher in :publishers and a.summary is not null"
+            + " and (a.summaryModel is null or a.summaryModel <> :version) and a.enrichAttempts < :maxAttempts"
+            + " and a.publishedAt >= :since order by a.publishedAt desc, a.id desc")
+    List<NewsArticle> findOutdatedSummaries(@Param("publishers") Collection<String> publishers,
+                                            @Param("version") String version, @Param("maxAttempts") int maxAttempts,
+                                            @Param("since") Instant since, Pageable page);
 }
