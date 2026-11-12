@@ -36,7 +36,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_ADMIN_TOKEN` | 관리용 엔드포인트 토큰. 없으면 관리용 엔드포인트는 전부 막힌다 |
 | `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트와 선수 페이지에서 시즌 받기만 MLB를 부른다 |
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
-| `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수 관련 기사 수집·요약(30분마다). 기본 `true`. 포스팅 협상 기간(시작 3일 전 ~ 마감 3일 뒤)이 아니면 켜 있어도 요청하지 않는다. `false`여도 홈은 DB에 있는 기사를 보여 준다 |
+| `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수와 명단 선수 관련 기사 수집·요약(30분마다). 기본 `true`. 포스팅 선수는 협상 기간(시작 3일 전 ~ 마감 3일 뒤)에만, 명단 선수(국내 리그로 돌아간 선수 빼고)는 늘 최근 30일 기사를 모은다(이슈 #119). `false`여도 홈은 DB에 있는 기사를 보여 준다 |
 | `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines and summaries; personal, non-commercial)` |
 | `KORLEAGUER_PHOTOS_ENABLED` | 선수 사진 미리 받기(앱이 뜰 때와 6시간마다). 기본 `true`. 꺼도 사진은 처음 요청될 때 받아 저장한다 |
 | `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
@@ -138,7 +138,8 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`), 마이너 팀 등은 MLB가 준 영어 이름 그대로(`St. Paul Saints`).
 
 ### 선수 사진 호스팅(`GET /api/photos/{이름}`, 표 `photo`)
-- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
+- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}`, 선수 페이지 과거 소속팀 사진은 `/photos/career-{KBO 선수 번호}-{시즌}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
+- 우리가 만든 편집본은 원본에서 받지 않고 앱에 든 파일(`src/main/resources/photos/`)을 그대로 준다: 포스팅 선배(`posting-…`, 흰 바탕 JPEG)와 과거 소속팀(`career-…`, MLB 배경 없는 사진과 같은 틀의 투명 PNG). 만드는 법은 `tools/posting-photo/README.md`.
 - 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, 포스팅 선수는 `posting.yml`의 `photo-url`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
 - 원본에 마지막으로 물어본 지 7일이 지나면 조건부 요청(If-None-Match·If-Modified-Since)으로 바뀌었는지만 묻는다. 304거나 본문(SHA-256)이 같으면 다시 쓰지 않는다. 원본 주소가 바뀌면 새로 받는다.
 - 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
@@ -162,7 +163,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - 성적표를 만들다 실패하면 그 선수만 빠지고, 전체가 실패하면 빈 목록이다(홈 응답은 그대로).
 
 ### 관련 기사(`news_article`)
-- 포스팅 선수 이름이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).
+- 포스팅 선수·명단 선수 이름(한글, 명단 선수는 MLB 영어 이름도)이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).
 - Claude 요약(`ClaudeSummarizer`)은 3~4문장이다. 긴 기사만 한 문장 더 쓴다.
   - 사용자 의견(11-12) "쓸 내용이 많은데 지나치게 줄이지 말고, 내용이 없는데 억지로 늘리지도 말 것"(이슈 #103)으로 3~7문장까지 늘렸다가, "2문장은 너무 짧다고 그런 것만 좀 늘려달란 거였는데 전체적인 길이가 너무 길어졌어"(이슈 #111)로 줄였다.
   - 코드가 본문 길이로 문장 수를 정해 요청에 넣는다(`maxSentences`, `요약 분량: N문장`). 본문 450자마다 1문장이라 1,350자까지 3문장, 넘으면 4문장이다. 영어 본문은 같은 내용도 길어 2.5로 나눠 센다.

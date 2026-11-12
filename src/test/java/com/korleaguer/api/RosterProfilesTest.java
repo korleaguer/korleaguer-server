@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RosterProfilesTest {
 
@@ -48,9 +49,26 @@ class RosterProfilesTest {
         RosterProfiles profiles = profiles(true, TEMPLATE);
 
         assertThat(profiles.careerPhotos(new Player("이정후"))).containsExactly(
-                new PlayerPageResponse.CareerPhoto("키움 히어로즈", "2017–2023", "/photos/kbo-67341-2023"));
+                new PlayerPageResponse.CareerPhoto("키움 히어로즈", "2017–2023", "/photos/career-67341-2023"));
         assertThat(profiles.careerPhotos(new Player("김하성"))).isEmpty();
         assertThat(profiles(false, TEMPLATE).careerPhotos(new Player("이정후"))).isEmpty();
+    }
+
+    @Test
+    void missingEditedPastTeamPhotoStopsTheServerFromStarting() {
+        RosterProperties withNewPhoto = new RosterProperties(List.of(new RosterProperties.Entry("새 선수", 1L, null, null,
+                1L, List.of(new RosterProperties.CareerPhoto("한화 이글스", "2019–2025", 2025)))));
+        Postings none = new Postings(new PostingProperties(List.of(), List.of()));
+
+        assertThatThrownBy(() -> new PhotoSources(withNewPhoto, none, new KorleaguerProperties(2026, null, null, null,
+                new KorleaguerProperties.Images(true, TEMPLATE, KBO_TEMPLATE), null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("새 선수")
+                .hasMessageContaining("photos/career-1-2025.png")
+                .hasMessageContaining("tools/posting-photo silo");
+        // 공식 사진을 끄면 편집본도 필요 없다
+        assertThat(new PhotoSources(withNewPhoto, none, new KorleaguerProperties(2026, null, null, null,
+                new KorleaguerProperties.Images(false, TEMPLATE, KBO_TEMPLATE), null)).all()).isEmpty();
     }
 
     @Test

@@ -140,7 +140,7 @@ class PhotoStoreTest {
         String past = "https://kbo.example/2023/67341.jpg";
         reply("https://kbo.example/robots.txt", 404, "", Map.of());
         reply(past, 200, "heroes", Map.of("content-type", "image/jpeg"));
-        PhotoStore store = storeWithCareerPhoto();
+        PhotoStore store = storeWithPostingSeasonPhoto();
         assertThat(store.load("kbo-67341-2023")).isPresent();
         int before = requested.size();
 
@@ -175,6 +175,28 @@ class PhotoStoreTest {
             assertThat(store.refresh()).isZero();
         }
         assertThat(store(DataMode.MLB).load("mlb-673490-2024")).isEmpty(); // 원본은 더 받지 않는다
+        assertThat(requested).isEmpty();
+        assertThat(saved).isEmpty(); // 앱에 들어 있는 파일이라 DB에 두지 않는다
+    }
+
+    @Test
+    void pastTeamPhotoIsOurEditedPngAndNeverFetched() throws Exception {
+        reply("https://kbo.example/robots.txt", 404, "", Map.of());
+        reply("https://kbo.example/2023/67341.jpg", 200, "heroes", Map.of("content-type", "image/jpeg"));
+        byte[] edited;
+        try (var in = getClass().getClassLoader().getResourceAsStream("photos/career-67341-2023.png")) {
+            edited = in.readAllBytes();
+        }
+
+        for (DataMode mode : List.of(DataMode.MLB, DataMode.SAMPLE)) { // 우리 파일이라 샘플 모드에서도 준다
+            PhotoStore store = storeWithCareerPhoto(mode);
+            Optional<Photo> photo = store.load("career-67341-2023");
+
+            assertThat(photo).map(Photo::getContentType).contains("image/png");
+            assertThat(photo).map(Photo::getData).contains(edited);
+            assertThat(store.load("kbo-67341-2023")).isEmpty(); // KBO 원본(94×118)은 받지 않는다
+            assertThat(store.refresh()).isZero();
+        }
         assertThat(requested).isEmpty();
         assertThat(saved).isEmpty(); // 앱에 들어 있는 파일이라 DB에 두지 않는다
     }
@@ -218,12 +240,23 @@ class PhotoStoreTest {
         return new PhotoStore(sources, repository, fetcher(), mode, clock);
     }
 
-    /** 명단 선수 한 명(이정후)의 과거 소속팀(키움, 2023) KBO 사진만 있는 사진 목록 */
-    private PhotoStore storeWithCareerPhoto() {
+    /** 명단 선수 한 명(이정후)의 과거 소속팀(키움, 2023) 사진 편집본만 있는 사진 목록 */
+    private PhotoStore storeWithCareerPhoto(DataMode mode) {
         RosterProperties.Entry lee = new RosterProperties.Entry("이정후", 808982L, null, null, 67341L,
                 List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023)));
         PhotoSources sources = new PhotoSources(new RosterProperties(List.of(lee)),
                 new Postings(new PostingProperties(List.of(), List.of())),
+                new KorleaguerProperties(null, null, null, null,
+                        new KorleaguerProperties.Images(true, null, "https://kbo.example/{season}/{kboId}.jpg"), null));
+        return new PhotoStore(sources, repository, fetcher(), mode, clock);
+    }
+
+    /** MLB 사진을 적지 않은 지난 포스팅 선배 한 명(이정후, 2023 포스팅)의 그 시즌 KBO 사진만 있는 사진 목록 */
+    private PhotoStore storeWithPostingSeasonPhoto() {
+        PostingProperties.Past lee = new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6,
+                113_000_000L, null, 67341L, null, null, null, null);
+        PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
+                new Postings(new PostingProperties(List.of(), List.of(lee))),
                 new KorleaguerProperties(null, null, null, null,
                         new KorleaguerProperties.Images(true, null, "https://kbo.example/{season}/{kboId}.jpg"), null));
         return new PhotoStore(sources, repository, fetcher(), DataMode.MLB, clock);
