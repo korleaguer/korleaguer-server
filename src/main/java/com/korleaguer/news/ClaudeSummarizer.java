@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,13 +34,13 @@ import java.util.stream.Collectors;
 public final class ClaudeSummarizer implements Summarizer {
 
     /**
-     * 요약 지시문(SYSTEM)의 판. 지시문을 바꾸면 올린다. 요약에 모델 이름과 함께 적고(summary_model),
+     * 요약 지시문과 요청(SYSTEM·요청 틀·본문 손질)의 판. 바꾸면 올린다. 요약에 모델 이름과 함께 적고(summary_model),
      * 옛 판으로 만든 요약은 차례로 다시 요약한다(NewsEnricher). v1: 2~3문장 130자 안팎(11-11),
      * v2: 본문 분량에 맞춘 최대 3~7문장, 기사 날짜, 숫자·날짜·계약 금액·선수 규칙(11-12, 이슈 #103 "쓸 내용이 많은데
-     * 지나치게 줄이지 말라").
-     * 지시문을 바꾸면 ClaudeSummarizerTest의 지시문 지문도 새 값으로 고친다(판을 올리는 것을 잊지 않게)
+     * 지나치게 줄이지 말라"), v3: 영어 본문의 'last February'에 연도를 붙여 보냄(11-12, 이슈 #105 '지난해 2월' 오역).
+     * 바꾸면 ClaudeSummarizerTest의 지문도 새 값으로 고친다(판을 올리는 것을 잊지 않게)
      */
-    static final String PROMPT_VERSION = "v2";
+    static final String PROMPT_VERSION = "v3";
     /** summary_model 칸 길이(V12 마이그레이션 varchar(50)) */
     static final int MAX_VERSION = 50;
     static final int MAX_SUMMARY = 1200;
@@ -90,6 +91,12 @@ public final class ClaudeSummarizer implements Summarizer {
     static final double ENGLISH_LENGTH_FACTOR = 2.5;
     private static final Pattern HANGUL = Pattern.compile("[가-힣]");
     private static final Pattern LETTER = Pattern.compile("[가-힣A-Za-z]");
+    /**
+     * 영어 'last February'·'this past March 14th' 같은 지난 달 표현. 달 이름은 대문자로 시작하는 것만 본다.
+     * 뒤에 연도가 이미 붙었으면(last February 2025) 건드리지 않는다. 'at last May …'(드디어)는 달 표현이 아니다
+     */
+    private static final Pattern LAST_MONTH = Pattern.compile("(?<![Aa]t )\\b(?:[Ll]ast|[Tt]his past) (January|February|March|April|May|"
+            + "June|July|August|September|October|November|December)(?! \\d{3})(?: (\\d{1,2})(?:st|nd|rd|th)?\\b)?\\b");
     /** 요청 사용자 메시지 틀: 선수, 제목, 기사 날짜(한국 날짜, 2026-11-02), 최대 문장 수(maxSentences), 본문 */
     static final String USER_MESSAGE = "이 기사가 다루는 한국 선수: %s\n제목: %s\n기사 날짜: %s\n요약 분량: %d문장 이내\n\n본문:\n%s";
     static final long MAX_TOKENS = 1500;
@@ -135,8 +142,7 @@ public final class ClaudeSummarizer implements Summarizer {
                 .thinking(ThinkingConfigDisabled.builder().build())
                 .system(SYSTEM)
                 .outputConfig(OutputConfig.builder().effort(EFFORT).build())
-                // %d가 서버 로캘에 따라 다른 숫자 모양이 되지 않게 Locale.ROOT. 기사 날짜는 2026-11-02 꼴
-                .addUserMessage(String.format(Locale.ROOT, USER_MESSAGE, player, title, published, most, body))
+                .addUserMessage(userMessage(player, title, published, most, body))
                 .build();
         Message message;
         try {
@@ -159,6 +165,36 @@ public final class ClaudeSummarizer implements Summarizer {
                 .map(t -> t.text())
                 .collect(Collectors.joining("\n"));
         return tidy(text, stop.filter(StopReason.MAX_TOKENS::equals).isPresent(), most, player);
+    }
+
+    /**
+     * 요청 사용자 메시지. 영어 본문의 'last February'는 연도를 붙여(February 2026) 보낸다(absoluteMonths).
+     * %d가 서버 로캘에 따라 다른 숫자 모양이 되지 않게 Locale.ROOT. 기사 날짜는 2026-11-02 꼴
+     */
+    static String userMessage(String player, String title, LocalDate published, int most, String body) {
+        return String.format(Locale.ROOT, USER_MESSAGE, player, title, published, most, absoluteMonths(body, published));
+    }
+
+    /**
+     * 영어 'last February'를 기사 날짜 기준 가장 가까운 지난 그 달로 바꾼다(2026-11-02 기사면 February 2026,
+     * last November는 November 2025, last February 14th는 February 14, 2026). 기사 날짜를 요청에 주고 지시문에
+     * 예까지 적어도 모델이 11월 기사의 'signed last February'를 '지난해 2월'로 옮겼다(같은 요청 30번 중 7번, 이슈 #105).
+     * 달이 뒤에 오는 'February of last year' 같은 말은 바꾸지 않는다
+     */
+    static String absoluteMonths(String body, LocalDate published) {
+        if (published == null) {
+            return body;
+        }
+        Matcher m = LAST_MONTH.matcher(body);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            Month month = Month.valueOf(m.group(1).toUpperCase(Locale.ROOT));
+            int year = month.getValue() < published.getMonthValue() ? published.getYear() : published.getYear() - 1;
+            String date = m.group(2) == null ? m.group(1) + " " + year : m.group(1) + " " + m.group(2) + ", " + year;
+            m.appendReplacement(out, Matcher.quoteReplacement(date));
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 
     /**
@@ -260,7 +296,7 @@ public final class ClaudeSummarizer implements Summarizer {
         return model;
     }
 
-    /** 모델과 지시문 판(예: claude-haiku-5-5/v2). 요약에 적어 두고, 이 값이 다른 옛 요약은 다시 요약한다 */
+    /** 모델과 지시문 판(예: claude-haiku-5-5/v3). 요약에 적어 두고, 이 값이 다른 옛 요약은 다시 요약한다 */
     @Override
     public String version() {
         return versionOf(model);
