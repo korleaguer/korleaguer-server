@@ -20,6 +20,7 @@ import java.util.Optional;
  *   <li>정규시즌 기간(개막일~정규시즌 마지막 날) 안이면 경기가 없어도 시즌 중으로 본다. 우리 선수가 모두 부상·마이너라
  *       잠깐 경기가 없는 것이지 시즌이 끝난 게 아니다(지금 시즌 날짜를 아직 받지 못했으면 경기만 본다).</li>
  *   <li>다음 개막일은 season_dates의 다음 시즌 정규시즌 개막일이다(SeasonDatesRefresher가 정규시즌이 끝나면 받아 둔다).</li>
+ *   <li>시즌 성적표(report)는 여기서 비워 두고 홈(BaseballQueryService)이 SeasonReportFinder로 채운다.</li>
  * </ul>
  */
 @Component
@@ -55,7 +56,7 @@ public class OffSeasonFinder {
                 .orElse(null);
         Integer daysToOpening = opening == null ? null : (int) ChronoUnit.DAYS.between(usToday, opening);
         List<Long> playerIds = roster.stream().map(m -> m.player().getId()).toList();
-        return new OffSeason(season, season + 1, opening, daysToOpening, playerIds);
+        return new OffSeason(season, season + 1, opening, daysToOpening, playerIds, List.of());
     }
 
     private static boolean inRegularSeason(SeasonDates dates, LocalDate day) {

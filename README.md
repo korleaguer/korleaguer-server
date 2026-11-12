@@ -70,7 +70,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 
 | 경로 | 설명 |
 |---|---|
-| `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`) |
+| `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
@@ -152,6 +152,14 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - 선수 상태: 협상 시작 전(`UPCOMING`) → 협상 중(`NEGOTIATING`, 한국 날짜로 마감까지 남은 날 `daysLeft`) → 결과를 적으면 `SIGNED`/`NO_DEAL`.
   마감이 지났는데 결과를 아직 안 적었으면 `CLOSED`(결과 확인 중). 마감 60일 뒤에는 목록에서 빠지니 그 전에 `history`로 옮긴다.
 - 지난 기록은 마감 며칠 전에 합의했는지(`daysBeforeDeadline`, 미국 날짜)를 같이 준다.
+
+### 시즌 성적표(홈의 `offseason.report`)
+- 비시즌 홈에만 붙는다. 명단 선수마다(국내 리그로 돌아간 선수 포함, 이번 시즌 기록이 없는 선수는 뺀다) 한 장:
+  `{playerId, tier, label, headline, reason, level, war, stories, winterMoves}`. 순서는 `tier`(`GOOD` → `SHORT_GOOD` → `SOLID` → `MINORS` → `SHORT` → `POOR`), 그 안에서 메이저 경기 많은 순.
+- 판정(`SeasonVerdict`)은 메이저 타석(투수는 이닝·선발)과 wRC+(ERA-)·WAR로 한다. 2020년은 기준을 60/162로 줄인다. 지표를 아직 받지 못했으면 경기별 기록의 양만으로 판정한다.
+- 지표는 비시즌 따라잡기가 정규시즌이 끝난 뒤 하루 한 번 받는다(`player_season_metric`, 선수마다 `yearByYear` 1번 + `sabermetrics` 이번 시즌과 아직 없는 지난 시즌). 앞 3시즌까지 둔다.
+- `headline`·`reason`은 정해진 틀로 만든다(부상자 명단·트리플A 강등·콜업·짧은 메이저 출전·전후반 타율 차이 중 두 개까지). `stories`(연속 안타·최고 경기)는 `SHORT`·`POOR`면 늘 비어 있다. `level`은 카드가 앞세울 합계(`MINORS`면 마이너). `winterMoves`는 정규시즌 마지막 날 뒤 이동 기록, 최신순 세 개까지.
+- 성적표를 만들다 실패하면 그 선수만 빠지고, 전체가 실패하면 빈 목록이다(홈 응답은 그대로).
 
 ### 관련 기사(`news_article`)
 - 포스팅 선수 이름이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).

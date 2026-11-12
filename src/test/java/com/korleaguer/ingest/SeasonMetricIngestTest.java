@@ -1,5 +1,8 @@
 package com.korleaguer.ingest;
 
+import com.korleaguer.api.BaseballQueryService;
+import com.korleaguer.api.SeasonReport;
+import com.korleaguer.api.SeasonTier;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.Player;
@@ -20,6 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,6 +54,9 @@ class SeasonMetricIngestTest {
 
     @Autowired
     private MutableClock clock;
+
+    @Autowired
+    private BaseballQueryService queryService;
 
     @TestConfiguration
     static class Scenario {
@@ -112,6 +119,34 @@ class SeasonMetricIngestTest {
 
         assertThat(log.getMessage()).contains("시즌 지표 6명");
         assertThat(metric("송성문", 2026, PlayerSeasonMetric.Group.HITTING).getFetchedAt()).isEqualTo(clock.instant());
+    }
+
+    @Test
+    @Order(5)
+    void offSeasonHomeJudgesWithTheMetrics() {
+        // 샘플 지표: 이정후 579타석 wRC+ 101.8, 송성문 154타석 wRC+ 57.9, 김하성 앞 시즌 주전·147타석,
+        // 고우석·배지환은 마이너가 더 많다. 김혜성은 샘플 마이너 경기가 2경기뿐이라 출전이 적었던 시즌이다.
+        List<SeasonReport> report = queryService.home().offseason().report();
+
+        assertThat(report).extracting(r -> tierOf(report, r.playerId()))
+                .isSortedAccordingTo(Comparator.naturalOrder());
+        assertThat(tierOf(report, id("이정후"))).isEqualTo(SeasonTier.SOLID);
+        assertThat(tierOf(report, id("송성문"))).isEqualTo(SeasonTier.POOR);
+        assertThat(tierOf(report, id("김하성"))).isEqualTo(SeasonTier.POOR);
+        assertThat(tierOf(report, id("고우석"))).isEqualTo(SeasonTier.MINORS);
+        assertThat(tierOf(report, id("배지환"))).isEqualTo(SeasonTier.MINORS);
+        assertThat(tierOf(report, id("김혜성"))).isEqualTo(SeasonTier.SHORT);
+        SeasonReport lee = report.stream().filter(r -> r.playerId() == id("이정후")).findFirst().orElseThrow();
+        assertThat(lee.war()).isEqualTo(1.0);
+        assertThat(lee.label()).isEqualTo("제 몫 한 시즌");
+    }
+
+    private long id(String nameKo) {
+        return players.findByNameKo(nameKo).orElseThrow().getId();
+    }
+
+    private static SeasonTier tierOf(List<SeasonReport> report, long playerId) {
+        return report.stream().filter(r -> r.playerId() == playerId).findFirst().orElseThrow().tier();
     }
 
     private PlayerSeasonMetric metric(String nameKo, int season, PlayerSeasonMetric.Group group) {

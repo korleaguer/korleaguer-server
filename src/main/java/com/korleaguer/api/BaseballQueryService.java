@@ -64,6 +64,7 @@ public class BaseballQueryService {
     private final RecentGamesFinder recentGames;
     private final OffSeasonFinder offSeasons;
     private final PostingFinder postings;
+    private final SeasonReportFinder seasonReports;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
     private final CurrentSeason currentSeason;
@@ -74,7 +75,7 @@ public class BaseballQueryService {
                                 MinorSeasonRepository minorSeasons, MinorGameLogRepository minorGameLogs,
                                 GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, OffSeasonFinder offSeasons, PostingFinder postings,
-                                RosterProfiles profiles,
+                                SeasonReportFinder seasonReports, RosterProfiles profiles,
                                 DataMode dataMode, CurrentSeason currentSeason, Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
@@ -87,6 +88,7 @@ public class BaseballQueryService {
         this.recentGames = recentGames;
         this.offSeasons = offSeasons;
         this.postings = postings;
+        this.seasonReports = seasonReports;
         this.profiles = profiles;
         this.dataMode = dataMode;
         this.currentSeason = currentSeason;
@@ -146,6 +148,10 @@ public class BaseballQueryService {
         }
 
         OffSeason offseason = offSeasons.find(roster, now);
+        if (offseason != null) {
+            // 시즌 성적표(이슈 #118): 끝난 시즌의 선수별 판정·한 줄 요약
+            offseason = offseason.withReport(seasonReports.find(roster, offseason.season()));
+        }
         // 포스팅(이번 겨울 MLB 도전)은 비시즌 홈에만 보인다
         PostingSummary posting = offseason == null ? null : postings.find(now);
         return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
