@@ -59,7 +59,14 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     /** 요약은 1200자 안쪽이다. 앞부분만 있는 기사도 이만큼이면 된다 */
     static final int MAX_TEXT = 2000;
 
-    private static final Pattern LINE = Pattern.compile("^\\s*(?:[-*•]\\s+)?([A-Za-z]{2,3})\\s*([+\\-−])(?:\\s.*)?$");
+    /**
+     * 한 줄의 앞머리: 글머리표(-·*·•·번호) 뒤 구단(약어 또는 한글 이름)과 방향 부호. 운영에서 거론이 있을 때 모델이
+     * 'NYM +: 메츠 관심', '**NYM +**', 'NYM (+)'처럼 꾸며 답해 처음 규칙이 놓쳤다(이슈 #123). 부호 뒤는 무엇이 와도 된다
+     */
+    private static final Pattern LINE = Pattern.compile(
+            "^\\s*(?:[-*•·]\\s+|\\d+[.)]\\s*)?([A-Za-z]{2,3}|[가-힣A-Z][가-힣A-Z ]*[가-힣])\\s*[:：]?\\s*[(（\\[]?\\s*([+\\-−])");
+    /** 굵은 글씨·백틱 같은 꾸밈 표시(답을 읽기 전에 지운다) */
+    private static final Pattern MARKUP = Pattern.compile("[*`_]");
     private static final Pattern NONE = Pattern.compile("^\\s*없음\\s*[.]?\\s*$");
     private static final Logger log = LoggerFactory.getLogger(ClaudeDestinationTagger.class);
 
@@ -132,7 +139,14 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
                 .flatMap(block -> block.text().stream())
                 .map(t -> t.text())
                 .collect(Collectors.joining("\n"));
-        return parse(answer);
+        Optional<List<Destination>> picked = parse(answer);
+        if (picked.isEmpty()) {
+            // 읽지 못한 답의 모양을 보고 규칙을 고칠 수 있게 앞부분만 남긴다(기사 내용이 아니라 모델의 답이다)
+            String shown = answer.replaceAll("\\R", " ⏎ ");
+            log.warn("news: could not read the destination answer for '{}': {}", title,
+                    shown.length() > 160 ? shown.substring(0, 160) + "…" : shown);
+        }
+        return picked;
     }
 
     static String userMessage(String player, String title, String text) {
@@ -153,16 +167,17 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
         }
         Map<String, NewsDestination.Stance> picked = new LinkedHashMap<>();
         boolean none = false;
-        for (String line : answer.split("\\R")) {
+        for (String raw : answer.split("\\R")) {
+            String line = MARKUP.matcher(raw).replaceAll("");
             if (NONE.matcher(line).matches()) {
                 none = true;
                 continue;
             }
             Matcher m = LINE.matcher(line);
-            if (!m.matches()) {
+            if (!m.find()) {
                 continue;
             }
-            String team = MlbTeams.canonical(m.group(1).toUpperCase(Locale.ROOT));
+            String team = team(m.group(1).trim());
             if (team == null) {
                 continue;
             }
@@ -175,5 +190,17 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
         List<Destination> out = new ArrayList<>();
         picked.forEach((team, stance) -> out.add(new Destination(team, stance)));
         return Optional.of(out);
+    }
+
+    /** 약어(SFG 같은 다른 약어도) 또는 표의 한글 이름 → 대표 약어. MLB 구단이 아니면 null */
+    static String team(String name) {
+        String abbreviation = MlbTeams.canonical(name.toUpperCase(Locale.ROOT));
+        if (abbreviation != null) {
+            return abbreviation;
+        }
+        return MlbTeams.abbreviations().stream()
+                .filter(a -> TeamNames.korean(a, a).equals(name))
+                .findFirst()
+                .orElse(null);
     }
 }
