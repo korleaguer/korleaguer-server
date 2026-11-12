@@ -192,6 +192,27 @@ class PostingFinderTest {
     }
 
     @Test
+    void copiesFromOtherOutletsBecomeOneLineAndFiveDifferentArticlesAreShown() {
+        // 언론사만 다른 같은 글(제목이 같다)은 한 줄로 묶고, 남은 자리를 다른 기사로 채운다(이슈 #113)
+        List<NewsArticle> latest = new java.util.ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            latest.add(new NewsArticle("노시환", "https://news.example.kr/" + i, "k" + i, "노시환 소식 " + i, "마이데일리",
+                    Instant.parse("2026-11-10T10:00:00Z").minusSeconds(3600L * i), Instant.parse("2026-11-10T11:00:00Z")));
+        }
+        // 0번 기사를 30분 뒤 다른 언론사가 그대로 실었다. 먼저 낸 0번이 대표다
+        latest.add(0, new NewsArticle("노시환", "https://mlb.example.com/copy", "c", "노시환 소식 0", "MLB Trade Rumors",
+                Instant.parse("2026-11-10T10:30:00Z"), Instant.parse("2026-11-10T11:00:00Z")));
+        when(news.findLatest(eq("노시환"), any())).thenReturn(latest);
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly(
+                "https://news.example.kr/0", "https://news.example.kr/1", "https://news.example.kr/2",
+                "https://news.example.kr/3", "https://news.example.kr/4");
+        assertThat(roh.news().getFirst().alsoBy()).containsExactly("MLB Trade Rumors");
+    }
+
+    @Test
     void headlineCarriesLeadSummaryAndImage() {
         NewsArticle mlbtr = new NewsArticle("노시환", "https://mlb.example.com/1", "h1", "Roh Posted", "MLB Trade Rumors",
                 Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z"));
@@ -245,6 +266,31 @@ class PostingFinderTest {
 
         assertThat(roh.news()).extracting(PostingSummary.Headline::url)
                 .containsExactly("https://news.example.kr/0", "https://mlb.example.com/roh");
+    }
+
+    @Test
+    void theSummarizedArticleIsGroupedWithItsCopyAmongTheRecentOnes() {
+        // 요약 기사는 최근 기사 밖인데 요약 없는 그 사본이 최근 기사에 있다. 사본을 따로 보이지 않고 요약 기사와 한 줄로 묶는다
+        String title = "'307억 포기' 노시환이 유격수?";
+        NewsArticle original = new NewsArticle("노시환", "https://news.example.kr/original", "o", title, "마이데일리",
+                Instant.parse("2026-11-09T20:00:00Z"), Instant.parse("2026-11-09T20:10:00Z"));
+        original.enriched(null, null, "노시환이 유격수 훈련을 했다.", "claude-haiku-5-5", Instant.parse("2026-11-09T20:30:00Z"));
+        List<NewsArticle> latest = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            latest.add(new NewsArticle("노시환", "https://news.example.kr/" + i, "k" + i, "노시환 소식 " + i, "마이데일리",
+                    Instant.parse("2026-11-10T10:00:00Z").minusSeconds(3600L * i), Instant.parse("2026-11-10T11:00:00Z")));
+        }
+        latest.add(2, new NewsArticle("노시환", "https://mlb.example.com/copy", "c", title, "MLB Trade Rumors",
+                Instant.parse("2026-11-10T08:30:00Z"), Instant.parse("2026-11-10T09:00:00Z")));
+        when(news.findLatest(eq("노시환"), any())).thenReturn(latest);
+        when(news.findLatestSummarized(eq("노시환"), any())).thenReturn(List.of(original));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T13:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly(
+                "https://news.example.kr/0", "https://news.example.kr/1", "https://news.example.kr/2",
+                "https://news.example.kr/3", "https://news.example.kr/original");
+        assertThat(roh.news().getLast().alsoBy()).containsExactly("MLB Trade Rumors");
     }
 
     @Test

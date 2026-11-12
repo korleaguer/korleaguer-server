@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -39,12 +40,19 @@ public class NewsPageFinder {
         NewsArticle article = news.findById(id)
                 .filter(a -> publishers.contains(a.getPublisher()))
                 .orElseThrow(NewsNotFoundException::new);
-        // 뺀 언론사의 기사와 이 기사를 걸러 내고도 MORE건이 남도록 넉넉히 읽는다
-        List<PostingSummary.Headline> more = news.findLatest(article.getSubject(), PageRequest.of(0, MORE * 4))
+        // 뺀 언론사의 기사와 이 기사(같은 글을 실은 다른 언론사 기사 포함)를 걸러 내고도 MORE건이 남도록 넉넉히 읽는다.
+        // 이 기사가 최근 목록 밖이어도 같은 기사를 알아보게 함께 묶는다(SameArticles, 이슈 #113)
+        List<NewsArticle> recent = new ArrayList<>(news.findLatest(article.getSubject(), PageRequest.of(0, MORE * 4))
                 .stream()
-                .filter(a -> publishers.contains(a.getPublisher()) && !a.getId().equals(article.getId()))
+                .filter(a -> publishers.contains(a.getPublisher()))
+                .toList());
+        if (recent.stream().noneMatch(a -> a.getId().equals(article.getId()))) {
+            recent.add(article);
+        }
+        List<PostingSummary.Headline> more = SameArticles.group(recent).stream()
+                .filter(g -> !g.contains(article.getId()))
                 .limit(MORE)
-                .map(PostingSummary.Headline::of)
+                .map(g -> PostingSummary.Headline.of(g))
                 .toList();
         return new NewsPageResponse(article.getId(), article.getSubject(), playerPhoto(article.getSubject()),
                 article.getTitle(), article.getTitleKo(), article.getUrl(), article.getPublisher(),
