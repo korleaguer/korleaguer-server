@@ -155,6 +155,9 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 
 ### 관련 기사(`news_article`)
 - 포스팅 선수 이름이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).
+- Claude 요약(`ClaudeSummarizer`)의 길이는 기사에 담긴 사실의 양을 따른다. 전할 사실이 적은 짧은 기사는 2~3문장, 사실이 많은 기사는 4~7문장이고, 문장 수를 채우려고 말을 보태지 않는다(사용자 의견 11-12, 이슈 #103).
+  요약마다 모델과 지시문 판을 적는다(`summary_model`, 예 `claude-haiku-5-5/v2`). 지시문을 바꾸면 `ClaudeSummarizer.PROMPT_VERSION`을 올린다.
+  옛 판 요약은 새 요약을 받을 때까지 그대로 보이고, 30분마다 새 기사 다음 차례로 다시 요약된다(한 번에 10건, 최근 45일 기사). 모델을 바꿔도(`KORLEAGUER_NEWS_SUMMARY_MODEL`) 같이 다시 요약된다.
 - 홈(`GET /api/home`)은 선수마다 최근 기사 5건(제목과 기사 번호 `id`)을, 기사 페이지(`GET /api/news/{id}`)는 한 건의 사진·요약·원문 주소와 같은 선수의 다른 기사 5건을 준다. `sources.yml`에서 뺀 언론사의 기사는 둘 다 내지 않는다.
 - 출처는 `news/sources.yml`(넣은 곳과 뺀 곳의 근거는 그 파일 머리말). robots.txt가 우리 수집기(`korleaguer`)를 허용하고 피드(RSS·Atom·뉴스 사이트맵)가 있는 곳만 넣었다. 네이버·구글 뉴스는 robots.txt가 막아 넣지 않았다.
 - 요청 예절(`PoliteFetcher`):
