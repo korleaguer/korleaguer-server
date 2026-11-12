@@ -3,6 +3,9 @@ package com.korleaguer.news;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
 import com.korleaguer.support.MutableClock;
@@ -32,6 +35,9 @@ class NewsCollectorTest {
     private final MutableClock clock = new MutableClock(NOV_11);
     private final FakeHttp http = new FakeHttp(clock);
     private final NewsArticleRepository articles = mock(NewsArticleRepository.class);
+    private final PlayerRepository players = mock(PlayerRepository.class);
+    /** 명단 선수(기본은 없음). 명단 선수 테스트에서 채운다 */
+    private RosterProperties roster = new RosterProperties(List.of());
     private final List<NewsArticle> saved = new ArrayList<>();
 
     @BeforeEach
@@ -57,7 +63,7 @@ class NewsCollectorTest {
     @Test
     void sampleModeNeverTouchesTheNetwork() {
         NewsCollector collector = new NewsCollector(properties(source("뉴시스", NEWS + "/rss.xml")), postings(),
-                fetcher(), fetcher(), articles, DataMode.SAMPLE, clock);
+                roster, players, fetcher(), fetcher(), articles, DataMode.SAMPLE, clock);
 
         assertThat(collector.collect()).isZero();
         assertThat(http.requests).isEmpty();
@@ -206,11 +212,46 @@ class NewsCollectorTest {
         NewsCollector collector = new NewsCollector(properties(
                 new NewsProperties.Source("앞부분", site + "/lead.xml", null, null, null, "lead"),
                 new NewsProperties.Source("요약", site + "/ai.xml", null, null, null, "ai")),
-                postings(), plain, ai, articles, DataMode.MLB, clock);
+                postings(), roster, players, plain, ai, articles, DataMode.MLB, clock);
 
         assertThat(collector.collect()).isEqualTo(1);
         assertThat(saved).extracting(NewsArticle::getPublisher).containsExactly("앞부분");
         assertThat(http.urls()).doesNotContain(site + "/ai.xml");
+    }
+
+    @Test
+    void rosterPlayersAreWatchedByKoreanAndMlbNamesEvenOutsideThePostingWindow() {
+        clock.set(Instant.parse("2026-10-20T01:00:00Z")); // 노시환 협상 기간 밖
+        roster = new RosterProperties(List.of(
+                new RosterProperties.Entry("김혜성", 808975L, null, null, null, List.of()),
+                new RosterProperties.Entry("고우석", 808970L, null, "LG 트윈스", null, List.of())));
+        Player kim = mock(Player.class);
+        when(kim.getNameKo()).thenReturn("김혜성");
+        when(kim.getNameEn()).thenReturn("Hyeseong Kim");
+        when(players.findByMlbIdIsNotNull()).thenReturn(List.of(kim));
+        http.on(NEWS + "/rss.xml", ok(rss(
+                item("김혜성, 다저스 신임 코치와 반등 준비", NEWS + "/view/1", "Tue, 20 Oct 2026 09:00:00 +0900"),
+                item("Dodgers Notes: Hyeseong Kim", NEWS + "/view/2", "Mon, 19 Oct 2026 20:00:00 +0000"),
+                item("고우석, LG 마무리 복귀", NEWS + "/view/3", "Tue, 20 Oct 2026 09:00:00 +0900"),
+                item("김혜성 지난달 소식", NEWS + "/view/4", "Thu, 10 Sep 2026 09:00:00 +0900"))));
+
+        int count = collector(source("뉴시스", NEWS + "/rss.xml")).collect();
+
+        // 국내 리그로 돌아간 고우석은 모으지 않고, 30일보다 오래된 기사는 버린다
+        assertThat(count).isEqualTo(2);
+        assertThat(saved).extracting(NewsArticle::getSubject, NewsArticle::getUrl).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("김혜성", NEWS + "/view/1"),
+                org.assertj.core.groups.Tuple.tuple("김혜성", NEWS + "/view/2"));
+    }
+
+    @Test
+    void aPostingPlayerKeepsThePostingWindowWhenAlsoOnTheRoster() {
+        roster = new RosterProperties(List.of(new RosterProperties.Entry("노시환", null, null, null, null, List.of())));
+
+        List<NewsCollector.Subject> subjects = collector(source("뉴시스", NEWS + "/rss.xml")).subjects(NOV_11);
+
+        assertThat(subjects).hasSize(1);
+        assertThat(subjects.getFirst().oldest()).isEqualTo(Instant.parse("2026-11-02T13:00:00Z").minus(Duration.ofDays(30)));
     }
 
     @Test
@@ -223,7 +264,8 @@ class NewsCollectorTest {
     }
 
     private NewsCollector collector(NewsProperties.Source... sources) {
-        return new NewsCollector(properties(sources), postings(), fetcher(), fetcher(), articles, DataMode.MLB, clock);
+        return new NewsCollector(properties(sources), postings(), roster, players, fetcher(), fetcher(), articles,
+                DataMode.MLB, clock);
     }
 
     private PoliteFetcher fetcher() {
