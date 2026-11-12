@@ -20,8 +20,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Claude API(공식 Java SDK)로 야구 기사(한국어·영어)를 한국어로 요약한다. 길이는 기사에 담긴 사실의 양을 따른다
- * (짧은 기사 2~3문장, 사실이 많은 기사 4~7문장).
+ * Claude API(공식 Java SDK)로 야구 기사(한국어·영어)를 한국어로 요약한다. 길이는 본문 분량을 따른다: 본문 길이로 최대 문장 수
+ * (3~7, maxSentences)를 정해 요청에 넣고, 모델은 그 안에서 기사가 전하는 사실만큼만 쓴다. 모델에게 분량 판단만 맡기면
+ * 기사 길이와 상관없이 5~9문장을 써서(운영 기사 30건 시험, 이슈 #103) 짧은 기사까지 부풀렸다.
  * 모델은 korleaguer.news.summary-model(기본 claude-haiku-5-5: 요약처럼 단순한 일에 가장 싸고 빠르다).
  * 깊이 생각할 일이 아니라 effort는 low에 생각(thinking)은 끄고, 답 길이는 1500토큰까지. 기사 한 건에 약 0.001달러 안쪽.
  * 키가 거절되면(401·403) 서버를 다시 띄울 때까지 요약을 끈다(키를 고치면 어차피 다시 띄운다).
@@ -31,9 +32,12 @@ public class ClaudeSummarizer implements Summarizer {
     /**
      * 요약 지시문(SYSTEM)의 판. 지시문을 바꾸면 올린다. 요약에 모델 이름과 함께 적고(summary_model),
      * 옛 판으로 만든 요약은 차례로 다시 요약한다(NewsEnricher). v1: 2~3문장 130자 안팎(11-11),
-     * v2: 분량에 맞춰 2~7문장(11-12, 이슈 #103 "쓸 내용이 많은데 지나치게 줄이지 말라")
+     * v2: 본문 분량에 맞춘 최대 3~7문장, 숫자·계약 금액 규칙(11-12, 이슈 #103 "쓸 내용이 많은데 지나치게 줄이지 말라").
+     * 지시문을 바꾸면 ClaudeSummarizerTest의 지시문 지문도 새 값으로 고친다(판을 올리는 것을 잊지 않게)
      */
     static final String PROMPT_VERSION = "v2";
+    /** summary_model 칸 길이(V12 마이그레이션 varchar(50)) */
+    static final int MAX_VERSION = 50;
     static final int MAX_SUMMARY = 1200;
     static final int MAX_TITLE = 100;
     // '제목: …'. 모델이 마크다운으로 꾸며도(**제목:** …, # 제목: …) 알아본다
@@ -44,23 +48,32 @@ public class ClaudeSummarizer implements Summarizer {
     static final String SYSTEM = """
             너는 한국 야구 팬 사이트에서 야구 기사(한국어나 영어)를 한국어로 요약한다.
             규칙:
-            - 기사에 쓰인 사실만 쓴다. 추측·평가·전망을 덧붙이지 않는다(기사가 전한 전망은 '~라고 전했다'처럼 출처를 살린다).
-            - 가장 중요한 사실부터 쓴다.
-            - 분량은 기사에 담긴 사실의 양을 따른다. 전할 사실이 적은 짧은 기사는 2~3문장이면 된다.
-              기록·계약 조건·구단이나 매체의 평가·선수나 감독의 말처럼 전할 사실이 많은 기사는 줄이지 말고,
-              중요한 사실을 빠뜨리지 않게 4~7문장으로 쓴다.
-            - 문장 수를 채우려고 같은 말을 되풀이하거나 기사에 없는 말을 보태지 않는다.
+            - 기사에 쓰인 사실만 쓴다. 너의 추측·평가·전망은 덧붙이지 않는다. 기사 속 평가·전망은 누가 했는지 밝혀 쓴다('~라고 평가했다', '~라고 전했다').
+            - 가장 중요한 사실부터, 한 문장에 사실 하나씩 쓴다.
+            - 문장 수는 '요약 분량'에 적힌 수를 넘기지 않는다. 그 안에서 기사가 전하는 서로 다른 사실만큼만 쓰고, 쓸 사실이 떨어지면 거기서 멈춘다.
+            - 같은 사실을 다른 말로 다시 쓰거나 기사에 없는 말을 보태지 않는다.
+            - 숫자는 원문의 값을 그대로 옮긴다. 두 숫자를 섞거나 계산해 새 숫자를 만들지 않는다.
+            - 계약 금액은 기사가 쓴 대로 총액·연봉·연평균을 구분한다('11년 307억 원'은 총액이다).
             - 한 문장은 80자 안쪽으로 짧게 끊는다.
             - 한 줄에 한 문장, 줄바꿈으로 나눈다. 머리 기호·인사말은 쓰지 않는다.
             - 존댓말 말고 기사체(~했다, ~이다)로 쓴다.
             - 한국 선수 이름은 한글로 쓴다(예: Si Hwan Roh → 노시환, Ha-Seong Kim → 김하성, Jung Hoo Lee → 이정후).
             - 구단 이름은 한국에서 흔히 쓰는 표기로 쓴다(예: New York Mets → 뉴욕 메츠, Hanwha Eagles → 한화 이글스).
-            - 금액은 원문 단위를 살려 한국어로 쓴다(예: $23MM → 2,300만 달러).
+            - 금액은 원문 단위를 살려 한국어로 쓴다(예: $23MM → 2,300만 달러, 30.7 billion won → 307억 원).
             - 기자 이름·광고·댓글·다른 기사 소개는 넣지 않는다.
             출력 형식(이 형식만 쓴다):
             제목: <기사 제목을 한국어 기사 제목처럼 옮긴 것(한국어 기사면 원래 제목을 그대로), 35자 이내>
-            <요약 2~7문장, 한 줄에 한 문장>
+            <요약, 한 줄에 한 문장>
             """;
+
+    /** 본문 이 글자 수마다 요약 1문장(한국어 기준) */
+    static final int BODY_CHARS_PER_SENTENCE = 300;
+    static final int MIN_SENTENCES = 3;
+    static final int MAX_SENTENCES = 7;
+    /** 영어 본문은 같은 내용도 한국어보다 길어 이만큼 나눠 센다 */
+    static final double ENGLISH_LENGTH_FACTOR = 2.5;
+    private static final Pattern HANGUL = Pattern.compile("[가-힣]");
+    private static final Pattern LETTER = Pattern.compile("[가-힣A-Za-z]");
 
     private static final Logger log = LoggerFactory.getLogger(ClaudeSummarizer.class);
 
@@ -71,6 +84,11 @@ public class ClaudeSummarizer implements Summarizer {
     public ClaudeSummarizer(AnthropicClient client, String model) {
         this.client = client;
         this.model = model;
+        // 판 이름이 DB 칸(summary_model)에 들어가지 않으면 저장할 때마다 실패하고 같은 기사를 계속 다시 요약한다. 뜰 때 막는다
+        if (version().length() > MAX_VERSION) {
+            throw new IllegalArgumentException("korleaguer.news.summary-model is too long to record (" + version()
+                    + ", up to " + MAX_VERSION + " characters with /" + PROMPT_VERSION + ")");
+        }
     }
 
     @Override
@@ -86,7 +104,8 @@ public class ClaudeSummarizer implements Summarizer {
                 .thinking(ThinkingConfigDisabled.builder().build())
                 .system(SYSTEM)
                 .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
-                .addUserMessage("이 기사가 다루는 한국 선수: " + player + "\n제목: " + title + "\n\n본문:\n" + body)
+                .addUserMessage("이 기사가 다루는 한국 선수: " + player + "\n제목: " + title + "\n요약 분량: "
+                        + maxSentences(body) + "문장 이내\n\n본문:\n" + body)
                 .build();
         Message message;
         try {
@@ -143,6 +162,19 @@ public class ClaudeSummarizer implements Summarizer {
 
     private static String cap(String text, int max) {
         return text.length() > max ? text.substring(0, max - 1) + "…" : text;
+    }
+
+    /**
+     * 요약 최대 문장 수: 본문 300자마다 1문장, 3~7문장. 영어 본문(글자 가운데 한글이 30% 미만)은 같은 내용도 한국어보다 길어
+     * 2.5로 나눠 센다. 운영 기사 30건(본문 467~3,842자)으로 시험해 짧은 기사는 지금처럼 3문장 안팎, 긴 기사는 6~7문장이 됐다
+     * (본문 길이와 요약 길이의 순위 상관 0.04 → 0.88).
+     */
+    static int maxSentences(String body) {
+        long hangul = HANGUL.matcher(body).results().count();
+        long letters = Math.max(1, LETTER.matcher(body).results().count());
+        double size = hangul * 10 >= letters * 3 ? body.length() : body.length() / ENGLISH_LENGTH_FACTOR;
+        int sentences = (int) Math.ceil(size / BODY_CHARS_PER_SENTENCE);
+        return Math.clamp(sentences, MIN_SENTENCES, MAX_SENTENCES);
     }
 
     @Override

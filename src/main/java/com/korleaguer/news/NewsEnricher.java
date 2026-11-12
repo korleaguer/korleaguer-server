@@ -276,12 +276,15 @@ public class NewsEnricher {
                 return Outcome.FAILED;
             }
             // 국내 기사는 언론사 제목을 그대로 둔다(AI 제목은 영어 기사에만). 사진은 pageRead가 채웠다
-            String titleKo = HANGUL.matcher(article.getTitle()).find() ? null : summary.get().titleKo();
+            // 다시 요약한 답에 제목 줄이 없으면 있던 한국어 제목을 지킨다(영어 기사)
+            String titleKo = HANGUL.matcher(article.getTitle()).find() ? null
+                    : Optional.ofNullable(summary.get().titleKo()).orElse(article.getTitleKo());
             String replaced = article.getSummary() == null ? "" : " (replaced " + article.getSummaryModel() + ")";
-            article.enriched(null, titleKo, summary.get().text(), summarizer.version(), now);
-            // 요약 길이가 본문 분량을 따르는지 보려고 둘 다 남긴다(지시문 v2, 이슈 #103)
-            log.info("news: summarized {}: body {} chars -> summary {} chars{}", article.getUrl(), page.text().length(),
-                    summary.get().text().length(), replaced);
+            String text = summary.get().text();
+            article.enriched(null, titleKo, text, summarizer.version(), now);
+            // 요약 길이가 본문 분량을 따르는지 보려고 둘 다 남긴다(지시문 v2, 이슈 #103). 본문은 8000자에서 잘린다
+            log.info("news: summarized {}: body {} chars -> summary {} chars in {} lines{}", article.getUrl(),
+                    page.text().length(), text.length(), text.lines().count(), replaced);
             return Outcome.DONE;
         } catch (Summarizer.Failure e) {
             log.warn("news: summary service failed for {}: {}", article.getUrl(), e.getMessage());
