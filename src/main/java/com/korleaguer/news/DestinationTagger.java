@@ -18,26 +18,38 @@ public interface DestinationTagger {
         }
 
         @Override
-        public Optional<Tagging> tag(String player, String title, String text) {
+        public Optional<Tagging> tag(String player, Kind kind, String title, String text) {
             return Optional.empty();
         }
 
         @Override
-        public String version() {
+        public String version(Kind kind) {
             return null;
         }
     };
+
+    /**
+     * 기사가 다루는 선수의 처지. 처지마다 '주인공' 기준이 달라 지시문을 따로 둔다(이슈 #139): 포스팅 선수는 MLB 진출
+     * 이야기가, MLB 선수(명단 선수, FA 포함)는 그 선수의 계약·자리·출전 기회 이야기가 주인공이다
+     */
+    enum Kind {
+        /** 이번 겨울 포스팅 선수(아직 KBO 소속) */
+        POSTING,
+        /** MLB 구단 소속이거나 FA인 명단 선수 */
+        MLB
+    }
 
     boolean enabled();
 
     /**
      * @param player 기사가 다루는 선수의 한글 이름
+     * @param kind   그 선수의 처지(지시문을 고른다)
      * @param title  기사 제목(영어 기사면 한국어 제목과 원래 제목)
      * @param text   기사 요약(없으면 기사 앞부분). 비어 있을 수 있다
      * @return 거론된 구단(한 구단 한 번, 없으면 빈 목록)과 이 선수가 주인공인 기사인지. 답을 읽을 수 없거나 거절이면 empty
      * @throws Summarizer.Failure AI 서비스가 답하지 못했을 때(기사 탓이 아니다. 다음 차례에 다시)
      */
-    Optional<Tagging> tag(String player, String title, String text);
+    Optional<Tagging> tag(String player, Kind kind, String title, String text);
 
     /**
      * 기사 한 건을 본 결과.
@@ -48,8 +60,8 @@ public interface DestinationTagger {
     record Tagging(List<Destination> destinations, Boolean aboutPlayer) {
     }
 
-    /** 고른 모델과 지시문 판(기사마다 적는다. 바뀌면 다시 고른다) */
-    String version();
+    /** 그 처지의 기사를 고른 모델과 지시문 판(기사마다 적는다. 바뀌면 다시 고른다) */
+    String version(Kind kind);
 
     /** 거론된 구단 하나(MLB 대표 약어)와 방향 */
     record Destination(String team, NewsDestination.Stance stance) {
