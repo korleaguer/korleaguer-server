@@ -18,16 +18,18 @@ import java.util.List;
  * @param stories     자랑거리(연속 안타·최고 경기, 두 개까지). 출전이 적었던·아쉬운 시즌은 늘 비어 있다
  * @param winterMoves 정규시즌이 끝나고 3일 뒤부터의 이동 기록(FA 선언 등), 최신순 세 개까지
  * @param news        정규시즌이 끝난 뒤 나온 이 선수 관련 기사(늦은 순, 같은 기사는 한 줄, 최대 12건, 이슈 #119로 모은 것).
- *                    화면은 '이번 겨울' 칸에 앞 두 건과 'n건 더 보기'를 보인다
+ *                    화면은 '이번 겨울' 칸에 앞 두 건과 'n건 더 보기'를 보인다. 같은 언론사가 연달아 오지 않게 섞었다
+ * @param linkedTeams FA 선수의 행선지로 거론된 구단(최근 7일, 포스팅 카드와 같은 규칙, 직전 구단은 세지 않는다, 이슈 #140).
+ *                    FA가 아니거나 거론된 구단이 없으면 null
  */
 public record SeasonReport(long playerId, SeasonTier tier, String label, String headline, String reason, Level level,
                            Double war, List<String> stories, List<WinterMove> winterMoves,
-                           List<PostingSummary.Headline> news) {
+                           List<PostingSummary.Headline> news, PostingSummary.LinkedTeams linkedTeams) {
 
-    /** 기사를 붙인 성적표(기사는 DB를 읽는 SeasonReportFinder가 붙인다) */
-    SeasonReport withNews(List<PostingSummary.Headline> headlines) {
+    /** 기사와 거론 구단을 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
+    SeasonReport withNews(List<PostingSummary.Headline> headlines, PostingSummary.LinkedTeams linked) {
         return new SeasonReport(playerId, tier, label, headline, reason, level, war, stories, winterMoves,
-                List.copyOf(headlines));
+                List.copyOf(headlines), linked);
     }
 
     /** 겨울 이동 한 줄. label은 이동 기록 이름(support.MoveLabels) */

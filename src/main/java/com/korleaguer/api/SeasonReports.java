@@ -122,7 +122,7 @@ final class SeasonReports {
                 : List.of();
         Double war = mlb.war() == null ? null : Math.round(mlb.war() * 10) / 10.0;
         SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline, reason,
-                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, stories, winterMoves(in), List.of());
+                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, stories, winterMoves(in), List.of(), null);
         return new Built(report, majors.size());
     }
 
