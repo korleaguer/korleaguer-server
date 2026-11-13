@@ -44,6 +44,19 @@ class SeasonReportFinderNewsTest {
     }
 
     @Test
+    void playerPageNewsUsesTheSameRulesWithoutTheWinterCutAndAtMostLimit() {
+        when(news.findLatest(eq("김하성"), any())).thenReturn(List.of(
+                article("https://a.example/3", "김하성 FA 선언", "마이데일리", "2026-11-12T00:00:00Z"),
+                article("https://a.example/2", "김하성 필라델피아행?", "마이데일리", "2026-11-11T00:00:00Z"),
+                article("https://c.example/1", "김하성 FA 소식", "뺀 언론사", "2026-11-10T00:00:00Z"),
+                article("https://a.example/1", "김하성 시즌 마지막 경기", "마이데일리", "2026-09-27T20:00:00Z")));
+
+        assertThat(finder.news("김하성", Instant.EPOCH, 10)).extracting(PostingSummary.Headline::url)
+                .containsExactly("https://a.example/3", "https://a.example/2", "https://a.example/1");
+        assertThat(finder.news("김하성", Instant.EPOCH, 2)).hasSize(2);
+    }
+
+    @Test
     void noNameMeansNoArticles() {
         assertThat(finder.winterNews(null, Instant.EPOCH)).isEmpty();
     }

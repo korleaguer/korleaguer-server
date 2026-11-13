@@ -12,9 +12,12 @@ import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeason;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerCareerSeasonRepository;
+import com.korleaguer.domain.PlayerLeaguePositionRepository;
 import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.BatsThrows;
@@ -52,6 +55,8 @@ import java.util.stream.Collectors;
 public class BaseballQueryService {
 
     private static final List<String> REGULAR_SEASON = List.of("regular");
+    /** 선수 화면에 붙이는 그 선수 기사 수 */
+    static final int PLAYER_NEWS = 10;
 
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
@@ -60,6 +65,8 @@ public class BaseballQueryService {
     private final PlayerMoveRepository moves;
     private final MinorSeasonRepository minorSeasons;
     private final MinorGameLogRepository minorGameLogs;
+    private final PlayerLeaguePositionRepository leaguePositions;
+    private final PlayerCareerSeasonRepository careerSeasons;
     private final GameLineAssembler gameLines;
     private final RecentGamesFinder recentGames;
     private final OffSeasonFinder offSeasons;
@@ -73,7 +80,8 @@ public class BaseballQueryService {
     public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
                                 AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
                                 MinorSeasonRepository minorSeasons, MinorGameLogRepository minorGameLogs,
-                                GameLineAssembler gameLines,
+                                PlayerLeaguePositionRepository leaguePositions,
+                                PlayerCareerSeasonRepository careerSeasons, GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, OffSeasonFinder offSeasons, PostingFinder postings,
                                 SeasonReportFinder seasonReports, RosterProfiles profiles,
                                 DataMode dataMode, CurrentSeason currentSeason, Clock clock) {
@@ -84,6 +92,8 @@ public class BaseballQueryService {
         this.moves = moves;
         this.minorSeasons = minorSeasons;
         this.minorGameLogs = minorGameLogs;
+        this.leaguePositions = leaguePositions;
+        this.careerSeasons = careerSeasons;
         this.gameLines = gameLines;
         this.recentGames = recentGames;
         this.offSeasons = offSeasons;
@@ -233,8 +243,15 @@ public class BaseballQueryService {
                 BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
                 player.getLevel(), player.getLevelTeamName(), player.isFreeAgent(), profiles.returnedKo(player),
                 profiles.careerPhotos(player));
+        // MLB 안 위치·시즌별 기록(LeaguePositionRefresher가 하루 한 번 받아 둔 것)과 이 선수 기사(이슈 #133)
+        PlayerSeasonMetric.Group group = PlayerSeasonMetric.Group.of(player.role());
+        PlayerSaber saber = PlayerSaber.of(leaguePositions.find(player.getId(), season, group).orElse(null));
+        List<CareerSeason> careers = careerSeasons.findNewestFirst(player.getId(), group).stream()
+                .map(CareerSeason::of)
+                .toList();
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
-                fanMoves(moves.findNewestFirst(player.getId())));
+                fanMoves(moves.findNewestFirst(player.getId())), saber, careers,
+                seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS));
     }
 
     /**

@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
  *   <li>Hibernate는 값이 바뀐 엔티티만 UPDATE를 보낸다. 같은 일정·기록을 다시 받아도 내용이 같으면 세지 않는다.</li>
  *   <li>우리 코드는 DB에 Hibernate로만 쓴다(JdbcTemplate 없음). 일괄 삭제(@Modifying JPQL)도 여기를 지난다.</li>
  *   <li>응답에 나오지 않는 표는 세지 않는다: 수집 기록(ingest_log), 사진(photo, 응답의 사진 주소는 저장 여부와 무관), Flyway 기록.</li>
- *   <li>홈에만 나오는 표(기사 제목 news_article, 행선지로 거론된 구단 news_destination)는 따로 센다(homeVersion).
- *       바뀌면 홈 캐시만 비운다.</li>
+ *   <li>기사 표(기사 news_article, 행선지로 거론된 구단 news_destination)는 따로 센다(homeVersion).
+ *       바뀌면 기사가 나오는 홈·선수 페이지 캐시만 비운다(ResponseCaches.NEWS).</li>
  * </ul>
  * Hibernate가 직접 만들므로(빈이 아니다) 값은 정적 필드에 둔다.
  */
@@ -27,9 +27,9 @@ public class DataChanges implements StatementInspector {
     private static final Pattern WRITE = Pattern.compile(
             "^\\s*(?:insert\\s+into|update|delete\\s+from|merge\\s+into)\\s+[`\"]?(\\w+)", Pattern.CASE_INSENSITIVE);
     private static final Set<String> IGNORED_TABLES = Set.of("ingest_log", "photo", "flyway_schema_history", "news_blocked_host");
-    private static final Set<String> HOME_ONLY_TABLES = Set.of("news_article", "news_destination");
+    private static final Set<String> NEWS_TABLES = Set.of("news_article", "news_destination");
 
-    /** 쓴 SQL이 어느 응답을 바꿀 수 있나 */
+    /** 쓴 SQL이 어느 응답을 바꿀 수 있나. HOME은 기사 표(홈과 선수 페이지)다 */
     enum Scope { NONE, HOME, ALL }
 
     /** 홈·선수·내 선수 응답 모두에 나오는 데이터를 쓴 횟수. 두 번 읽은 값이 다르면 그 사이 바뀌었을 수 있다 */
@@ -37,7 +37,7 @@ public class DataChanges implements StatementInspector {
         return VERSION.get();
     }
 
-    /** 홈에만 나오는 데이터(기사 제목)를 쓴 횟수 */
+    /** 기사 표(홈과 선수 페이지에만 나온다)를 쓴 횟수 */
     public static long homeVersion() {
         return HOME_VERSION.get();
     }
@@ -62,6 +62,6 @@ public class DataChanges implements StatementInspector {
         if (IGNORED_TABLES.contains(table)) {
             return Scope.NONE;
         }
-        return HOME_ONLY_TABLES.contains(table) ? Scope.HOME : Scope.ALL;
+        return NEWS_TABLES.contains(table) ? Scope.HOME : Scope.ALL;
     }
 }

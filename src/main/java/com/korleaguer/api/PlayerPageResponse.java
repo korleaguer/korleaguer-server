@@ -9,6 +9,12 @@ import java.util.List;
 /**
  * GET /api/players/{id}. 타자면 pitching이, 투수면 hitting이 null이다.
  * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록).
+ * 이슈 #133에서 더한 칸(옛 화면은 무시해도 된다):
+ * <ul>
+ *   <li>saber: 지금 시즌 MLB 안 위치(PlayerSaber, 타자·투수 모양이 다르다). 아직 받지 않았거나 그 시즌 MLB 기록이 없으면 null</li>
+ *   <li>seasons: MLB 시즌별 기록(CareerSeason, 최신 시즌부터). 아직 받지 않았으면 빈 목록</li>
+ *   <li>news: 이 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 비시즌 성적표의 기사와 같은 모양·규칙이다. 없으면 빈 목록</li>
+ * </ul>
  */
 public record PlayerPageResponse(
         String dataMode,
@@ -18,7 +24,10 @@ public record PlayerPageResponse(
         HitterSeason hitting,
         PitcherSeason pitching,
         List<GameLine> games,
-        List<Move> moves) {
+        List<Move> moves,
+        PlayerSaber saber,
+        List<CareerSeason> seasons,
+        List<PostingSummary.Headline> news) {
 
     /**
      * photoUrl·mlbUrl·careerKo는 명단(baseball.yml) 값이라 MLB에서 받기 전에도 나올 수 있다.

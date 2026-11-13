@@ -166,18 +166,18 @@ class CacheWarmerTest {
     }
 
     @Test
-    void newHeadlineClearsOnlyHome() {
+    void newHeadlineClearsOnlyHomeAndPlayerPages() {
         MyPlayersResponse my = myPlayers.find("1,2", 7);
         PlayerPageResponse player = queryService.player(1L);
         HomeResponse home = queryService.home();
 
-        // 기사 제목(news_article)은 홈에만 나온다. 실제 행은 바꾸지 않는다.
+        // 기사(news_article)는 홈과 선수 페이지(그 선수 기사, 이슈 #133)에만 나온다. 실제 행은 바꾸지 않는다.
         transactions.executeWithoutResult(status ->
                 entityManager.createNativeQuery("update news_article set title = title where 1 = 0").executeUpdate());
         events.publishEvent(new CatchUpFinished());
 
         assertThat(queryService.home()).isNotSameAs(home);
-        assertThat(queryService.player(1L)).isSameAs(player);
+        assertThat(queryService.player(1L)).isNotSameAs(player);
         assertThat(myPlayers.find("1,2", 7)).isSameAs(my);
     }
 
