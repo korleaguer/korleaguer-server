@@ -8,11 +8,17 @@ import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Role;
+import com.korleaguer.support.BaseballMath;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -82,7 +88,8 @@ class SeasonReportsTest {
 
         assertThat(report.tier()).isEqualTo(SeasonTier.MINORS);
         assertThat(report.label()).isEqualTo("트리플A에서 보낸 시즌");
-        assertThat(report.headline()).isEqualTo("트리플A 도루 36개, 타율 .261");
+        // 숫자 칸(트리플A 타율·경기·안타·홈런)에 없는 도루만 숫자로 쓴다
+        assertThat(report.headline()).isEqualTo("트리플A에서 도루 36개");
         assertThat(report.reason()).isEqualTo("5월 밀워키에서 메이저 2경기 · 8월 말 부상으로 일찍 시즌 마감");
         assertThat(report.level()).isEqualTo(Level.MINORS);
     }
@@ -103,7 +110,8 @@ class SeasonReportsTest {
                 new Line(2025, 170, 0, 90.0, 0.4)));
 
         assertThat(report.tier()).isEqualTo(SeasonTier.MINORS);
-        assertThat(report.headline()).isEqualTo("메이저 43경기, 나머지는 트리플A");
+        // '메이저 43경기'는 숫자 칸 아래 줄에 있다
+        assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
         assertThat(report.reason()).isEqualTo("5월 말 트리플A로 · 9월 말 다시 메이저");
         assertThat(report.winterMoves()).isEmpty();
     }
@@ -164,8 +172,9 @@ class SeasonReportsTest {
 
         assertThat(report.tier()).isEqualTo(SeasonTier.POOR);
         assertThat(report.label()).isEqualTo("아쉬운 시즌");
-        assertThat(report.headline()).isEqualTo("메이저 첫해 78경기, 타율 .191");
-        assertThat(report.reason()).isEqualTo("개막 직전 옆구리 부상 · 트리플A 오가며 적응");
+        // 78경기·타율 .191은 숫자 칸에 있다. 트리플A를 오간 이야기를 제목으로 올리고 이유 줄에서는 뺀다
+        assertThat(report.headline()).isEqualTo("메이저 첫 시즌, 트리플A 오가며 적응");
+        assertThat(report.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
         assertThat(report.stories()).isEmpty();
     }
 
@@ -187,7 +196,7 @@ class SeasonReportsTest {
                 new Line(2023, 626, 0, 110.0, 4.4), new Line(2024, 470, 0, 101.0, 2.6)));
 
         assertThat(report.tier()).isEqualTo(SeasonTier.POOR);
-        assertThat(report.headline()).isEqualTo("손가락 부상으로 두 번 빠지며 51경기");
+        assertThat(report.headline()).isEqualTo("손가락 부상으로 두 번 빠진 시즌");
         assertThat(report.reason()).isEqualTo("3월 손가락 부상 · 7월 같은 곳 다시 이탈");
         assertThat(report.war()).isEqualTo(-1.2);
         assertThat(report.stories()).isEmpty();
@@ -203,7 +212,8 @@ class SeasonReportsTest {
 
         assertThat(report.tier()).isEqualTo(SeasonTier.SOLID);
         assertThat(report.war()).isNull();
-        assertThat(report.headline()).isEqualTo("150경기 완주, 타율 .250");
+        // WAR를 모르면 숫자 칸에 경기·타율이 있어 말로만 쓴다
+        assertThat(report.headline()).isEqualTo("시즌 완주");
     }
 
     @Test
@@ -252,7 +262,8 @@ class SeasonReportsTest {
                 new Line(2026, 130, 25, 85.0, 2.8), List.of(), games, List.of(), List.of()));
 
         assertThat(report.tier()).isEqualTo(SeasonTier.GOOD);
-        assertThat(report.headline()).isEqualTo("선발 25경기 130이닝, 평균보다 좋은 투구");
+        // 숫자 칸의 등판·이닝 대신 승(이 재료는 7경기 중 1승)
+        assertThat(report.headline()).isEqualTo("선발 1승, 평균보다 좋은 투구");
         assertThat(report.stories()).containsExactly("시즌 최장 6번 연속 무실점 등판",
                 "최고 경기 4월 24일 시애틀전 7이닝 무실점 9탈삼진 · 승");
 
@@ -333,6 +344,77 @@ class SeasonReportsTest {
         SeasonReport report = build(hitter(1, new Line(2026, 160, 0, 95.0, 0.3), games, List.of(), moves, false));
 
         assertThat(report.reason()).isEqualTo("개막 직전 팔꿈치 부상 · 6월 같은 곳 다시 이탈");
+    }
+
+    @Test
+    void headlineNeverRepeatsTheNumbersBoxBelowIt() {
+        // 판정·역할마다 한 줄 요약을 만들고, 웹 숫자 칸(홈 SeasonReportCard의 Numbers)과 그 아래 다른 단계 줄의
+        // 숫자가 제목에 다시 나오지 않는지 본다(문구 점검 11-13, 이슈 #147)
+        List<GameDay> season = IntStream.range(0, 120)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 4, i % 10 == 0 ? 3 : 1, i % 40 == 0 ? 2 : 0, 1, 0))
+                .toList();
+        List<GameDay> short40 = season.subList(0, 40);
+        List<GameDay> tripleA = IntStream.range(0, 80)
+                .mapToObj(i -> minorHitting(LocalDate.of(2026, 5, 1).plusDays(i), "AAA", 4, i % 3 == 0 ? 2 : 1, 0, 1))
+                .toList();
+        List<GameDay> relief = IntStream.range(0, 60)
+                .mapToObj(i -> relief(OPENING.plusDays(1 + i * 3L), null, 3, i % 9 == 0 ? 1 : 0, i % 2 == 0))
+                .toList();
+        List<GameDay> minorRelief = IntStream.range(0, 40)
+                .mapToObj(i -> relief(LocalDate.of(2026, 4, 5).plusDays(i * 4L), "AAA", 3, i % 5 == 0 ? 1 : 0, i < 12))
+                .toList();
+        List<Move> oneInjury = List.of(move("2026-05-01", "SC", "A placed B on the 10-day injured list. "
+                + "Left hamstring strain."));
+        List<Move> optioned = List.of(move("2026-06-01", "OPT", "A optioned B to C."),
+                move("2026-07-01", "CU", "A recalled B from C."));
+
+        List<Input> inputs = List.of(
+                // 짧았지만 좋았던 시즌(숫자 칸에 경기가 있다)
+                hitter(1, new Line(2026, 160, 0, 135.0, 1.4), short40, List.of(), List.of(), false),
+                // 출전이 적었던 시즌, 부상 한 번
+                hitter(2, new Line(2026, 60, 0, 70.0, -0.2), season.subList(0, 15), List.of(), oneInjury, false),
+                // 아쉬운 시즌, 트리플A 강등
+                hitter(3, new Line(2026, 400, 0, 60.0, -1.0), season.subList(0, 100), List.of(), optioned, false),
+                // 아쉬운 시즌, 이유 없음
+                hitter(4, new Line(2026, 450, 0, 60.0, -1.0), season, List.of(), List.of(), false),
+                // 트리플A에서 보낸 시즌, 도루 적음 → OPS
+                hitter(5, new Line(2026, 8, 0, 90.0, 0.0), season.subList(0, 2), tripleA, List.of(), false),
+                // 마무리 투수
+                new Input(6, Role.PITCHER, 2026, OPENING, LAST_DAY, false, new Line(2026, 60, 0, 60.0, 2.0), List.of(),
+                        relief, List.of(), List.of()),
+                // 트리플A 한 단계에서 던진 구원 투수
+                new Input(7, Role.PITCHER, 2026, OPENING, LAST_DAY, false, new Line(2026, 2, 0, 150.0, -0.1), List.of(),
+                        List.of(), minorRelief, List.of()));
+
+        List<String> headlines = new ArrayList<>();
+        for (Input input : inputs) {
+            SeasonReport report = build(input);
+            assertHeadlineSkipsBoxNumbers(input, report);
+            headlines.add(report.tier() + " " + report.headline());
+        }
+        assertThat(headlines).containsExactly(
+                "SHORT_GOOD 뛴 경기에선 리그 상위급 타격",
+                "SHORT 햄스트링 부상으로 한 번 빠진 시즌",
+                "POOR 메이저와 트리플A를 오간 시즌",
+                "POOR 샌프란시스코에서 보낸 시즌",
+                "MINORS 트리플A OPS .802",
+                "GOOD 세이브 30개, 리그 상위급 투구",
+                "MINORS 트리플A 세이브 12개");
+    }
+
+    @Test
+    void reasonDropsWhatTheHeadlineAlreadySays() {
+        // '메이저와 트리플A를 오간 시즌'이면 이유 줄은 언제 오갔는지만 남긴다(같은 말 두 번 금지)
+        List<GameDay> games = IntStream.range(0, 100)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 4, 1, 0, 0, 0)).toList();
+        List<Move> twice = List.of(move("2026-05-10", "OPT", "A optioned B to C."),
+                move("2026-06-02", "CU", "A recalled B from C."),
+                move("2026-07-15", "OPT", "A optioned B to C."),
+                move("2026-08-20", "CU", "A recalled B from C."));
+        SeasonReport report = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), games, List.of(), twice, false));
+
+        assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
+        assertThat(report.reason()).isNull();
     }
 
     @Test
@@ -450,6 +532,52 @@ class SeasonReportsTest {
 
     private static Pitching pitchingLine(int outs, int runs, int earnedRuns, int strikeouts, boolean win) {
         return new Pitching(outs, 0, runs, earnedRuns, 0, strikeouts, 0, 80, win ? 1 : 0, 0, 0);
+    }
+
+    /** 숫자 칸(웹 SeasonReportCard Numbers)과 그 아래 다른 단계 한 줄에 나오는 숫자가 제목에 없는지 */
+    private static void assertHeadlineSkipsBoxNumbers(Input in, SeasonReport report) {
+        boolean pitcher = in.role() == Role.PITCHER;
+        boolean minorsMain = report.level() == Level.MINORS;
+        boolean showWar = (report.tier() == SeasonTier.GOOD || report.tier() == SeasonTier.SOLID)
+                && report.war() != null && !minorsMain;
+        Set<String> box = new HashSet<>(boxNumbers(minorsMain ? in.minors() : in.majors(), pitcher, pitcher || !showWar));
+        if (showWar) {
+            box.add(String.format(Locale.ROOT, "%.1f", report.war()));
+        }
+        List<GameDay> other = minorsMain ? in.majors() : in.minors();
+        if (!other.isEmpty()) {
+            box.addAll(boxNumbers(other, pitcher, true));
+        }
+        List<String> numbers = Pattern.compile("\\d*\\.?\\d+[⅓⅔]?").matcher(report.headline()).results()
+                .map(MatchResult::group).toList();
+        assertThat(numbers).as("%s / 숫자 칸 %s", report.headline(), box).doesNotContainAnyElementsOf(box);
+    }
+
+    private static List<String> boxNumbers(List<GameDay> games, boolean pitcher, boolean withGames) {
+        List<String> numbers = new ArrayList<>();
+        if (withGames) {
+            numbers.add(String.valueOf(games.size()));
+        }
+        if (pitcher) {
+            int outs = games.stream().mapToInt(g -> g.pitching().pitchingOuts()).sum();
+            int earned = games.stream().mapToInt(g -> g.pitching().earnedRuns()).sum();
+            numbers.add(String.format(Locale.ROOT, "%.2f", BaseballMath.era(earned, outs)));
+            numbers.add(BaseballMath.inningsText(outs));
+            numbers.add(String.valueOf(games.stream().mapToInt(g -> g.pitching().pitcherStrikeouts()).sum()));
+        } else {
+            int hits = games.stream().mapToInt(g -> g.batting().hits()).sum();
+            int atBats = games.stream().mapToInt(g -> g.batting().atBats()).sum();
+            numbers.add(SeasonReports.avgText(BaseballMath.avg(hits, atBats)));
+            numbers.add(String.valueOf(hits));
+            numbers.add(String.valueOf(games.stream().mapToInt(g -> g.batting().homeRuns()).sum()));
+        }
+        return numbers;
+    }
+
+    /** 구원 등판 한 번(삼진 1개, 세이브면 saves 1) */
+    private static GameDay relief(LocalDate date, String level, int outs, int earnedRuns, boolean save) {
+        return new GameDay(date, level, "토론토", "보스턴", null,
+                new Pitching(outs, 0, earnedRuns, earnedRuns, 0, 1, 0, 15, 0, 0, save ? 1 : 0), false, null);
     }
 
     /** total을 n경기에 고르게 나눈다(경기마다 0 이상, 합이 total) */
