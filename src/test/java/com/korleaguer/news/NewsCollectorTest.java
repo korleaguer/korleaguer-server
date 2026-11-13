@@ -102,7 +102,7 @@ class NewsCollectorTest {
 
     @Test
     void sameArticleIsSavedOnce() {
-        http.on(NEWS + "/rss.xml", ok(rss(item("노시환 관련 소식", NEWS + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"))));
+        http.on(NEWS + "/rss.xml", ok(rss(item("노시환 MLB 관련 소식", NEWS + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"))));
         NewsCollector collector = collector(source("뉴시스", NEWS + "/rss.xml"));
 
         assertThat(collector.collect()).isEqualTo(1);
@@ -113,7 +113,7 @@ class NewsCollectorTest {
 
     @Test
     void bigFeedWaitsForItsInterval() {
-        http.on(NEWS + "/big.xml", ok(rss(item("노시환 소식", NEWS + "/view/9", "Wed, 11 Nov 2026 09:00:00 +0900"))));
+        http.on(NEWS + "/big.xml", ok(rss(item("노시환 MLB 소식", NEWS + "/view/9", "Wed, 11 Nov 2026 09:00:00 +0900"))));
         NewsCollector collector = collector(new NewsProperties.Source("마이데일리", NEWS + "/big.xml", null, null,
                 Duration.ofHours(2), null));
 
@@ -129,8 +129,8 @@ class NewsCollectorTest {
     @Test
     void oldOrFutureDatesAreHandled() {
         http.on(NEWS + "/rss.xml", ok(rss(
-                item("노시환 지난 시즌 활약", NEWS + "/view/old", "Tue, 01 Sep 2026 09:00:00 +0900"),
-                item("노시환 시간대가 틀린 기사", NEWS + "/view/future", "Fri, 20 Nov 2026 09:00:00 +0900"))));
+                item("노시환 지난 시즌 활약, 美 평가", NEWS + "/view/old", "Tue, 01 Sep 2026 09:00:00 +0900"),
+                item("노시환 MLB 시간대가 틀린 기사", NEWS + "/view/future", "Fri, 20 Nov 2026 09:00:00 +0900"))));
 
         collector(source("뉴시스", NEWS + "/rss.xml")).collect();
 
@@ -149,7 +149,7 @@ class NewsCollectorTest {
     @Test
     void leadIsKeptOnlyWhereTheSourceAllowsIt() {
         String body = "<rss version=\"2.0\" xmlns:content=\"http://purl.org/rss/1.0/modules/content/\"><channel><title>t</title>"
-                + "<item><title>노시환 소식</title><link>%s</link><pubDate>Wed, 11 Nov 2026 09:00:00 +0900</pubDate>"
+                + "<item><title>노시환 MLB 소식</title><link>%s</link><pubDate>Wed, 11 Nov 2026 09:00:00 +0900</pubDate>"
                 + "<content:encoded><![CDATA[<p>노시환이 협상을 시작했다.</p>]]></content:encoded></item></channel></rss>";
         http.on(NEWS + "/lead.xml", ok(body.formatted(NEWS + "/view/1")))
                 .on(NEWS + "/plain.xml", ok(body.formatted(NEWS + "/view/2")));
@@ -164,13 +164,13 @@ class NewsCollectorTest {
 
     @Test
     void anArticleSavedBeforeLeadsGetsItsLeadFromTheFeed() {
-        NewsArticle old = new NewsArticle("노시환", NEWS + "/view/5", NewsUrls.sha256(NEWS + "/view/5"), "노시환 소식",
+        NewsArticle old = new NewsArticle("노시환", NEWS + "/view/5", NewsUrls.sha256(NEWS + "/view/5"), "노시환 MLB 소식",
                 "마이데일리", Instant.parse("2026-11-10T00:00:00Z"), Instant.parse("2026-11-10T00:10:00Z"));
         saved.add(old);
         when(articles.findBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
                 .filter(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1)))
                 .findFirst());
-        http.on(NEWS + "/lead.xml", ok("<rss version=\"2.0\"><channel><title>t</title><item><title>노시환 소식</title>"
+        http.on(NEWS + "/lead.xml", ok("<rss version=\"2.0\"><channel><title>t</title><item><title>노시환 MLB 소식</title>"
                 + "<link>" + NEWS + "/view/5</link><description>노시환이 협상을 시작했다.</description></item></channel></rss>"));
 
         int count = collector(new NewsProperties.Source("마이데일리", NEWS + "/lead.xml", null, null, null, "lead")).collect();
@@ -181,16 +181,16 @@ class NewsCollectorTest {
 
     @Test
     void feedPhotosAreSavedAndFilledIntoOlderArticles() {
-        NewsArticle old = new NewsArticle("노시환", NEWS + "/view/8", NewsUrls.sha256(NEWS + "/view/8"), "노시환 옛 소식",
+        NewsArticle old = new NewsArticle("노시환", NEWS + "/view/8", NewsUrls.sha256(NEWS + "/view/8"), "노시환 옛 MLB 소식",
                 "연합뉴스", Instant.parse("2026-11-10T00:00:00Z"), Instant.parse("2026-11-10T00:10:00Z"));
         saved.add(old);
         when(articles.findBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
                 .filter(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1)))
                 .findFirst());
         http.on(NEWS + "/photo.xml", ok("<rss version=\"2.0\"><channel><title>t</title>"
-                + "<item><title>노시환 새 소식</title><link>" + NEWS + "/view/9</link>"
+                + "<item><title>노시환 새 MLB 소식</title><link>" + NEWS + "/view/9</link>"
                 + "<enclosure url=\"http://img.example.kr/9.jpg\" type=\"image/jpeg\"/></item>"
-                + "<item><title>노시환 옛 소식</title><link>" + NEWS + "/view/8</link>"
+                + "<item><title>노시환 옛 MLB 소식</title><link>" + NEWS + "/view/8</link>"
                 + "<description><![CDATA[<img src=\"https://img.example.kr/8.jpg\"> 본문]]></description></item>"
                 + "</channel></rss>"));
 
@@ -205,8 +205,8 @@ class NewsCollectorTest {
     void aSiteThatBlocksAiCrawlersStillGivesLeadsButNotAiSources() {
         String site = "https://noai.example.kr";
         http.on(site + "/robots.txt", ok("User-agent: ClaudeBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n"))
-                .on(site + "/lead.xml", ok(rss(item("노시환 소식", site + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"))))
-                .on(site + "/ai.xml", ok(rss(item("노시환 다른 소식", site + "/view/2", "Wed, 11 Nov 2026 09:00:00 +0900"))));
+                .on(site + "/lead.xml", ok(rss(item("노시환 MLB 소식", site + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"))))
+                .on(site + "/ai.xml", ok(rss(item("노시환 MLB 다른 소식", site + "/view/2", "Wed, 11 Nov 2026 09:00:00 +0900"))));
         PoliteFetcher plain = new PoliteFetcher(http, List.of("korleaguer"), clock, clock::advance);
         PoliteFetcher ai = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance);
         NewsCollector collector = new NewsCollector(properties(
@@ -252,6 +252,20 @@ class NewsCollectorTest {
 
         assertThat(subjects).hasSize(1);
         assertThat(subjects.getFirst().oldest()).isEqualTo(Instant.parse("2026-11-02T13:00:00Z").minus(Duration.ofDays(30)));
+    }
+
+    @Test
+    void aPostingPlayerKboArticleIsLeftOutButARosterPlayersIsNot() {
+        roster = new RosterProperties(List.of(new RosterProperties.Entry("김하성", 673490L, null, null, null, List.of())));
+        when(players.findByMlbIdIsNotNull()).thenReturn(List.of());
+        http.on(NEWS + "/rss.xml", ok(rss(
+                item("KIA가 필요한 FA는 원태인…노시환급 초대형계약?", NEWS + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"),
+                item("노시환, 美 매체 호평", NEWS + "/view/2", "Wed, 11 Nov 2026 09:30:00 +0900"),
+                item("김하성, 퀄리파잉 오퍼 못 받았다", NEWS + "/view/3", "Wed, 11 Nov 2026 09:30:00 +0900"))));
+
+        collector(source("뉴시스", NEWS + "/rss.xml")).collect();
+
+        assertThat(saved).extracting(NewsArticle::getUrl).containsExactly(NEWS + "/view/2", NEWS + "/view/3");
     }
 
     @Test

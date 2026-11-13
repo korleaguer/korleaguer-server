@@ -70,7 +70,7 @@ class NewsPageFinderTest {
         for (int i = 0; i < 8; i++) {
             // 1번은 이 기사, 2번은 뺀 언론사(뉴시스)
             String publisher = i == 2 ? "뉴시스" : "마이데일리";
-            latest.add(article(i, "노시환", "노시환 소식 " + i, publisher, "2026-11-10T0" + (8 - i) + ":00:00Z"));
+            latest.add(article(i, "노시환", "노시환 MLB 소식 " + i, publisher, "2026-11-10T0" + (8 - i) + ":00:00Z"));
         }
         when(news.findById(1L)).thenReturn(Optional.of(latest.get(1)));
         when(news.findLatest(eq("노시환"), any())).thenReturn(latest);
@@ -78,17 +78,17 @@ class NewsPageFinderTest {
         NewsPageResponse page = finder.find(1L);
 
         assertThat(page.more()).extracting(PostingSummary.Headline::id).containsExactly(0L, 3L, 4L, 5L, 6L);
-        assertThat(page.more().getFirst().title()).isEqualTo("노시환 소식 0");
+        assertThat(page.more().getFirst().title()).isEqualTo("노시환 MLB 소식 0");
     }
 
     @Test
     void moreLeavesOutCopiesOfThisArticleAndFoldsCopiesIntoOneLine() {
         // 1번(이 기사)과 0번은 언론사만 다른 같은 글, 2·3번도 같은 글이다(이슈 #113)
-        NewsArticle original = article(0L, "노시환", "노시환이 유격수?", "MLB Trade Rumors", "2026-11-12T00:50:00Z");
-        NewsArticle current = article(1L, "노시환", "노시환이 유격수?", "마이데일리", "2026-11-12T02:00:00Z");
-        NewsArticle a = article(2L, "노시환", "노시환 수비 호평", "마이데일리", "2026-11-12T03:00:00Z");
-        NewsArticle aCopy = article(3L, "노시환", "노시환 수비 호평", "MLB Trade Rumors", "2026-11-12T03:30:00Z");
-        NewsArticle b = article(4L, "노시환", "노시환 타격 분석", "마이데일리", "2026-11-11T23:00:00Z");
+        NewsArticle original = article(0L, "노시환", "노시환이 유격수? 美 소문", "MLB Trade Rumors", "2026-11-12T00:50:00Z");
+        NewsArticle current = article(1L, "노시환", "노시환이 유격수? 美 소문", "마이데일리", "2026-11-12T02:00:00Z");
+        NewsArticle a = article(2L, "노시환", "노시환 수비 美 호평", "마이데일리", "2026-11-12T03:00:00Z");
+        NewsArticle aCopy = article(3L, "노시환", "노시환 수비 美 호평", "MLB Trade Rumors", "2026-11-12T03:30:00Z");
+        NewsArticle b = article(4L, "노시환", "노시환 타격 MLB 분석", "마이데일리", "2026-11-11T23:00:00Z");
         when(news.findById(1L)).thenReturn(Optional.of(current));
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(aCopy, a, current, original, b));
 
@@ -102,8 +102,8 @@ class NewsPageFinderTest {
     @Test
     void anOldArticleStillHidesItsCopiesFromMore() {
         // 이 기사가 최근 목록(MORE * 4건) 밖이어도(기사가 몰린 날) 하루 뒤 같은 글을 실은 최근 기사는 '다른 기사'에 넣지 않는다
-        NewsArticle old = article(9L, "노시환", "노시환이 유격수?", "마이데일리", "2026-11-11T00:00:00Z");
-        NewsArticle copy = article(10L, "노시환", "노시환이 유격수?", "MLB Trade Rumors", "2026-11-12T00:00:00Z");
+        NewsArticle old = article(9L, "노시환", "노시환이 유격수? 美 소문", "마이데일리", "2026-11-11T00:00:00Z");
+        NewsArticle copy = article(10L, "노시환", "노시환이 유격수? 美 소문", "MLB Trade Rumors", "2026-11-12T00:00:00Z");
         when(news.findById(9L)).thenReturn(Optional.of(old));
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(copy));
 
@@ -113,7 +113,7 @@ class NewsPageFinderTest {
     @Test
     void unknownIdOrDroppedPublisherIsNotFound() {
         when(news.findById(1L)).thenReturn(Optional.empty());
-        when(news.findById(2L)).thenReturn(Optional.of(article(2L, "노시환", "노시환 소식", "뉴시스", "2026-11-10T03:00:00Z")));
+        when(news.findById(2L)).thenReturn(Optional.of(article(2L, "노시환", "노시환 MLB 소식", "뉴시스", "2026-11-10T03:00:00Z")));
 
         assertThatThrownBy(() -> finder.find(1L)).isInstanceOf(NewsNotFoundException.class);
         assertThatThrownBy(() -> finder.find(2L)).isInstanceOf(NewsNotFoundException.class);

@@ -5,6 +5,7 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsDestination;
 import com.korleaguer.domain.NewsDestinationRepository;
+import com.korleaguer.news.MlbContext;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PastPosting;
@@ -51,6 +52,8 @@ public class PostingFinder {
     private final PhotoSources photos;
     /** 지금 news/sources.yml에 있는 언론사. 뺀 언론사(이용약관으로 뺀 뉴시스 등)의 예전 기사는 보이지 않는다 */
     private final Set<String> publishers;
+    /** 영어 MLB 매체. 국내 기사만 제목이 MLB 이야기인지 본다(MlbContext) */
+    private final Set<String> aiPublishers;
 
     public PostingFinder(Postings postings, NewsArticleRepository news, NewsDestinationRepository destinations,
                          PhotoSources photos, NewsProperties newsProperties) {
@@ -59,6 +62,7 @@ public class PostingFinder {
         this.destinations = destinations;
         this.photos = photos;
         this.publishers = newsProperties.publishers();
+        this.aiPublishers = newsProperties.aiPublishers();
     }
 
     /**
@@ -102,9 +106,15 @@ public class PostingFinder {
         return result;
     }
 
-    /** 지금 수집하는 언론사의 기사만 */
+    /**
+     * 지금 수집하는 언론사의 기사 중 MLB 이야기만. 국내 기사는 제목에 MLB 쪽 말이 있어야 한다(이슈 #127, 수집 때 걸렀지만
+     * 그 전에 모은 KBO 기사도 숨긴다)
+     */
     private List<NewsArticle> kept(List<NewsArticle> articles) {
-        return articles.stream().filter(a -> publishers.contains(a.getPublisher())).toList();
+        return articles.stream()
+                .filter(a -> publishers.contains(a.getPublisher()))
+                .filter(a -> aiPublishers.contains(a.getPublisher()) || MlbContext.mentions(a.getTitle()))
+                .toList();
     }
 
     private static List<SameArticles.Group> first(List<SameArticles.Group> groups) {

@@ -31,7 +31,7 @@ class NewsApiTest {
 
     @Test
     void servesOneArticleWithTheOtherArticlesOfThePlayer() throws Exception {
-        NewsArticle older = news.save(new NewsArticle("노시환", "https://www.mydaily.co.kr/1", "a1", "노시환 첫 소식",
+        NewsArticle older = news.save(new NewsArticle("노시환", "https://www.mydaily.co.kr/1", "a1", "노시환 MLB 첫 소식",
                 "마이데일리", Instant.parse("2026-11-02T03:00:00Z"), Instant.parse("2026-11-02T03:10:00Z")));
         NewsArticle article = new NewsArticle("노시환", "https://www.mlbtraderumors.com/roh", "a2", "Roh Posted",
                 "MLB Trade Rumors", Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z"));
@@ -52,12 +52,12 @@ class NewsApiTest {
                 .andExpect(jsonPath("$.summary").value("한화가 노시환을 포스팅했다."))
                 .andExpect(jsonPath("$.more.length()").value(1))
                 .andExpect(jsonPath("$.more[0].id").value(older.getId()))
-                .andExpect(jsonPath("$.more[0].title").value("노시환 첫 소식"));
+                .andExpect(jsonPath("$.more[0].title").value("노시환 MLB 첫 소식"));
     }
 
     @Test
     void unknownOrDroppedArticlesAreNotFound() throws Exception {
-        NewsArticle dropped = news.save(new NewsArticle("노시환", "https://example.com/dropped", "d1", "노시환 소식",
+        NewsArticle dropped = news.save(new NewsArticle("노시환", "https://example.com/dropped", "d1", "노시환 MLB 소식",
                 "없는 언론사", Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z")));
 
         mockMvc.perform(get("/api/news/" + dropped.getId()))
