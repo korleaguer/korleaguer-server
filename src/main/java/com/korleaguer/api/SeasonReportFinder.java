@@ -143,6 +143,7 @@ public class SeasonReportFinder {
         try {
             List<NewsArticle> recent = news.findLatest(nameKo, PageRequest.of(0, NEWS * 4)).stream()
                     .filter(a -> publishers.contains(a.getPublisher()) && !a.getPublishedAt().isBefore(since))
+                    .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
                     .toList();
             return SameArticles.group(recent).stream().limit(NEWS).map(PostingSummary.Headline::of).toList();
         } catch (RuntimeException e) {

@@ -114,6 +114,7 @@ public class PostingFinder {
         return articles.stream()
                 .filter(a -> publishers.contains(a.getPublisher()))
                 .filter(a -> aiPublishers.contains(a.getPublisher()) || MlbContext.mentions(a.getTitle()))
+                .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
                 .toList();
     }
 
