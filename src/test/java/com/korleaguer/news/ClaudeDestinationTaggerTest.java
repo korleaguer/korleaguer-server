@@ -87,6 +87,14 @@ class ClaudeDestinationTaggerTest {
     }
 
     @Test
+    void bothPromptsTakeTheTeamTableAndAskWhetherThePlayerIsTheSubject() {
+        // 이슈 #139: MLB 선수 지시문도 같은 답 모양(구단 줄 + 마지막 줄 '주인공')을 쓴다
+        for (String prompt : List.of(ClaudeDestinationTagger.SYSTEM, ClaudeDestinationTagger.SYSTEM_MLB)) {
+            assertThat(prompt).contains("%s", "'주인공: 예'", "'주인공: 아니오'", "'약어 +'", "'약어 -'", "'없음'");
+        }
+    }
+
+    @Test
     void theSystemPromptListsAllThirtyClubsInKorean() {
         String table = ClaudeDestinationTagger.teamTable();
         assertThat(table.lines()).hasSize(30).contains("NYM 뉴욕 메츠", "WSH 워싱턴", "ATH 애슬레틱스");
@@ -103,7 +111,10 @@ class ClaudeDestinationTaggerTest {
 
     @Test
     void theVersionFitsTheRecordColumn() {
-        assertThat(ClaudeDestinationTagger.versionOf("claude-haiku-5-5")).isEqualTo("claude-haiku-5-5/d3");
+        assertThat(ClaudeDestinationTagger.versionOf("claude-haiku-5-5", DestinationTagger.Kind.POSTING))
+                .isEqualTo("claude-haiku-5-5/d3");
+        assertThat(ClaudeDestinationTagger.versionOf("claude-haiku-5-5", DestinationTagger.Kind.MLB))
+                .isEqualTo("claude-haiku-5-5/m1");
         assertThat(ClaudeDestinationTagger.fitsRecord("claude-haiku-5-5")).isTrue();
         assertThat(ClaudeDestinationTagger.fitsRecord("x".repeat(60))).isFalse();
     }

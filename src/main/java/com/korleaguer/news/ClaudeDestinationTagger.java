@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -28,12 +29,15 @@ import java.util.stream.Collectors;
 /**
  * Claude로 기사에서 행선지로 거론된 구단을 고른다(요약과 같은 모델, 기본 claude-haiku-5-5). 요약(3~4문장)과 제목만 보내서
  * 한 건에 요약보다 훨씬 싸다. 답은 한 줄에 '약어 +' 또는 '약어 -'(없으면 '없음')와 마지막 줄
- * '주인공: 예/아니오'(이 선수가 주인공인 기사인지, 이슈 #129·#131)다(JSON 없이 줄로 읽는다).
+ * '주인공: 예/아니오'(이 선수가 주인공인 기사인지, 이슈 #129·#131)다(JSON 없이 줄로 읽는다). 포스팅 선수와 MLB 선수는
+ * '주인공' 기준이 달라 지시문과 판을 따로 둔다(이슈 #139).
  */
 public final class ClaudeDestinationTagger implements DestinationTagger {
 
-    /** 지시문 판. 바꾸면 올린다(기사마다 적은 판과 다르면 다시 고른다) */
+    /** 포스팅 선수 지시문(SYSTEM) 판. 바꾸면 올린다(기사마다 적은 판과 다르면 다시 고른다) */
     static final String PROMPT_VERSION = "d3";
+    /** MLB 선수 지시문(SYSTEM_MLB) 판. 바꾸면 올린다 */
+    static final String MLB_PROMPT_VERSION = "m1";
     /** destinations_model 칸 길이(V18 마이그레이션 varchar(50)) */
     static final int MAX_VERSION = 50;
     static final long MAX_TOKENS = 300;
@@ -64,6 +68,41 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
             약어 표:
             %s
             """;
+    /**
+     * MLB 선수(명단 선수, FA 포함) 지시문(이슈 #139). 포스팅 선수 지시문은 'MLB 진출'이 주인공이라, 이미 MLB에 있는 선수의
+     * 코치 영입·자리 경쟁자 이동 기사를 빼고 다른 선수 계약에 '한솥밥'으로만 나온 기사를 남기기도 했다.
+     * 운영 기사 72건에 두 번 돌려 69건이 같은 답이었다('아니오'는 곁들여 이름만 나온 경우로 좁히고, 헷갈리면 '예')
+     */
+    static final String SYSTEM_MLB = """
+            너는 야구 기사를 읽고, 기사가 다루는 한국 선수(지금 MLB 구단 소속이거나 FA인 선수)가 다음에 갈 MLB 구단(행선지) 후보로 어느 구단이 거론됐는지 고른다.
+            행선지는 FA 계약이나 트레이드로 옮겨 갈 구단이다. 제목과 기사를 모두 본다.
+
+            구단 적는 법(한 줄에 한 구단, 약어는 아래 표의 것만):
+            - 그 선수를 원한다, 관심이 있다, 영입·트레이드 후보로 본다고 한 구단: '약어 +'
+            - 그 선수가 필요 없다, 데려가지 않을 것이라고 한 구단: '약어 -'
+            - 거론된 구단이 없으면 '없음'만 쓴다.
+
+            적지 않는 것:
+            - 그 선수가 지금 뛰는 구단, FA 선수가 직전에 뛴 구단
+            - 다른 선수 이야기로만 나온 구단, 비교로만 나온 구단, 사람 이름(예: '워싱턴 코치'의 워싱턴)
+            - KBO·일본 구단
+
+            마지막 줄은 늘 '주인공: 예' 또는 '주인공: 아니오'다. 그 선수의 팬이 이 기사를 '내 선수 소식'으로 읽겠는지 답한다.
+            - '주인공: 아니오'는 다른 선수가 주인공이고 그 선수는 곁들여 이름만 나올 때만 쓴다:
+              · 다른 선수가 그 선수의 팀과 계약해 '한솥밥'을 먹게 됐다
+              · 다른 선수(일본 선수 등)를 소개하며 그 선수와 견주기만 한다('○○를 넘을까', '○○처럼')
+              · 그 선수가 떠난 옛 팀이 다른 선수로 빈자리를 채운다
+            - 나머지는 모두 '주인공: 예'다. 그 선수의 계약·FA·트레이드·관심 구단·평가·전망·부상·기록은 물론, 코치 영입이나
+              경쟁자 이동처럼 그 선수의 자리와 출전 기회에 영향을 주는 이야기도 '예'다. 헷갈리면 '예'.
+
+            다른 말은 쓰지 않는다. 답 예시:
+            PHI +
+            SEA +
+            주인공: 예
+
+            약어 표:
+            %s
+            """;
     static final String USER_MESSAGE = "선수: %s\n제목: %s\n\n기사:\n%s";
     /** 요약은 1200자 안쪽이다. 앞부분만 있는 기사도 이만큼이면 된다 */
     static final int MAX_TEXT = 2000;
@@ -84,24 +123,26 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     private final AnthropicClient client;
     private final String model;
     private final String system;
+    private final String systemMlb;
     private volatile boolean rejected;
 
     public ClaudeDestinationTagger(AnthropicClient client, String model) {
         if (!fitsRecord(model)) {
-            throw new IllegalArgumentException("destination model name is too long to record: " + versionOf(model));
+            throw new IllegalArgumentException("destination model name is too long to record: " + versionOf(model, Kind.MLB));
         }
         this.client = client;
         this.model = model;
         this.system = String.format(Locale.ROOT, SYSTEM, teamTable());
+        this.systemMlb = String.format(Locale.ROOT, SYSTEM_MLB, teamTable());
     }
 
-    /** 이 모델로 고른 판이 destinations_model 칸(50자)에 들어가나 */
+    /** 이 모델로 고른 판이 destinations_model 칸(50자)에 들어가나(두 처지 모두) */
     public static boolean fitsRecord(String model) {
-        return versionOf(model).length() <= MAX_VERSION;
+        return Arrays.stream(Kind.values()).allMatch(kind -> versionOf(model, kind).length() <= MAX_VERSION);
     }
 
-    static String versionOf(String model) {
-        return model + "/" + PROMPT_VERSION;
+    static String versionOf(String model, Kind kind) {
+        return model + "/" + (kind == Kind.POSTING ? PROMPT_VERSION : MLB_PROMPT_VERSION);
     }
 
     /** 'NYM 뉴욕 메츠' 줄 30개 */
@@ -117,17 +158,17 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     }
 
     @Override
-    public String version() {
-        return versionOf(model);
+    public String version(Kind kind) {
+        return versionOf(model, kind);
     }
 
     @Override
-    public Optional<Tagging> tag(String player, String title, String text) {
+    public Optional<Tagging> tag(String player, Kind kind, String title, String text) {
         MessageCreateParams params = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(MAX_TOKENS)
                 .thinking(ThinkingConfigDisabled.builder().build())
-                .system(system)
+                .system(kind == Kind.POSTING ? system : systemMlb)
                 .outputConfig(OutputConfig.builder().effort(EFFORT).build())
                 .addUserMessage(userMessage(player, title, text))
                 .build();

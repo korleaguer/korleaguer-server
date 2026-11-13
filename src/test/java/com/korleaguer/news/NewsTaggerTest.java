@@ -6,6 +6,9 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsDestination.Stance;
 import com.korleaguer.domain.NewsDestinationRepository;
+import com.korleaguer.news.DestinationTagger.Kind;
+import com.korleaguer.posting.PostingProperties;
+import com.korleaguer.posting.Postings;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NewsTaggerTest {
 
     private static final Instant NOW = Instant.parse("2026-11-12T10:00:00Z");
+    /** 이번 겨울 포스팅 선수는 노시환 */
+    private static final Postings POSTINGS = new Postings(new PostingProperties(List.of(new PostingProperties.Current(
+            "노시환", null, "한화 이글스", "3루수", 2000, List.of("Si-Hwan Roh"), "2026-11-02T08:00:00-05:00",
+            "2026-12-01T17:00:00-05:00", null, null, null)), List.of()));
 
     @Autowired
     private NewsArticleRepository articles;
@@ -37,11 +44,13 @@ class NewsTaggerTest {
     @Autowired
     private PlatformTransactionManager transactions;
 
-    /** 제목에 따라 정해 둔 답을 주는 분류기. 부른 제목을 적어 둔다 */
+    /** 제목에 따라 정해 둔 답을 주는 분류기. 부른 제목과 선수 처지를 적어 둔다 */
     private static final class FakeTagger implements DestinationTagger {
         final Map<String, Optional<List<Destination>>> answers;
         final List<String> asked = new ArrayList<>();
+        final List<Kind> kinds = new ArrayList<>();
         String version = "fake/d1";
+        String mlbVersion = "fake/m1";
         /** 이 제목들은 '주인공 아님'으로 답한다 */
         final java.util.Set<String> offTopicTitles = new java.util.HashSet<>();
         RuntimeException failure;
@@ -56,11 +65,12 @@ class NewsTaggerTest {
         }
 
         @Override
-        public Optional<Tagging> tag(String player, String title, String text) {
+        public Optional<Tagging> tag(String player, Kind kind, String title, String text) {
             if (failure != null) {
                 throw failure;
             }
             asked.add(title);
+            kinds.add(kind);
             if (offTopicTitles.contains(title)) {
                 return Optional.of(new Tagging(List.of(), false));
             }
@@ -68,13 +78,13 @@ class NewsTaggerTest {
         }
 
         @Override
-        public String version() {
-            return version;
+        public String version(Kind kind) {
+            return kind == Kind.POSTING ? version : mlbVersion;
         }
     }
 
     private NewsTagger tagger(FakeTagger fake) {
-        return new NewsTagger(articles, destinations, fake, DataMode.MLB, new MutableClock(NOW), transactions);
+        return new NewsTagger(articles, destinations, fake, POSTINGS, DataMode.MLB, new MutableClock(NOW), transactions);
     }
 
     @Test
@@ -184,15 +194,58 @@ class NewsTaggerTest {
         article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
         FakeTagger fake = new FakeTagger(Map.of());
 
-        assertThat(new NewsTagger(articles, destinations, fake, DataMode.SAMPLE, new MutableClock(NOW), transactions).tag())
-                .isZero();
-        assertThat(new NewsTagger(articles, destinations, DestinationTagger.OFF, DataMode.MLB, new MutableClock(NOW),
+        assertThat(new NewsTagger(articles, destinations, fake, POSTINGS, DataMode.SAMPLE, new MutableClock(NOW),
                 transactions).tag()).isZero();
+        assertThat(new NewsTagger(articles, destinations, DestinationTagger.OFF, POSTINGS, DataMode.MLB,
+                new MutableClock(NOW), transactions).tag()).isZero();
         assertThat(fake.asked).isEmpty();
     }
 
+    @Test
+    void aPostingPlayersArticleUsesThePostingPromptAndOthersTheMlbPrompt() {
+        // 이슈 #139: 포스팅 선수와 MLB 선수는 '주인공' 기준이 달라 지시문·판이 다르다. 포스팅 선수 기사를 먼저 고른다
+        NewsArticle roster = article("이정후", "이정후의 새 조력자 등장", "2026-11-12T02:00:00Z", true, 0);
+        NewsArticle posting = article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
+        FakeTagger fake = new FakeTagger(Map.of());
+
+        assertThat(tagger(fake).tag()).isEqualTo(2);
+
+        assertThat(fake.asked).containsExactly("메츠행 급부상", "이정후의 새 조력자 등장");
+        assertThat(fake.kinds).containsExactly(Kind.POSTING, Kind.MLB);
+        assertThat(articles.findById(posting.getId()).orElseThrow().getDestinationsModel()).isEqualTo("fake/d1");
+        assertThat(articles.findById(roster.getId()).orElseThrow().getDestinationsModel()).isEqualTo("fake/m1");
+    }
+
+    @Test
+    void aNewMlbPromptVersionRetagsOnlyTheMlbPlayersArticles() {
+        article("이정후", "이정후의 새 조력자 등장", "2026-11-12T02:00:00Z", true, 0);
+        article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
+        tagger(new FakeTagger(Map.of())).tag();
+
+        FakeTagger second = new FakeTagger(Map.of());
+        second.mlbVersion = "fake/m2";
+        assertThat(tagger(second).tag()).isEqualTo(1);
+
+        assertThat(second.asked).containsExactly("이정후의 새 조력자 등장");
+    }
+
+    @Test
+    void withoutAPostingPlayerEveryArticleUsesTheMlbPrompt() {
+        article("이정후", "이정후의 새 조력자 등장", "2026-11-12T02:00:00Z", true, 0);
+        FakeTagger fake = new FakeTagger(Map.of());
+        Postings none = new Postings(new PostingProperties(List.of(), List.of()));
+
+        new NewsTagger(articles, destinations, fake, none, DataMode.MLB, new MutableClock(NOW), transactions).tag();
+
+        assertThat(fake.kinds).containsExactly(Kind.MLB);
+    }
+
     private NewsArticle article(String title, String publishedAt, boolean summarized, int failedSummaries) {
-        NewsArticle a = new NewsArticle("노시환", "https://news.example.kr/" + title.hashCode(), "h" + title.hashCode(), title,
+        return article("노시환", title, publishedAt, summarized, failedSummaries);
+    }
+
+    private NewsArticle article(String subject, String title, String publishedAt, boolean summarized, int failedSummaries) {
+        NewsArticle a = new NewsArticle(subject, "https://news.example.kr/" + title.hashCode(), "h" + title.hashCode(), title,
                 "마이데일리", Instant.parse(publishedAt), Instant.parse(publishedAt));
         if (summarized) {
             a.enriched(null, null, title + " 요약.", "claude-haiku-5-5/v4", NOW);

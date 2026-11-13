@@ -5,6 +5,9 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsDestination;
 import com.korleaguer.domain.NewsDestinationRepository;
+import com.korleaguer.news.DestinationTagger.Kind;
+import com.korleaguer.posting.PostingCase;
+import com.korleaguer.posting.Postings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +30,8 @@ import java.util.Optional;
  *   <li>최근 기사부터 한 번에 PER_RUN건. 답을 읽을 수 없으면(기사 탓) MAX_ATTEMPTS번까지만 다시 해 본다.</li>
  *   <li>AI 서비스가 답하지 못하면(키·사용량·장애) 이번 차례를 멈추고 다음 차례에 다시 한다(세지 않는다).</li>
  *   <li>지시문 판(DestinationTagger.version)이 바뀌거나, 고른 뒤 요약이 붙거나 다시 요약되면 다시 고른다.</li>
+ *   <li>이번 겨울 포스팅 선수의 기사는 포스팅 지시문으로, 나머지(명단 선수)는 MLB 선수 지시문으로 고른다(이슈 #139).
+ *       포스팅 선수 기사를 먼저 고른다(홈 맨 위 카드).</li>
  *   <li>샘플 모드에서는 하지 않는다.</li>
  * </ul>
  */
@@ -42,15 +48,17 @@ public class NewsTagger {
     private final NewsArticleRepository articles;
     private final NewsDestinationRepository destinations;
     private final DestinationTagger tagger;
+    private final Postings postings;
     private final DataMode dataMode;
     private final Clock clock;
     private final TransactionTemplate transaction;
 
     public NewsTagger(NewsArticleRepository articles, NewsDestinationRepository destinations, DestinationTagger tagger,
-                      DataMode dataMode, Clock clock, PlatformTransactionManager transactions) {
+                      Postings postings, DataMode dataMode, Clock clock, PlatformTransactionManager transactions) {
         this.articles = articles;
         this.destinations = destinations;
         this.tagger = tagger;
+        this.postings = postings;
         this.dataMode = dataMode;
         this.clock = clock;
         this.transaction = new TransactionTemplate(transactions);
@@ -62,14 +70,26 @@ public class NewsTagger {
             return 0;
         }
         Instant now = clock.instant();
-        String version = tagger.version();
-        List<NewsArticle> todo = articles.findToTagDestinations(version, MAX_ATTEMPTS, NewsEnricher.MAX_ATTEMPTS,
-                now.minus(OLDEST), PageRequest.of(0, PER_RUN));
+        // 빈 목록 in은 DB마다 달라 포스팅 선수가 없으면 어떤 선수 이름과도 다른 빈 이름을 넣는다
+        List<String> posting = postings.current().stream().map(PostingCase::nameKo).toList();
+        List<String> postingNames = posting.isEmpty() ? List.of("") : posting;
+        List<Todo> todo = new ArrayList<>();
+        String postingVersion = tagger.version(Kind.POSTING);
+        articles.findToTagDestinations(postingNames, postingVersion, MAX_ATTEMPTS, NewsEnricher.MAX_ATTEMPTS,
+                        now.minus(OLDEST), PageRequest.of(0, PER_RUN))
+                .forEach(a -> todo.add(new Todo(a, Kind.POSTING, postingVersion)));
+        if (todo.size() < PER_RUN) {
+            String mlbVersion = tagger.version(Kind.MLB);
+            articles.findToTagDestinationsBesides(postingNames, mlbVersion, MAX_ATTEMPTS, NewsEnricher.MAX_ATTEMPTS,
+                            now.minus(OLDEST), PageRequest.of(0, PER_RUN - todo.size()))
+                    .forEach(a -> todo.add(new Todo(a, Kind.MLB, mlbVersion)));
+        }
         int done = 0;
-        for (NewsArticle article : todo) {
+        for (Todo next : todo) {
+            NewsArticle article = next.article();
             Optional<DestinationTagger.Tagging> picked;
             try {
-                picked = tagger.tag(article.getSubject(), title(article), text(article));
+                picked = tagger.tag(article.getSubject(), next.kind(), title(article), text(article));
             } catch (Summarizer.Failure e) {
                 log.warn("news: could not tag destinations, trying again next run: {}", e.getMessage());
                 break;
@@ -79,13 +99,17 @@ public class NewsTagger {
                 articles.save(article);
                 continue;
             }
-            save(article, picked.get(), version, now);
+            save(article, picked.get(), next.version(), now);
             done++;
         }
         if (done > 0) {
             log.info("news: tagged destinations on {} article(s)", done);
         }
         return done;
+    }
+
+    /** 고를 기사 하나와 그 선수의 처지, 그 처지의 지시문 판 */
+    private record Todo(NewsArticle article, Kind kind, String version) {
     }
 
     /** 전에 고른 구단을 지우고 새로 고른 구단을 둔다(한 번에) */
