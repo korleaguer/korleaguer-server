@@ -525,17 +525,18 @@ final class SeasonReports {
         }
         Batting b = best.batting();
         List<String> parts = new ArrayList<>();
+        // 경기 줄과 같은 순서(안타 → 홈런 → 타점)
+        parts.add(orZero(b.hits()) + "안타");
         if (orZero(b.homeRuns()) > 0) {
             parts.add(b.homeRuns() + "홈런");
         }
-        parts.add(orZero(b.hits()) + "안타");
         if (orZero(b.rbi()) >= 3) {
             parts.add(b.rbi() + "타점");
         }
         return bestGameText(best, majors, String.join(" ", parts));
     }
 
-    /** "최고 경기 6/12 시애틀전 7이닝 무실점 9탈삼진 · 승". 7이닝 이상 승리·무실점이거나 10탈삼진 이상인 경기 */
+    /** "최고 경기 6월 12일 시애틀전 7이닝 무실점 9탈삼진 · 승". 7이닝 이상 승리·무실점이거나 10탈삼진 이상인 경기 */
     private static String bestPitchingGame(List<GameDay> games, boolean majors) {
         GameDay best = null;
         int bestScore = Integer.MIN_VALUE;
@@ -572,7 +573,8 @@ final class SeasonReports {
     }
 
     private static String bestGameText(GameDay game, boolean majors, String summary) {
-        String day = game.date().getMonthValue() + "/" + game.date().getDayOfMonth();
+        // 다른 화면과 같은 'M월 D일'(슬래시는 쓰지 않는다, 문구 점검 11-13)
+        String day = game.date().getMonthValue() + "월 " + game.date().getDayOfMonth() + "일";
         String opponent = majors && game.opponentKo() != null ? " " + game.opponentKo() + "전" : "";
         return "최고 경기 " + day + opponent + " " + summary;
     }
