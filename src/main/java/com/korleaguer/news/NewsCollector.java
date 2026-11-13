@@ -111,8 +111,9 @@ public class NewsCollector {
      * @param nameKo      저장할 이름(기사의 subject)
      * @param searchNames 제목에서 찾을 이름(한글·영어 표기)
      * @param oldest      이보다 먼저 나온 기사는 버린다
+     * @param posting     포스팅 선수인가. 포스팅 선수는 국내 기사 제목이 MLB 이야기여야 모은다(MlbContext, 이슈 #127)
      */
-    record Subject(String nameKo, List<String> searchNames, Instant oldest) {
+    record Subject(String nameKo, List<String> searchNames, Instant oldest, boolean posting) {
     }
 
     /** 지켜볼 선수: 포스팅 선수 먼저, 그다음 명단 선수(같은 이름이면 포스팅 쪽). 명단 선수의 영어 이름은 MLB에서 받은 이름 */
@@ -120,7 +121,7 @@ public class NewsCollector {
         Map<String, Subject> out = new LinkedHashMap<>();
         for (PostingCase posting : postings.newsWatch(now)) {
             out.put(posting.nameKo(), new Subject(posting.nameKo(), posting.searchNames(),
-                    posting.windowOpens().minus(OLDEST)));
+                    posting.windowOpens().minus(OLDEST), true));
         }
         List<RosterProperties.Entry> entries = roster.baseball() == null ? List.of() : roster.baseball();
         if (entries.isEmpty()) {
@@ -142,7 +143,7 @@ public class NewsCollector {
             if (english.containsKey(nameKo)) {
                 names.add(english.get(nameKo));
             }
-            out.putIfAbsent(nameKo, new Subject(nameKo, List.copyOf(names), now.minus(OLDEST)));
+            out.putIfAbsent(nameKo, new Subject(nameKo, List.copyOf(names), now.minus(OLDEST), false));
         }
         return List.copyOf(out.values());
     }
@@ -176,6 +177,10 @@ public class NewsCollector {
             for (Subject subject : watched) {
                 boolean subjectFeed = subject.nameKo().equals(trimmed(source.subject()));
                 if (!subjectFeed && !mentions(item.title(), subject.searchNames())) {
+                    continue;
+                }
+                // 포스팅 선수는 아직 KBO 선수라 이름만 나온 KBO 기사(구단 FA 이야기 등)를 거른다. 영어 MLB 매체는 거르지 않는다
+                if (subject.posting() && !source.ai() && !MlbContext.mentions(item.title())) {
                     continue;
                 }
                 Instant published = item.publishedAt() == null || item.publishedAt().isAfter(now)

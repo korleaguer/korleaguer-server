@@ -42,6 +42,12 @@ public record NewsProperties(boolean enabled, String cron, String userAgent, Lis
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    /** 영어 MLB 매체(AI 요약 출처, preview: ai) 이름. 이 출처의 기사는 MLB 맥락 검사(MlbContext)를 하지 않는다 */
+    public Set<String> aiPublishers() {
+        return sources.stream().filter(Source::ai).map(Source::publisher).filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
     /** AI 요약 출처를 받을 때 robots.txt에서 볼 이름 전부(우리 이름 + Claude 계열) */
     public List<String> aiAgents() {
         return java.util.stream.Stream.concat(robotsAgents.stream(), aiRobotsAgents.stream()).distinct().toList();
