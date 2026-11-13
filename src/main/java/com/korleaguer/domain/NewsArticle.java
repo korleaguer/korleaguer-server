@@ -6,6 +6,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * 관련 기사 한 건(제목·링크·언론사·발행 시각). 출처가 허락하면(news/sources.yml preview) 더 둔다:
@@ -201,8 +202,16 @@ public class NewsArticle {
         this.destinationAttempts = 0;
     }
 
-    /** 이번에는 구단을 고르지 못했다(기사 탓, 몇 번까지만 다시 해 본다). 전에 고른 구단이 있으면 그대로 둔다 */
-    public void destinationsFailed() {
+    /**
+     * 이번에는 구단을 고르지 못했다(기사 탓, 몇 번까지만 다시 해 본다). 전에 고른 구단이 있으면 그대로 둔다.
+     * 한 번도 고르지 못한 기사는 실패한 판(version)을 적어 두고, 판이 바뀌면 횟수를 처음부터 센다. 예전 판에서 다 실패한
+     * 기사가 새 판으로는 한 번도 시도되지 않던 것을 막는다(이슈 #148)
+     */
+    public void destinationsFailed(String version) {
+        if (destinationsAt == null && !Objects.equals(version, destinationsModel)) {
+            this.destinationsModel = version;
+            this.destinationAttempts = 0;
+        }
         this.destinationAttempts++;
     }
 }
