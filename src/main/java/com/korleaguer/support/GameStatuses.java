@@ -1,6 +1,7 @@
 package com.korleaguer.support;
 
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * MLB 경기 상태(status.abstractGameState / codedGameState / detailedState)를 DB와 응답(GameLine.gameStatus)에 쓰는
@@ -20,6 +21,8 @@ public final class GameStatuses {
     public static final String CANCELED = "canceled";
     public static final String DELAYED = "delayed";
     public static final String SUSPENDED = "suspended";
+    /** 점수를 보이지 않는 상태(경기 전·연기·취소). 메이저·마이너 경기 줄이 같이 쓴다 */
+    public static final Set<String> NOT_STARTED = Set.of(SCHEDULED, POSTPONED, CANCELED);
 
     private GameStatuses() {
     }

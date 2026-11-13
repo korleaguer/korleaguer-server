@@ -1,0 +1,71 @@
+# 마이너리그 팀 한국어 이름(선수 화면 '경기 기록'의 마이너 경기 줄, 이슈 #145). 트리플A 30팀·더블A 30팀 모두.
+#   id: MLB 팀 번호(gameLog의 team.id·opponent.id. 웹은 https://www.mlbstatic.com/team-logos/{id}.svg로 로고를 그린다)
+#   name-ko: 화면에 쓰는 한국어 도시(지명) 이름. 한국 야구 기사에서 흔히 쓰는 표기를 따랐다
+#            (Scranton/Wilkes-Barre는 짧게 '스크랜턴'. 트리플A·더블A에 '콜럼버스'가 하나씩 있다: 단계가 함께 보인다)
+#   level·name-en: 확인용(화면에 쓰지 않는다). MLB /api/v1/teams?sportIds=11,12&season=2026 기준(11-13)
+# 여기 없는 팀(하이싱글A·싱글A·루키, 새로 생기거나 옮긴 팀)은 MLB 일정이 준 영어 지명(franchiseName, 예: Quad Cities)으로,
+# 그것도 모르면 MLB 영어 팀 이름으로 보인다. 같은 id를 두 번 적거나 name-ko를 비우면 앱이 뜰 때 실패한다.
+minor-league:
+  teams:
+    # 트리플A
+    - { id: 342, level: AAA, name-ko: 앨버커키, name-en: "Albuquerque Isotopes" }
+    - { id: 422, level: AAA, name-ko: 버펄로, name-en: "Buffalo Bisons" }
+    - { id: 494, level: AAA, name-ko: 샬럿, name-en: "Charlotte Knights" }
+    - { id: 445, level: AAA, name-ko: 콜럼버스, name-en: "Columbus Clippers" }
+    - { id: 234, level: AAA, name-ko: 더럼, name-en: "Durham Bulls" }
+    - { id: 4904, level: AAA, name-ko: 엘패소, name-en: "El Paso Chihuahuas" }
+    - { id: 431, level: AAA, name-ko: 귀넷, name-en: "Gwinnett Stripers" }
+    - { id: 484, level: AAA, name-ko: 인디애나폴리스, name-en: "Indianapolis Indians" }
+    - { id: 451, level: AAA, name-ko: 아이오와, name-en: "Iowa Cubs" }
+    - { id: 564, level: AAA, name-ko: 잭슨빌, name-en: "Jacksonville Jumbo Shrimp" }
+    - { id: 400, level: AAA, name-ko: 라스베이거스, name-en: "Las Vegas Aviators" }
+    - { id: 1410, level: AAA, name-ko: 리하이밸리, name-en: "Lehigh Valley IronPigs" }
+    - { id: 416, level: AAA, name-ko: 루이빌, name-en: "Louisville Bats" }
+    - { id: 235, level: AAA, name-ko: 멤피스, name-en: "Memphis Redbirds" }
+    - { id: 556, level: AAA, name-ko: 내슈빌, name-en: "Nashville Sounds" }
+    - { id: 568, level: AAA, name-ko: 노퍽, name-en: "Norfolk Tides" }
+    - { id: 238, level: AAA, name-ko: 오클라호마시티, name-en: "Oklahoma City Comets" }
+    - { id: 541, level: AAA, name-ko: 오마하, name-en: "Omaha Storm Chasers" }
+    - { id: 2310, level: AAA, name-ko: 리노, name-en: "Reno Aces" }
+    - { id: 534, level: AAA, name-ko: 로체스터, name-en: "Rochester Red Wings" }
+    - { id: 102, level: AAA, name-ko: 라운드록, name-en: "Round Rock Express" }
+    - { id: 105, level: AAA, name-ko: 새크라멘토, name-en: "Sacramento River Cats" }
+    - { id: 561, level: AAA, name-ko: 솔트레이크, name-en: "Salt Lake Bees" }
+    - { id: 531, level: AAA, name-ko: 스크랜턴, name-en: "Scranton/Wilkes-Barre RailRiders" }
+    - { id: 1960, level: AAA, name-ko: 세인트폴, name-en: "St. Paul Saints" }
+    - { id: 5434, level: AAA, name-ko: 슈거랜드, name-en: "Sugar Land Space Cowboys" }
+    - { id: 552, level: AAA, name-ko: 시러큐스, name-en: "Syracuse Mets" }
+    - { id: 529, level: AAA, name-ko: 타코마, name-en: "Tacoma Rainiers" }
+    - { id: 512, level: AAA, name-ko: 톨레도, name-en: "Toledo Mud Hens" }
+    - { id: 533, level: AAA, name-ko: 우스터, name-en: "Worcester Red Sox" }
+    # 더블A
+    - { id: 402, level: AA, name-ko: 애크런, name-en: "Akron RubberDucks" }
+    - { id: 452, level: AA, name-ko: 앨투나, name-en: "Altoona Curve" }
+    - { id: 5368, level: AA, name-ko: 애머릴로, name-en: "Amarillo Sod Poodles" }
+    - { id: 574, level: AA, name-ko: 아칸소, name-en: "Arkansas Travelers" }
+    - { id: 5015, level: AA, name-ko: 빌럭시, name-en: "Biloxi Shuckers" }
+    - { id: 505, level: AA, name-ko: 빙엄턴, name-en: "Binghamton Rumble Ponies" }
+    - { id: 247, level: AA, name-ko: 버밍엄, name-en: "Birmingham Barons" }
+    - { id: 498, level: AA, name-ko: 채터누가, name-en: "Chattanooga Lookouts" }
+    - { id: 418, level: AA, name-ko: 체서피크, name-en: "Chesapeake Baysox" }
+    - { id: 6325, level: AA, name-ko: 콜럼버스, name-en: "Columbus Clingstones" }
+    - { id: 482, level: AA, name-ko: 코퍼스크리스티, name-en: "Corpus Christi Hooks" }
+    - { id: 106, level: AA, name-ko: 이리, name-en: "Erie SeaWolves" }
+    - { id: 540, level: AA, name-ko: 프리스코, name-en: "Frisco RoughRiders" }
+    - { id: 547, level: AA, name-ko: 해리스버그, name-en: "Harrisburg Senators" }
+    - { id: 538, level: AA, name-ko: 하트퍼드, name-en: "Hartford Yard Goats" }
+    - { id: 553, level: AA, name-ko: 녹스빌, name-en: "Knoxville Smokies" }
+    - { id: 237, level: AA, name-ko: 미들랜드, name-en: "Midland RockHounds" }
+    - { id: 421, level: AA, name-ko: 몽고메리, name-en: "Montgomery Biscuits" }
+    - { id: 463, level: AA, name-ko: 뉴햄프셔, name-en: "New Hampshire Fisher Cats" }
+    - { id: 1350, level: AA, name-ko: 노스웨스트아칸소, name-en: "Northwest Arkansas Naturals" }
+    - { id: 4124, level: AA, name-ko: 펜서콜라, name-en: "Pensacola Blue Wahoos" }
+    - { id: 546, level: AA, name-ko: 포틀랜드, name-en: "Portland Sea Dogs" }
+    - { id: 522, level: AA, name-ko: 레딩, name-en: "Reading Fightin Phils" }
+    - { id: 3410, level: AA, name-ko: 리치먼드, name-en: "Richmond Flying Squirrels" }
+    - { id: 559, level: AA, name-ko: 로켓시티, name-en: "Rocket City Trash Pandas" }
+    - { id: 510, level: AA, name-ko: 샌안토니오, name-en: "San Antonio Missions" }
+    - { id: 1956, level: AA, name-ko: 서머싯, name-en: "Somerset Patriots" }
+    - { id: 440, level: AA, name-ko: 스프링필드, name-en: "Springfield Cardinals" }
+    - { id: 260, level: AA, name-ko: 털사, name-en: "Tulsa Drillers" }
+    - { id: 3898, level: AA, name-ko: 위치토, name-en: "Wichita Wind Surge" }

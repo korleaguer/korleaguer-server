@@ -17,6 +17,8 @@ import java.util.List;
  *   <li>seasons: MLB 시즌별 기록(CareerSeason, 최신 시즌부터). 아직 받지 않았으면 빈 목록</li>
  *   <li>news: 이 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 비시즌 성적표의 기사와 같은 모양·규칙이다. 없으면 빈 목록</li>
  * </ul>
+ * minorGames(이슈 #145)는 같은 시즌 마이너 경기 줄(MinorGameLine, 최신 경기부터)이다. 웹이 games와 날짜순으로 섞어 '경기 기록'에
+ * 보인다(마이너에서 잘해야 콜업되니 마이너에 오래 있는 선수의 소식도 보이게). 마이너 경기가 없으면 빈 목록이다.
  */
 public record PlayerPageResponse(
         String dataMode,
@@ -31,7 +33,8 @@ public record PlayerPageResponse(
         List<Move> moves,
         PlayerSaber saber,
         List<CareerSeason> seasons,
-        List<PostingSummary.Headline> news) {
+        List<PostingSummary.Headline> news,
+        List<MinorGameLine> minorGames) {
 
     /**
      * photoUrl·mlbUrl·careerKo는 명단(baseball.yml) 값이라 MLB에서 받기 전에도 나올 수 있다.

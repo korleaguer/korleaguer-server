@@ -51,6 +51,12 @@ public interface MlbClient {
     /** 팀들의 메이저 일정 중 공식 날짜(미국 날짜)가 startDate~endDate인 경기 */
     List<MlbScheduleGame> getSchedule(Collection<Long> teamIds, LocalDate startDate, LocalDate endDate);
 
+    /**
+     * 경기 번호로 그 경기들의 일정(시작 시각·상태·점수). 마이너 경기도 된다. 팀에는 지명(franchiseName)까지 온다.
+     * 없는 번호는 빠지고, 연기된 경기는 같은 번호가 두 번 올 수 있다. 많으면 나눠 묻는다(HttpMlbClient: 한 번에 40경기).
+     */
+    List<MlbScheduleGame> getGames(Collection<Long> gamePks);
+
     /** 경기 박스스코어(선수별 기록, 타순, 나온 투수 순서). 없으면 null */
     MlbBoxscore getBoxscore(long gamePk);
 

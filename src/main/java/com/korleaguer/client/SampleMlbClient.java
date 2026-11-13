@@ -11,10 +11,12 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 
 /**
  * 샘플 모드(테스트·오프라인)에서 쓰는 MLB 클라이언트. 네트워크를 쓰지 않는다.
@@ -117,15 +119,37 @@ public class SampleMlbClient implements MlbClient {
 
     private static final int[] MADE_UP_HITS = {1, 0, 2, 1, 0, 1, 3, 0, 1, 2};
     private static final MlbTeam MADE_UP_MINOR_TEAM = new MlbTeam(990001L, "샘플 트리플A 팀", null, null, null);
-    private static final MlbTeam MADE_UP_OPPONENT = new MlbTeam(990002L, "샘플 상대 팀", null, null, null);
+    // 상대는 실제 트리플A 팀 번호를 돌려 쓴다(한국어 이름·로고가 보이게). 경기 결과는 지어낸 값이다
+    private static final List<MlbTeam> MADE_UP_OPPONENTS = List.of(
+            new MlbTeam(445L, "Columbus Clippers", null, null, null, "Columbus"),
+            new MlbTeam(512L, "Toledo Mud Hens", null, null, null, "Toledo"),
+            new MlbTeam(556L, "Nashville Sounds", null, null, null, "Nashville"),
+            new MlbTeam(451L, "Iowa Cubs", null, null, null, "Iowa"));
+    private static final long MADE_UP_GAME_PK_BASE = 9_000_000_000L;
 
     private static MlbGameLogSplit madeUpSplit(long personId, int season, LocalDate date, int i, MlbStat stat,
                                                MlbTeam team, MlbGameLogSplit.Sport sport) {
         // 시즌·선수·순번으로 겹치지 않게 만든다(실제 MLB 번호와도 겹치지 않는 큰 수)
-        long gamePk = 9_000_000_000L + (season % 100) * 100_000_000L + (personId % 100_000) * 1_000 + i;
+        long gamePk = MADE_UP_GAME_PK_BASE + (season % 100) * 100_000_000L + (personId % 100_000) * 1_000 + i;
         return new MlbGameLogSplit(String.valueOf(season), date.toString(), "R", i % 2 == 0, i % 3 != 1,
-                team, MADE_UP_OPPONENT, new MlbGameLogSplit.GameRef(gamePk), MlbPerson.of(personId, null, null),
-                stat, sport);
+                team, MADE_UP_OPPONENTS.get(i % MADE_UP_OPPONENTS.size()), new MlbGameLogSplit.GameRef(gamePk),
+                MlbPerson.of(personId, null, null), stat, sport);
+    }
+
+    /**
+     * 지어낸 마이너 경기 한 개의 일정. 미국 저녁 7시 5분(동부 여름 시간) 시작, 끝난 경기이고 점수는 경기별 기록의 승패와 맞춘다.
+     * 팀은 경기별 기록의 팀 그대로다(상대 팀에는 지명 franchiseName이 있다).
+     */
+    static MlbScheduleGame madeUpMinorGame(MlbGameLogSplit split) {
+        int i = (int) (split.gamePk() % 1_000);
+        int mine = Boolean.TRUE.equals(split.isWin()) ? 3 + i % 4 : 1 + i % 3;
+        int theirs = Boolean.TRUE.equals(split.isWin()) ? mine - 1 - i % 2 : mine + 1 + i % 2;
+        boolean home = Boolean.TRUE.equals(split.isHome());
+        MlbScheduleGame.Side us = new MlbScheduleGame.Side(split.team(), mine);
+        MlbScheduleGame.Side them = new MlbScheduleGame.Side(split.opponent(), theirs);
+        return new MlbScheduleGame(split.gamePk(), "R", split.season(), split.date() + "T23:05:00Z", split.date(),
+                new MlbScheduleGame.Status("Final", "F", "Final"),
+                new MlbScheduleGame.Teams(home ? them : us, home ? us : them), null, "N", 1);
     }
 
     private static MlbStat madeUpHitting(int i) {
@@ -278,6 +302,31 @@ public class SampleMlbClient implements MlbClient {
                 .toList();
     }
 
+    /** 샘플 일정(schedule)에 있는 경기와, 지어낸 마이너 경기(madeUpMinorLog)의 일정(madeUpMinorGame) */
+    @Override
+    public List<MlbScheduleGame> getGames(Collection<Long> gamePks) {
+        requestCount.incrementAndGet();
+        List<MlbScheduleGame> games = new ArrayList<>(data.schedule().stream()
+                .filter(g -> gamePks.contains(g.gamePk()))
+                .toList());
+        List<Integer> seasons = gamePks.stream()
+                .filter(pk -> pk != null && pk >= MADE_UP_GAME_PK_BASE)
+                .map(pk -> 2000 + (int) ((pk - MADE_UP_GAME_PK_BASE) / 100_000_000L))
+                .distinct()
+                .toList();
+        Map<Long, MlbScheduleGame> minors = new LinkedHashMap<>();
+        for (int season : seasons) {
+            data.minorGames().forEach((personId, counts) -> {
+                MlbMinorGameLog log = madeUpMinorLog(personId, season, counts, minorTeamOf(personId));
+                Stream.concat(log.hitting().stream(), log.pitching().stream())
+                        .filter(split -> gamePks.contains(split.gamePk()))
+                        .forEach(split -> minors.putIfAbsent(split.gamePk(), madeUpMinorGame(split)));
+            });
+        }
+        games.addAll(minors.values());
+        return games;
+    }
+
     @Override
     public MlbBoxscore getBoxscore(long gamePk) {
         requestCount.incrementAndGet();
@@ -328,7 +377,7 @@ public class SampleMlbClient implements MlbClient {
      * 샘플 데이터. 각 목록은 MLB 응답의 같은 이름 목록과 같은 모양이다.
      * schedule은 일정의 경기들, hittingLogs·pitchingLogs는 gameLog의 splits(선수 번호는 split.player.id),
      * boxscores는 gamePk → 박스스코어, minorGames는 선수 번호 → 그 시즌 마이너 출전 경기 수다(없으면 0경기).
-     * 마이너 경기별 기록은 이 경기 수만큼 지어서 돌려준다(madeUpMinorLog).
+     * 마이너 경기별 기록은 이 경기 수만큼 지어서 돌려주고(madeUpMinorLog), 그 경기 일정(시작 시각·점수)도 지어낸다(getGames).
      * seasons는 시즌 날짜(seasons/{year}의 seasons)다. 없는 해는 발표 전으로 본다(null).
      * yearByYear·sabermetrics는 시즌 합계·고급 지표 줄(MlbSeasonSplit)이고, split.player.id와 split.group으로 가른다.
      * 리그 전체 기록(getLeagueSeasonStats·getLeagueSabermetrics)은 이 줄에 지어낸 리그 선수를 더해 만든다.

@@ -51,7 +51,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 
 - **요청 예절:** 1초에 1회 이하, `User-Agent: korleaguer/0.1`, 연결 5초·읽기 10초 제한, 다시 시도하지 않는다(실패한 건은 다음 수집 때 다시). 403/429가 오면 그 실행의 남은 단계는 건너뛴다(`BLOCKED`).
 - **시즌 날짜(개막 전까지 하루 한 번):** `seasons/{year}?sportId=1` 올해(미국 날짜) 1번. 지금 시즌은 올해 정규시즌 개막일만으로 정해지므로(`season_dates`), 1월 1일부터 올해 개막일 전날까지만 묻고 개막한 뒤에는 묻지 않는다(1년에 80여 번). 발표 전인 해는 저장하지 않고, 시즌을 고정했으면(`KORLEAGUER_SEASON`, 샘플 모드) 묻지 않는다.
-- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 경기별 기록 `people/{id}/stats?stats=gameLog&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번(그 시즌 전체를 받아 `minor_game_log`를 통째로 바꾸고, 마이너 경기 수도 여기서 센다), 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
+- **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 경기별 기록 `people/{id}/stats?stats=gameLog&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번(그 시즌 전체를 받아 `minor_game_log`를 통째로 바꾸고, 마이너 경기 수도 여기서 센다), 그 경기들의 시작 시각·점수·팀 지명 `schedule?gamePks=…&hydrate=team`(선수 화면 마이너 경기 줄, 40경기씩 묶어서. 끝나 점수를 받은 경기는 다시 묻지 않아 보통 선수마다 하루 0~1번), 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
@@ -73,7 +73,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 |---|---|
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
-| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`). 없으면 404 |
+| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
 | `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
 | `GET /actuator/health` | 상태 확인 |
@@ -173,6 +173,13 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - `news`: 그 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 성적표 `news`와 같은 모양·규칙(지금 수집하는 언론사만, 주인공이 아닌 기사 뺌)이고 기간 제한만 없다.
 - `games[].batting`에 타격 흐름 그래프용 `doubles`·`triples`·`hitByPitch`·`sacFlies`·`plateAppearances`·`strikeouts`(MLB가 주지 않았으면 null)가 있다.
 - 샘플 모드: 리그 전체는 샘플 선수 줄(`sample/mlb.json`의 `yearByYear`·`sabermetrics`)에 지어낸 선수 240명씩을 더해 만든다(`SampleMlbClient.madeUpLeague`).
+
+### 마이너 경기 줄(`GET /api/players/{id}`의 `minorGames`, 이슈 #145)
+- 이번 시즌 마이너 경기를 최신 경기부터 모두 준다(없으면 빈 목록). 웹이 `games`(메이저)와 날짜순으로 섞어 '경기 기록'에 보인다. 마이너에서 잘해야 콜업되니 마이너에 오래 있는 선수도 경기 소식이 보이게 한다(11-13 결정).
+- 한 줄: `{gamePk, startTimeKst, level, levelKo, teamId, teamKo, opponentId, opponentKo, home, teamScore, opponentScore, result, summary, batting, pitching}`. `summary`·`batting`·`pitching`은 `games`와 같은 규칙·모양이다(선수 주 역할 기준).
+- `teamKo`·`opponentKo`: 트리플A·더블A 60팀은 한국어 도시 이름(`roster/minor-teams.yml`), 그 밖의 팀은 MLB 영어 지명(`franchiseName`, 예: `Quad Cities`), 그것도 모르면 영어 팀 이름. `teamId`·`opponentId`로 웹이 `https://www.mlbstatic.com/team-logos/{id}.svg` 로고를 그린다.
+- 시작 시각·점수는 `schedule?gamePks=…&hydrate=team`으로 받아 `minor_game_log`에 둔다(V23). 끝나 점수를 받은 경기는 다시 묻지 않고, 끝나지 않은 경기(경기 중에 받음·중단·응답에 없음)는 공식 날짜 7일까지만 다시 묻는다. 홈·원정을 가릴 수 없으면 점수는 비운다. 아직 받지 못했으면 시작 시각은 공식 날짜 다음 날 08:00(한국)으로 어림하고 점수는 null, `result`는 경기별 기록의 승패다(경기 중·지연·중단이면 null).
+- 샘플 모드: 지어낸 마이너 경기에 지어낸 일정(미국 저녁 7시 5분 시작, 승패에 맞춘 점수, 상대는 실제 트리플A 팀 번호)을 붙인다(`SampleMlbClient.madeUpMinorGame`).
 
 ### 관련 기사(`news_article`)
 - 포스팅 선수·명단 선수 이름(한글, 명단 선수는 MLB 영어 이름도)이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).

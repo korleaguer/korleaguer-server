@@ -70,6 +70,12 @@ class MySqlCompatibilityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.player.nameKo").value("이정후"))
                 .andExpect(jsonPath("$.moves").isArray());
+        // 마이너 경기 일정(V23 칸): 시작 시각이 UTC로 왕복해 H2와 같은 한국 시각이 나온다
+        mockMvc.perform(get("/api/players/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.minorGames", hasSize(12)))
+                .andExpect(jsonPath("$.minorGames[0].startTimeKst").value("2026-09-21T08:05:00+09:00"))
+                .andExpect(jsonPath("$.minorGames[0].teamScore").value(6));
         mockMvc.perform(get("/api/my").param("ids", "1,2,3,4,5,6").param("days", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players", hasSize(6)));

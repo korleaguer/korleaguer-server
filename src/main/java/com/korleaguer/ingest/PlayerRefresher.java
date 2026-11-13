@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbMinorGameLog;
 import com.korleaguer.client.MlbPerson;
+import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.config.CurrentSeason;
@@ -41,6 +42,9 @@ import java.util.stream.Stream;
  *       이번 시즌은 돌 때마다 CurrentSeason에 묻는다(시즌이 바뀌면 기간과 마이너 경기 수도 새 시즌으로 넘어간다).</li>
  *   <li>이번 시즌 마이너 경기별 기록도 선수마다 한 번 묻는다(타격·투구 한 번에, '내 선수' 카드와 마이너 경기 수에 쓴다).
  *       이것만 실패하면(403/429 제외) 선수 정보는 저장하고 지난 값을 둔다.
+ *       그 경기들 중 아직 묻지 않은 경기와, 끝나 점수를 받지 못한 최근 경기만 일정(시작 시각·점수)을 묻는다
+ *       (경기 번호를 묶어서, 선수 화면의 마이너 경기 줄. IngestWriter.saveMinorGameLog가 고른다).
+ *       일정만 실패하면(403/429 제외) 경기별 기록은 저장하고 일정은 다음 수집 때 다시 묻는다.
  *       오늘 받은 마이너 기록이 없는 선수는 선수 정보를 이미 받았어도 그것만 다음 수집 때 다시 묻는다.</li>
  *   <li>팀 단계(sport.id)는 MLB 30개 구단이면 묻지 않고, 나머지 팀은 한 번 물어 앱이 떠 있는 동안 기억한다.</li>
  *   <li>403/429면 이번 실행에서 MLB를 더 부르지 않는다. 다른 오류는 그 선수만 건너뛴다.</li>
@@ -178,7 +182,21 @@ public class PlayerRefresher {
                     e.getMessage());
             return;
         }
-        writer.saveMinorGameLog(player.getId(), season, games, now);
+        List<Long> unsettled = writer.saveMinorGameLog(player.getId(), season, games, now);
+        if (unsettled.isEmpty()) {
+            return;
+        }
+        List<MlbScheduleGame> schedule;
+        try {
+            schedule = client.getGames(unsettled);
+        } catch (MlbBlockedException e) {
+            throw e;
+        } catch (MlbApiException e) {
+            log.warn("[mlb] {}: minor game schedule request failed, will retry next time ({})", player.getNameKo(),
+                    e.getMessage());
+            return;
+        }
+        writer.saveMinorSchedule(player.getId(), season, unsettled, schedule);
     }
 
     /** 팀 단계. 팀이 없거나 모르면 null. 팀 조회가 실패하면(403/429 제외) 기억하지 않고 null이다. */
