@@ -6,6 +6,7 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Lineup;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.Player;
@@ -18,16 +19,20 @@ import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.news.NewsProperties;
+import com.korleaguer.support.MlbTeams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -41,7 +46,9 @@ import java.util.stream.Stream;
  *   <li>메이저 합계·지표(player_season_metric)를 아직 받지 못했으면 경기별 기록으로 양만 세어 판정한다.</li>
  *   <li>정규시즌 날짜를 모르면 개막일은 그 시즌 첫 메이저 경기일, 마지막 날은 마지막 경기일로 본다.</li>
  *   <li>선수 한 명이 실패하면 그 선수만 빼고, 전체가 실패하면 빈 목록이다(홈 응답은 깨지지 않는다).</li>
- *   <li>'이번 겨울' 기사: 정규시즌 마지막 날 뒤에 나온 이 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 최대 NEWS건).</li>
+ *   <li>'이번 겨울' 기사: 정규시즌 마지막 날 뒤에 나온 이 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 최대 NEWS건).
+ *       같은 언론사가 연달아 오지 않게 섞는다(spreadPublishers, 이슈 #140).</li>
+ *   <li>FA 선수(소속이 끝난 선수)는 행선지로 거론된 구단을 포스팅 카드와 같은 규칙으로 센다. 직전 구단은 세지 않는다(이슈 #140).</li>
  * </ul>
  * 순서: 판정(SeasonTier) 순, 그 안에서 메이저 경기 많은 순.
  */
@@ -61,13 +68,17 @@ public class SeasonReportFinder {
     private final NewsArticleRepository news;
     /** 지금 news/sources.yml에 있는 언론사(뺀 언론사의 예전 기사는 보이지 않는다) */
     private final Set<String> publishers;
+    private final LinkedTeamsCounter linkedTeams;
+    private final Clock clock;
 
     public SeasonReportFinder(AppearanceRepository appearances, MinorGameLogRepository minorGameLogs,
                               PlayerMoveRepository moves, PlayerSeasonMetricRepository metrics,
                               SeasonDatesRepository seasonDates, NewsArticleRepository news,
-                              NewsProperties newsProperties) {
+                              NewsDestinationRepository destinations, NewsProperties newsProperties, Clock clock) {
         this.news = news;
         this.publishers = newsProperties.publishers();
+        this.linkedTeams = new LinkedTeamsCounter(news, destinations, publishers);
+        this.clock = clock;
         this.appearances = appearances;
         this.minorGameLogs = minorGameLogs;
         this.moves = moves;
@@ -124,20 +135,84 @@ public class SeasonReportFinder {
                 log.warn("season report for {} failed, left out: {}", player.getNameKo(), e.toString());
             }
         }
-        Map<Long, String> names = roster.stream()
-                .collect(Collectors.toMap(m -> m.player().getId(), m -> m.player().getNameKo(), (a, b) -> a));
+        Map<Long, RosterMember> members = roster.stream()
+                .collect(Collectors.toMap(m -> m.player().getId(), m -> m, (a, b) -> a));
         Instant winterStart = lastRegularDay.plusDays(1).atStartOfDay(GameIngest.US_EASTERN).toInstant();
+        Instant now = clock.instant();
         return built.stream()
                 .sorted(Comparator.comparing((SeasonReports.Built b) -> b.report().tier())
                         .thenComparing(SeasonReports.Built::majorGames, Comparator.reverseOrder()))
                 .map(SeasonReports.Built::report)
-                .map(r -> r.withNews(winterNews(names.get(r.playerId()), winterStart)))
+                .map(r -> {
+                    RosterMember member = members.get(r.playerId());
+                    String name = member.player().getNameKo();
+                    return r.withNews(winterNews(name, winterStart), freeAgentLinkedTeams(member, now));
+                })
                 .toList();
     }
 
-    /** 그 선수의 '이번 겨울' 기사(늦은 순, 같은 기사는 한 줄). 기사를 못 읽으면 빈 목록(성적표는 그대로 보인다) */
+    /**
+     * 그 선수의 '이번 겨울' 기사(같은 기사는 한 줄, 늦은 순이되 같은 언론사가 연달아 오지 않게 섞는다).
+     * 기사를 못 읽으면 빈 목록(성적표는 그대로 보인다)
+     */
     List<PostingSummary.Headline> winterNews(String nameKo, Instant since) {
-        return news(nameKo, since, NEWS);
+        return spreadPublishers(news(nameKo, since, NEWS));
+    }
+
+    /** 앞 기사보다 이만큼 안쪽으로 늦지 않은 다른 언론사 기사는 앞으로 당긴다(늦은 순을 크게 흐트리지 않는다) */
+    static final Duration SPREAD_WINDOW = Duration.ofDays(1);
+
+    /**
+     * 늦은 순 기사를, 같은 언론사가 연달아 오지 않게 섞는다(이슈 #140: 김하성 30건 중 21건이 한 언론사라 '이번 겨울'
+     * 앞 두 건이 한 언론사로 찼다). 매번 남은 기사 중 가장 늦은 것을 고르되, 그것이 바로 앞과 같은 언론사이면 남은 가장 늦은
+     * 기사보다 SPREAD_WINDOW 안에 나온 다른 언론사 기사를 대신 고른다. 없으면 그대로 둔다
+     */
+    static List<PostingSummary.Headline> spreadPublishers(List<PostingSummary.Headline> newestFirst) {
+        List<PostingSummary.Headline> left = new ArrayList<>(newestFirst);
+        List<PostingSummary.Headline> out = new ArrayList<>(left.size());
+        while (!left.isEmpty()) {
+            PostingSummary.Headline next = left.getFirst();
+            if (!out.isEmpty() && out.getLast().publisher().equals(next.publisher())) {
+                Instant newest = next.publishedAt();
+                String previous = out.getLast().publisher();
+                next = left.stream()
+                        .filter(h -> !h.publisher().equals(previous))
+                        .filter(h -> !h.publishedAt().isBefore(newest.minus(SPREAD_WINDOW)))
+                        .findFirst()
+                        .orElse(next);
+            }
+            left.remove(next);
+            out.add(next);
+        }
+        return out;
+    }
+
+    /** 직전 구단 약어를 분류기가 쓰는 대표 약어로(MLB의 AZ → ARI 등). 모르는 약어면 그대로 */
+    private static String lastTeam(String abbreviation) {
+        if (abbreviation == null) {
+            return null;
+        }
+        String canonical = MlbTeams.canonical(abbreviation.toUpperCase(Locale.ROOT));
+        return canonical != null ? canonical : abbreviation;
+    }
+
+    /** FA 선수(소속이 끝났고 직전 구단을 안다)의 거론 구단. FA가 아니거나 거론된 구단이 없거나 못 읽으면 null */
+    PostingSummary.LinkedTeams freeAgentLinkedTeams(RosterMember member, Instant now) {
+        if (!member.teamEnded() || member.team() == null || member.player().getNameKo() == null) {
+            return null;
+        }
+        try {
+            PostingSummary.LinkedTeams linked = linkedTeams.count(member.player().getNameKo(), now,
+                    articles -> articles.stream()
+                            .filter(a -> publishers.contains(a.getPublisher()))
+                            .filter(a -> !a.isOffTopic())
+                            .toList(),
+                    lastTeam(member.team().getAbbreviation()));
+            return linked.teams().stream().anyMatch(t -> t.linked() > 0) ? linked : null;
+        } catch (RuntimeException e) {
+            log.warn("linked teams for {} failed, left out: {}", member.player().getNameKo(), e.toString());
+            return null;
+        }
     }
 
     /**

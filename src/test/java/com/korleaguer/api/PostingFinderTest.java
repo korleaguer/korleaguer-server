@@ -381,7 +381,7 @@ class PostingFinderTest {
     @Test
     void aDoubtOnlyTodayIsNotTodaysLinkAndTiesGoToTheLaterMention() {
         LocalDate today = LocalDate.parse("2026-11-12");
-        PostingSummary.LinkedTeams linked = PostingFinder.linkedTeams(List.of(
+        PostingSummary.LinkedTeams linked = LinkedTeamsCounter.linkedTeams(List.of(
                 mention("NYY", NewsDestination.Stance.LINKED, "2026-11-08T01:00:00Z"),
                 mention("MIA", NewsDestination.Stance.LINKED, "2026-11-10T01:00:00Z"),
                 mention("NYY", NewsDestination.Stance.DOUBTED, "2026-11-12T01:00:00Z")), today);
@@ -394,7 +394,7 @@ class PostingFinderTest {
     void copiesOfTheSameStoryCountOnceAndTheMajorityStanceWins() {
         // 1·2번은 같은 글(묶음 대표 1번), 한쪽만 메츠 거론. 3·4·5번은 같은 글인데 거론 둘·반대 하나
         Map<Long, Long> storyOf = Map.of(1L, 1L, 2L, 1L, 3L, 3L, 4L, 3L, 5L, 3L);
-        List<DestinationMention> once = PostingFinder.onePerStory(List.of(
+        List<DestinationMention> once = LinkedTeamsCounter.onePerStory(List.of(
                 mention(1, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T02:00:00Z"),
                 mention(2, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:00:00Z"),
                 mention(3, "PHI", NewsDestination.Stance.LINKED, "2026-11-11T10:00:00Z"),
@@ -410,7 +410,7 @@ class PostingFinderTest {
 
     @Test
     void aTieInsideAStoryCountsAsLinked() {
-        List<DestinationMention> once = PostingFinder.onePerStory(List.of(
+        List<DestinationMention> once = LinkedTeamsCounter.onePerStory(List.of(
                 mention(1, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T02:00:00Z"),
                 mention(2, "NYM", NewsDestination.Stance.DOUBTED, "2026-11-12T03:00:00Z")), Map.of(1L, 1L, 2L, 1L));
 
