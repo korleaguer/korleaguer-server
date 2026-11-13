@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,6 +42,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
  *   트레이드된 Tarik Skubal, 고우석)
  * - yearbyyear-hitting-673490.json: /api/v1/people/673490/stats?stats=yearByYear&group=hitting&sportId=1
  *   (김하성, 2025는 팀별 두 줄과 합친 줄)
+ * - schedule-gamepks-minors.json: /api/v1/schedule?gamePks=815254,816374&hydrate=team (2026-11-13, 마이너 경기 둘:
+ *   김혜성 오클라호마시티 홈 경기, 고우석 톨레도 원정 경기. 팀은 쓰는 칸만 남김)
  */
 class HttpMlbClientTest {
 
@@ -158,6 +162,39 @@ class HttpMlbClientTest {
                 .andRespond(withSuccess("{\"stats\":[]}", MediaType.APPLICATION_JSON));
 
         assertThat(client.getMinorGameLog(808982, 2026)).isEqualTo(MlbMinorGameLog.NONE);
+    }
+
+    @Test
+    void readsMinorGamesByGamePkWithTeamPlaces() {
+        server.expect(requestTo(allOf(containsString("/api/v1/schedule?"), containsString("gamePks=815254,816374"),
+                        containsString("hydrate=team"))))
+                .andRespond(withSuccess(fixture("schedule-gamepks-minors.json"), MediaType.APPLICATION_JSON));
+
+        List<MlbScheduleGame> games = client.getGames(List.of(816374L, 815254L));
+
+        assertThat(games).extracting(MlbScheduleGame::gamePk).containsExactly(815254L, 816374L);
+        MlbScheduleGame okc = games.getFirst();
+        assertThat(okc.gameDate()).isEqualTo("2026-03-28T00:05:00Z");
+        assertThat(okc.status().abstractGameState()).isEqualTo("Final");
+        assertThat(okc.teams().home().team().id()).isEqualTo(238L);
+        assertThat(okc.teams().home().team().franchiseName()).isEqualTo("Oklahoma City");
+        assertThat(okc.teams().home().score()).isEqualTo(1);
+        assertThat(okc.teams().away().team().franchiseName()).isEqualTo("Albuquerque");
+        assertThat(okc.teams().away().score()).isEqualTo(3);
+    }
+
+    @Test
+    void manyGamesAreAskedFortyAtATime() {
+        String firstForty = LongStream.rangeClosed(1, 40).mapToObj(String::valueOf).collect(Collectors.joining(","));
+        server.expect(requestTo(containsString("gamePks=" + firstForty + "&")))
+                .andRespond(withSuccess("{\"dates\":[]}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString("gamePks=41&")))
+                .andRespond(withSuccess("{\"dates\":[]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.getGames(LongStream.rangeClosed(1, 41).boxed().toList())).isEmpty();
+
+        server.verify();
+        assertThat(client.requestCount()).isEqualTo(2);
     }
 
     @Test

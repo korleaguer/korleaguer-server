@@ -29,6 +29,8 @@ public class HttpMlbClient implements MlbClient {
     private static final int MLB = 1;
     /** 리그 전체를 물을 때 한 번에 받는 선수 수(한 시즌 타자 750명·투수 900명쯤이라 한 번에 다 온다) */
     private static final int LEAGUE_LIMIT = 2000;
+    /** 경기 번호로 일정을 물을 때 한 번에 묻는 경기 수(schedule?gamePks=, 40개 한 번에 오는 것을 확인했다) */
+    static final int GAMES_PER_REQUEST = 40;
 
     private final RestClient restClient;
     private final RateLimiter rateLimiter;
@@ -211,6 +213,21 @@ public class HttpMlbClient implements MlbClient {
                 .queryParam("startDate", startDate)
                 .queryParam("endDate", endDate)
                 .build());
+    }
+
+    /** 경기 번호 GAMES_PER_REQUEST개씩 나눠 묻는다(hydrate=team: 팀 지명까지). */
+    @Override
+    public List<MlbScheduleGame> getGames(Collection<Long> gamePks) {
+        List<Long> ids = gamePks.stream().distinct().sorted().toList();
+        List<MlbScheduleGame> result = new ArrayList<>();
+        for (int from = 0; from < ids.size(); from += GAMES_PER_REQUEST) {
+            List<Long> chunk = ids.subList(from, Math.min(from + GAMES_PER_REQUEST, ids.size()));
+            result.addAll(schedule("schedule gamePks (" + chunk.size() + ")", uri -> uri.path("/api/v1/schedule")
+                    .queryParam("gamePks", joined(chunk))
+                    .queryParam("hydrate", "team")
+                    .build()));
+        }
+        return result;
     }
 
     @Override

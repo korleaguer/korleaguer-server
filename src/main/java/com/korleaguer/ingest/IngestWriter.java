@@ -21,6 +21,7 @@ import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Lineup;
 import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
+import com.korleaguer.domain.MinorGameSchedule;
 import com.korleaguer.domain.MinorSeason;
 import com.korleaguer.domain.MinorSeasonRepository;
 import com.korleaguer.domain.Pitching;
@@ -57,6 +58,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -180,14 +182,20 @@ public class IngestWriter {
     /**
      * 선수의 한 시즌 마이너 경기별 기록을 새로 받은 것으로 통째로 바꾸고, 마이너 경기 수(MinorSeason)도 그 기록으로 센다.
      * 같은 경기(gamePk)의 타격·투구는 한 줄로 합친다. 마이너가 아닌 줄(sport.id 11~16 밖)·번호나 날짜가 없는 줄은 건너뛴다.
+     * 이미 받아 둔 일정 값(시작 시각·점수, saveMinorSchedule)은 같은 경기 줄에 옮겨 담는다(끝난 경기를 다시 묻지 않게).
+     *
+     * @return 일정을 물어야 할 경기 번호(아직 묻지 않았거나 끝나 점수를 받지 못한 경기, 오래된 경기부터)
      */
-    public void saveMinorGameLog(long playerId, int season, MlbMinorGameLog log, Instant fetchedAt) {
+    public List<Long> saveMinorGameLog(long playerId, int season, MlbMinorGameLog log, Instant fetchedAt) {
         MlbMinorGames counts = log.counts();
         MinorSeason row = minorSeasons.find(playerId, season)
                 .orElseGet(() -> new MinorSeason(players.getReferenceById(playerId), season));
         row.update(counts.hitting(), counts.pitching(), fetchedAt);
         minorSeasons.save(row);
 
+        Map<Long, MinorGameSchedule> known = minorGameLogs.findSeason(List.of(playerId), season).stream()
+                .filter(game -> game.getSchedule() != null)
+                .collect(Collectors.toMap(MinorGameLog::getGamePk, MinorGameLog::getSchedule, (a, b) -> a));
         minorGameLogs.deleteSeason(playerId, season);
         Player player = players.getReferenceById(playerId);
         Map<Long, MinorGameLog> byGame = new LinkedHashMap<>();
@@ -196,7 +204,80 @@ public class IngestWriter {
         log.pitching().forEach(split -> minorLine(byGame, player, season, split)
                 .ifPresent(line -> line.updatePitching(toPitching(split.stat()), split.stat() == null ? null
                         : split.stat().holds(), split.stat() == null ? null : split.stat().blownSaves())));
+        byGame.values().forEach(line -> line.updateSchedule(known.get(line.getGamePk())));
         minorGameLogs.saveAll(byGame.values());
+        return byGame.values().stream()
+                .filter(line -> line.getSchedule() == null || !line.getSchedule().isSettled())
+                .sorted(Comparator.comparing(MinorGameLog::getGameDate).thenComparing(MinorGameLog::getGamePk))
+                .map(MinorGameLog::getGamePk)
+                .toList();
+    }
+
+    /**
+     * 마이너 경기 일정(시작 시각·상태·점수·팀 지명)을 선수의 그 시즌 경기 줄에 적는다. 선수 팀이 홈인지 원정인지는 팀 번호로
+     * 가리고, 번호가 맞지 않으면 경기별 기록의 홈 여부를 쓴다. 같은 경기가 두 번 오면(연기) 끝난 쪽을, 둘 다 아니면 뒤에 온 쪽을 쓴다.
+     * 시작 시각을 읽을 수 없거나 팀이 없는 경기는 건너뛴다(지난 값을 둔다).
+     *
+     * @return 적은 경기 수
+     */
+    public int saveMinorSchedule(long playerId, int season, List<MlbScheduleGame> games) {
+        Map<Long, MlbScheduleGame> byPk = new LinkedHashMap<>();
+        for (MlbScheduleGame game : games) {
+            if (game.gamePk() != null) {
+                byPk.merge(game.gamePk(), game, (before, after) -> isFinal(before) && !isFinal(after) ? before : after);
+            }
+        }
+        int saved = 0;
+        for (MinorGameLog line : minorGameLogs.findSeason(List.of(playerId), season)) {
+            MlbScheduleGame game = byPk.get(line.getGamePk());
+            MinorGameSchedule schedule = game == null ? null : minorSchedule(line, game);
+            if (schedule != null) {
+                line.updateSchedule(schedule);
+                saved++;
+            }
+        }
+        return saved;
+    }
+
+    private static MinorGameSchedule minorSchedule(MinorGameLog line, MlbScheduleGame game) {
+        MlbScheduleGame.Teams sides = game.teams();
+        if (game.gameDate() == null || sides == null || sides.home() == null || sides.away() == null) {
+            return null;
+        }
+        Instant start;
+        try {
+            start = KoreanTime.parseUtc(game.gameDate());
+        } catch (DateTimeParseException e) {
+            log.debug("skip minor game {} with unreadable start time '{}'", game.gamePk(), game.gameDate());
+            return null;
+        }
+        Long teamId = line.getTeamId();
+        boolean home;
+        if (teamId != null && teamId.equals(teamId(sides.home().team()))) {
+            home = true;
+        } else if (teamId != null && teamId.equals(teamId(sides.away().team()))) {
+            home = false;
+        } else {
+            home = Boolean.TRUE.equals(line.getHome());
+        }
+        MlbScheduleGame.Side mine = home ? sides.home() : sides.away();
+        MlbScheduleGame.Side other = home ? sides.away() : sides.home();
+        return new MinorGameSchedule(start, statusState(game), mine.score(), other.score(), place(mine.team()),
+                place(other.team()));
+    }
+
+    private static String statusState(MlbScheduleGame game) {
+        MlbScheduleGame.Status status = game.status();
+        return status == null ? "unknown"
+                : GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState());
+    }
+
+    private static boolean isFinal(MlbScheduleGame game) {
+        return GameStatuses.FINAL.equals(statusState(game));
+    }
+
+    private static String place(MlbTeam team) {
+        return team == null ? null : team.franchiseName();
     }
 
     /** 마이너 경기 한 줄(같은 경기면 이미 만든 줄). 마이너가 아니거나 번호·날짜가 없으면 빈 값 */
@@ -209,6 +290,7 @@ public class IngestWriter {
         MinorGameLog line = byGame.computeIfAbsent(split.gamePk(), pk -> new MinorGameLog(player, season, pk));
         line.updateGame(gameDate, split.sport().abbreviation(), teamName(split.team()), teamName(split.opponent()),
                 split.isHome(), split.isWin());
+        line.updateTeamIds(teamId(split.team()), teamId(split.opponent()));
         return Optional.of(line);
     }
 

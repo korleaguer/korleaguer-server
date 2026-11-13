@@ -376,6 +376,49 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void playerPageHasMinorGamesNewestFirst() throws Exception {
+        // 고우석: 샘플 마이너 등판 12경기(9/9 ~ 9/20, 지어낸 값). 일정은 PlayerRefresher가 경기 번호로 묶어 받았다.
+        // 맨 위 9/20 경기: 세인트폴 원정, 상대 아이오와, 6:4 승, 미국 저녁 7시 5분 = 한국 다음 날 08:05
+        mockMvc.perform(get("/api/players/5"))
+                .andExpect(jsonPath("$.minorGames", hasSize(12)))
+                .andExpect(jsonPath("$.minorGames[0].gamePk").value(11_608_970_011L))
+                .andExpect(jsonPath("$.minorGames[0].startTimeKst").value("2026-09-21T08:05:00+09:00"))
+                .andExpect(jsonPath("$.minorGames[0].level").value("AAA"))
+                .andExpect(jsonPath("$.minorGames[0].levelKo").value("트리플A"))
+                .andExpect(jsonPath("$.minorGames[0].teamId").value(1960))
+                .andExpect(jsonPath("$.minorGames[0].teamKo").value("세인트폴"))
+                .andExpect(jsonPath("$.minorGames[0].opponentId").value(451))
+                .andExpect(jsonPath("$.minorGames[0].opponentKo").value("아이오와"))
+                .andExpect(jsonPath("$.minorGames[0].home").value(false))
+                .andExpect(jsonPath("$.minorGames[0].teamScore").value(6))
+                .andExpect(jsonPath("$.minorGames[0].opponentScore").value(4))
+                .andExpect(jsonPath("$.minorGames[0].result").value("W"))
+                .andExpect(jsonPath("$.minorGames[0].summary").value("1이닝 무피안타 무실점 2탈삼진"))
+                .andExpect(jsonPath("$.minorGames[0].pitching.outs").value(3))
+                .andExpect(jsonPath("$.minorGames[0].pitching.inningsText").value("1"))
+                .andExpect(jsonPath("$.minorGames[0].batting").value(nullValue()))
+                .andExpect(jsonPath("$.minorGames[11].startTimeKst").value("2026-09-10T08:05:00+09:00"));
+
+        // 김혜성: 지금 팀이 마이너가 아니라 샘플 팀(표에 없음, 지명도 없음)이라 팀 이름을 그대로 쓴다. 9/20 4타수 무안타, 2:4 패
+        mockMvc.perform(get("/api/players/2"))
+                .andExpect(jsonPath("$.minorGames", hasSize(2)))
+                .andExpect(jsonPath("$.minorGames[0].teamKo").value("샘플 트리플A 팀"))
+                .andExpect(jsonPath("$.minorGames[0].opponentKo").value("톨레도"))
+                .andExpect(jsonPath("$.minorGames[0].teamScore").value(2))
+                .andExpect(jsonPath("$.minorGames[0].opponentScore").value(4))
+                .andExpect(jsonPath("$.minorGames[0].result").value("L"))
+                .andExpect(jsonPath("$.minorGames[0].summary").value("4타수 무안타"))
+                .andExpect(jsonPath("$.minorGames[0].batting.atBats").value(4))
+                .andExpect(jsonPath("$.minorGames[0].batting.plateAppearances").value(4))
+                .andExpect(jsonPath("$.minorGames[0].pitching").value(nullValue()));
+
+        // 이정후: 마이너 경기가 없으면 빈 목록(null 아님)
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(jsonPath("$.minorGames").isArray())
+                .andExpect(jsonPath("$.minorGames", hasSize(0)));
+    }
+
+    @Test
     void unknownPlayerIs404() throws Exception {
         mockMvc.perform(get("/api/players/999999"))
                 .andExpect(status().isNotFound())
