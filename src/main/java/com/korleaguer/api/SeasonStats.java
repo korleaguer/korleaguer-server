@@ -29,13 +29,13 @@ final class SeasonStats {
 
     /**
      * 마이너 시즌 성적(이슈 #37): 그 시즌 마이너 경기별 기록을 메이저와 같은 계산으로 더한다.
-     * 팀·단계는 마지막 마이너 경기의 것이다. games가 비어 있으면 안 된다.
+     * 팀은 마지막 마이너 경기의 것이고, 단계는 모두 한 단계면 그 단계·섞였으면 "마이너"다. games가 비어 있으면 안 된다.
      */
     static HitterSeason minorHitter(Player player, String photoUrl, List<MinorGameLog> games) {
         MinorGameLog last = latest(games);
         List<Batting> lines = games.stream().map(MinorGameLog::getBatting).filter(Objects::nonNull).toList();
         return hitter(player, photoUrl, last.getTeamName(), null, lines, games.size(), 0,
-                MinorRecords.levelKo(last.getLevel()));
+                MinorRecords.levelKo(games));
     }
 
     /** 마이너 투수 시즌 성적. minorHitter와 같은 기준이다. */
@@ -43,7 +43,7 @@ final class SeasonStats {
         MinorGameLog last = latest(games);
         List<Pitching> lines = games.stream().map(MinorGameLog::getPitching).filter(Objects::nonNull).toList();
         return pitcher(player, photoUrl, last.getTeamName(), null, lines, games.size(), 0,
-                MinorRecords.levelKo(last.getLevel()));
+                MinorRecords.levelKo(games));
     }
 
     private static MinorGameLog latest(List<MinorGameLog> games) {
