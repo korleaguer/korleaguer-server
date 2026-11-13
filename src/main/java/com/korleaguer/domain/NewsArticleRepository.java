@@ -49,10 +49,16 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
                                             @Param("version") String version, @Param("maxAttempts") int maxAttempts,
                                             @Param("since") Instant since, Pageable page);
 
-    /** 행선지 고르기 대상 조건(아래 두 쿼리가 함께 쓴다) */
-    String TO_TAG = "(a.destinationsAt is null or a.destinationsModel <> :version"
+    /**
+     * 행선지 고르기 대상 조건(아래 두 쿼리가 함께 쓴다). 한 번도 고르지 못한 기사는 실패한 판(destinationsModel)이 지금 판과
+     * 다르면 횟수와 상관없이 다시 고른다(이슈 #148). 고른 적이 있는 기사는 판이 바뀌었거나 고른 뒤 요약이 붙었을 때 다시 고른다
+     */
+    String TO_TAG = "((a.destinationsAt is null and (a.destinationsModel is null or a.destinationsModel <> :version"
+            + " or a.destinationAttempts < :maxAttempts))"
+            + " or (a.destinationsAt is not null and (a.destinationsModel <> :version"
             + " or (a.summary is not null and a.enrichedAt > a.destinationsAt))"
-            + " and a.destinationAttempts < :maxAttempts and a.publishedAt >= :since"
+            + " and a.destinationAttempts < :maxAttempts))"
+            + " and a.publishedAt >= :since"
             + " and (a.summary is not null or a.enrichAttempts >= :summaryGiveUp)";
 
     /**
