@@ -3,12 +3,15 @@ package com.korleaguer.api;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.MinorGameLog;
+import com.korleaguer.domain.MinorGameSchedule;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Role;
 import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.support.BaseballMath;
+import com.korleaguer.support.GameStatuses;
 import com.korleaguer.support.GameSummary;
+import com.korleaguer.support.KoreanTime;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -18,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -33,6 +37,9 @@ final class MinorRecords {
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
     // 마이너 경기의 한국 시각을 어림할 때 쓰는 시각(미국 저녁 경기 = 한국 다음 날 아침)
     private static final LocalTime ASSUMED_KST_TIME = LocalTime.of(8, 0);
+    // 승패가 아직 나지 않은 상태(경기 전·연기·취소·경기 중·지연·중단). 이때는 경기별 기록의 승패도 쓰지 않는다
+    private static final Set<String> UNDECIDED = Set.of(GameStatuses.SCHEDULED, GameStatuses.POSTPONED,
+            GameStatuses.CANCELED, GameStatuses.IN_PROGRESS, GameStatuses.DELAYED, GameStatuses.SUSPENDED);
 
     private MinorRecords() {
     }
@@ -111,6 +118,57 @@ final class MinorRecords {
                         GameSummary.played(role, game.getBatting(), game.getPitching()),
                         GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()), null))
                 .toList();
+    }
+
+    /** 선수 화면의 마이너 경기 줄(MinorGameLine). 받은 경기를 모두, 최신 경기부터 */
+    static List<MinorGameLine> gameLines(Role role, List<MinorGameLog> season, MinorTeamNames names) {
+        return season.stream()
+                .sorted(Comparator.comparing(MinorGameLog::getGameDate)
+                        .thenComparing(MinorRecords::startTimeKst)
+                        .thenComparing(MinorGameLog::getGamePk)
+                        .reversed())
+                .map(game -> gameLine(role, game, names))
+                .toList();
+    }
+
+    private static MinorGameLine gameLine(Role role, MinorGameLog game, MinorTeamNames names) {
+        MinorGameSchedule schedule = game.getSchedule();
+        boolean scored = schedule != null && schedule.statusState() != null
+                && !GameStatuses.NOT_STARTED.contains(schedule.statusState());
+        Integer teamScore = scored ? schedule.teamScore() : null;
+        Integer opponentScore = scored ? schedule.opponentScore() : null;
+        return new MinorGameLine(game.getGamePk(), startTimeKst(game), game.getLevel(), levelKo(game.getLevel()),
+                game.getTeamId(), names.name(game.getTeamId(), schedule == null ? null : schedule.teamPlace(),
+                        game.getTeamName()),
+                game.getOpponentId(), names.name(game.getOpponentId(), schedule == null ? null : schedule.opponentPlace(),
+                        game.getOpponentName()),
+                game.getHome(), teamScore, opponentScore, result(game, schedule, teamScore, opponentScore),
+                GameSummary.played(role, game.getBatting(), game.getPitching()),
+                GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()));
+    }
+
+    /** 시작 시각(한국 시각). 일정을 받지 못했으면 공식 날짜 다음 날 08:00으로 어림한다(lines()와 같다) */
+    static OffsetDateTime startTimeKst(MinorGameLog game) {
+        MinorGameSchedule schedule = game.getSchedule();
+        return schedule != null && schedule.startTimeUtc() != null ? KoreanTime.toKst(schedule.startTimeUtc())
+                : OffsetDateTime.of(kstDate(game), ASSUMED_KST_TIME, KST);
+    }
+
+    /**
+     * 끝나 점수를 아는 경기는 점수로 W·L·T. 승패가 아직 나지 않은 상태(UNDECIDED)면 null.
+     * 그 밖(일정을 모름, 상태를 모름, 끝났는데 점수가 없음)은 경기별 기록의 승패다.
+     */
+    private static String result(MinorGameLog game, MinorGameSchedule schedule, Integer teamScore,
+                                 Integer opponentScore) {
+        String state = schedule == null ? null : schedule.statusState();
+        if (state != null && UNDECIDED.contains(state)) {
+            return null;
+        }
+        if (GameStatuses.FINAL.equals(state) && teamScore != null && opponentScore != null) {
+            int compared = Integer.compare(teamScore, opponentScore);
+            return compared > 0 ? "W" : compared < 0 ? "L" : "T";
+        }
+        return game.getWin() == null ? null : game.getWin() ? "W" : "L";
     }
 
     /** 한 시즌 메이저 합계(정규시즌). 출전이 없으면 null */

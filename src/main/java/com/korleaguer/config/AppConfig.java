@@ -1,5 +1,6 @@
 package com.korleaguer.config;
 
+import com.korleaguer.api.MinorTeamProperties;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.posting.PostingProperties;
@@ -22,7 +23,7 @@ import java.util.concurrent.Executors;
 @EnableCaching
 @EnableScheduling
 @EnableConfigurationProperties({KorleaguerProperties.class, RosterProperties.class, PostingProperties.class,
-        NewsProperties.class})
+        NewsProperties.class, MinorTeamProperties.class})
 public class AppConfig {
 
     public static final String HOME_CACHE = "home";

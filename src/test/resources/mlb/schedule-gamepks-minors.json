@@ -1,0 +1,119 @@
+{
+  "totalGames": 2,
+  "dates": [
+    {
+      "date": "2026-03-27",
+      "games": [
+        {
+          "gamePk": 815254,
+          "gameType": "R",
+          "season": "2026",
+          "gameDate": "2026-03-28T00:05:00Z",
+          "officialDate": "2026-03-27",
+          "status": {
+            "abstractGameState": "Final",
+            "codedGameState": "F",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 342,
+                "name": "Albuquerque Isotopes",
+                "abbreviation": "ABQ",
+                "locationName": "Albuquerque",
+                "franchiseName": "Albuquerque",
+                "clubName": "Isotopes",
+                "sport": {
+                  "id": 11,
+                  "link": "/api/v1/sports/11",
+                  "name": "Triple-A"
+                },
+                "parentOrgId": 115
+              },
+              "score": 3,
+              "isWinner": true
+            },
+            "home": {
+              "team": {
+                "id": 238,
+                "name": "Oklahoma City Comets",
+                "abbreviation": "OKC",
+                "locationName": "Oklahoma City",
+                "franchiseName": "Oklahoma City",
+                "clubName": "Comets",
+                "sport": {
+                  "id": 11,
+                  "link": "/api/v1/sports/11",
+                  "name": "Triple-A"
+                },
+                "parentOrgId": 119
+              },
+              "score": 1,
+              "isWinner": false
+            }
+          },
+          "doubleHeader": "N",
+          "gameNumber": 1
+        }
+      ]
+    },
+    {
+      "date": "2026-03-29",
+      "games": [
+        {
+          "gamePk": 816374,
+          "gameType": "R",
+          "season": "2026",
+          "gameDate": "2026-03-29T17:15:00Z",
+          "officialDate": "2026-03-29",
+          "status": {
+            "abstractGameState": "Final",
+            "codedGameState": "F",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 512,
+                "name": "Toledo Mud Hens",
+                "abbreviation": "TOL",
+                "locationName": "Toledo",
+                "franchiseName": "Toledo",
+                "clubName": "Mud Hens",
+                "sport": {
+                  "id": 11,
+                  "link": "/api/v1/sports/11",
+                  "name": "Triple-A"
+                },
+                "parentOrgId": 116
+              },
+              "score": 7,
+              "isWinner": false
+            },
+            "home": {
+              "team": {
+                "id": 1410,
+                "name": "Lehigh Valley IronPigs",
+                "abbreviation": "LHV",
+                "locationName": "Allentown",
+                "franchiseName": "Lehigh Valley",
+                "clubName": "IronPigs",
+                "sport": {
+                  "id": 11,
+                  "link": "/api/v1/sports/11",
+                  "name": "Triple-A"
+                },
+                "parentOrgId": 143
+              },
+              "score": 8,
+              "isWinner": true
+            }
+          },
+          "doubleHeader": "N",
+          "gameNumber": 1
+        }
+      ]
+    }
+  ]
+}

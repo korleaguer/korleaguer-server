@@ -160,6 +160,12 @@ class GameIngestTest {
         }
 
         @Override
+        public List<MlbScheduleGame> getGames(Collection<Long> gamePks) {
+            requests++;
+            return delegate.getGames(gamePks);
+        }
+
+        @Override
         public MlbBoxscore getBoxscore(long gamePk) {
             requests++;
             boxscoresAsked.add(gamePk);

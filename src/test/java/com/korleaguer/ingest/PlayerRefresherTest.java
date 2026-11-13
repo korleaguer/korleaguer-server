@@ -3,6 +3,7 @@ package com.korleaguer.ingest;
 import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbPerson;
+import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
@@ -56,10 +57,12 @@ class PlayerRefresherTest {
     private final List<Long> askedTeams = new ArrayList<>();
     private final List<LocalDate[]> askedRanges = new ArrayList<>();
     private final List<Collection<Long>> askedPeople = new ArrayList<>();
+    private final List<Collection<Long>> askedGames = new ArrayList<>();
 
     /** 질문을 적어 두는 샘플 클라이언트. failTeams의 팀은 5xx, blockPeople이면 선수 정보에서 403을 흉내 낸다. */
     private Set<Long> failTeams = Set.of();
     private boolean blockPeople;
+    private boolean failGames;
     private final SampleMlbClient client = new SampleMlbClient(SampleMlbClient.Data.empty()
             .withPeople(List.of(MlbPerson.of(808970L, "Woo-Suk Go", SAINTS),
                     MlbPerson.of(808982L, "Jung Hoo Lee", new MlbTeam(137L, "San Francisco Giants", null, null, null))))
@@ -82,6 +85,16 @@ class PlayerRefresherTest {
         public List<MlbTransaction> getTransactions(long personId, LocalDate startDate, LocalDate endDate) {
             askedRanges.add(new LocalDate[]{startDate, endDate});
             return super.getTransactions(personId, startDate, endDate);
+        }
+
+        @Override
+        public List<MlbScheduleGame> getGames(Collection<Long> gamePks) {
+            askedGames.add(List.copyOf(gamePks));
+            List<MlbScheduleGame> games = super.getGames(gamePks);
+            if (failGames) {
+                throw new MlbApiException("502", null);
+            }
+            return games;
         }
 
         @Override
@@ -195,6 +208,32 @@ class PlayerRefresherTest {
         verify(writer).saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW));
         verify(writer, never()).saveMinorGameLog(eq(1L), anyInt(), any(), any());
         assertThat(result.checked()).isZero();
+    }
+
+    @Test
+    void asksScheduleOnlyForMinorGamesWithoutFinalScores() {
+        // 저장이 돌려준 경기(아직 점수를 모르는 고우석 경기 둘)만 한 번에 묻는다. 이정후는 물을 경기가 없다
+        when(writer.saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L, 12L));
+
+        PlayerRefresher.Result result = refresher.refresh(false);
+
+        assertThat(askedGames).containsExactly(List.of(11L, 12L));
+        verify(writer).saveMinorSchedule(eq(5L), eq(2026), eq(List.of(11L, 12L)), any());
+        verify(writer, never()).saveMinorSchedule(eq(1L), anyInt(), any(), any());
+        assertThat(result.checked()).isEqualTo(2);
+    }
+
+    @Test
+    void failedScheduleKeepsTheGameLogAndGoesOn() {
+        when(writer.saveMinorGameLog(anyLong(), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L));
+        failGames = true;
+
+        PlayerRefresher.Result result = refresher.refresh(false);
+
+        assertThat(askedGames).hasSize(2); // 두 선수 모두 물었고, 실패해도 멈추지 않는다
+        verify(writer, never()).saveMinorSchedule(anyLong(), anyInt(), any(), any());
+        assertThat(result.checked()).isEqualTo(2);
+        assertThat(result.failed()).isZero();
     }
 
     @Test

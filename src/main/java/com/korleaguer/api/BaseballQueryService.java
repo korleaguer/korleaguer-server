@@ -73,6 +73,7 @@ public class BaseballQueryService {
     private final PostingFinder postings;
     private final SeasonReportFinder seasonReports;
     private final RosterProfiles profiles;
+    private final MinorTeamNames minorTeamNames;
     private final DataMode dataMode;
     private final CurrentSeason currentSeason;
     private final Clock clock;
@@ -84,7 +85,8 @@ public class BaseballQueryService {
                                 PlayerCareerSeasonRepository careerSeasons, GameLineAssembler gameLines,
                                 RecentGamesFinder recentGames, OffSeasonFinder offSeasons, PostingFinder postings,
                                 SeasonReportFinder seasonReports, RosterProfiles profiles,
-                                DataMode dataMode, CurrentSeason currentSeason, Clock clock) {
+                                MinorTeamNames minorTeamNames, DataMode dataMode, CurrentSeason currentSeason,
+                                Clock clock) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -100,6 +102,7 @@ public class BaseballQueryService {
         this.postings = postings;
         this.seasonReports = seasonReports;
         this.profiles = profiles;
+        this.minorTeamNames = minorTeamNames;
         this.dataMode = dataMode;
         this.currentSeason = currentSeason;
         this.clock = clock;
@@ -218,6 +221,7 @@ public class BaseballQueryService {
         PitcherSeason pitching = null;
         HitterSeason minorHitting = null;
         PitcherSeason minorPitching = null;
+        List<MinorGameLine> minorGames = List.of();
         if (statsAvailable) {
             List<Appearance> mine = seasonOf(regularSeason(List.of(player.getId()), season), player);
             MinorSeason minor = minorSeasons.find(player.getId(), season).orElse(null);
@@ -231,6 +235,8 @@ public class BaseballQueryService {
                 hitting = SeasonStats.hitter(player, photoUrl, team, mine, hittingGames(minor));
                 if (!minorLogs.isEmpty()) minorHitting = SeasonStats.minorHitter(player, photoUrl, minorLogs);
             }
+            // 마이너 경기 줄(이슈 #145): 웹이 메이저 경기 줄과 날짜순으로 섞어 보인다
+            minorGames = MinorRecords.gameLines(player.role(), minorLogs, minorTeamNames);
         }
 
         // 시즌(1월 1일 ~ 지금) 동안 시작한 경기
@@ -259,7 +265,7 @@ public class BaseballQueryService {
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching,
                 minorHitting, minorPitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())), saber, careers,
-                seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS));
+                seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS), minorGames);
     }
 
     /**
