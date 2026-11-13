@@ -27,7 +27,8 @@ import java.util.Optional;
  * '행선지로 거론된 구단'이 센다. NewsScheduler가 요약(NewsEnricher) 다음에 부른다.
  * <ul>
  *   <li>요약이 붙은 기사는 요약을 읽고, 요약을 포기한 기사는 제목·앞부분으로 고른다. 요약이 곧 붙을 기사는 기다린다.</li>
- *   <li>최근 기사부터 한 번에 PER_RUN건. 답을 읽을 수 없으면(기사 탓) MAX_ATTEMPTS번까지만 다시 해 본다.</li>
+ *   <li>최근 기사부터 한 번에 PER_RUN건. 답을 읽을 수 없으면(기사 탓) MAX_ATTEMPTS번까지만 다시 해 본다.
+ *       한 번도 고르지 못한 기사는 판이 바뀌면 다시 MAX_ATTEMPTS번(이슈 #148).</li>
  *   <li>AI 서비스가 답하지 못하면(키·사용량·장애) 이번 차례를 멈추고 다음 차례에 다시 한다(세지 않는다).</li>
  *   <li>지시문 판(DestinationTagger.version)이 바뀌거나, 고른 뒤 요약이 붙거나 다시 요약되면 다시 고른다.</li>
  *   <li>이번 겨울 포스팅 선수의 기사는 포스팅 지시문으로, 나머지(명단 선수)는 MLB 선수 지시문으로 고른다(이슈 #139).
@@ -95,7 +96,7 @@ public class NewsTagger {
                 break;
             }
             if (picked.isEmpty()) {
-                article.destinationsFailed();
+                article.destinationsFailed(next.version());
                 articles.save(article);
                 continue;
             }

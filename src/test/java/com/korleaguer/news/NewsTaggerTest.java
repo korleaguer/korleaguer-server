@@ -179,6 +179,46 @@ class NewsTaggerTest {
     }
 
     @Test
+    void aNewPromptVersionRetriesAnArticleThatGaveUpUnderTheOldOne() {
+        // 이슈 #148: 예전 판에서 세 번 실패한 기사가 새 판으로는 한 번도 시도되지 않았다
+        NewsArticle article = article("이상한 답", "2026-11-12T01:00:00Z", true, 0);
+        FakeTagger old = new FakeTagger(Map.of("이상한 답", Optional.empty()));
+        for (int i = 0; i < NewsTagger.MAX_ATTEMPTS + 1; i++) {
+            tagger(old).tag();
+        }
+        assertThat(old.asked).hasSize(NewsTagger.MAX_ATTEMPTS);
+
+        FakeTagger next = new FakeTagger(Map.of());
+        next.version = "fake/d2";
+        assertThat(tagger(next).tag()).isEqualTo(1);
+
+        NewsArticle saved = articles.findById(article.getId()).orElseThrow();
+        assertThat(saved.getDestinationsModel()).isEqualTo("fake/d2");
+        assertThat(saved.getDestinationsAt()).isNotNull();
+        assertThat(saved.getDestinationAttempts()).isZero();
+    }
+
+    @Test
+    void anArticleTaggedBeforeKeepsItsTeamsWhenTheNewVersionCannotReadIt() {
+        NewsArticle article = article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
+        tagger(new FakeTagger(Map.of("메츠행 급부상",
+                Optional.of(List.of(new DestinationTagger.Destination("NYM", Stance.LINKED)))))).tag();
+
+        FakeTagger next = new FakeTagger(Map.of("메츠행 급부상", Optional.empty()));
+        next.version = "fake/d2";
+        for (int i = 0; i < NewsTagger.MAX_ATTEMPTS + 1; i++) {
+            tagger(next).tag();
+        }
+
+        // 새 판으로 세 번까지만 다시 해 보고, 옛 판의 구단은 그대로 둔다
+        assertThat(next.asked).hasSize(NewsTagger.MAX_ATTEMPTS);
+        NewsArticle saved = articles.findById(article.getId()).orElseThrow();
+        assertThat(saved.getDestinationsModel()).isEqualTo("fake/d1");
+        assertThat(destinations.findMentions("노시환", Instant.parse("2026-11-01T00:00:00Z"), java.util.Set.of("마이데일리")))
+                .extracting(DestinationMention::team).containsExactly("NYM");
+    }
+
+    @Test
     void aServiceFailureStopsTheRunWithoutCountingAnAttempt() {
         NewsArticle article = article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
         FakeTagger fake = new FakeTagger(Map.of());
