@@ -8,6 +8,8 @@ import java.util.List;
 
 /**
  * GET /api/players/{id}. 타자면 pitching이, 투수면 hitting이 null이다.
+ * minorHitting·minorPitching은 같은 시즌 마이너 경기 기록을 더한 것(홈 minorHitters·minorPitchers와 같은 계산)이고,
+ * 마이너 경기가 없으면 null이다. 메이저 기록(hitting·pitching)과 따로 보여 줘야 작은 표본이 시즌 전체처럼 보이지 않는다.
  * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록).
  */
 public record PlayerPageResponse(
@@ -17,6 +19,8 @@ public record PlayerPageResponse(
         PlayerInfo player,
         HitterSeason hitting,
         PitcherSeason pitching,
+        HitterSeason minorHitting,
+        PitcherSeason minorPitching,
         List<GameLine> games,
         List<Move> moves) {
 
