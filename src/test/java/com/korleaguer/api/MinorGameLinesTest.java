@@ -98,6 +98,25 @@ class MinorGameLinesTest {
     }
 
     @Test
+    void unknownStateFallsBackToTheGameLogButSuspendedHasNoResult() {
+        // 일정을 물었지만 응답에 없던 경기: 시각은 어림, 승패는 경기별 기록(win=false)
+        MinorGameLog notFound = game(1, LocalDate.of(2026, 9, 20));
+        notFound.updateSchedule(MinorGameSchedule.notFound());
+        // 중단된 경기: 경기별 기록에 승패가 있어도 아직 승패가 나지 않았다
+        MinorGameLog suspended = game(2, LocalDate.of(2026, 9, 19));
+        suspended.updateSchedule(new MinorGameSchedule(Instant.parse("2026-09-19T23:05:00Z"), "suspended", 1, 1,
+                null, null));
+
+        List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(notFound, suspended), NAMES);
+
+        assertThat(lines.get(0).startTimeKst()).isEqualTo(OffsetDateTime.parse("2026-09-21T08:00:00+09:00"));
+        assertThat(lines.get(0).teamScore()).isNull();
+        assertThat(lines.get(0).teamKo()).isEqualTo("오클라호마시티");
+        assertThat(lines.get(0).result()).isEqualTo("L");
+        assertThat(lines.get(1).result()).isNull();
+    }
+
+    @Test
     void koreanCityNameThenEnglishPlaceThenEnglishName() {
         MinorGameLog known = game(1, LocalDate.of(2026, 9, 20));
         MinorGameLog placeOnly = game(2, LocalDate.of(2026, 5, 2));

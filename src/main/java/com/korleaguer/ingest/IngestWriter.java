@@ -78,6 +78,11 @@ import java.util.stream.Stream;
 public class IngestWriter {
 
     private static final Logger log = LoggerFactory.getLogger(IngestWriter.class);
+    /**
+     * 끝나 점수를 받지 못한 마이너 경기의 일정을 다시 묻는 기간(공식 날짜부터 며칠). 경기 중에 받은 경기·하루 이틀 뒤 이어 한 중단
+     * 경기는 이 안에 끝난다. 그 뒤에도 안 끝난 경기(이어 하지 않은 중단 경기·응답에 없던 경기)는 더 묻지 않는다
+     */
+    static final int MINOR_RECHECK_DAYS = 7;
 
     private final TeamRepository teams;
     private final PlayerRepository players;
@@ -184,7 +189,8 @@ public class IngestWriter {
      * 같은 경기(gamePk)의 타격·투구는 한 줄로 합친다. 마이너가 아닌 줄(sport.id 11~16 밖)·번호나 날짜가 없는 줄은 건너뛴다.
      * 이미 받아 둔 일정 값(시작 시각·점수, saveMinorSchedule)은 같은 경기 줄에 옮겨 담는다(끝난 경기를 다시 묻지 않게).
      *
-     * @return 일정을 물어야 할 경기 번호(아직 묻지 않았거나 끝나 점수를 받지 못한 경기, 오래된 경기부터)
+     * @return 일정을 물어야 할 경기 번호(오래된 경기부터). 아직 한 번도 묻지 않은 경기와, 물었지만 끝나 점수를 받지 못한 경기 중
+     * 공식 날짜가 MINOR_RECHECK_DAYS 안인 경기다(중단된 채 끝나지 않은 경기·응답에 없던 경기를 끝없이 묻지 않게)
      */
     public List<Long> saveMinorGameLog(long playerId, int season, MlbMinorGameLog log, Instant fetchedAt) {
         MlbMinorGames counts = log.counts();
@@ -206,8 +212,10 @@ public class IngestWriter {
                         : split.stat().holds(), split.stat() == null ? null : split.stat().blownSaves())));
         byGame.values().forEach(line -> line.updateSchedule(known.get(line.getGamePk())));
         minorGameLogs.saveAll(byGame.values());
+        LocalDate recheckFrom = LocalDate.ofInstant(fetchedAt, ZoneOffset.UTC).minusDays(MINOR_RECHECK_DAYS);
         return byGame.values().stream()
-                .filter(line -> line.getSchedule() == null || !line.getSchedule().isSettled())
+                .filter(line -> line.getSchedule() == null
+                        || (!line.getSchedule().isSettled() && !line.getGameDate().isBefore(recheckFrom)))
                 .sorted(Comparator.comparing(MinorGameLog::getGameDate).thenComparing(MinorGameLog::getGamePk))
                 .map(MinorGameLog::getGamePk)
                 .toList();
@@ -215,12 +223,13 @@ public class IngestWriter {
 
     /**
      * 마이너 경기 일정(시작 시각·상태·점수·팀 지명)을 선수의 그 시즌 경기 줄에 적는다. 선수 팀이 홈인지 원정인지는 팀 번호로
-     * 가리고, 번호가 맞지 않으면 경기별 기록의 홈 여부를 쓴다. 같은 경기가 두 번 오면(연기) 끝난 쪽을, 둘 다 아니면 뒤에 온 쪽을 쓴다.
-     * 시작 시각을 읽을 수 없거나 팀이 없는 경기는 건너뛴다(지난 값을 둔다).
+     * 가리고, 번호가 맞지 않으면 경기별 기록의 홈 여부를 쓴다. 둘 다 모르면 점수·지명은 비운다.
+     * 같은 경기가 두 번 오면(연기) 끝난 쪽을, 둘 다 아니면 뒤에 온 쪽을 쓴다.
+     * 물은 경기(asked) 중 응답에 없거나 시작 시각을 읽을 수 없는 경기는 지난 값을 두고, 지난 값도 없으면 물었다는 표시만 남긴다.
      *
-     * @return 적은 경기 수
+     * @return 일정을 적은 경기 수
      */
-    public int saveMinorSchedule(long playerId, int season, List<MlbScheduleGame> games) {
+    public int saveMinorSchedule(long playerId, int season, Collection<Long> asked, List<MlbScheduleGame> games) {
         Map<Long, MlbScheduleGame> byPk = new LinkedHashMap<>();
         for (MlbScheduleGame game : games) {
             if (game.gamePk() != null) {
@@ -234,6 +243,8 @@ public class IngestWriter {
             if (schedule != null) {
                 line.updateSchedule(schedule);
                 saved++;
+            } else if (line.getSchedule() == null && asked.contains(line.getGamePk())) {
+                line.updateSchedule(MinorGameSchedule.notFound());
             }
         }
         return saved;
@@ -252,13 +263,17 @@ public class IngestWriter {
             return null;
         }
         Long teamId = line.getTeamId();
-        boolean home;
+        Boolean home;
         if (teamId != null && teamId.equals(teamId(sides.home().team()))) {
             home = true;
         } else if (teamId != null && teamId.equals(teamId(sides.away().team()))) {
             home = false;
         } else {
-            home = Boolean.TRUE.equals(line.getHome());
+            home = line.getHome();
+        }
+        if (home == null) {
+            // 어느 쪽이 선수 팀인지 모른다: 뒤바뀐 점수를 남기지 않게 시작 시각·상태만 둔다(끝나도 점수가 없어 기간 안에는 다시 묻는다)
+            return new MinorGameSchedule(start, statusState(game), null, null, null, null);
         }
         MlbScheduleGame.Side mine = home ? sides.home() : sides.away();
         MlbScheduleGame.Side other = home ? sides.away() : sides.home();

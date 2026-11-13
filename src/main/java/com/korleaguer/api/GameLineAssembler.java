@@ -11,6 +11,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.BaseballMath;
+import com.korleaguer.support.GameStatuses;
 import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
@@ -49,7 +50,6 @@ import static com.korleaguer.ingest.GameIngest.US_EASTERN;
 class GameLineAssembler {
 
     private static final Set<String> COUNTED_SEASON_TYPES = Set.of("regular", "postseason");
-    private static final Set<String> NOT_STARTED = Set.of("scheduled", "postponed", "canceled");
 
     private final GameRepository games;
     private final AppearanceRepository appearances;
@@ -187,7 +187,7 @@ class GameLineAssembler {
     private GameLine line(Player player, Team team, Game game, Appearance appearance, boolean statsReady) {
         boolean home = game.isHome(team);
         Team opponent = home ? game.getAwayTeam() : game.getHomeTeam();
-        boolean notStarted = NOT_STARTED.contains(game.getStatusState());
+        boolean notStarted = GameStatuses.NOT_STARTED.contains(game.getStatusState());
         Integer teamScore = notStarted ? null : (home ? game.getHomeScore() : game.getAwayScore());
         Integer opponentScore = notStarted ? null : (home ? game.getAwayScore() : game.getHomeScore());
         boolean played = appearance != null;

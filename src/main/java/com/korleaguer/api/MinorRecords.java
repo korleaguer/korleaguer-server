@@ -37,9 +37,9 @@ final class MinorRecords {
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
     // 마이너 경기의 한국 시각을 어림할 때 쓰는 시각(미국 저녁 경기 = 한국 다음 날 아침)
     private static final LocalTime ASSUMED_KST_TIME = LocalTime.of(8, 0);
-    // 점수를 보이지 않는 상태(GameLineAssembler와 같다)
-    private static final Set<String> NOT_STARTED = Set.of(GameStatuses.SCHEDULED, GameStatuses.POSTPONED,
-            GameStatuses.CANCELED);
+    // 승패가 아직 나지 않은 상태(경기 전·연기·취소·경기 중·지연·중단). 이때는 경기별 기록의 승패도 쓰지 않는다
+    private static final Set<String> UNDECIDED = Set.of(GameStatuses.SCHEDULED, GameStatuses.POSTPONED,
+            GameStatuses.CANCELED, GameStatuses.IN_PROGRESS, GameStatuses.DELAYED, GameStatuses.SUSPENDED);
 
     private MinorRecords() {
     }
@@ -134,7 +134,7 @@ final class MinorRecords {
     private static MinorGameLine gameLine(Role role, MinorGameLog game, MinorTeamNames names) {
         MinorGameSchedule schedule = game.getSchedule();
         boolean scored = schedule != null && schedule.statusState() != null
-                && !NOT_STARTED.contains(schedule.statusState());
+                && !GameStatuses.NOT_STARTED.contains(schedule.statusState());
         Integer teamScore = scored ? schedule.teamScore() : null;
         Integer opponentScore = scored ? schedule.opponentScore() : null;
         return new MinorGameLine(game.getGamePk(), startTimeKst(game), game.getLevel(), levelKo(game.getLevel()),
@@ -154,14 +154,17 @@ final class MinorRecords {
                 : OffsetDateTime.of(kstDate(game), ASSUMED_KST_TIME, KST);
     }
 
-    /** 끝나 점수를 아는 경기는 점수로 W·L·T. 일정을 모르거나 끝났는데 점수가 없으면 경기별 기록의 승패, 그 밖(경기 중 등)은 null */
+    /**
+     * 끝나 점수를 아는 경기는 점수로 W·L·T. 승패가 아직 나지 않은 상태(UNDECIDED)면 null.
+     * 그 밖(일정을 모름, 상태를 모름, 끝났는데 점수가 없음)은 경기별 기록의 승패다.
+     */
     private static String result(MinorGameLog game, MinorGameSchedule schedule, Integer teamScore,
                                  Integer opponentScore) {
-        boolean ended = schedule == null || GameStatuses.FINAL.equals(schedule.statusState());
-        if (!ended) {
+        String state = schedule == null ? null : schedule.statusState();
+        if (state != null && UNDECIDED.contains(state)) {
             return null;
         }
-        if (teamScore != null && opponentScore != null) {
+        if (GameStatuses.FINAL.equals(state) && teamScore != null && opponentScore != null) {
             int compared = Integer.compare(teamScore, opponentScore);
             return compared > 0 ? "W" : compared < 0 ? "L" : "T";
         }

@@ -178,7 +178,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - 이번 시즌 마이너 경기를 최신 경기부터 모두 준다(없으면 빈 목록). 웹이 `games`(메이저)와 날짜순으로 섞어 '경기 기록'에 보인다. 마이너에서 잘해야 콜업되니 마이너에 오래 있는 선수도 경기 소식이 보이게 한다(11-13 결정).
 - 한 줄: `{gamePk, startTimeKst, level, levelKo, teamId, teamKo, opponentId, opponentKo, home, teamScore, opponentScore, result, summary, batting, pitching}`. `summary`·`batting`·`pitching`은 `games`와 같은 규칙·모양이다(선수 주 역할 기준).
 - `teamKo`·`opponentKo`: 트리플A·더블A 60팀은 한국어 도시 이름(`roster/minor-teams.yml`), 그 밖의 팀은 MLB 영어 지명(`franchiseName`, 예: `Quad Cities`), 그것도 모르면 영어 팀 이름. `teamId`·`opponentId`로 웹이 `https://www.mlbstatic.com/team-logos/{id}.svg` 로고를 그린다.
-- 시작 시각·점수는 `schedule?gamePks=…&hydrate=team`으로 받아 `minor_game_log`에 둔다(V23). 아직 받지 못했으면 시작 시각은 공식 날짜 다음 날 08:00(한국)으로 어림하고 점수는 null, `result`는 경기별 기록의 승패다.
+- 시작 시각·점수는 `schedule?gamePks=…&hydrate=team`으로 받아 `minor_game_log`에 둔다(V23). 끝나 점수를 받은 경기는 다시 묻지 않고, 끝나지 않은 경기(경기 중에 받음·중단·응답에 없음)는 공식 날짜 7일까지만 다시 묻는다. 홈·원정을 가릴 수 없으면 점수는 비운다. 아직 받지 못했으면 시작 시각은 공식 날짜 다음 날 08:00(한국)으로 어림하고 점수는 null, `result`는 경기별 기록의 승패다(경기 중·지연·중단이면 null).
 - 샘플 모드: 지어낸 마이너 경기에 지어낸 일정(미국 저녁 7시 5분 시작, 승패에 맞춘 점수, 상대는 실제 트리플A 팀 번호)을 붙인다(`SampleMlbClient.madeUpMinorGame`).
 
 ### 관련 기사(`news_article`)

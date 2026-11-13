@@ -218,8 +218,8 @@ class PlayerRefresherTest {
         PlayerRefresher.Result result = refresher.refresh(false);
 
         assertThat(askedGames).containsExactly(List.of(11L, 12L));
-        verify(writer).saveMinorSchedule(eq(5L), eq(2026), any());
-        verify(writer, never()).saveMinorSchedule(eq(1L), anyInt(), any());
+        verify(writer).saveMinorSchedule(eq(5L), eq(2026), eq(List.of(11L, 12L)), any());
+        verify(writer, never()).saveMinorSchedule(eq(1L), anyInt(), any(), any());
         assertThat(result.checked()).isEqualTo(2);
     }
 
@@ -231,7 +231,7 @@ class PlayerRefresherTest {
         PlayerRefresher.Result result = refresher.refresh(false);
 
         assertThat(askedGames).hasSize(2); // 두 선수 모두 물었고, 실패해도 멈추지 않는다
-        verify(writer, never()).saveMinorSchedule(anyLong(), anyInt(), any());
+        verify(writer, never()).saveMinorSchedule(anyLong(), anyInt(), any(), any());
         assertThat(result.checked()).isEqualTo(2);
         assertThat(result.failed()).isZero();
     }
