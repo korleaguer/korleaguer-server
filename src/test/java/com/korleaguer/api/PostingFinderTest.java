@@ -220,6 +220,20 @@ class PostingFinderTest {
     }
 
     @Test
+    void articlesWhereThePlayerIsNotTheSubjectAreHidden() {
+        NewsArticle about = new NewsArticle("노시환", "https://news.example.kr/1", "h1", "노시환 메츠행 급부상", "마이데일리",
+                Instant.parse("2026-11-10T02:00:00Z"), Instant.parse("2026-11-10T02:10:00Z"));
+        NewsArticle kbo = new NewsArticle("노시환", "https://news.example.kr/2", "h2", "김도영→유격수, 노시환→미국행…최고 3루수 자리",
+                "마이데일리", Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z"));
+        kbo.destinationsTagged("claude-haiku-5-5/d2", Instant.parse("2026-11-10T04:00:00Z"), true);
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(kbo, about));
+
+        PostingSummary.Player roh = finder(roh(null)).find(Instant.parse("2026-11-11T01:00:00Z")).players().getFirst();
+
+        assertThat(roh.news()).extracting(PostingSummary.Headline::url).containsExactly("https://news.example.kr/1");
+    }
+
+    @Test
     void headlineCarriesLeadSummaryAndImage() {
         NewsArticle mlbtr = new NewsArticle("노시환", "https://mlb.example.com/1", "h1", "Roh Posted", "MLB Trade Rumors",
                 Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z"));

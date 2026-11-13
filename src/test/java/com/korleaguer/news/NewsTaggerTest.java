@@ -42,6 +42,8 @@ class NewsTaggerTest {
         final Map<String, Optional<List<Destination>>> answers;
         final List<String> asked = new ArrayList<>();
         String version = "fake/d1";
+        /** 이 제목들은 '주인공 아님'으로 답한다 */
+        final java.util.Set<String> offTopicTitles = new java.util.HashSet<>();
         RuntimeException failure;
 
         FakeTagger(Map<String, Optional<List<Destination>>> answers) {
@@ -54,12 +56,15 @@ class NewsTaggerTest {
         }
 
         @Override
-        public Optional<List<Destination>> tag(String player, String title, String text) {
+        public Optional<Tagging> tag(String player, String title, String text) {
             if (failure != null) {
                 throw failure;
             }
             asked.add(title);
-            return answers.getOrDefault(title, Optional.of(List.of()));
+            if (offTopicTitles.contains(title)) {
+                return Optional.of(new Tagging(List.of(), false));
+            }
+            return answers.getOrDefault(title, Optional.of(List.<Destination>of())).map(d -> new Tagging(d, true));
         }
 
         @Override
@@ -134,6 +139,19 @@ class NewsTaggerTest {
         tagger(fake).tag();
 
         assertThat(fake.asked).containsExactly("요약 포기한 기사", "요약 포기한 기사");
+    }
+
+    @Test
+    void anArticleWhereThePlayerIsNotTheSubjectIsMarkedOffTopic() {
+        NewsArticle kbo = article("김도영→유격수, 노시환→미국행…최고 3루수 자리", "2026-11-12T01:00:00Z", true, 0);
+        NewsArticle roh = article("노시환 메츠행 급부상", "2026-11-12T02:00:00Z", true, 0);
+        FakeTagger fake = new FakeTagger(Map.of());
+        fake.offTopicTitles.add("김도영→유격수, 노시환→미국행…최고 3루수 자리");
+
+        tagger(fake).tag();
+
+        assertThat(articles.findById(kbo.getId()).orElseThrow().isOffTopic()).isTrue();
+        assertThat(articles.findById(roh.getId()).orElseThrow().getOffTopic()).isFalse();
     }
 
     @Test

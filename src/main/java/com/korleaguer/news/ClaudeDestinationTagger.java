@@ -27,25 +27,33 @@ import java.util.stream.Collectors;
 
 /**
  * Claude로 기사에서 행선지로 거론된 구단을 고른다(요약과 같은 모델, 기본 claude-haiku-5-5). 요약(3~4문장)과 제목만 보내서
- * 한 건에 요약보다 훨씬 싸다. 답은 한 줄에 '약어 +' 또는 '약어 -'이고, 없으면 '없음'이다(JSON 없이 줄로 읽는다).
+ * 한 건에 요약보다 훨씬 싸다. 답은 첫 줄 '주인공: 예/아니오'(이 선수가 주인공인 기사인지, 이슈 #129)와 한 줄에
+ * '약어 +' 또는 '약어 -', 없으면 '없음'이다(JSON 없이 줄로 읽는다).
  */
 public final class ClaudeDestinationTagger implements DestinationTagger {
 
     /** 지시문 판. 바꾸면 올린다(기사마다 적은 판과 다르면 다시 고른다) */
-    static final String PROMPT_VERSION = "d1";
+    static final String PROMPT_VERSION = "d2";
     /** destinations_model 칸 길이(V18 마이그레이션 varchar(50)) */
     static final int MAX_VERSION = 50;
     static final long MAX_TOKENS = 300;
     static final OutputConfig.Effort EFFORT = OutputConfig.Effort.LOW;
 
     static final String SYSTEM = """
-            너는 야구 기사를 읽고, 기사가 다루는 한국 선수가 다음에 갈 MLB 구단(행선지) 후보로 어느 구단이 거론됐는지 고른다.
+            너는 야구 기사를 읽고 두 가지를 적는다.
+
+            1. 첫 줄: 이 기사의 주인공이 그 선수인지.
+            - '주인공: 예' — 그 선수 이야기다(그 선수의 MLB 도전·포스팅·계약·소속·경기·평가를 주로 다룬다).
+            - '주인공: 아니오' — 다른 선수나 KBO 구단 사정 같은 다른 이야기에 그 선수 이름이 곁들여 나올 뿐이다
+              (예: 그 선수가 떠난 KBO 자리를 누가 채울지, 다른 선수 FA 이야기에서 비교로만 나옴).
+
+            2. 둘째 줄부터: 그 선수가 다음에 갈 MLB 구단(행선지) 후보로 어느 구단이 거론됐는지.
 
             적는 법:
             - 그 선수를 원한다, 관심이 있다, 잘 맞는다, 갈 가능성이 있다고 본 구단: '약어 +'
             - 그 선수가 필요 없다, 관심이 없다, 가지 않을 것이라고 본 구단: '약어 -'
             - 한 줄에 한 구단만 쓴다. 약어는 아래 표의 것만 쓴다.
-            - 거론된 구단이 없으면 '없음' 한 줄만 쓴다. 다른 말은 쓰지 않는다.
+            - 거론된 구단이 없으면 둘째 줄에 '없음'만 쓴다. 다른 말은 쓰지 않는다.
 
             적지 않는 것:
             - 다른 선수 이야기로만 나온 구단(그 선수와 함께 데려간다는 이야기면 적는다)
@@ -68,6 +76,8 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     /** 굵은 글씨·백틱 같은 꾸밈 표시(답을 읽기 전에 지운다) */
     private static final Pattern MARKUP = Pattern.compile("[*`_]");
     private static final Pattern NONE = Pattern.compile("^\\s*없음\\s*[.]?\\s*$");
+    /** 첫 줄 '주인공: 예/아니오'(이슈 #129) */
+    private static final Pattern ABOUT = Pattern.compile("^\\s*(?:[-*•·]\\s+|\\d+[.)]\\s*)?주인공\\s*[:：]?\\s*(예|아니오|아니요)");
     private static final Logger log = LoggerFactory.getLogger(ClaudeDestinationTagger.class);
 
     private final AnthropicClient client;
@@ -111,7 +121,7 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     }
 
     @Override
-    public Optional<List<Destination>> tag(String player, String title, String text) {
+    public Optional<Tagging> tag(String player, String title, String text) {
         MessageCreateParams params = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(MAX_TOKENS)
@@ -139,7 +149,7 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
                 .flatMap(block -> block.text().stream())
                 .map(t -> t.text())
                 .collect(Collectors.joining("\n"));
-        Optional<List<Destination>> picked = parse(answer);
+        Optional<Tagging> picked = parse(answer);
         if (picked.isEmpty()) {
             // 읽지 못한 답의 모양을 보고 규칙을 고칠 수 있게 앞부분만 남긴다(기사 내용이 아니라 모델의 답이다)
             String shown = answer.replaceAll("\\R", " ⏎ ");
@@ -161,14 +171,20 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
      * 답을 읽는다. 표에 있는 약어 줄만 받고(SFG 같은 다른 약어는 대표 약어로, 부호 뒤 덧붙인 설명은 무시), 한 구단은 처음 나온 줄만 받는다.
      * '없음'이면 빈 목록. 읽을 줄이 하나도 없으면 empty(기사 탓 실패로 센다)
      */
-    static Optional<List<Destination>> parse(String answer) {
+    static Optional<Tagging> parse(String answer) {
         if (answer == null) {
             return Optional.empty();
         }
         Map<String, NewsDestination.Stance> picked = new LinkedHashMap<>();
         boolean none = false;
+        Boolean aboutPlayer = null;
         for (String raw : answer.split("\\R")) {
             String line = MARKUP.matcher(raw).replaceAll("");
+            Matcher about = ABOUT.matcher(line);
+            if (about.find()) {
+                aboutPlayer = about.group(1).equals("예");
+                continue;
+            }
             if (NONE.matcher(line).matches()) {
                 none = true;
                 continue;
@@ -184,12 +200,13 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
             NewsDestination.Stance stance = m.group(2).equals("+") ? NewsDestination.Stance.LINKED : NewsDestination.Stance.DOUBTED;
             picked.putIfAbsent(team, stance);
         }
-        if (picked.isEmpty()) {
-            return none ? Optional.of(List.of()) : Optional.empty();
+        // 구단 줄도 '없음'도 '주인공' 줄도 없으면 읽지 못한 답이다. '주인공' 줄만 있으면 거론된 구단이 없는 것으로 본다
+        if (picked.isEmpty() && !none && aboutPlayer == null) {
+            return Optional.empty();
         }
         List<Destination> out = new ArrayList<>();
         picked.forEach((team, stance) -> out.add(new Destination(team, stance)));
-        return Optional.of(out);
+        return Optional.of(new Tagging(List.copyOf(out), aboutPlayer));
     }
 
     /** 약어(SFG 같은 다른 약어도) 또는 표의 한글 이름 → 대표 약어. MLB 구단이 아니면 null */
