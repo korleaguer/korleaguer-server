@@ -55,6 +55,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
+- **MLB 안 위치·시즌별 기록(하루 한 번, 시즌 중·비시즌 모두):** 리그 전체 `stats?stats=season|sabermetrics&group=hitting|pitching&season=Y&sportIds=1&playerPool=ALL&limit=2000` 묶음마다 2번(우리 선수에 투수가 없으면 타격만), `people/{id}/stats?stats=yearByYear` 선수마다 1번, 지난 시즌 지표 `people/{id}/stats?stats=sabermetrics&season=Y`는 선수·시즌마다 처음 한 번만. 아래 "MLB 안 위치와 지난 시즌 표".
 - **경기 갱신(시즌 중):** 우리 선수 팀들의 오늘·어제(미국 동부 날짜) 일정을 받고(1번), 진행 중인 경기와 다시 확인할 때가 된 끝난 경기만 `game/{gamePk}/boxscore`로 받는다.
   - 한국 시간 01:00~16:00(미국 경기 시간대)에는 12분마다, 그 밖에는 1시간마다(정각 근처 실행만).
   - 서버가 멈췄거나 MLB가 막아(403/429) 며칠 갱신을 못 했으면, 결과를 못 받은 경기(시작했는데 끝남·연기·취소가 아님)나 마지막으로 끝난 경기가 있는 날부터 오늘까지를 한 번에 받는다(일정 요청은 그대로 1번, 최대 14일 전까지). 그보다 오래 멈췄으면 `/admin/ingest/season`으로 시즌을 다시 받는다.
@@ -72,7 +73,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 |---|---|
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
-| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순). 없으면 404 |
+| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
 | `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
 | `GET /actuator/health` | 상태 확인 |
@@ -162,6 +163,17 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - `headline`·`reason`은 정해진 틀로 만든다(부상자 명단·트리플A 강등·콜업·짧은 메이저 출전 중 두 개까지. 다 뛴 타자는 전후반 타율 차이가 .050 이상이면 그것 하나). `stories`(연속 안타·최고 경기)는 `SHORT`·`POOR`면 늘 비어 있다. `level`은 카드가 앞세울 합계(`MINORS`면 마이너). `winterMoves`는 정규시즌 마지막 날 3일 뒤부터의 이동 기록, 최신순 세 개까지(그 사이 포스트시즌 명단 콜업 등은 `reason` 쪽 시즌 이야기). `news`는 정규시즌이 끝난 뒤 나온 그 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 늦은 순 12건까지, 이슈 #119로 모은 것).
 - 성적표를 만들다 실패하면 그 선수만 빠지고, 전체가 실패하면 빈 목록이다(홈 응답은 그대로).
 
+### MLB 안 위치와 지난 시즌 표(`GET /api/players/{id}`의 `saber`·`seasons`·`news`, 이슈 #133)
+- 값은 MLB 공식 Stats API sabermetrics 그대로 쓰고, 누구와 무엇으로 견주나만 우리가 정한다(`ingest.LeaguePositions`). 따라잡기가 선수마다 하루(UTC 날짜) 한 번 받아 계산해 저장한다(`player_league_position`, `player_career_season`, V22).
+- `saber`(지금 시즌, 아직 받지 않았거나 그 시즌 MLB 기록이 없으면 null). 위치(`percentiles`)는 값마다 1~99 정수로, 견준 선수 중 이 선수보다 값이 나쁜 비율(반올림)이다. 높을수록 좋다.
+  - 타자 `{season, war, poolSize, plateAppearances, wrcPlus, batting, baseRunning, fielding, percentiles: {overall, batting, baseRunning, fielding}}`: 그 시즌 100타석 이상 MLB 타자와 견준다. `overall`은 타석당 WAR, `batting`은 wRC+, `baseRunning`·`fielding`은 타석당 득점(`fielding` = MLB `fielding` + `positional`, 포지션 난도 포함). 50타석 미만이면 `percentiles`는 null.
+  - 투수 `{season, war, poolSize, inningsOuts, eraMinus, fipMinus, strikeoutRate, walkRate, percentiles: {overall, runPrevention, strikeouts, walks}}`: 30이닝 이상 MLB 투수와 견준다. `overall`은 아웃당 WAR, `runPrevention`은 ERA-(낮을수록 좋다), `strikeouts`는 K%, `walks`는 BB%(낮을수록 좋다). `strikeoutRate`·`walkRate`는 상대 타자 중 비율(%). 10이닝 미만이면 `percentiles`는 null.
+  - 시즌 초에는 견줄 선수(100타석·30이닝 이상)가 아직 없어 위치 칸이 null일 수 있다.
+- `seasons`(MLB 정규시즌 기록, 최신 시즌부터, 한 시즌 여러 팀이면 합친 한 줄): 타자 `{season, teamKo, games, plateAppearances, avg, homeRuns, ops, wrcPlus, war}`, 투수 `{season, teamKo, games, inningsOuts, era, strikeouts, eraMinus, war}`. `teamKo`는 뛴 순서로 `"탬파베이·애틀랜타"`. 지금 시즌 지표는 리그 전체 값, 지난 시즌 지표는 선수별 sabermetrics를 한 번 물은 값이다. 모르는 값은 null. KBO 기록은 없다.
+- `news`: 그 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 성적표 `news`와 같은 모양·규칙(지금 수집하는 언론사만, 주인공이 아닌 기사 뺌)이고 기간 제한만 없다.
+- `games[].batting`에 타격 흐름 그래프용 `doubles`·`triples`·`hitByPitch`·`sacFlies`·`plateAppearances`·`strikeouts`(MLB가 주지 않았으면 null)가 있다.
+- 샘플 모드: 리그 전체는 샘플 선수 줄(`sample/mlb.json`의 `yearByYear`·`sabermetrics`)에 지어낸 선수 240명씩을 더해 만든다(`SampleMlbClient.madeUpLeague`).
+
 ### 관련 기사(`news_article`)
 - 포스팅 선수·명단 선수 이름(한글, 명단 선수는 MLB 영어 이름도)이 제목에 든 기사의 제목·링크·언론사·발행 시각과 기사 첫머리(200자 안팎)·대표 사진 원본 주소·Claude 한국어 요약(영어 기사는 한국어 제목도)을 모은다. 본문은 요약에만 쓰고 저장하지 않는다. 사진 파일은 받지 않는다(브라우저가 언론사 서버에서 받는다).
 - Claude 요약(`ClaudeSummarizer`)은 3~4문장이다. 긴 기사만 한 문장 더 쓴다.
@@ -246,7 +258,7 @@ com.korleaguer
 - 운영 DB 연결: `SPRING_DATASOURCE_URL`(예: `jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC`)·`SPRING_DATASOURCE_USERNAME`·`SPRING_DATASOURCE_PASSWORD` 환경변수로 덮어쓴다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수·내 선수 응답을 메모리(Caffeine)에 두고, 보이는 것이 실제로 바뀔 때만 비운다(`ResponseCaches`, 나중에 Redis로 바꿀 자리).
-  - 데이터: 수집이나 기사 수집이 DB에 실제로 썼을 때. Hibernate가 보내는 INSERT·UPDATE·DELETE를 센다(`DataChanges`). Hibernate는 값이 바뀐 줄만 UPDATE하므로 같은 일정·기록을 다시 받으면 세지 않는다. 수집 기록(`ingest_log`)·사진(`photo`)은 응답에 나오지 않아 세지 않는다. 수집은 끝날 때 바로, 그 밖의 쓰기(기사)는 다음 따라잡기(12분 안) 때 본다. 기사(`news_article`)는 홈과 기사 페이지에만 나오고 기사 페이지는 캐시하지 않으므로 홈 캐시만 비운다.
+  - 데이터: 수집이나 기사 수집이 DB에 실제로 썼을 때. Hibernate가 보내는 INSERT·UPDATE·DELETE를 센다(`DataChanges`). Hibernate는 값이 바뀐 줄만 UPDATE하므로 같은 일정·기록을 다시 받으면 세지 않는다. 수집 기록(`ingest_log`)·사진(`photo`)은 응답에 나오지 않아 세지 않는다. 수집은 끝날 때 바로, 그 밖의 쓰기(기사)는 다음 따라잡기(12분 안) 때 본다. 기사(`news_article`)는 홈·선수 페이지·기사 페이지에만 나오고 기사 페이지는 캐시하지 않으므로 홈·선수 캐시만 비운다.
   - 시각: 한국·미국 날짜가 바뀌면(D-day, 최근 N일, 'N일째', 나이) 모두, 포스팅 상태·보이는지·진행 막대(1% 단위)만 바뀌면 홈만. 따라잡기 때마다 본다.
   - 비우면 `CacheWarmer`가 홈, 선수 페이지 전부, 내 선수 카드(명단 전원 × 7·14·30일), 비시즌 홈의 선수 카드(`/api/my` 명단 전원·7일)를 뒤에서 다시 계산해 넣는다(자동 수집이 켜졌을 때). 따라잡기(12분마다, 앱 시작 때) 끝에도 빠진 것을 채운다. 운영 장비에서는 응답 하나를 처음 만드는 데 1~2초 걸려서, 사람이 처음 부를 때 기다리지 않게 하려는 것이다.
   - 사람마다 다른 내 선수 조합은 미리 채운 카드를 모아 바로 만들고, 데이터나 날짜가 바뀔 때까지 둔다. 비시즌에는 거의 하루, 시즌 중에는 다음 경기 갱신까지 남는다.
