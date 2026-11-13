@@ -233,7 +233,7 @@ class SeasonReportsTest {
         SeasonReport report = build(hitter(1, new Line(2026, 600, 0, 120.0, 3.0), games, List.of(), List.of(), false));
 
         assertThat(report.tier()).isEqualTo(SeasonTier.GOOD);
-        assertThat(report.stories()).containsExactly("최고 경기 8/4 텍사스전 2홈런 3안타 5타점");
+        assertThat(report.stories()).containsExactly("최고 경기 8월 4일 텍사스전 3안타 2홈런 5타점");
 
         List<GameDay> ordinary = List.of(hitting(day(1), 4, 2, 1, 3, 0, "샌프란시스코", "LA 다저스"));
         assertThat(build(hitter(1, new Line(2026, 600, 0, 120.0, 3.0), ordinary, List.of(), List.of(), false))
@@ -254,7 +254,7 @@ class SeasonReportsTest {
         assertThat(report.tier()).isEqualTo(SeasonTier.GOOD);
         assertThat(report.headline()).isEqualTo("선발 25경기 130이닝, 평균보다 좋은 투구");
         assertThat(report.stories()).containsExactly("시즌 최장 6번 연속 무실점 등판",
-                "최고 경기 4/24 시애틀전 7이닝 무실점 9탈삼진 · 승");
+                "최고 경기 4월 24일 시애틀전 7이닝 무실점 9탈삼진 · 승");
 
         assertThat(SeasonReports.scorelessStreak(games.subList(0, 4))).isEqualTo(4);
         SeasonReport four = build(new Input(1, Role.PITCHER, 2026, OPENING, LAST_DAY, false,

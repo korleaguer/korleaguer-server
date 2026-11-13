@@ -29,7 +29,7 @@ final class MinorRecords {
 
     /** 단계 약어 → 화면 이름 */
     static final Map<String, String> LEVEL_KO = Map.of(
-            "AAA", "트리플A", "AA", "더블A", "A+", "하이A", "A", "싱글A", "ROK", "루키");
+            "AAA", "트리플A", "AA", "더블A", "A+", "하이싱글A", "A", "싱글A", "ROK", "루키");
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
     // 마이너 경기의 한국 시각을 어림할 때 쓰는 시각(미국 저녁 경기 = 한국 다음 날 아침)
     private static final LocalTime ASSUMED_KST_TIME = LocalTime.of(8, 0);
