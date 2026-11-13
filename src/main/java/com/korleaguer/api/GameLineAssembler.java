@@ -223,7 +223,8 @@ class GameLineAssembler {
             return null;
         }
         return new GameBatting(orZero(b.atBats()), orZero(b.hits()), orZero(b.homeRuns()), orZero(b.rbi()),
-                orZero(b.walks()), orZero(b.stolenBases()));
+                orZero(b.walks()), orZero(b.stolenBases()), b.doubles(), b.triples(), b.hitByPitch(), b.sacFlies(),
+                b.plateAppearances(), b.strikeouts());
     }
 
     static GamePitching pitching(Pitching p) {

@@ -300,6 +300,82 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void playerPageGameBattingDetails() throws Exception {
+        // 타격 흐름 그래프(웹이 경기별 누적 wRC+를 계산)에 쓰는 칸. 이정후 9/26(1003): 5타석 4타수 2안타(2루타 1, 홈런 1)
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(jsonPath("$.games[0].gameId").value(1003))
+                .andExpect(jsonPath("$.games[0].batting.plateAppearances").value(5))
+                .andExpect(jsonPath("$.games[0].batting.doubles").value(1))
+                .andExpect(jsonPath("$.games[0].batting.triples").value(0))
+                .andExpect(jsonPath("$.games[0].batting.hitByPitch").value(0))
+                .andExpect(jsonPath("$.games[0].batting.sacFlies").value(0))
+                .andExpect(jsonPath("$.games[0].batting.strikeouts").value(0))
+                .andExpect(jsonPath("$.games[1].batting.strikeouts").value(1));
+    }
+
+    @Test
+    void hitterPageHasLeaguePositionSeasonsAndNews() throws Exception {
+        // 샘플 리그(우리 선수 2026 MLB 값 + 지어낸 선수)와 견준 이정후. 실제 MLB 전체로는 40·59·60·20이다.
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(jsonPath("$.saber.season").value(2026))
+                .andExpect(jsonPath("$.saber.war").value(0.97))
+                .andExpect(jsonPath("$.saber.poolSize").value(228))
+                .andExpect(jsonPath("$.saber.plateAppearances").value(579))
+                .andExpect(jsonPath("$.saber.wrcPlus").value(101.8))
+                .andExpect(jsonPath("$.saber.batting").value(1.25))
+                .andExpect(jsonPath("$.saber.baseRunning").value(0.68))
+                .andExpect(jsonPath("$.saber.fielding").value(-11.26))
+                .andExpect(jsonPath("$.saber.percentiles.overall").value(36))
+                .andExpect(jsonPath("$.saber.percentiles.batting").value(55))
+                .andExpect(jsonPath("$.saber.percentiles.baseRunning").value(56))
+                .andExpect(jsonPath("$.saber.percentiles.fielding").value(11))
+                .andExpect(jsonPath("$.saber.eraMinus").doesNotExist())
+                // 지난 시즌 표: 최신 시즌부터, 지표는 소수 첫째 자리
+                .andExpect(jsonPath("$.seasons[*].season").value(contains(2026, 2025, 2024)))
+                .andExpect(jsonPath("$.seasons[0].teamKo").value("샌프란시스코"))
+                .andExpect(jsonPath("$.seasons[0].games").value(143))
+                .andExpect(jsonPath("$.seasons[0].plateAppearances").value(579))
+                .andExpect(jsonPath("$.seasons[0].avg").value(0.276))
+                .andExpect(jsonPath("$.seasons[0].homeRuns").value(10))
+                .andExpect(jsonPath("$.seasons[0].ops").value(0.724))
+                .andExpect(jsonPath("$.seasons[0].wrcPlus").value(101.8))
+                .andExpect(jsonPath("$.seasons[0].war").value(1.0))
+                .andExpect(jsonPath("$.seasons[1].wrcPlus").value(107.0))
+                .andExpect(jsonPath("$.seasons[2].war").value(nullValue()))
+                // 테스트는 기사를 모으지 않는다
+                .andExpect(jsonPath("$.news", hasSize(0)));
+
+        // 4타석(50타석 미만): 값은 나오고 위치는 null
+        mockMvc.perform(get("/api/players/6"))
+                .andExpect(jsonPath("$.saber.plateAppearances").value(4))
+                .andExpect(jsonPath("$.saber.percentiles").value(nullValue()));
+    }
+
+    @Test
+    void pitcherPageHasLeaguePositionAndSeasons() throws Exception {
+        // 고우석 4이닝: K% 5/22, BB% 2/22. 10이닝 미만이라 위치는 null
+        mockMvc.perform(get("/api/players/5"))
+                .andExpect(jsonPath("$.saber.inningsOuts").value(12))
+                .andExpect(jsonPath("$.saber.eraMinus").value(216.1))
+                .andExpect(jsonPath("$.saber.fipMinus").value(209.7))
+                .andExpect(jsonPath("$.saber.strikeoutRate").value(22.7))
+                .andExpect(jsonPath("$.saber.walkRate").value(9.1))
+                .andExpect(jsonPath("$.saber.war").value(-0.14))
+                .andExpect(jsonPath("$.saber.poolSize").value(218))
+                .andExpect(jsonPath("$.saber.percentiles").value(nullValue()))
+                .andExpect(jsonPath("$.saber.plateAppearances").doesNotExist())
+                .andExpect(jsonPath("$.seasons", hasSize(1)))
+                .andExpect(jsonPath("$.seasons[0].teamKo").value("미네소타"))
+                .andExpect(jsonPath("$.seasons[0].games").value(4))
+                .andExpect(jsonPath("$.seasons[0].inningsOuts").value(12))
+                .andExpect(jsonPath("$.seasons[0].era").value(9.0))
+                .andExpect(jsonPath("$.seasons[0].strikeouts").value(5))
+                .andExpect(jsonPath("$.seasons[0].eraMinus").value(216.1))
+                .andExpect(jsonPath("$.seasons[0].war").value(-0.1))
+                .andExpect(jsonPath("$.seasons[0].avg").doesNotExist());
+    }
+
+    @Test
     void unknownPlayerIs404() throws Exception {
         mockMvc.perform(get("/api/players/999999"))
                 .andExpect(status().isNotFound())

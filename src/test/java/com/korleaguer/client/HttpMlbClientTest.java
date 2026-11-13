@@ -34,6 +34,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
  * - schedule-137-119-2026.json: /api/v1/schedule?sportId=1&teamId=137,119&season=2026 (경기 몇 개만 남김)
  * - boxscore-823165.json: /api/v1/game/823165/boxscore (선수 몇 명과 쓰는 칸만 남김)
  * - season-2027.json: /api/v1/seasons/2027?sportId=1 (날짜 칸 몇 개만 남김)
+ * - league-sabermetrics-hitting-2026.json: /api/v1/stats?stats=sabermetrics&group=hitting&season=2026&sportIds=1
+ *   &playerPool=ALL&limit=2000 (2026-11-13, 751명 중 2명만 남김: 트레이드된 Luis Arraez, 이정후)
+ * - league-season-pitching-2026.json: 같은 주소의 stats=season&group=pitching (2026-11-13, 868명 중 2명만 남김:
+ *   트레이드된 Tarik Skubal, 고우석)
+ * - yearbyyear-hitting-673490.json: /api/v1/people/673490/stats?stats=yearByYear&group=hitting&sportId=1
+ *   (김하성, 2025는 팀별 두 줄과 합친 줄)
  */
 class HttpMlbClientTest {
 
@@ -276,6 +282,67 @@ class HttpMlbClientTest {
                 .andRespond(withSuccess("{\"copyright\":\"...\",\"seasons\":[]}", MediaType.APPLICATION_JSON));
 
         assertThat(client.getSeason(2031)).isNull();
+    }
+
+    @Test
+    void readsLeagueSabermetricsForEveryPlayerAtOnce() {
+        server.expect(requestTo(allOf(containsString("/api/v1/stats?"), containsString("stats=sabermetrics"),
+                        containsString("group=hitting"), containsString("season=2026"), containsString("sportIds=1"),
+                        containsString("playerPool=ALL"), containsString("limit=2000"))))
+                .andRespond(withSuccess(fixture("league-sabermetrics-hitting-2026.json"), MediaType.APPLICATION_JSON));
+
+        List<MlbSeasonSplit> splits = client.getLeagueSabermetrics(MlbClient.Group.HITTING, 2026);
+
+        assertThat(splits).hasSize(2);
+        MlbSeasonSplit lee = splits.stream().filter(s -> s.player().id() == 808982L).findFirst().orElseThrow();
+        assertThat(lee.stat().wRcPlus()).isEqualTo(101.786);
+        assertThat(lee.stat().war()).isEqualTo(0.9662);
+        assertThat(lee.stat().batting()).isEqualTo(1.24587);
+        assertThat(lee.stat().baseRunning()).isEqualTo(0.682732);
+        assertThat(lee.stat().fielding()).isEqualTo(-5.63329);
+        assertThat(lee.stat().positional()).isEqualTo(-5.63443);
+        // 리그 전체 응답은 트레이드된 선수도 한 줄이다(팀 수와 마지막 팀이 같이 온다)
+        MlbSeasonSplit traded = splits.stream().filter(s -> s.player().id() == 650333L).findFirst().orElseThrow();
+        assertThat(traded.numTeams()).isEqualTo(2);
+        assertThat(traded.team()).isNotNull();
+        assertThat(traded.combined()).isFalse();
+    }
+
+    @Test
+    void readsLeaguePitchingSeasonTotals() {
+        server.expect(requestTo(allOf(containsString("/api/v1/stats?"), containsString("stats=season"),
+                        containsString("group=pitching"), containsString("playerPool=ALL"))))
+                .andRespond(withSuccess(fixture("league-season-pitching-2026.json"), MediaType.APPLICATION_JSON));
+
+        List<MlbSeasonSplit> splits = client.getLeagueSeasonStats(MlbClient.Group.PITCHING, 2026);
+
+        MlbSeasonSplit go = splits.stream().filter(s -> s.player().id() == 808970L).findFirst().orElseThrow();
+        assertThat(go.stat().inningsPitched()).isEqualTo("4.0");
+        assertThat(go.stat().battersFaced()).isEqualTo(22);
+        assertThat(go.stat().strikeOuts()).isEqualTo(5);
+        assertThat(go.stat().baseOnBalls()).isEqualTo(2);
+        assertThat(go.stat().era()).isEqualTo("9.00");
+        assertThat(go.stat().gamesPlayed()).isEqualTo(4);
+    }
+
+    @Test
+    void readsYearByYearWithTradedSeason() {
+        server.expect(requestTo(allOf(containsString("/api/v1/people/673490/stats"), containsString("stats=yearByYear"),
+                        containsString("group=hitting"), containsString("sportId=1"))))
+                .andRespond(withSuccess(fixture("yearbyyear-hitting-673490.json"), MediaType.APPLICATION_JSON));
+
+        List<MlbSeasonSplit> splits = client.getYearByYear(673490, MlbClient.Group.HITTING);
+
+        assertThat(splits).hasSize(8);
+        List<MlbSeasonSplit> traded = splits.stream().filter(s -> "2025".equals(s.season())).toList();
+        assertThat(traded).extracting(s -> s.team() == null ? null : s.team().id()).containsExactly(139L, 144L, null);
+        MlbSeasonSplit combined = traded.get(2);
+        assertThat(combined.combined()).isTrue();
+        assertThat(combined.stat().plateAppearances()).isEqualTo(191);
+        assertThat(combined.stat().gamesPlayed()).isEqualTo(48);
+        assertThat(combined.stat().avg()).isEqualTo(".234");
+        assertThat(combined.stat().ops()).isEqualTo(".649");
+        assertThat(combined.stat().homeRuns()).isEqualTo(5);
     }
 
     @Test

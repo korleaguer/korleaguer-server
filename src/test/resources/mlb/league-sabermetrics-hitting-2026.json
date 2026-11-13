@@ -1,0 +1,124 @@
+{
+ "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+ "stats": [
+  {
+   "type": {
+    "displayName": "sabermetrics"
+   },
+   "group": {
+    "displayName": "hitting"
+   },
+   "totalSplits": 751,
+   "exemptions": [],
+   "splits": [
+    {
+     "season": "2026",
+     "stat": {
+      "woba": 0.331086,
+      "wRaa": 7.75833,
+      "wRc": 85.3157,
+      "wRcPlus": 109.52257358778625,
+      "rar": 40.3507,
+      "war": 4.10827,
+      "batting": 7.51274,
+      "fielding": 8.003034,
+      "baseRunning": 1.452244,
+      "positional": 2.082192,
+      "wLeague": 1.362869,
+      "replacement": 19.93756,
+      "spd": 3.8185,
+      "ubr": 0.0,
+      "wGdp": 0.0,
+      "wSb": 0.590006
+     },
+     "team": {
+      "id": 143,
+      "name": "Philadelphia Phillies",
+      "link": "/api/v1/teams/143"
+     },
+     "player": {
+      "id": 650333,
+      "fullName": "Luis Arraez",
+      "link": "/api/v1/people/650333",
+      "firstName": "Luis",
+      "lastName": "Arraez",
+      "nameSlug": "luis-arraez-650333"
+     },
+     "league": {
+      "id": 104,
+      "name": "National League",
+      "link": "/api/v1/league/104"
+     },
+     "sport": {
+      "id": 1,
+      "link": "/api/v1/sports/1",
+      "name": "Major League Baseball"
+     },
+     "numTeams": 2,
+     "rank": 32,
+     "position": {
+      "code": "4",
+      "name": "Second Base",
+      "type": "Infielder",
+      "abbreviation": "2B"
+     }
+    },
+    {
+     "season": "2026",
+     "stat": {
+      "woba": 0.316964,
+      "wRaa": 0.252606,
+      "wRc": 68.811,
+      "wRcPlus": 101.786,
+      "rar": 9.48984,
+      "war": 0.9662,
+      "batting": 1.24587,
+      "fielding": -5.63329,
+      "baseRunning": 0.682732,
+      "positional": -5.63443,
+      "wLeague": 1.20473,
+      "replacement": 17.6242,
+      "spd": 5.55764,
+      "ubr": 0.0,
+      "wGdp": 0.0,
+      "wSb": 1.19078
+     },
+     "team": {
+      "id": 137,
+      "name": "San Francisco Giants",
+      "link": "/api/v1/teams/137"
+     },
+     "player": {
+      "id": 808982,
+      "fullName": "Jung Hoo Lee",
+      "link": "/api/v1/people/808982",
+      "firstName": "Jung Hoo",
+      "lastName": "Lee",
+      "nameSlug": "jung-hoo-lee-808982"
+     },
+     "league": {
+      "id": 104,
+      "name": "National League",
+      "link": "/api/v1/league/104"
+     },
+     "sport": {
+      "id": 1,
+      "link": "/api/v1/sports/1",
+      "name": "Major League Baseball"
+     },
+     "numTeams": 1,
+     "rank": 216,
+     "position": {
+      "code": "9",
+      "name": "Outfielder",
+      "type": "Outfielder",
+      "abbreviation": "RF"
+     }
+    }
+   ],
+   "splitsTiedWithOffset": [],
+   "splitsTiedWithLimit": [],
+   "playerPool": "ALL"
+  }
+ ]
+}

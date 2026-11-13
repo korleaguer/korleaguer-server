@@ -1,6 +1,8 @@
 package com.korleaguer.client;
 
 import com.korleaguer.support.RateLimiter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -23,7 +25,10 @@ import java.util.stream.Collectors;
  */
 public class HttpMlbClient implements MlbClient {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpMlbClient.class);
     private static final int MLB = 1;
+    /** 리그 전체를 물을 때 한 번에 받는 선수 수(한 시즌 타자 750명·투수 900명쯤이라 한 번에 다 온다) */
+    private static final int LEAGUE_LIMIT = 2000;
 
     private final RestClient restClient;
     private final RateLimiter rateLimiter;
@@ -134,6 +139,42 @@ public class HttpMlbClient implements MlbClient {
                         .queryParam("season", season)
                         .queryParam("sportId", MLB)
                         .build(personId),
+                MlbResponses.SeasonStats.class));
+    }
+
+    @Override
+    public List<MlbSeasonSplit> getLeagueSeasonStats(Group group, int season) {
+        return leagueStats("season", group, season);
+    }
+
+    @Override
+    public List<MlbSeasonSplit> getLeagueSabermetrics(Group group, int season) {
+        return leagueStats("sabermetrics", group, season);
+    }
+
+    /**
+     * 리그 전체 선수 한 번에(playerPool=ALL: 규정 타석·이닝을 못 채운 선수까지). 한 시즌 타자·투수는 1,000명이 안 된다
+     * (2026: 타자 751명, 투수 868명). 받은 수가 LEAGUE_LIMIT에 닿으면 잘렸을 수 있어 경고를 남긴다.
+     */
+    private List<MlbSeasonSplit> leagueStats(String stats, Group group, int season) {
+        List<MlbSeasonSplit> splits = leagueSplits(stats, group, season);
+        if (splits.size() >= LEAGUE_LIMIT) {
+            log.warn("[mlb] league {} {} {}: {} players, the list may be cut at limit {}", stats, group.value(), season,
+                    splits.size(), LEAGUE_LIMIT);
+        }
+        return splits;
+    }
+
+    private List<MlbSeasonSplit> leagueSplits(String stats, Group group, int season) {
+        return seasonSplits(get("stats " + stats + " " + group.value() + " " + season + " (league)",
+                uri -> uri.path("/api/v1/stats")
+                        .queryParam("stats", stats)
+                        .queryParam("group", group.value())
+                        .queryParam("season", season)
+                        .queryParam("sportIds", MLB)
+                        .queryParam("playerPool", "ALL")
+                        .queryParam("limit", LEAGUE_LIMIT)
+                        .build(),
                 MlbResponses.SeasonStats.class));
     }
 
