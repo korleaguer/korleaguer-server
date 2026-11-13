@@ -387,7 +387,7 @@ public class MyPlayersService {
             List<FormFacts.GameStat> stint = since(minorStats, card.resolved().stintStart());
             // 새 팀으로 옮긴 뒤 아직 경기가 없으면 예전 팀 기록을 보이지 않는다(카드: "OOO 합류, 아직 경기 없음").
             boolean joinedNoGames = "MINORS".equals(kind) && card.resolved().stintStart() != null && stint.isEmpty();
-            String prefix = MinorRecords.levelKo(minor.isEmpty() ? null : minor.getLast().getLevel()) + " ";
+            String prefix = MinorRecords.levelKo(minor) + " "; // 단계가 섞였으면 "마이너 "
             MyPlayersResponse.Fact fact = joinedNoGames ? null : pitcher
                     ? FormFacts.pitcher(minorStats, stint, prefix, card.resolved().start())
                     : FormFacts.hitter(minorStats, stint, prefix, card.resolved().start());
