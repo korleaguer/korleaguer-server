@@ -8,6 +8,7 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameSummary;
@@ -15,6 +16,7 @@ import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -25,6 +27,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.korleaguer.ingest.GameIngest.US_EASTERN;
+
 /**
  * 선수 × 경기 한 줄(GameLine)을 조립한다.
  * <ul>
@@ -34,7 +38,8 @@ import java.util.stream.Collectors;
  *       <li>선수 기록을 받은 상태: 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기까지.
  *           단 지금 소속 팀이 마지막 기록의 팀과 같으면 끝을 열어 둔다(마지막 출전 뒤 경기도 결장으로 보인다).
  *           지금 마이너에 있는 선수(level=MINORS)는 끝을 열지 않는다(마이너로 간 뒤의 메이저 경기는 결장이 아니다).
- *           소속이 끝난 선수(FA 등)도 같다(마지막 소속 구단의 그 뒤 경기는 결장이 아니다).</li>
+ *           소속이 끝난 선수(FA 등)도 같다(마지막 소속 구단의 그 뒤 경기는 결장이 아니다).
+ *           뛴 기간 안이라도 마이너로 내려가 있던 날(MinorStints, 강등 ~ 콜업 전날)의 경기는 줄을 만들지 않는다.</li>
  *       <li>선수 기록을 받지 못한 상태: 지금 소속 팀 경기 전부. summary는 "기록 없음"이다.</li>
  *     </ul>
  *   </li>
@@ -48,13 +53,15 @@ class GameLineAssembler {
 
     private final GameRepository games;
     private final AppearanceRepository appearances;
+    private final PlayerMoveRepository moves;
     private final RosterProfiles profiles;
     private final CurrentSeason currentSeason;
 
-    GameLineAssembler(GameRepository games, AppearanceRepository appearances, RosterProfiles profiles,
-                      CurrentSeason currentSeason) {
+    GameLineAssembler(GameRepository games, AppearanceRepository appearances, PlayerMoveRepository moves,
+                      RosterProfiles profiles, CurrentSeason currentSeason) {
         this.games = games;
         this.appearances = appearances;
+        this.moves = moves;
         this.profiles = profiles;
         this.currentSeason = currentSeason;
     }
@@ -69,6 +76,7 @@ class GameLineAssembler {
         // 뛴 기간(결장 줄을 붙일 팀)은 이 기간이 속한 시즌 기록으로 정한다. 부르는 쪽이 정한 기간과 시즌이 어긋나지 않는다.
         int season = currentSeason.seasonAt(to.minusMillis(1));
         Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady, season);
+        Map<Long, List<MinorStints.Range>> minors = statsReady ? minorsByPlayer(playerIds, season) : Map.of();
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
                 .map(stint -> stint.team().getMlbTeamId())
@@ -89,8 +97,10 @@ class GameLineAssembler {
                 }
             }
             List<Stint> playerStints = stints.getOrDefault(player.getId(), List.of());
+            List<MinorStints.Range> playerMinors = minors.getOrDefault(player.getId(), List.of());
             for (Game game : teamGames) {
-                if (!playedGameIds.contains(game.getGamePk())) {
+                if (!playedGameIds.contains(game.getGamePk())
+                        && !MinorStints.covers(playerMinors, LocalDate.ofInstant(game.getStartTimeUtc(), US_EASTERN))) {
                     teamInRange(game, playerStints)
                             .ifPresent(team -> lines.add(line(player, team, game, null, statsReady)));
                 }
@@ -116,6 +126,13 @@ class GameLineAssembler {
                 .map(game -> line(player, team, game, mine.get(game.getGamePk()), true))
                 .sorted(Comparator.comparing(GameLine::startTimeKst).reversed())
                 .toList();
+    }
+
+    /** 선수마다 그 시즌 마이너로 내려가 있던 기간. 이동 기록은 그해 1월 1일부터 본다(봄 캠프 중 옵션도 들어간다) */
+    private Map<Long, List<MinorStints.Range>> minorsByPlayer(List<Long> playerIds, int season) {
+        return moves.findSinceOldestFirst(playerIds, LocalDate.of(season, 1, 1)).stream()
+                .collect(Collectors.groupingBy(m -> m.getPlayer().getId(),
+                        Collectors.collectingAndThen(Collectors.toList(), MinorStints::from)));
     }
 
     /** 선수마다 결장 줄을 붙일 수 있는 (팀, 기간) 목록 */

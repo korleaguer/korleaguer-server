@@ -387,7 +387,12 @@ public class MyPlayersService {
             List<FormFacts.GameStat> stint = since(minorStats, card.resolved().stintStart());
             // 새 팀으로 옮긴 뒤 아직 경기가 없으면 예전 팀 기록을 보이지 않는다(카드: "OOO 합류, 아직 경기 없음").
             boolean joinedNoGames = "MINORS".equals(kind) && card.resolved().stintStart() != null && stint.isEmpty();
-            String prefix = MinorRecords.levelKo(minor.isEmpty() ? null : minor.getLast().getLevel()) + " ";
+            // 이름표 단계는 숫자와 같은 범위로: 소식·최근 경기는 지금 기간 경기라 그 기간의 단계(섞였으면 "마이너 ").
+            // 지금 기간을 모르거나 그 뒤 경기가 없으면 시즌 전체로 정한다.
+            LocalDate stintStart = card.resolved().stintStart();
+            List<MinorGameLog> stintGames = stintStart == null ? minor
+                    : minor.stream().filter(g -> !g.getGameDate().isBefore(stintStart)).toList();
+            String prefix = MinorRecords.levelKo(stintGames.isEmpty() ? minor : stintGames) + " ";
             MyPlayersResponse.Fact fact = joinedNoGames ? null : pitcher
                     ? FormFacts.pitcher(minorStats, stint, prefix, card.resolved().start())
                     : FormFacts.hitter(minorStats, stint, prefix, card.resolved().start());

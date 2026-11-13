@@ -216,13 +216,20 @@ public class BaseballQueryService {
 
         HitterSeason hitting = null;
         PitcherSeason pitching = null;
+        HitterSeason minorHitting = null;
+        PitcherSeason minorPitching = null;
         if (statsAvailable) {
             List<Appearance> mine = seasonOf(regularSeason(List.of(player.getId()), season), player);
             MinorSeason minor = minorSeasons.find(player.getId(), season).orElse(null);
+            // 마이너 시즌 성적: 홈의 마이너 줄과 같은 계산(경기별 기록을 더함). 마이너 경기가 없으면 null
+            List<MinorGameLog> minorLogs = minorGameLogs.findSeason(List.of(player.getId()), season);
+            String photoUrl = profiles.photoUrl(player);
             if (player.role() == Role.PITCHER) {
-                pitching = SeasonStats.pitcher(player, profiles.photoUrl(player), team, mine, pitchingGames(minor));
+                pitching = SeasonStats.pitcher(player, photoUrl, team, mine, pitchingGames(minor));
+                if (!minorLogs.isEmpty()) minorPitching = SeasonStats.minorPitcher(player, photoUrl, minorLogs);
             } else {
-                hitting = SeasonStats.hitter(player, profiles.photoUrl(player), team, mine, hittingGames(minor));
+                hitting = SeasonStats.hitter(player, photoUrl, team, mine, hittingGames(minor));
+                if (!minorLogs.isEmpty()) minorHitting = SeasonStats.minorHitter(player, photoUrl, minorLogs);
             }
         }
 
@@ -249,7 +256,8 @@ public class BaseballQueryService {
         List<CareerSeason> careers = careerSeasons.findNewestFirst(player.getId(), group).stream()
                 .map(CareerSeason::of)
                 .toList();
-        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching, games,
+        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching,
+                minorHitting, minorPitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())), saber, careers,
                 seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS));
     }

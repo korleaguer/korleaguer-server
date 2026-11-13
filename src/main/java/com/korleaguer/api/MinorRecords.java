@@ -42,6 +42,15 @@ final class MinorRecords {
         return level == null ? "마이너" : LEVEL_KO.getOrDefault(level, "마이너");
     }
 
+    /**
+     * 여러 마이너 경기를 더한 기록의 단계 이름. 모두 한 단계면 그 단계(트리플A), 단계가 섞였으면 "마이너"
+     * (더블A·트리플A를 더한 평균자책점에 '트리플A'를 붙이면 트리플A 기록으로 읽힌다, 이슈 #134).
+     */
+    static String levelKo(List<MinorGameLog> games) {
+        List<String> levels = games.stream().map(MinorGameLog::getLevel).distinct().toList();
+        return levels.size() == 1 ? levelKo(levels.getFirst()) : "마이너";
+    }
+
     /** 마이너 경기의 한국 날짜(공식 날짜 다음 날) */
     static LocalDate kstDate(MinorGameLog game) {
         return game.getGameDate().plusDays(1);
