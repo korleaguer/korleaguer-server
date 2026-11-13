@@ -17,13 +17,16 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * 선수 한 명의 시즌 성적표(SeasonReport)를 만든다(이슈 #118). DB를 읽지 않는 계산만 있다(읽기는 SeasonReportFinder).
  * <ul>
  *   <li>판정: SeasonVerdict. 메이저 합계·지표를 아직 받지 못했으면 경기별 기록으로 양만 세어 판정한다.</li>
- *   <li>한 줄 요약(headline): 판정마다 정해진 틀에 경기 수·타율·평균자책점과 wRC+(ERA-) 말을 넣는다.</li>
+ *   <li>한 줄 요약(headline): 판정마다 정해진 틀에 wRC+(ERA-) 말과 상황 말을 넣는다. 바로 아래 숫자 칸(타자 타율·경기·안타·홈런,
+ *       좋은·제 몫 시즌은 경기 대신 WAR / 투수 평균자책점·등판·이닝·탈삼진)에 나오는 숫자는 되풀이하지 않고(문구 점검 11-13,
+ *       이슈 #147), 칸에 없는 도루·OPS·승·세이브만 숫자로 쓴다. 제목으로 올린 이유는 이유 줄에서 뺀다.</li>
  *   <li>이유(reason): 부상자 명단 등재, 트리플A 강등·콜업, 짧은 메이저 출전 중 두 개까지.
  *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 좋은 시즌·제 몫 한 시즌 타자는 전·후반 타율 차이가 크면
  *       그것 하나만 쓴다. 개막일(당일 포함)까지 오른 부상자 명단은 '개막 직전'이다. 없으면 null.</li>
@@ -49,6 +52,10 @@ final class SeasonReports {
     static final double HALF_GAP = 0.050;
     /** 메이저 경기가 이보다 적은 마이너 시즌은 '메이저 n경기'를 이유로 쓴다 */
     static final int SHORT_STINT_GAMES = 10;
+    /** 마이너 타자의 도루가 이만큼 이상이면 한 줄 요약에 쓴다 */
+    static final int MIN_STEALS_HEADLINE = 20;
+    /** 구원 투수의 세이브가 이만큼 이상이면 '세이브 N개'로 부른다 */
+    static final int MIN_SAVES_HEADLINE = 10;
     /** 마지막 부상 뒤 경기가 없고, 시즌 끝보다 이만큼 이상 일찍 다쳤으면 '일찍 시즌 마감' */
     static final int EARLY_END_DAYS = 14;
     /**
@@ -112,13 +119,13 @@ final class SeasonReports {
         boolean mixedMinors = mixedMinors(pitcher, minors);
         String label = tier == SeasonTier.MINORS && mixedMinors ? SeasonTier.MINORS_MIXED_LABEL : tier.label();
 
-        String headline = headline(in, tier, mlb, majors, minors, mixedMinors);
-        String reason = reason(in, tier, majors, minors);
+        Double war = mlb.war() == null ? null : Math.round(mlb.war() * 10) / 10.0;
+        Headline headline = headline(in, tier, mlb, majors, minors, mixedMinors, war);
+        String reason = reason(in, tier, majors, minors, headline.used());
         List<String> stories = tier.hasStories()
                 ? stories(pitcher, tier == SeasonTier.MINORS ? minors : majors, tier != SeasonTier.MINORS)
                 : List.of();
-        Double war = mlb.war() == null ? null : Math.round(mlb.war() * 10) / 10.0;
-        SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline, reason,
+        SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline.text(), reason,
                 tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, stories, winterMoves(in), List.of(), null);
         return new Built(report, majors.size());
     }
@@ -146,19 +153,43 @@ final class SeasonReports {
 
     // ---- 한 줄 요약 ----
 
-    private static String headline(Input in, SeasonTier tier, SeasonVerdict.Line mlb, List<GameDay> majors,
-                                   List<GameDay> minors, boolean mixedMinors) {
+    /** 한 줄 요약과, 그 말로 이미 쓴 이유(이유 줄에서 뺀다) */
+    private record Headline(String text, Set<FactKind> used) {
+        static Headline of(String text) {
+            return new Headline(text, Set.of());
+        }
+    }
+
+    private static Headline headline(Input in, SeasonTier tier, SeasonVerdict.Line mlb, List<GameDay> majors,
+                                     List<GameDay> minors, boolean mixedMinors, Double war) {
         boolean pitcher = in.role() == Role.PITCHER;
         int games = majors.size();
         return switch (tier) {
             case GOOD, SHORT_GOOD, SOLID -> {
                 String quality = pitcher ? pitchingWords(mlb.quality()) : hittingWords(mlb.quality());
-                yield volumeText(pitcher, majors, mlb) + ", " + (quality != null ? quality : rateText(pitcher, majors));
+                String text;
+                if (pitcher) {
+                    text = joinWords(pitcherRole(majors, mlb.gamesStarted(), ""), quality);
+                } else if (tier == SeasonTier.SHORT_GOOD) {
+                    // 숫자 칸에 경기 수가 있어 '18경기 출전' 대신 뛴 경기의 타격만 말한다
+                    text = quality == null ? null : "뛴 경기에선 " + quality;
+                } else {
+                    // 좋은·제 몫 시즌 숫자 칸은 경기 대신 WAR라 경기 수를 쓸 수 있다. WAR를 모르면 칸에 경기가 있어 말로만
+                    String volume = war != null ? games + (games >= FULL_SEASON_GAMES ? "경기 완주" : "경기 출전")
+                            : games >= FULL_SEASON_GAMES ? "시즌 완주" : null;
+                    text = volume == null ? quality : joinWords(volume, quality);
+                }
+                yield text != null ? Headline.of(text) : situationHeadline(in, majors);
             }
             case MINORS -> minorsHeadline(pitcher, games, minors, mixedMinors);
-            case SHORT -> games == 0 ? "메이저 출전 없음" : volumeText(pitcher, majors, mlb) + ", " + rateText(pitcher, majors);
+            case SHORT -> games == 0 ? Headline.of("메이저 출전 없음") : situationHeadline(in, majors);
             case POOR -> poorHeadline(in, majors);
         };
+    }
+
+    /** "143경기 완주, 타격은 리그 평균". 뒤 말이 없으면 앞 말만 */
+    private static String joinWords(String volume, String quality) {
+        return quality == null ? volume : volume + ", " + quality;
     }
 
     /** wRC+ 말. 80 미만이거나 모르면 null */
@@ -201,36 +232,29 @@ final class SeasonReports {
         return null;
     }
 
-    /** 타자 "143경기 완주"·"98경기 출전", 투수 "선발 28경기 160⅓이닝"·"55경기 52⅔이닝" */
-    private static String volumeText(boolean pitcher, List<GameDay> majors, SeasonVerdict.Line mlb) {
-        int games = majors.size();
-        if (!pitcher) {
-            return games + (games >= FULL_SEASON_GAMES ? "경기 완주" : "경기 출전");
+    /**
+     * 투수의 쓰임새: 선발이면 "선발 12승"(승이 없으면 "선발로 한 시즌"), 세이브가 많은 구원이면 "세이브 31개",
+     * 나머지 구원은 "불펜으로 한 시즌". 숫자 칸의 등판·이닝은 쓰지 않는다. prefix는 마이너 단계 이름("트리플A ")
+     */
+    private static String pitcherRole(List<GameDay> games, int started, String prefix) {
+        boolean starter = started > 0 && started * 2 >= games.size();
+        if (starter) {
+            int wins = sumPitching(games, Pitching::wins);
+            return prefix + (wins > 0 ? "선발 " + wins + "승" : "선발로 한 시즌");
         }
-        int outs = (int) Math.round(mlb.volume() * 3);
-        String innings = BaseballMath.inningsText(outs) + "이닝";
-        int started = mlb.gamesStarted();
-        return started >= 5 && started * 2 >= games ? "선발 " + started + "경기 " + innings
-                : games + "경기 " + innings;
+        int saves = sumPitching(games, Pitching::saves);
+        return prefix + (saves >= MIN_SAVES_HEADLINE ? "세이브 " + saves + "개" : "불펜으로 한 시즌");
     }
 
-    /** "타율 .191" / "평균자책점 4.50". 기록이 없으면 "기록 없음" */
-    private static String rateText(boolean pitcher, List<GameDay> games) {
-        if (pitcher) {
-            Double era = BaseballMath.era(earnedRuns(games), outs(games));
-            return era == null ? "기록 없음" : "평균자책점 " + eraText(era);
-        }
-        Double avg = BaseballMath.avg(hits(games), atBats(games));
-        return avg == null ? "기록 없음" : "타율 " + avgText(avg);
-    }
-
-    private static String minorsHeadline(boolean pitcher, int majorGames, List<GameDay> minors, boolean mixed) {
+    private static Headline minorsHeadline(boolean pitcher, int majorGames, List<GameDay> minors, boolean mixed) {
         String minorWord = mixed ? "마이너" : "트리플A";
         if (majorGames >= SHORT_STINT_GAMES) {
-            return "메이저 " + majorGames + "경기, 나머지는 " + minorWord;
+            // 메이저 경기 수는 숫자 칸 아래 줄('메이저 43경기 · …')에 있다
+            return new Headline("메이저와 " + minorWord + "를 오간 시즌", Set.of(FactKind.UP_DOWN));
         }
         if (pitcher) {
             // 이닝이 많은 단계 두 곳까지, 낮은 단계부터: "더블A 평균자책점 0.66, 트리플A 5.11"
+            // (숫자 칸은 단계를 모두 더한 평균자책점이라 단계별 숫자는 겹치지 않는다)
             List<String> levels = minors.stream().map(GameDay::level).filter(Objects::nonNull).distinct()
                     .filter(level -> outs(onLevel(minors, level)) > 0)
                     .sorted(Comparator.comparingInt((String level) -> outs(onLevel(minors, level))).reversed())
@@ -238,11 +262,13 @@ final class SeasonReports {
                     .sorted(Comparator.comparingInt(SeasonReports::levelRank))
                     .toList();
             if (levels.isEmpty()) {
-                return minors.size() + "경기 마이너 등판";
+                return Headline.of(minorWord + " 이닝 기록 없음");
             }
             if (levels.size() == 1) {
+                // 한 단계뿐이면 숫자 칸과 같은 평균자책점·등판이 되어 쓰임새로 말한다: "트리플A 선발 8승"
                 List<GameDay> games = onLevel(minors, levels.getFirst());
-                return levelName(levels.getFirst()) + " " + games.size() + "경기 " + rateText(true, games);
+                int started = (int) games.stream().filter(GameDay::started).count();
+                return Headline.of(pitcherRole(games, started, levelName(levels.getFirst()) + " "));
             }
             List<String> parts = new ArrayList<>();
             for (int i = 0; i < levels.size(); i++) {
@@ -250,30 +276,38 @@ final class SeasonReports {
                         outs(onLevel(minors, levels.get(i))));
                 parts.add(levelName(levels.get(i)) + (i == 0 ? " 평균자책점 " : " ") + eraText(era));
             }
-            return String.join(", ", parts);
+            return Headline.of(String.join(", ", parts));
         }
+        // 숫자 칸(타율·경기·안타·홈런)에 없는 도루, 아니면 OPS
         List<GameDay> games = mixed ? minors : onLevel(minors, TRIPLE_A);
-        int homeRuns = sum(games, b -> b.homeRuns());
         int steals = sum(games, b -> b.stolenBases());
-        String highlight;
-        if (homeRuns >= 15) {
-            highlight = minorWord + " 홈런 " + homeRuns + "개";
-        } else if (steals >= 20) {
-            highlight = minorWord + " 도루 " + steals + "개";
-        } else {
-            highlight = minorWord + " " + games.size() + "경기";
+        if (steals >= MIN_STEALS_HEADLINE) {
+            return Headline.of(minorWord + "에서 도루 " + steals + "개");
         }
-        return highlight + ", " + rateText(false, games);
+        Double ops = BaseballMath.ops(hits(games), sum(games, Batting::walks), sum(games, Batting::hitByPitch),
+                atBats(games), sum(games, Batting::sacFlies),
+                games.stream().filter(g -> g.batting() != null).mapToInt(g -> g.batting().totalBasesOrComputed()).sum());
+        return Headline.of(ops == null ? minorWord + " 기록 없음" : minorWord + " OPS " + avgText(ops));
     }
 
-    private static String poorHeadline(Input in, List<GameDay> majors) {
-        boolean pitcher = in.role() == Role.PITCHER;
-        int games = majors.size();
+    private static Headline poorHeadline(Input in, List<GameDay> majors) {
         if (in.firstMlbSeason()) {
-            return "메이저 첫해 " + games + "경기, " + rateText(pitcher, majors);
+            // 메이저 첫해에 트리플A를 오갔으면 그게 이 시즌 이야기다(이유 줄에서는 뺀다)
+            return downMoves(in).size() >= 2
+                    ? new Headline("메이저 첫 시즌, 트리플A 오가며 적응", Set.of(FactKind.UP_DOWN))
+                    : Headline.of("메이저 첫 시즌");
         }
+        return situationHeadline(in, majors);
+    }
+
+    /**
+     * 숫자 대신 시즌 상황으로 쓰는 한 줄: 부상자 명단 두 번 이상 → "손가락 부상으로 두 번 빠진 시즌",
+     * 한 번 → "햄스트링 부상으로 한 번 빠진 시즌", 트리플A 강등 → "메이저와 트리플A를 오간 시즌"(돌아오지 못했으면
+     * "8월 초 트리플A로 내려간 시즌"), 그 밖 → "샌디에이고에서 보낸 시즌"
+     */
+    private static Headline situationHeadline(Input in, List<GameDay> majors) {
         List<Move> placements = placements(in);
-        if (placements.size() >= 2) {
+        if (!placements.isEmpty()) {
             Set<String> parts = new LinkedHashSet<>();
             boolean known = true;
             for (Move move : placements) {
@@ -285,23 +319,41 @@ final class SeasonReports {
                 }
             }
             String times = switch (placements.size()) {
+                case 1 -> "한 번";
                 case 2 -> "두 번";
                 case 3 -> "세 번";
                 default -> "여러 번";
             };
             String cause = known && parts.size() == 1 ? parts.iterator().next() + " 부상으로" : "부상으로";
-            return cause + " " + times + " 빠지며 " + games + "경기";
+            return Headline.of(cause + " " + times + " 빠진 시즌");
         }
-        return games + "경기, " + rateText(pitcher, majors);
+        List<Move> down = downMoves(in);
+        if (!down.isEmpty()) {
+            LocalDate firstDown = down.getFirst().date();
+            boolean cameBack = inSeasonMoves(in).stream()
+                    .anyMatch(m -> isCode(m, "CU", "SE") && m.date().isAfter(firstDown));
+            // 한 번 내려가 돌아오지 못했으면 '오간'이 아니다: "8월 초 트리플A로 내려간 시즌"(이유 줄의 같은 말은 뺀다)
+            return cameBack ? new Headline("메이저와 트리플A를 오간 시즌", Set.of(FactKind.UP_DOWN))
+                    : new Headline(monthPart(firstDown) + " 트리플A로 내려간 시즌", Set.of(FactKind.UP_DOWN, FactKind.DOWN));
+        }
+        String team = majors.isEmpty() ? null : majors.getLast().teamKo();
+        return Headline.of((team == null ? "메이저" : team) + "에서 보낸 시즌");
     }
 
     // ---- 이유 ----
 
     /** 이유 한 가지. 고를 때 priority(작을수록 먼저), 이을 때 날짜 순 */
-    private record Fact(LocalDate date, int priority, String text) {
+    private record Fact(LocalDate date, int priority, String text, FactKind kind, boolean lateStart) {
+        Fact(LocalDate date, int priority, String text, FactKind kind) {
+            this(date, priority, text, kind, false);
+        }
     }
 
-    private static String reason(Input in, SeasonTier tier, List<GameDay> majors, List<GameDay> minors) {
+    /** 이유의 종류. 한 줄 요약에 이미 쓴 종류는 이유 줄에서 뺀다 */
+    private enum FactKind { INJURY, STINT, UP_DOWN, DOWN, UP, HALF }
+
+    private static String reason(Input in, SeasonTier tier, List<GameDay> majors, List<GameDay> minors,
+                                 Set<FactKind> usedInHeadline) {
         if (in.role() == Role.HITTER && (tier == SeasonTier.GOOD || tier == SeasonTier.SOLID)) {
             // 다 뛴 시즌은 전·후반 흐름이 가장 큰 이야기다(짧은 부상자 명단보다 먼저)
             Fact half = halfFact(majors);
@@ -316,13 +368,17 @@ final class SeasonReports {
         } else {
             facts.addAll(moveFacts(in));
         }
-        List<String> chosen = facts.stream()
+        facts.removeIf(f -> usedInHeadline.contains(f.kind()));
+        List<Fact> chosen = facts.stream()
                 .sorted(Comparator.comparingInt(Fact::priority).thenComparing(Fact::date))
                 .limit(MAX_REASONS)
                 .sorted(Comparator.comparing(Fact::date))
-                .map(Fact::text)
                 .toList();
-        return chosen.isEmpty() ? null : String.join(" · ", chosen);
+        if (chosen.size() == 1 && chosen.getFirst().lateStart()) {
+            // 이유가 개막 직전 부상 하나뿐이면 문장으로 맺는다: "개막 직전 옆구리 부상으로 늦게 출발"
+            return chosen.getFirst().text() + "으로 늦게 출발";
+        }
+        return chosen.isEmpty() ? null : chosen.stream().map(Fact::text).collect(Collectors.joining(" · "));
     }
 
     /** 이번 시즌(2월 ~ 정규시즌 마지막 날) 부상자 명단 등재, 날짜 순(같은 날은 하나) */
@@ -341,6 +397,8 @@ final class SeasonReports {
         List<Move> placements = placements(in);
         LocalDate lastGame = Stream.concat(majors.stream(), minors.stream())
                 .map(GameDay::date).max(Comparator.naturalOrder()).orElse(null);
+        LocalDate firstGame = Stream.concat(majors.stream(), minors.stream())
+                .map(GameDay::date).min(Comparator.naturalOrder()).orElse(null);
         Set<String> seen = new HashSet<>();
         List<Fact> facts = new ArrayList<>();
         for (int i = 0; i < placements.size(); i++) {
@@ -348,10 +406,13 @@ final class SeasonReports {
             String part = InjuryParts.korean(move.description());
             LocalDate day = move.date();
             String text;
+            boolean lateStart = false;
             if (part != null && seen.contains(part)) {
                 text = day.getMonthValue() + "월 같은 곳 다시 이탈";
             } else if (!day.isAfter(in.openingDay())) {
                 text = "개막 직전 " + (part == null ? "부상" : part + " 부상");
+                // 개막 전에 돌아와 개막전부터 뛰었으면 늦게 출발한 게 아니다
+                lateStart = firstGame != null && firstGame.isAfter(in.openingDay());
             } else if (i == placements.size() - 1 && (lastGame == null || !lastGame.isAfter(day))
                     && !day.isAfter(in.lastRegularDay().minusDays(EARLY_END_DAYS))) {
                 text = monthPart(day) + " 부상으로 일찍 시즌 마감";
@@ -361,7 +422,7 @@ final class SeasonReports {
             if (part != null) {
                 seen.add(part);
             }
-            facts.add(new Fact(day, 0, text));
+            facts.add(new Fact(day, 0, text, FactKind.INJURY, lateStart));
         }
         return facts;
     }
@@ -381,31 +442,42 @@ final class SeasonReports {
         String text = months.size() == 1 && teams.size() == 1 && first != null && majors.getFirst().teamKo() != null
                 ? first.getMonthValue() + "월 " + majors.getFirst().teamKo() + "에서 메이저 " + majors.size() + "경기"
                 : "메이저 " + majors.size() + "경기";
-        return new Fact(first, 1, text);
+        return new Fact(first, 1, text, FactKind.STINT);
     }
 
     /** 정규시즌 중(끝나고 SEASON_WRAP_DAYS일까지) 트리플A 강등(옵션·아웃라이트)과 메이저 콜업 */
     private static List<Fact> moveFacts(Input in) {
-        List<Move> inSeason = in.moves().stream()
+        List<Move> inSeason = inSeasonMoves(in);
+        List<Move> down = downMoves(in);
+        List<Move> up = inSeason.stream().filter(m -> isCode(m, "CU", "SE")).toList();
+        List<Fact> facts = new ArrayList<>();
+        if (down.size() >= 2) {
+            facts.add(new Fact(down.getFirst().date(), 2, "트리플A 오가며" + (in.firstMlbSeason() ? " 적응" : ""),
+                    FactKind.UP_DOWN));
+        } else if (down.size() == 1) {
+            LocalDate day = down.getFirst().date();
+            facts.add(new Fact(day, 2, monthPart(day) + " 트리플A로", FactKind.DOWN));
+            up.stream().filter(m -> m.date().isAfter(day)).findFirst()
+                    .ifPresent(m -> facts.add(new Fact(m.date(), 2, monthPart(m.date()) + " 다시 메이저", FactKind.UP)));
+        } else if (!up.isEmpty()) {
+            LocalDate day = up.getFirst().date();
+            facts.add(new Fact(day, 2, monthPart(day) + " 메이저로", FactKind.UP));
+        }
+        return facts;
+    }
+
+    /** 정규시즌 중(끝나고 SEASON_WRAP_DAYS일까지) 이동, 날짜 순 */
+    private static List<Move> inSeasonMoves(Input in) {
+        return in.moves().stream()
                 .filter(m -> m.date() != null && !m.date().isBefore(in.openingDay())
                         && !m.date().isAfter(in.lastRegularDay().plusDays(SEASON_WRAP_DAYS)))
                 .sorted(Comparator.comparing(Move::date))
                 .toList();
-        List<Move> down = inSeason.stream().filter(m -> isCode(m, "OPT", "OUT")).toList();
-        List<Move> up = inSeason.stream().filter(m -> isCode(m, "CU", "SE")).toList();
-        List<Fact> facts = new ArrayList<>();
-        if (down.size() >= 2) {
-            facts.add(new Fact(down.getFirst().date(), 2, "트리플A 오가며" + (in.firstMlbSeason() ? " 적응" : "")));
-        } else if (down.size() == 1) {
-            LocalDate day = down.getFirst().date();
-            facts.add(new Fact(day, 2, monthPart(day) + " 트리플A로"));
-            up.stream().filter(m -> m.date().isAfter(day)).findFirst()
-                    .ifPresent(m -> facts.add(new Fact(m.date(), 2, monthPart(m.date()) + " 다시 메이저")));
-        } else if (!up.isEmpty()) {
-            LocalDate day = up.getFirst().date();
-            facts.add(new Fact(day, 2, monthPart(day) + " 메이저로"));
-        }
-        return facts;
+    }
+
+    /** 정규시즌 중 트리플A 강등(옵션·아웃라이트) */
+    private static List<Move> downMoves(Input in) {
+        return inSeasonMoves(in).stream().filter(m -> isCode(m, "OPT", "OUT")).toList();
     }
 
     /** 전·후반 타율 차이(.050 이상). 경기 수 절반에 가장 가까운 달 경계에서 나눈다. 반마다 50타수는 있어야 한다. */
@@ -444,7 +516,7 @@ final class SeasonReports {
         String text = boundary.minusMonths(1).getMonthValue() + "월까지 타율 " + avgText(BaseballMath.avg(hits(first),
                 atBats(first))) + " → " + boundary.getMonthValue() + "월부터 " + avgText(BaseballMath.avg(hits(second),
                 atBats(second)));
-        return new Fact(boundary, 3, text);
+        return new Fact(boundary, 3, text, FactKind.HALF);
     }
 
     // ---- 자랑거리 ----
@@ -664,6 +736,10 @@ final class SeasonReports {
 
     private static int atBats(List<GameDay> games) {
         return sum(games, Batting::atBats);
+    }
+
+    private static int sumPitching(List<GameDay> games, Function<Pitching, Integer> field) {
+        return games.stream().filter(g -> g.pitching() != null).mapToInt(g -> orZero(field.apply(g.pitching()))).sum();
     }
 
     private static int sum(List<GameDay> games, Function<Batting, Integer> field) {
