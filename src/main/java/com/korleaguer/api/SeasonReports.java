@@ -14,7 +14,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -60,8 +59,6 @@ final class SeasonReports {
     static final double MIXED_MINORS_SHARE = 0.2;
 
     private static final String TRIPLE_A = "AAA";
-    private static final Map<String, String> LEVEL_NAMES = Map.of(
-            "AAA", "트리플A", "AA", "더블A", "A+", "하이싱글A", "A", "싱글A", "ROK", "루키");
     private static final List<String> LEVEL_ORDER = List.of("ROK", "A", "A+", "AA", "AAA");
 
     private SeasonReports() {
@@ -505,7 +502,7 @@ final class SeasonReports {
         return best;
     }
 
-    /** "최고 경기 8/4 텍사스전 2홈런 3안타". 2홈런 이상이나 3안타 이상인 경기 중 가장 큰 경기(같으면 먼저 것) */
+    /** "최고 경기 8월 4일 텍사스전 3안타 2홈런". 2홈런 이상이나 3안타 이상인 경기 중 가장 큰 경기(같으면 먼저 것) */
     private static String bestHittingGame(List<GameDay> games, boolean majors) {
         GameDay best = null;
         int bestScore = -1;
@@ -619,7 +616,8 @@ final class SeasonReports {
     }
 
     private static String levelName(String level) {
-        return LEVEL_NAMES.getOrDefault(level, level);
+        // 단계 이름은 MinorRecords 한 곳에서(두 표가 따로 있다가 하이A·하이싱글A로 어긋났다). 모르는 단계는 약어 그대로
+        return MinorRecords.LEVEL_KO.getOrDefault(level, level);
     }
 
     private static boolean isCode(Move move, String... codes) {
