@@ -40,6 +40,8 @@ public class NewsArticle {
     private Instant destinationsAt;
     private String destinationsModel;
     private int destinationAttempts;
+    /** 그 선수가 주인공이 아닌 기사인가(AI 판단, 이슈 #129). 판단 전이면 null */
+    private Boolean offTopic;
 
     protected NewsArticle() {
     }
@@ -179,11 +181,21 @@ public class NewsArticle {
         return destinationAttempts;
     }
 
+    public Boolean getOffTopic() {
+        return offTopic;
+    }
+
+    /** 목록에서 뺄 기사인가(AI가 '주인공 아님'으로 판단). 판단 전이면 보인다 */
+    public boolean isOffTopic() {
+        return Boolean.TRUE.equals(offTopic);
+    }
+
     /**
      * 행선지로 거론된 구단을 골랐다(구단 줄은 NewsDestination에 따로 둔다. 거론된 구단이 없어도 고른 것으로 적는다).
-     * model은 고른 모델과 지시문 판이다. 판이 바뀌면 다시 고른다
+     * model은 고른 모델과 지시문 판이다. 판이 바뀌면 다시 고른다. offTopic은 같은 호출이 본 '주인공 아님'(모르면 null)
      */
-    public void destinationsTagged(String model, Instant at) {
+    public void destinationsTagged(String model, Instant at, Boolean offTopic) {
+        this.offTopic = offTopic;
         this.destinationsModel = model;
         this.destinationsAt = at;
         this.destinationAttempts = 0;

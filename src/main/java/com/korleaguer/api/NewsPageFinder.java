@@ -52,6 +52,7 @@ public class NewsPageFinder {
                 .stream()
                 .filter(a -> publishers.contains(a.getPublisher()))
                 .filter(a -> !posting || aiPublishers.contains(a.getPublisher()) || MlbContext.mentions(a.getTitle()))
+                .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
                 .toList());
         if (recent.stream().noneMatch(a -> a.getId().equals(article.getId()))) {
             recent.add(article);

@@ -34,7 +34,7 @@ public class NewsTagger {
 
     private static final Logger log = LoggerFactory.getLogger(NewsTagger.class);
 
-    static final int PER_RUN = 20;
+    static final int PER_RUN = 40;
     static final int MAX_ATTEMPTS = 3;
     /** 홈은 최근 7일만 센다. 그보다 넉넉히 고른다 */
     static final Duration OLDEST = Duration.ofDays(30);
@@ -67,7 +67,7 @@ public class NewsTagger {
                 now.minus(OLDEST), PageRequest.of(0, PER_RUN));
         int done = 0;
         for (NewsArticle article : todo) {
-            Optional<List<DestinationTagger.Destination>> picked;
+            Optional<DestinationTagger.Tagging> picked;
             try {
                 picked = tagger.tag(article.getSubject(), title(article), text(article));
             } catch (Summarizer.Failure e) {
@@ -89,14 +89,16 @@ public class NewsTagger {
     }
 
     /** 전에 고른 구단을 지우고 새로 고른 구단을 둔다(한 번에) */
-    private void save(NewsArticle article, List<DestinationTagger.Destination> picked, String version, Instant now) {
+    private void save(NewsArticle article, DestinationTagger.Tagging picked, String version, Instant now) {
         transaction.executeWithoutResult(status -> {
             destinations.deleteByArticle(article.getId());
             destinations.flush();
-            for (DestinationTagger.Destination d : picked) {
+            for (DestinationTagger.Destination d : picked.destinations()) {
                 destinations.save(new NewsDestination(article.getId(), d.team(), d.stance()));
             }
-            article.destinationsTagged(version, now);
+            // 주인공이 아닌 기사는 목록에서 뺀다(이슈 #129). 답에 판단이 없으면 null(보인다)
+            Boolean offTopic = picked.aboutPlayer() == null ? null : !picked.aboutPlayer();
+            article.destinationsTagged(version, now, offTopic);
             articles.save(article);
         });
     }
