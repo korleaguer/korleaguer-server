@@ -120,6 +120,18 @@ class MainlyMinorsHomeTest {
     void playerPageHasMinorGames() throws Exception {
         mockMvc.perform(get("/api/players/2"))
                 .andExpect(jsonPath("$.hitting.minorGames").value(40))
-                .andExpect(jsonPath("$.hitting.mainlyMinors").value(true));
+                .andExpect(jsonPath("$.hitting.mainlyMinors").value(true))
+                // 선수 페이지도 마이너 시즌 성적을 따로 준다(홈 마이너 줄과 같은 값). 타자라 투수 칸은 비어 있다
+                .andExpect(jsonPath("$.minorHitting.games").value(40))
+                .andExpect(jsonPath("$.minorHitting.levelKo").value("트리플A"))
+                .andExpect(jsonPath("$.minorPitching").value(nullValue()));
+    }
+
+    @Test
+    void majorOnlyPlayerHasNoMinorSeason() throws Exception {
+        // 가타자는 마이너 경기가 없다
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(jsonPath("$.hitting.games").value(3))
+                .andExpect(jsonPath("$.minorHitting").value(nullValue()));
     }
 }
