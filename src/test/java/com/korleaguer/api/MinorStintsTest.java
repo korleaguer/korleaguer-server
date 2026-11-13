@@ -71,11 +71,25 @@ class MinorStintsTest {
                 move("2026-07-21", "OPT", Level.MLB, Level.MINORS, "Minnesota Twins optioned RHP Woo-Suk Go"),
                 move("2026-08-30", "CU", Level.MINORS, Level.MLB, "Minnesota Twins recalled RHP Woo-Suk Go")));
 
+        // 트레이드(팀이 바뀜)에서 첫 기간이 닫힌다. 새 팀 첫 출전 전이라 결장 줄과 상관없다
         assertThat(ranges).containsExactly(
-                new MinorStints.Range(LocalDate.parse("2026-04-08"), LocalDate.parse("2026-07-07")),
+                new MinorStints.Range(LocalDate.parse("2026-04-08"), LocalDate.parse("2026-07-05")),
                 new MinorStints.Range(LocalDate.parse("2026-07-21"), LocalDate.parse("2026-08-30")));
         assertThat(MinorStints.from(List.of(
                 move("2026-04-05", "CU", Level.MINORS, Level.MLB, "recalled")))).isEmpty(); // 강등 없이 콜업만
+    }
+
+    @Test
+    void claimedOffTheMinorsClosesTheStint() {
+        // 옵션 중 지명 할당 → 다른 팀이 클레임해 바로 메이저 명단에(콜업 기록 없음). 새 팀의 진짜 결장은 남아야 한다
+        List<MinorStints.Range> ranges = MinorStints.from(List.of(
+                move("2026-06-01", "OPT", Level.MLB, Level.MINORS, "optioned to Triple-A"),
+                move("2026-06-10", "DES", null, Level.MLB, "designated for assignment"),
+                move("2026-06-14", "CLW", Level.MLB, Level.MLB, "claimed off waivers")));
+
+        assertThat(ranges).containsExactly(
+                new MinorStints.Range(LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-14")));
+        assertThat(MinorStints.covers(ranges, LocalDate.parse("2026-06-20"))).isFalse();
     }
 
     private static PlayerMove move(String date, String code, Level from, Level to, String description) {
