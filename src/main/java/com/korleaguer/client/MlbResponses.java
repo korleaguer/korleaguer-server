@@ -34,7 +34,7 @@ public final class MlbResponses {
     public record StatGroup(List<MlbGameLogSplit> splits) {
     }
 
-    /** /api/v1/people/{id}/stats?stats=yearByYear · stats=sabermetrics */
+    /** /api/v1/people/{id}/stats?stats=yearByYear · stats=sabermetrics, 리그 전체 /api/v1/stats?stats=season · sabermetrics */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record SeasonStats(List<SeasonStatGroup> stats) {
     }

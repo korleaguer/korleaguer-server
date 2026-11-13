@@ -65,4 +65,17 @@ class BaseballMathTest {
         assertThat(BaseballMath.inningsText(2)).isEqualTo("⅔");
         assertThat(BaseballMath.inningsText(0)).isEqualTo("0");
     }
+
+    @Test
+    void decimalFromMlbText() {
+        // MLB는 타율·OPS·평균자책점을 글자로 주고, 값이 없으면 ".---"·"-.--"를 준다
+        assertThat(BaseballMath.decimal(".258")).isEqualTo(0.258);
+        assertThat(BaseballMath.decimal("1.167")).isEqualTo(1.167);
+        assertThat(BaseballMath.decimal("9.00")).isEqualTo(9.0);
+        assertThat(BaseballMath.decimal(".---")).isNull();
+        assertThat(BaseballMath.decimal("-.--")).isNull();
+        assertThat(BaseballMath.decimal("Infinity")).isNull();
+        assertThat(BaseballMath.decimal(" ")).isNull();
+        assertThat(BaseballMath.decimal(null)).isNull();
+    }
 }

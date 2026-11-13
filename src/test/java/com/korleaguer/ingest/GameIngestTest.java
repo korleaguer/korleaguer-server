@@ -136,6 +136,18 @@ class GameIngestTest {
         }
 
         @Override
+        public List<MlbSeasonSplit> getLeagueSeasonStats(Group group, int season) {
+            requests++;
+            return delegate.getLeagueSeasonStats(group, season);
+        }
+
+        @Override
+        public List<MlbSeasonSplit> getLeagueSabermetrics(Group group, int season) {
+            requests++;
+            return delegate.getLeagueSabermetrics(group, season);
+        }
+
+        @Override
         public List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season) {
             requests++;
             return delegate.getSeasonSchedule(teamIds, season);

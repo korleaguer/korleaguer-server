@@ -36,6 +36,15 @@ public interface MlbClient {
     /** 선수의 한 시즌 메이저 고급 지표(wRC+·ERA-·WAR, 정규시즌). 그 시즌 메이저 기록이 없으면 빈 목록 */
     List<MlbSeasonSplit> getSabermetrics(long personId, Group group, int season);
 
+    /**
+     * 한 시즌 MLB 전체 선수의 시즌 합계(stats=season, 정규시즌). 선수마다 한 줄이다(여러 팀이면 합친 줄).
+     * 타격이면 타석, 투구면 이닝·상대 타자·삼진·볼넷이 있다. 그 시즌 기록이 아직 없으면 빈 목록
+     */
+    List<MlbSeasonSplit> getLeagueSeasonStats(Group group, int season);
+
+    /** 한 시즌 MLB 전체 선수의 고급 지표(stats=sabermetrics, 정규시즌). 선수마다 한 줄이다. 기록이 없으면 빈 목록 */
+    List<MlbSeasonSplit> getLeagueSabermetrics(Group group, int season);
+
     /** 팀들의 한 시즌 메이저 일정(시범경기·포스트시즌 포함). 점수와 상태도 들어 있다. */
     List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season);
 

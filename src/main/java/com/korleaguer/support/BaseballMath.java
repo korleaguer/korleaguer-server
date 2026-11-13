@@ -98,10 +98,24 @@ public final class BaseballMath {
         return denominator == 0 ? null : (double) numerator / denominator;
     }
 
-    private static Double round(Double value, int scale) {
+    /** 소수 scale자리로 반올림(0.5는 올림). null이면 null */
+    public static Double round(Double value, int scale) {
         if (value == null) {
             return null;
         }
         return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    /** MLB가 글자로 주는 비율(".258", "3.23")을 숫자로. 비었거나 값이 없다는 표시(".---", "-.--")면 null */
+    public static Double decimal(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            double value = Double.parseDouble(text.trim());
+            return Double.isFinite(value) ? value : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
