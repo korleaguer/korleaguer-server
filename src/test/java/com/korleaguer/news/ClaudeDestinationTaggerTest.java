@@ -56,6 +56,8 @@ class ClaudeDestinationTaggerTest {
     @Test
     void readsWhetherThePlayerIsTheSubject() {
         // 이슈 #129: 첫 줄 '주인공: 예/아니오'
+        // 구단 줄 뒤 마지막 줄(#131)이어도, 앞에 있어도 읽는다
+        assertThat(ClaudeDestinationTagger.parse("PHI +\n주인공: 예").orElseThrow().aboutPlayer()).isTrue();
         DestinationTagger.Tagging about = ClaudeDestinationTagger.parse("주인공: 예\nNYM +").orElseThrow();
         assertThat(about.aboutPlayer()).isTrue();
         assertThat(about.destinations()).containsExactly(new DestinationTagger.Destination("NYM", Stance.LINKED));
@@ -101,7 +103,7 @@ class ClaudeDestinationTaggerTest {
 
     @Test
     void theVersionFitsTheRecordColumn() {
-        assertThat(ClaudeDestinationTagger.versionOf("claude-haiku-5-5")).isEqualTo("claude-haiku-5-5/d2");
+        assertThat(ClaudeDestinationTagger.versionOf("claude-haiku-5-5")).isEqualTo("claude-haiku-5-5/d3");
         assertThat(ClaudeDestinationTagger.fitsRecord("claude-haiku-5-5")).isTrue();
         assertThat(ClaudeDestinationTagger.fitsRecord("x".repeat(60))).isFalse();
     }
