@@ -92,6 +92,30 @@ class MinorStintsTest {
         assertThat(MinorStints.covers(ranges, LocalDate.parse("2026-06-20"))).isFalse();
     }
 
+    @Test
+    void minorLeagueDealWithTheSameClubKeepsTheStintUntilTheContractIsSelected() {
+        // 아웃라이트 → FA 선언 → 같은 구단과 마이너 계약 → 계약 선택. FA 선언·마이너 계약에서 닫으면 그 사이 경기가 결장이 된다
+        List<MinorStints.Range> ranges = MinorStints.from(List.of(
+                move("2026-06-01", "OUT", Level.MLB, Level.MINORS, "sent outright to Triple-A"),
+                move("2026-06-03", "DFA", null, Level.MINORS, "elected free agency."),
+                move("2026-06-05", "SFA", null, Level.MLB, "Detroit Tigers signed free agent RHP to a minor league contract."),
+                move("2026-07-01", "SE", Level.MINORS, Level.MLB, "Detroit Tigers selected the contract")));
+
+        assertThat(ranges).containsExactly(
+                new MinorStints.Range(LocalDate.parse("2026-06-01"), LocalDate.parse("2026-07-01")));
+    }
+
+    @Test
+    void majorLeagueDealClosesTheStint() {
+        List<MinorStints.Range> ranges = MinorStints.from(List.of(
+                move("2026-06-01", "OUT", Level.MLB, Level.MINORS, "sent outright to Triple-A"),
+                move("2026-06-03", "DFA", null, Level.MINORS, "elected free agency."),
+                move("2026-06-05", "SFA", null, Level.MLB, "New York Mets signed free agent RHP.")));
+
+        assertThat(ranges).containsExactly(
+                new MinorStints.Range(LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-05")));
+    }
+
     private static PlayerMove move(String date, String code, Level from, Level to, String description) {
         PlayerMove move = new PlayerMove(nextId++, KIM);
         move.update(KIM, LocalDate.parse(date), code, code, description, null, null, from, null, null, to);
