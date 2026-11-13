@@ -302,7 +302,8 @@ final class SeasonReports {
 
     /**
      * 숫자 대신 시즌 상황으로 쓰는 한 줄: 부상자 명단 두 번 이상 → "손가락 부상으로 두 번 빠진 시즌",
-     * 한 번 → "햄스트링 부상으로 한 번 빠진 시즌", 트리플A 강등 → "메이저와 트리플A를 오간 시즌", 그 밖 → "샌디에이고에서 보낸 시즌"
+     * 한 번 → "햄스트링 부상으로 한 번 빠진 시즌", 트리플A 강등 → "메이저와 트리플A를 오간 시즌"(돌아오지 못했으면
+     * "8월 초 트리플A로 내려간 시즌"), 그 밖 → "샌디에이고에서 보낸 시즌"
      */
     private static Headline situationHeadline(Input in, List<GameDay> majors) {
         List<Move> placements = placements(in);
@@ -326,8 +327,14 @@ final class SeasonReports {
             String cause = known && parts.size() == 1 ? parts.iterator().next() + " 부상으로" : "부상으로";
             return Headline.of(cause + " " + times + " 빠진 시즌");
         }
-        if (!downMoves(in).isEmpty()) {
-            return new Headline("메이저와 트리플A를 오간 시즌", Set.of(FactKind.UP_DOWN));
+        List<Move> down = downMoves(in);
+        if (!down.isEmpty()) {
+            LocalDate firstDown = down.getFirst().date();
+            boolean cameBack = inSeasonMoves(in).stream()
+                    .anyMatch(m -> isCode(m, "CU", "SE") && m.date().isAfter(firstDown));
+            // 한 번 내려가 돌아오지 못했으면 '오간'이 아니다: "8월 초 트리플A로 내려간 시즌"(이유 줄의 같은 말은 뺀다)
+            return cameBack ? new Headline("메이저와 트리플A를 오간 시즌", Set.of(FactKind.UP_DOWN))
+                    : new Headline(monthPart(firstDown) + " 트리플A로 내려간 시즌", Set.of(FactKind.UP_DOWN, FactKind.DOWN));
         }
         String team = majors.isEmpty() ? null : majors.getLast().teamKo();
         return Headline.of((team == null ? "메이저" : team) + "에서 보낸 시즌");
@@ -390,6 +397,8 @@ final class SeasonReports {
         List<Move> placements = placements(in);
         LocalDate lastGame = Stream.concat(majors.stream(), minors.stream())
                 .map(GameDay::date).max(Comparator.naturalOrder()).orElse(null);
+        LocalDate firstGame = Stream.concat(majors.stream(), minors.stream())
+                .map(GameDay::date).min(Comparator.naturalOrder()).orElse(null);
         Set<String> seen = new HashSet<>();
         List<Fact> facts = new ArrayList<>();
         for (int i = 0; i < placements.size(); i++) {
@@ -402,7 +411,8 @@ final class SeasonReports {
                 text = day.getMonthValue() + "월 같은 곳 다시 이탈";
             } else if (!day.isAfter(in.openingDay())) {
                 text = "개막 직전 " + (part == null ? "부상" : part + " 부상");
-                lateStart = lastGame != null && lastGame.isAfter(day);
+                // 개막 전에 돌아와 개막전부터 뛰었으면 늦게 출발한 게 아니다
+                lateStart = firstGame != null && firstGame.isAfter(in.openingDay());
             } else if (i == placements.size() - 1 && (lastGame == null || !lastGame.isAfter(day))
                     && !day.isAfter(in.lastRegularDay().minusDays(EARLY_END_DAYS))) {
                 text = monthPart(day) + " 부상으로 일찍 시즌 마감";

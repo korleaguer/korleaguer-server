@@ -415,6 +415,29 @@ class SeasonReportsTest {
 
         assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
         assertThat(report.reason()).isNull();
+
+        // 한 번 내려가 돌아오지 못했으면 '오간'이 아니다. 이유 줄의 '8월 초 트리플A로'도 제목과 같아 뺀다
+        SeasonReport stayedDown = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), games, List.of(),
+                List.of(move("2026-08-05", "OPT", "A optioned B to C.")), false));
+        assertThat(stayedDown.headline()).isEqualTo("8월 초 트리플A로 내려간 시즌");
+        assertThat(stayedDown.reason()).isNull();
+    }
+
+    @Test
+    void lateStartOnlyWhenTheFirstGameCameAfterOpeningDay() {
+        // 개막 전에 부상자 명단에 올랐다가 개막전부터 뛰었으면 '늦게 출발'이 아니다
+        List<Move> injured = List.of(move("2026-03-10", "SC", "A placed B on the 15-day injured list. "
+                + "Right oblique strain."));
+        List<GameDay> fromOpening = IntStream.range(0, 100)
+                .mapToObj(i -> hitting(OPENING.plusDays(i), 4, 1, 0, 0, 0)).toList();
+        List<GameDay> fromApril = IntStream.range(0, 100)
+                .mapToObj(i -> hitting(OPENING.plusDays(15 + i), 4, 1, 0, 0, 0)).toList();
+
+        SeasonReport onTime = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), fromOpening, List.of(), injured, true));
+        SeasonReport late = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), fromApril, List.of(), injured, true));
+
+        assertThat(onTime.reason()).isEqualTo("개막 직전 옆구리 부상");
+        assertThat(late.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
     }
 
     @Test
