@@ -268,8 +268,9 @@ public class IngestWriter {
 
     /**
      * 선수의 MLB 시즌별 합계를 새 값으로 덮어쓴다. metrics에 있는 시즌만 지표도 바꾸고, 없는 시즌은 지난 지표를 둔다.
+     * 지금 시즌(currentSeason) 지표는 '물었음' 표시를 남기지 않는다(시즌이 지나면 선수별 지표를 한 번 다시 묻는다).
      */
-    public void saveCareerSeasons(long playerId, PlayerSeasonMetric.Group group,
+    public void saveCareerSeasons(long playerId, PlayerSeasonMetric.Group group, int currentSeason,
                                   Map<Integer, PlayerCareerSeason.Totals> totals,
                                   Map<Integer, SeasonMetrics> metrics, Instant fetchedAt) {
         Map<Integer, PlayerCareerSeason> saved = careerSeasons.findNewestFirst(playerId, group).stream()
@@ -282,7 +283,8 @@ public class IngestWriter {
             row.updateTotals(total, fetchedAt);
             SeasonMetrics seasonMetrics = metrics.get(season);
             if (seasonMetrics != null) {
-                row.updateMetrics(seasonMetrics.wrcPlus(), seasonMetrics.eraMinus(), seasonMetrics.war(), fetchedAt);
+                row.updateMetrics(seasonMetrics.wrcPlus(), seasonMetrics.eraMinus(), seasonMetrics.war(),
+                        season == currentSeason ? null : fetchedAt);
             }
             careerSeasons.save(row);
         });

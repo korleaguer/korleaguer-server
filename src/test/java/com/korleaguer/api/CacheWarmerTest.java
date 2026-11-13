@@ -182,6 +182,21 @@ class CacheWarmerTest {
     }
 
     @Test
+    void postingStatusChangeDoesNotSwallowANewHeadline() {
+        clock.set(Instant.parse("2026-11-02T12:50:00Z"));
+        events.publishEvent(new CatchUpFinished());
+        PlayerPageResponse player = queryService.player(1L);
+
+        // 같은 따라잡기 사이에 기사도 쓰고 포스팅 상태도 바뀌었다: 포스팅 쪽이 홈만 지워도 기사 쪽이 선수 페이지를 지운다
+        transactions.executeWithoutResult(status ->
+                entityManager.createNativeQuery("update news_article set title = title where 1 = 0").executeUpdate());
+        clock.set(Instant.parse("2026-11-02T13:10:00Z"));
+        events.publishEvent(new CatchUpFinished());
+
+        assertThat(queryService.player(1L)).isNotSameAs(player);
+    }
+
+    @Test
     void postingStatusChangeClearsOnlyHome() {
         // 노시환 협상 시작(미국 11/2 08:00 = 13:00Z, 한국 11/2 22:00) 10분 전
         clock.set(Instant.parse("2026-11-02T12:50:00Z"));

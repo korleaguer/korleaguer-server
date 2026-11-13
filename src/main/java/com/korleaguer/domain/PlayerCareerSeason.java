@@ -17,7 +17,8 @@ import java.util.List;
 /**
  * 선수의 MLB 한 시즌 기록(선수 화면의 지난 시즌 표, 이슈 #133). (선수, 시즌, 묶음)마다 한 줄이다.
  * 수집기(LeaguePositionRefresher)가 MLB yearByYear를 하루 한 번 받아 합계를 덮어쓴다. 한 시즌 여러 팀이면 합친 줄 하나다.
- * 지표(wRC+·ERA-·WAR)는 지금 시즌이면 리그 전체 sabermetrics에서 매일, 지난 시즌이면 선수별 sabermetrics를 한 번만 물어 채운다.
+ * 지표(wRC+·ERA-·WAR)는 지금 시즌이면 리그 전체 sabermetrics에서 매일, 지난 시즌이면 선수별 sabermetrics를 한 번만 물어 채운다
+ * (지금 시즌이던 줄은 시즌이 지난 뒤 처음 한 번 묻는다).
  * 모르는 값은 null이다.
  */
 @Entity
@@ -74,11 +75,17 @@ public class PlayerCareerSeason {
         this.fetchedAt = fetchedAt;
     }
 
-    public void updateMetrics(Double wrcPlus, Double eraMinus, Double war, Instant fetchedAt) {
+    /**
+     * 지표를 덮어쓴다.
+     *
+     * @param askedAt 지난 시즌 지표를 선수별로 물은 때. 지금 시즌 값(리그 전체에서 매일 바뀜)이면 null로 두어
+     *                시즌이 지난 뒤 한 번 다시 묻게 한다
+     */
+    public void updateMetrics(Double wrcPlus, Double eraMinus, Double war, Instant askedAt) {
         this.wrcPlus = wrcPlus;
         this.eraMinus = eraMinus;
         this.war = war;
-        this.metricsFetchedAt = fetchedAt;
+        this.metricsFetchedAt = askedAt;
     }
 
     /**
@@ -165,7 +172,7 @@ public class PlayerCareerSeason {
         return fetchedAt;
     }
 
-    /** 지난 시즌 지표를 물은 때. null이면 아직 묻지 않았다 */
+    /** 지난 시즌 지표를 선수별로 물은 때. null이면 아직 묻지 않았다(지금 시즌 줄은 늘 null) */
     public Instant getMetricsFetchedAt() {
         return metricsFetchedAt;
     }

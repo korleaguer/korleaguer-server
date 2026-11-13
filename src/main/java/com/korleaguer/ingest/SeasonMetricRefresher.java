@@ -146,8 +146,8 @@ public class SeasonMetricRefresher {
     /** 시즌 → 메이저 합계. 여러 팀 시즌은 합친 줄, 없으면 팀별 줄을 더한다. */
     static Map<Integer, Totals> totals(List<MlbSeasonSplit> splits, Role role) {
         Map<Integer, List<MlbSeasonSplit>> bySeason = splits.stream()
-                .filter(s -> s.stat() != null && season(s) != null)
-                .collect(Collectors.groupingBy(SeasonMetricRefresher::season, TreeMap::new, Collectors.toList()));
+                .filter(s -> s.stat() != null && s.seasonYear() != null)
+                .collect(Collectors.groupingBy(MlbSeasonSplit::seasonYear, TreeMap::new, Collectors.toList()));
         Map<Integer, Totals> result = new TreeMap<>();
         bySeason.forEach((year, lines) -> {
             List<MlbSeasonSplit> used = lines.stream().filter(MlbSeasonSplit::combined).findFirst()
@@ -182,14 +182,6 @@ public class SeasonMetricRefresher {
         boolean anyWar = lines.stream().anyMatch(s -> s.stat().war() != null);
         double war = lines.stream().mapToDouble(s -> s.stat().war() == null ? 0 : s.stat().war()).sum();
         return new IngestWriter.SeasonMetrics(null, null, anyWar ? war : null);
-    }
-
-    private static Integer season(MlbSeasonSplit split) {
-        try {
-            return split.season() == null ? null : Integer.valueOf(split.season());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     private static int orZero(Integer value) {

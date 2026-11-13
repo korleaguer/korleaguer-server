@@ -65,11 +65,11 @@ public class ResponseCaches {
         clear(ALL, reason);
     }
 
-    /** 홈 캐시만 지우고 알린다(기사 제목·포스팅 상태처럼 홈에만 나오는 값이 바뀌었을 때) */
+    /**
+     * 홈 캐시만 지우고 알린다(포스팅 상태처럼 홈에만 나오는 시각 값이 바뀌었을 때). 기사 표시(homeVersion)는 그대로 둔다:
+     * 기사는 선수 페이지에도 나오므로, 그 사이 쓴 기사는 clearIfDataChanged가 홈·선수 캐시를 함께 지운다.
+     */
     public void clearHome(String reason) {
-        synchronized (this) {
-            seenHomeVersion = DataChanges.homeVersion();
-        }
         clear(HOME, reason);
     }
 

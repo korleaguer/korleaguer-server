@@ -41,10 +41,11 @@ import java.util.stream.Collectors;
  *       리그 기록에 없어도 남겨 '오늘 받았음' 표시로 쓴다.</li>
  *   <li>리그 전체: 그 실행에서 묶음(타격·투구)마다 한 번씩 시즌 합계와 sabermetrics를 받아(묶음마다 2번) 우리 선수의 값과
  *       위치를 계산한다(LeaguePositions). 우리 선수에 투수가 없으면 투구는 묻지 않는다.</li>
- *   <li>시즌별 기록: 선수마다 yearByYear 1번(player_career_season). 지난 시즌 지표(wRC+·ERA-·WAR)는 아직 묻지 않은 시즌만
- *       선수별 sabermetrics로 한 번 묻고, 지금 시즌 지표는 리그 전체 값을 쓴다.</li>
- *   <li>403/429면 그대로 던져 그 실행을 멈춘다. 다른 오류는 그 선수만(리그 전체가 실패하면 그 묶음 선수 모두) 건너뛰고
- *       다음 수집 때 다시 묻는다.</li>
+ *   <li>시즌별 기록: 선수마다 yearByYear 1번(player_career_season). 지금 시즌 지표(wRC+·ERA-·WAR)는 리그 전체 값을 쓰고,
+ *       지난 시즌 지표는 선수별 sabermetrics로 시즌마다 한 번만 묻는다(시즌이 끝나 지난 시즌이 되면 그때 한 번).</li>
+ *   <li>403/429면 그대로 던져 그 실행을 멈춘다. 리그 전체가 실패하면 그 묶음 선수를 모두 건너뛰고 다음 수집 때 다시 묻는다.
+ *       시즌별 기록만 실패하면 위치는 저장하고(오늘 받았음) 시즌별 기록은 다음 날 다시 묻는다
+ *       (한 선수 때문에 리그 전체를 12분마다 다시 받지 않게).</li>
  * </ul>
  */
 @Component
@@ -92,9 +93,12 @@ public class LeaguePositionRefresher {
         League league = new League(season);
         int done = 0;
         int failed = 0;
+        int careerFailed = 0;
         for (Player player : due) {
             try {
-                refresh(player, season, now, league);
+                if (!refresh(player, season, now, league)) {
+                    careerFailed++;
+                }
                 done++;
             } catch (MlbBlockedException e) {
                 throw e;
@@ -104,10 +108,12 @@ public class LeaguePositionRefresher {
                 failed++;
             }
         }
-        return "MLB 안 위치 " + done + "명" + (failed > 0 ? ", 실패 " + failed + "명" : "");
+        return "MLB 안 위치 " + done + "명" + (failed > 0 ? ", 실패 " + failed + "명" : "")
+                + (careerFailed > 0 ? ", 시즌별 기록 실패 " + careerFailed + "명" : "");
     }
 
-    private void refresh(Player player, int season, Instant now, League league) {
+    /** @return 시즌별 기록까지 받았으면 true. 시즌별 기록만 실패했으면 false(위치는 저장했다) */
+    private boolean refresh(Player player, int season, Instant now, League league) {
         Role role = player.role();
         boolean pitcher = role == Role.PITCHER;
         MlbClient.Group group = pitcher ? MlbClient.Group.PITCHING : MlbClient.Group.HITTING;
@@ -133,7 +139,23 @@ public class LeaguePositionRefresher {
             }
         }
 
-        Map<Integer, PlayerCareerSeason.Totals> totals = careerTotals(client.getYearByYear(mlbId, group), role);
+        // 위치 줄이 '오늘 받았음' 표시다. 아래 시즌별 기록이 실패해도 오늘은 리그 전체를 다시 받지 않게 먼저 쓴다
+        writer.saveLeaguePosition(player.getId(), season, rowGroup, hitting, pitching, now);
+        try {
+            refreshCareer(player, group, rowGroup, season, currentMetrics, now);
+            return true;
+        } catch (MlbBlockedException e) {
+            throw e;
+        } catch (MlbApiException e) {
+            log.warn("[mlb] {}: career seasons failed, will retry tomorrow ({})", player.getNameKo(), e.getMessage());
+            return false;
+        }
+    }
+
+    private void refreshCareer(Player player, MlbClient.Group group, PlayerSeasonMetric.Group rowGroup, int season,
+                               IngestWriter.SeasonMetrics currentMetrics, Instant now) {
+        long mlbId = player.getMlbId();
+        Map<Integer, PlayerCareerSeason.Totals> totals = careerTotals(client.getYearByYear(mlbId, group), player.role());
         Map<Integer, PlayerCareerSeason> saved = careerSeasons.findNewestFirst(player.getId(), rowGroup).stream()
                 .collect(Collectors.toMap(PlayerCareerSeason::getSeason, Function.identity(), (a, b) -> a));
         Map<Integer, IngestWriter.SeasonMetrics> metrics = new HashMap<>();
@@ -141,13 +163,11 @@ public class LeaguePositionRefresher {
             if (year == season) {
                 metrics.put(year, currentMetrics);
             } else if (saved.get(year) == null || saved.get(year).getMetricsFetchedAt() == null) {
-                // 지난 시즌 지표는 바뀌지 않으므로 한 번만 묻는다
+                // 지난 시즌 지표는 바뀌지 않으므로 한 번만 묻는다(지금 시즌이던 줄은 시즌이 지난 뒤 처음 한 번)
                 metrics.put(year, SeasonMetricRefresher.sabermetrics(client.getSabermetrics(mlbId, group, year)));
             }
         }
-        writer.saveCareerSeasons(player.getId(), rowGroup, totals, metrics, now);
-        // 위치 줄이 '오늘 받았음' 표시라 마지막에 쓴다(앞에서 실패하면 다음 수집 때 다시 묻는다)
-        writer.saveLeaguePosition(player.getId(), season, rowGroup, hitting, pitching, now);
+        writer.saveCareerSeasons(player.getId(), rowGroup, season, totals, metrics, now);
     }
 
     /**
@@ -157,7 +177,7 @@ public class LeaguePositionRefresher {
     static Map<Integer, PlayerCareerSeason.Totals> careerTotals(List<MlbSeasonSplit> splits, Role role) {
         Map<Integer, List<MlbSeasonSplit>> bySeason = new TreeMap<>();
         for (MlbSeasonSplit split : splits) {
-            Integer year = season(split);
+            Integer year = split.seasonYear();
             if (split.stat() != null && year != null) {
                 bySeason.computeIfAbsent(year, y -> new ArrayList<>()).add(split);
             }
@@ -207,14 +227,6 @@ public class LeaguePositionRefresher {
             }
         }
         return total;
-    }
-
-    private static Integer season(MlbSeasonSplit split) {
-        try {
-            return split.season() == null ? null : Integer.valueOf(split.season());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     /**

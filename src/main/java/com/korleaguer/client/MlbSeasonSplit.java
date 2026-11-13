@@ -57,6 +57,15 @@ public record MlbSeasonSplit(
         }
     }
 
+    /** 시즌 연도. 없거나 숫자가 아니면 null */
+    public Integer seasonYear() {
+        try {
+            return season == null ? null : Integer.valueOf(season);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     /** 여러 팀 시즌을 합친 줄인지(팀이 없고 numTeams가 있다) */
     public boolean combined() {
         return numTeams != null && team == null;

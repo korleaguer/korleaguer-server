@@ -130,6 +130,8 @@ class LeaguePositionIngestTest {
         assertThat(seasons.get(2).getWrcPlus()).isEqualTo(110.0);
         assertThat(seasons.get(3).getWar()).isNull();
         assertThat(seasons.get(3).getMetricsFetchedAt()).isEqualTo(START);
+        // 지금 시즌 지표는 '물었음' 표시를 남기지 않는다(시즌이 지나면 선수별 지표를 한 번 다시 묻는다)
+        assertThat(current.getMetricsFetchedAt()).isNull();
 
         long go = players.findByNameKo("고우석").orElseThrow().getId();
         PlayerCareerSeason pitching = careerSeasons.findNewestFirst(go, PlayerSeasonMetric.Group.PITCHING).getFirst();

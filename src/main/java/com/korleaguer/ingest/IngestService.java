@@ -111,7 +111,7 @@ public class IngestService {
      *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필(개막일이 지나 시즌이 바뀌면 새 시즌을 받는다)</li>
      *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
-     *   <li>오늘 아직 안 받은 선수의 MLB 안 위치·시즌별 기록(하루 한 번, LeaguePositionRefresher)</li>
+     *   <li>오늘 아직 안 받은 선수의 MLB 안 위치·시즌별 기록(하루 한 번, LeaguePositionRefresher. lookAhead 단계보다도 뒤)</li>
      * </ol>
      */
     public IngestLog catchUp(boolean refreshGames) {
@@ -137,11 +137,12 @@ public class IngestService {
                 steps.add(gameIngest::recheckFinals);
             }
             steps.add(() -> gameIngest.fillLineups(LINEUP_GAMES_PER_RUN));
-            steps.add(leaguePositionRefresher::refresh);
             if (lookAhead) {
                 steps.add(gameIngest::lookAhead);
                 steps.add(seasonMetricRefresher::refresh);
             }
+            // 맨 뒤: 이 단계가 실패해도 앞 일정 보기(시즌 복귀)·성적표 수집이 그 실행에서 빠지지 않는다
+            steps.add(leaguePositionRefresher::refresh);
         });
     }
 
