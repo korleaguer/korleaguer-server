@@ -136,8 +136,9 @@ class PlayerMovesIngestTest {
 
         // 선수 정보 1회(6명 한 번에) + 이동 기록 6회 + 마이너 경기 수 6회. 마이너 팀 단계는 어제 물어 기억하므로
         // 다시 묻지 않는다. 시즌은 이미 받았으므로 다시 받지 않는다.
-        assertThat(client.requestCount() - before).isEqualTo(13);
-        assertThat(log.getMessage()).isEqualTo("선수 정보·이동 기록 6명");
+        // MLB 안 위치(하루 한 번): 리그 전체 타격·투구 4회 + yearByYear 6회. 지난 시즌 지표는 어제 물었으므로 다시 묻지 않는다.
+        assertThat(client.requestCount() - before).isEqualTo(13 + 10);
+        assertThat(log.getMessage()).isEqualTo("선수 정보·이동 기록 6명 · MLB 안 위치 6명");
         assertThat(moves.count()).isEqualTo(10);
         assertThat(moves.findById(990105L).orElseThrow().getDescription())
                 .isEqualTo("Minnesota Twins sent RHP Woo-Suk Go outright to St. Paul Saints. (edited)");

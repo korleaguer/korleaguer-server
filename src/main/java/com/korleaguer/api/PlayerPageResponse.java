@@ -11,6 +11,12 @@ import java.util.List;
  * minorHitting·minorPitching은 같은 시즌 마이너 경기 기록을 더한 것(홈 minorHitters·minorPitchers와 같은 계산)이고,
  * 마이너 경기가 없으면 null이다. 메이저 기록(hitting·pitching)과 따로 보여 줘야 작은 표본이 시즌 전체처럼 보이지 않는다.
  * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록).
+ * 이슈 #133에서 더한 칸(옛 화면은 무시해도 된다):
+ * <ul>
+ *   <li>saber: 지금 시즌 MLB 안 위치(PlayerSaber, 타자·투수 모양이 다르다). 아직 받지 않았거나 그 시즌 MLB 기록이 없으면 null</li>
+ *   <li>seasons: MLB 시즌별 기록(CareerSeason, 최신 시즌부터). 아직 받지 않았으면 빈 목록</li>
+ *   <li>news: 이 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 비시즌 성적표의 기사와 같은 모양·규칙이다. 없으면 빈 목록</li>
+ * </ul>
  */
 public record PlayerPageResponse(
         String dataMode,
@@ -22,7 +28,10 @@ public record PlayerPageResponse(
         HitterSeason minorHitting,
         PitcherSeason minorPitching,
         List<GameLine> games,
-        List<Move> moves) {
+        List<Move> moves,
+        PlayerSaber saber,
+        List<CareerSeason> seasons,
+        List<PostingSummary.Headline> news) {
 
     /**
      * photoUrl·mlbUrl·careerKo는 명단(baseball.yml) 값이라 MLB에서 받기 전에도 나올 수 있다.

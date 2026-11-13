@@ -164,8 +164,100 @@ public class SampleMlbClient implements MlbClient {
     }
 
     private static boolean isOf(MlbSeasonSplit split, long personId, Group group) {
-        return split.player() != null && Objects.equals(split.player().id(), personId)
-                && split.group() != null && group.value().equals(split.group().displayName());
+        return split.player() != null && Objects.equals(split.player().id(), personId) && isOf(split, group);
+    }
+
+    private static boolean isOf(MlbSeasonSplit split, Group group) {
+        return split.group() != null && group.value().equals(split.group().displayName());
+    }
+
+    /**
+     * 샘플 리그 전체 시즌 합계: 우리 선수의 그 시즌 yearByYear 줄 + 지어낸 리그 선수(madeUpLeague).
+     * 그 시즌 우리 선수 줄이 하나도 없으면 시즌 전으로 보고 빈 목록이다.
+     */
+    @Override
+    public List<MlbSeasonSplit> getLeagueSeasonStats(Group group, int season) {
+        requestCount.incrementAndGet();
+        return league(data.yearByYear(), group, season, false);
+    }
+
+    /** 샘플 리그 전체 고급 지표: 우리 선수의 그 시즌 sabermetrics 줄 + 지어낸 리그 선수(madeUpLeague) */
+    @Override
+    public List<MlbSeasonSplit> getLeagueSabermetrics(Group group, int season) {
+        requestCount.incrementAndGet();
+        return league(data.sabermetrics(), group, season, true);
+    }
+
+    private List<MlbSeasonSplit> league(List<MlbSeasonSplit> ourLines, Group group, int season, boolean sabermetrics) {
+        boolean started = data.yearByYear().stream()
+                .anyMatch(s -> isOf(s, group) && String.valueOf(season).equals(s.season()));
+        if (!started) {
+            return List.of();
+        }
+        List<MlbSeasonSplit> lines = new ArrayList<>(ourLines.stream()
+                .filter(s -> isOf(s, group) && String.valueOf(season).equals(s.season()))
+                .toList());
+        lines.addAll(madeUpLeague(group, season, sabermetrics));
+        return lines;
+    }
+
+    /** 샘플 리그의 지어낸 선수 수(묶음마다) */
+    static final int MADE_UP_LEAGUE_SIZE = 240;
+
+    /**
+     * 샘플 리그의 지어낸 선수들(실제 기록이 아니다). 우리 선수의 백분위가 그럴듯하게 퍼지도록 값마다 MLB와 비슷한 범위에
+     * 고르게 깔고, 값마다 순서를 섞어(서로 다른 곱수) 한 선수가 모든 값에서 같은 자리에 있지 않게 한다. 늘 같은 값이 나온다.
+     * 타자는 60~659타석(100타석 미만도 섞는다), 투수는 10~199⅔이닝이다.
+     */
+    static List<MlbSeasonSplit> madeUpLeague(Group group, int season, boolean sabermetrics) {
+        List<MlbSeasonSplit> lines = new ArrayList<>();
+        for (int k = 0; k < MADE_UP_LEAGUE_SIZE; k++) {
+            boolean hitting = group == Group.HITTING;
+            MlbPerson person = MlbPerson.of((hitting ? 9_800_000L : 9_850_000L) + k,
+                    (hitting ? "Sample Hitter " : "Sample Pitcher ") + (k + 1), null);
+            MlbSeasonSplit.Stat stat = hitting ? madeUpHitter(k, sabermetrics) : madeUpPitcher(k, sabermetrics);
+            lines.add(new MlbSeasonSplit(String.valueOf(season), 1, null, person, null, stat));
+        }
+        return lines;
+    }
+
+    private static MlbSeasonSplit.Stat madeUpHitter(int k, boolean sabermetrics) {
+        int plateAppearances = 60 + (k * 97) % 600;
+        double per600 = plateAppearances / 600.0;
+        if (!sabermetrics) {
+            return new MlbSeasonSplit.Stat(plateAppearances, null, null, null, null, null);
+        }
+        double wrcPlus = 40 + 120 * spread(k, 7);
+        double war = (-1.5 + 7 * spread(k, 11)) * per600;
+        double baseRunning = (-5 + 10 * spread(k, 13)) * per600;
+        double fielding = (-15 + 30 * spread(k, 17)) * per600;
+        return new MlbSeasonSplit.Stat(null, null, null, cents(wrcPlus), null, cents(war), null, null, null, null, null,
+                null, null, null, null, cents(baseRunning), cents(fielding), 0.0, null);
+    }
+
+    private static MlbSeasonSplit.Stat madeUpPitcher(int k, boolean sabermetrics) {
+        int outs = 30 + (k * 67) % 570;
+        if (sabermetrics) {
+            double eraMinus = 50 + 100 * spread(k, 13);
+            double fipMinus = 55 + 90 * spread(k, 17);
+            double war = (-0.5 + 3.5 * spread(k, 19)) * outs / 540.0;
+            return new MlbSeasonSplit.Stat(null, null, null, null, cents(eraMinus), cents(war), null, null, null, null,
+                    null, null, null, null, null, null, null, null, cents(fipMinus));
+        }
+        int battersFaced = (int) Math.round(outs * 4.3 / 3);
+        int strikeouts = (int) Math.round(battersFaced * (0.14 + 0.20 * spread(k, 7)));
+        int walks = (int) Math.round(battersFaced * (0.04 + 0.08 * spread(k, 11)));
+        return new MlbSeasonSplit.Stat(null, outs / 3 + "." + outs % 3, null, null, null, null, null, null, strikeouts,
+                walks, battersFaced, null, null, null, null, null, null, null, null);
+    }
+
+    /** k번째 지어낸 선수의 0~1 사이 자리. step(MADE_UP_LEAGUE_SIZE와 서로소)마다 순서가 다르다 */
+    private static double spread(int k, int step) {
+        return ((k * step) % MADE_UP_LEAGUE_SIZE + 0.5) / MADE_UP_LEAGUE_SIZE;
+    }
+
+    private static double cents(double value) {
+        return Math.round(value * 100) / 100.0;
     }
 
     @Override
@@ -239,6 +331,7 @@ public class SampleMlbClient implements MlbClient {
      * 마이너 경기별 기록은 이 경기 수만큼 지어서 돌려준다(madeUpMinorLog).
      * seasons는 시즌 날짜(seasons/{year}의 seasons)다. 없는 해는 발표 전으로 본다(null).
      * yearByYear·sabermetrics는 시즌 합계·고급 지표 줄(MlbSeasonSplit)이고, split.player.id와 split.group으로 가른다.
+     * 리그 전체 기록(getLeagueSeasonStats·getLeagueSabermetrics)은 이 줄에 지어낸 리그 선수를 더해 만든다.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Data(

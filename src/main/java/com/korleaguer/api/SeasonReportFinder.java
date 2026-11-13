@@ -137,17 +137,25 @@ public class SeasonReportFinder {
 
     /** 그 선수의 '이번 겨울' 기사(늦은 순, 같은 기사는 한 줄). 기사를 못 읽으면 빈 목록(성적표는 그대로 보인다) */
     List<PostingSummary.Headline> winterNews(String nameKo, Instant since) {
+        return news(nameKo, since, NEWS);
+    }
+
+    /**
+     * 그 선수의 since 뒤 기사(늦은 순, 같은 기사는 한 줄, 최대 limit건). 지금 수집하는 언론사만, 이 선수가 주인공인 기사만 둔다.
+     * 성적표의 '이번 겨울'과 선수 화면의 기사(이슈 #133)가 같은 규칙을 쓴다. 기사를 못 읽으면 빈 목록(화면은 그대로 보인다)
+     */
+    List<PostingSummary.Headline> news(String nameKo, Instant since, int limit) {
         if (nameKo == null) {
             return List.of();
         }
         try {
-            List<NewsArticle> recent = news.findLatest(nameKo, PageRequest.of(0, NEWS * 4)).stream()
+            List<NewsArticle> recent = news.findLatest(nameKo, PageRequest.of(0, limit * 4)).stream()
                     .filter(a -> publishers.contains(a.getPublisher()) && !a.getPublishedAt().isBefore(since))
                     .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
                     .toList();
-            return SameArticles.group(recent).stream().limit(NEWS).map(PostingSummary.Headline::of).toList();
+            return SameArticles.group(recent).stream().limit(limit).map(PostingSummary.Headline::of).toList();
         } catch (RuntimeException e) {
-            log.warn("winter news for {} failed, left out: {}", nameKo, e.toString());
+            log.warn("news for {} failed, left out: {}", nameKo, e.toString());
             return List.of();
         }
     }
