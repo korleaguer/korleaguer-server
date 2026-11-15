@@ -290,6 +290,36 @@ class NewsListApiTest {
     }
 
     @Test
+    void latinWordsMatchWholeWordsOnly() throws Exception {
+        save("김하성", "김하성 FA 시장 1위", "마이데일리", T0);
+        save("김혜성", "다저스, 김혜성 DFA 처리할 수도", "마이데일리", T0.minusSeconds(60)); // DFA(양도지명)는 FA가 아니다
+        save("이정후", "Fans love Lee", "MLB Trade Rumors", T0.minusSeconds(120)); // fans 속 fa도 아니다
+        for (int i = 0; i < 2; i++) {
+            save("김하성", "김하성 FA 소식 " + i, "마이데일리", T0.minusSeconds(180 + 60L * i));
+        }
+
+        assertThat(titles(page(null, null, "FA"))).containsExactly("김하성 FA 시장 1위", "김하성 FA 소식 0", "김하성 FA 소식 1");
+        JsonNode first = page(null, null, null);
+        assertThat(first.get("topics").get(0).get("word").asString()).isEqualTo("FA");
+        assertThat(first.get("topics").get(0).get("count").asInt()).isEqualTo(3);
+        // 한글 말은 글자 포함 그대로
+        assertThat(titles(page(null, null, "처리"))).containsExactly("다저스, 김혜성 DFA 처리할 수도");
+    }
+
+    @Test
+    void oneTeamTakesOneTopicEvenWithTwoNames() throws Exception {
+        for (int i = 0; i < 4; i++) {
+            save("이정후", "샌프란시스코 자이언츠 이정후 소식 " + i, "마이데일리", T0.minusSeconds(60L * i));
+        }
+        save("이정후", "샌프란시스코 이야기", "마이데일리", T0.minusSeconds(600));
+
+        JsonNode page = page("이정후", null, null);
+        List<String> words = new ArrayList<>();
+        page.get("topics").forEach(t -> words.add(t.get("word").asString()));
+        assertThat(words).contains("샌프란시스코").doesNotContain("자이언츠");
+    }
+
+    @Test
     void tooLongQueryIsBadRequest() throws Exception {
         mockMvc.perform(get("/api/news").param("q", "가".repeat(31)))
                 .andExpect(status().isBadRequest());

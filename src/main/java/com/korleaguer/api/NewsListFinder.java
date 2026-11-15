@@ -118,8 +118,7 @@ public class NewsListFinder {
         }
         Set<String> postingOnly = new HashSet<>();
         chips.stream().filter(NewsListResponse.Subject::posting).forEach(s -> postingOnly.add(s.nameKo()));
-        String pattern = q == null ? null : likePattern(q);
-        Page page = page(scope, postingOnly, cursor, pattern);
+        Page page = page(scope, postingOnly, cursor, q);
         // 많이 나온 말은 첫 쪽이고 검색어가 없을 때만(검색창 바로가기). 이 쪽을 만들며 읽은 기사와 별개로 최근 기사만 센다
         List<NewsListResponse.Topic> topics = q == null && cursor.equals(Cursor.TOP)
                 ? NewsTopics.count(recentGroups(scope, postingOnly))
@@ -146,7 +145,9 @@ public class NewsListFinder {
     private record Page(List<NewsListResponse.Item> items, String next) {
     }
 
-    private Page page(List<String> scope, Set<String> postingOnly, Cursor cursor, String pattern) {
+    private Page page(List<String> scope, Set<String> postingOnly, Cursor cursor, String q) {
+        // 검색어는 DB에서 글자 포함(LIKE)으로 먼저 고르고, 영문 말(FA 등)은 낱말 단위로 한 번 더 거른다(NewsTopics.mentions)
+        String pattern = q == null ? null : likePattern(q);
         // 첫 쪽이 아니면 커서보다 NEAR만큼 늦은 데서부터 다시 읽는다(앞 쪽에서 안 보인 묶음의, 커서보다 늦은 사본까지 묶으려고)
         Cursor read = cursor.equals(Cursor.TOP) ? cursor : new Cursor(cursor.at().plus(SameArticles.NEAR), Long.MAX_VALUE);
         List<NewsArticle> kept = new ArrayList<>();
@@ -163,7 +164,10 @@ public class NewsListFinder {
             if (!batch.isEmpty()) {
                 read = Cursor.of(batch.getLast());
             }
-            batch.stream().filter(a -> kept(a, postingOnly)).forEach(kept::add);
+            batch.stream()
+                    .filter(a -> kept(a, postingOnly))
+                    .filter(a -> q == null || matches(a, q))
+                    .forEach(kept::add);
             capped = !exhausted && rows >= MAX_ROWS;
             // 기사가 한 쪽 줄 수도 안 되면 묶어 봐야 모자란다. 묶기는 기사 쌍을 모두 견주므로 필요할 때만 한다
             if (!exhausted && !capped && kept.size() <= PAGE) {
@@ -210,6 +214,12 @@ public class NewsListFinder {
     private static boolean earlier(NewsArticle a, Cursor cursor) {
         int byTime = a.getPublishedAt().compareTo(cursor.at());
         return byTime < 0 || (byTime == 0 && a.getId() < cursor.id());
+    }
+
+    /** 이 기사의 제목(원제·한국어 제목)이나 요약에 검색어가 있나(NewsTopics.mentions 규칙) */
+    private static boolean matches(NewsArticle a, String q) {
+        return NewsTopics.mentions(a.getTitle(), q) || NewsTopics.mentions(a.getTitleKo(), q)
+                || NewsTopics.mentions(a.getSummary(), q);
     }
 
     /** 포스팅 선수(명단 밖)의 국내 기사는 제목이 MLB 이야기일 때만(홈 MLB 도전 카드와 같은 기준) */

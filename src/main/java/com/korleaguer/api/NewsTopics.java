@@ -2,15 +2,17 @@ package com.korleaguer.api;
 
 import com.korleaguer.domain.NewsArticle;
 
-import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 뉴스 탭 검색창의 '자주 나온 말'(이슈 #158). 정해 둔 말(MLB 구단·주제) 가운데 최근 기사 묶음의 제목·요약에 많이 나온 것을
- * 센다. 세는 법은 검색(NewsListFinder, 소문자로 바꾼 글자 포함)과 같아서, 알약을 누르면 대개 그 수만큼 나온다(검색은 최근 기사
- * 밖까지 찾으므로 더 많을 수 있다).
+ * 센다. 세는 법은 검색(NewsListFinder, mentions)과 같아서, 알약을 누르면 대개 그 수만큼 나온다(검색은 최근 기사 밖까지
+ * 찾으므로 더 많을 수 있다).
  * 운영 기사 93건(11-15)을 세어 정했다: 다저스 19 · FA 18 · 영입 13 · 수비 13 · 트레이드 10 · 계약 8 · 메츠 8.
  */
 final class NewsTopics {
@@ -37,24 +39,73 @@ final class NewsTopics {
             "에인절스", "다이아몬드백스", "애리조나", "로키스", "콜로라도", "신시내티", "브루어스", "밀워키", "카디널스",
             "세인트루이스", "말린스", "마이애미", "내셔널스", "워싱턴");
 
+    /**
+     * 같은 구단의 두 이름(별명·도시). 둘 다 많이 나오면 알약 두 칸이 같은 기사를 가리키므로 많은 쪽만 둔다
+     * (예: 이정후 기사는 '샌프란시스코 자이언츠'를 붙여 쓴다)
+     */
+    private static final List<List<String>> SAME_TEAM = List.of(
+            List.of("자이언츠", "샌프란시스코"), List.of("파드리스", "샌디에이고"), List.of("브레이브스", "애틀랜타"),
+            List.of("필리스", "필라델피아"), List.of("파이리츠", "피츠버그"), List.of("레드삭스", "보스턴"),
+            List.of("레인저스", "텍사스"), List.of("애스트로스", "휴스턴"), List.of("매리너스", "시애틀"),
+            List.of("블루제이스", "토론토"), List.of("오리올스", "볼티모어"), List.of("가디언스", "클리블랜드"),
+            List.of("타이거스", "디트로이트"), List.of("트윈스", "미네소타"), List.of("로열스", "캔자스시티"),
+            List.of("다이아몬드백스", "애리조나"), List.of("로키스", "콜로라도"), List.of("브루어스", "밀워키"),
+            List.of("카디널스", "세인트루이스"), List.of("말린스", "마이애미"), List.of("내셔널스", "워싱턴"));
+
+    /** 영문·숫자만으로 된 말(FA 등). 이런 말은 낱말 단위로만 찾는다('DFA'·'fans' 속의 fa는 아니다) */
+    private static final Pattern LATIN_WORD = Pattern.compile("[A-Za-z0-9 ]+");
+
     private NewsTopics() {
     }
 
-    /** 묶음들에서 많이 나온 말(많은 순, 같으면 사전 순서) 최대 SHOWN개. MIN_COUNT번 미만은 뺀다 */
+    /** 묶음들에서 많이 나온 말(많은 순, 같으면 정해 둔 순서) 최대 SHOWN개. MIN_COUNT번 미만은 뺀다 */
     static List<NewsListResponse.Topic> count(List<SameArticles.Group> groups) {
         List<String> texts = groups.stream().map(NewsTopics::text).toList();
-        List<NewsListResponse.Topic> out = new ArrayList<>();
+        Map<String, Integer> counts = new LinkedHashMap<>();
         for (String word : WORDS) {
-            String needle = word.toLowerCase(Locale.ROOT);
-            int n = (int) texts.stream().filter(t -> t.contains(needle)).count();
+            int n = (int) texts.stream().filter(t -> mentions(t, word)).count();
             if (n >= MIN_COUNT) {
-                out.add(new NewsListResponse.Topic(word, n));
+                counts.put(word, n);
             }
         }
-        return out.stream()
+        for (List<String> team : SAME_TEAM) {
+            if (counts.containsKey(team.get(0)) && counts.containsKey(team.get(1))) {
+                counts.remove(counts.get(team.get(0)) >= counts.get(team.get(1)) ? team.get(1) : team.get(0));
+            }
+        }
+        return counts.entrySet().stream()
+                .map(e -> new NewsListResponse.Topic(e.getKey(), e.getValue()))
                 .sorted(Comparator.comparingInt(NewsListResponse.Topic::count).reversed())
                 .limit(SHOWN)
                 .toList();
+    }
+
+    /**
+     * 글에 이 말이 있나(대소문자 상관없이). 한글이 섞인 말은 글자 포함으로, 영문·숫자만으로 된 말은 앞뒤에 다른 영문·숫자가 붙지
+     * 않은 것만 센다(FA: 'FA 시장'은 되고 'DFA'·'fans'는 아니다). 검색(NewsListFinder)도 이 규칙으로 한 번 더 거른다
+     */
+    static boolean mentions(String text, String word) {
+        if (text == null || word == null || word.isBlank()) {
+            return false;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        String needle = word.toLowerCase(Locale.ROOT);
+        if (!LATIN_WORD.matcher(word).matches()) {
+            return lower.contains(needle);
+        }
+        for (int at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
+            boolean before = at > 0 && isLatinOrDigit(lower.charAt(at - 1));
+            int end = at + needle.length();
+            boolean after = end < lower.length() && isLatinOrDigit(lower.charAt(end));
+            if (!before && !after) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isLatinOrDigit(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
     }
 
     /** 묶음의 모든 기사 제목(원제·한국어 제목)과 요약을 소문자로 이은 글(검색이 보는 칸과 같다) */
