@@ -38,11 +38,22 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
                                @Param("publishers") Collection<String> publishers,
                                @Param("before") Instant before, @Param("beforeId") long beforeId, Pageable page);
 
-    /** subjects 가운데 그 언론사들의, 선수가 주인공인 기사가 하나라도 있는 선수. 비어 있는 목록은 넘기지 않는다 */
-    @Query("select distinct a.subject from NewsArticle a where a.subject in :subjects and a.publisher in :publishers"
-            + " and (a.offTopic is null or a.offTopic = false)")
-    List<String> findSubjectsWithArticles(@Param("subjects") Collection<String> subjects,
-                                          @Param("publishers") Collection<String> publishers);
+    /**
+     * subjects 선수마다 그 언론사들의, 선수가 주인공인 기사 중 가장 최근 발행 시각(뉴스 탭 선수 고르기의 새 기사 표시).
+     * 기사가 없는 선수는 빠진다. 비어 있는 목록은 넘기지 않는다
+     */
+    @Query("select a.subject as subject, max(a.publishedAt) as latest from NewsArticle a"
+            + " where a.subject in :subjects and a.publisher in :publishers"
+            + " and (a.offTopic is null or a.offTopic = false) group by a.subject")
+    List<SubjectLatest> findLatestBySubject(@Param("subjects") Collection<String> subjects,
+                                            @Param("publishers") Collection<String> publishers);
+
+    /** findLatestBySubject 한 줄: 선수(한글 이름)와 그 선수의 가장 최근 기사 발행 시각 */
+    interface SubjectLatest {
+        String getSubject();
+
+        Instant getLatest();
+    }
 
     /** 피드가 앞부분이나 사진을 주지 않아 기사 페이지를 읽어야 하는 그 언론사들의 기사(아직 읽지 않았고 시도가 남은 것) */
     @Query("select a from NewsArticle a where a.publisher in :publishers and a.pageReadAt is null"

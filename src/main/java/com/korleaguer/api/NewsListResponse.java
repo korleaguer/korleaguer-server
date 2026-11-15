@@ -24,8 +24,14 @@ public record NewsListResponse(List<Subject> players, String player, List<Item> 
      * @param photoUrl 우리가 호스팅하는 선수 사진 주소. 없으면 null
      * @param playerId 명단 선수의 번호(선수 화면 /players/{id}). 포스팅 선수처럼 명단에 없으면 null
      * @param posting  이번 겨울 포스팅 선수인가(아직 명단에 없는 KBO 선수)
+     * @param latestAt 이 선수의 보일 기사 중 가장 최근 발행 시각. 웹이 '마지막으로 본 뒤 새 기사가 있나'를 볼 때 쓴다(이슈 #155).
+     *                 같은 기사 묶음은 가장 늦게 실린 사본까지 본다
      */
-    public record Subject(String nameKo, String photoUrl, Long playerId, boolean posting) {
+    public record Subject(String nameKo, String photoUrl, Long playerId, boolean posting, Instant latestAt) {
+
+        Subject withLatestAt(Instant at) {
+            return new Subject(nameKo, photoUrl, playerId, posting, at);
+        }
     }
 
     /**
