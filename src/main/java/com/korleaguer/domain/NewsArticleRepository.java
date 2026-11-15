@@ -39,13 +39,13 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
                                @Param("before") Instant before, @Param("beforeId") long beforeId, Pageable page);
 
     /**
-     * findPage와 같되 제목(원제·한국어 제목)이나 요약에 검색어가 있는 기사만(뉴스 탭 검색, 이슈 #158).
+     * findPage와 같되 제목(원제·한국어 제목)에 검색어가 있는 기사만(뉴스 탭 검색, 이슈 #158). 요약은 보지 않는다:
+     * 목록에는 제목만 보여서, 요약에만 있는 기사는 왜 나왔는지 알 수 없었다(운영 '계약' 45건 중 37건, 이슈 #161).
      * pattern은 소문자로 바꾸고 '%'·'_'·'!'를 '!'로 막은 뒤 앞뒤에 '%'를 붙인 값이다(NewsListFinder.likePattern)
      */
     @Query("select a from NewsArticle a where a.subject in :subjects and a.publisher in :publishers"
             + " and (a.offTopic is null or a.offTopic = false)"
-            + " and (lower(a.title) like :pattern escape '!' or lower(coalesce(a.titleKo, '')) like :pattern escape '!'"
-            + " or lower(coalesce(a.summary, '')) like :pattern escape '!')"
+            + " and (lower(a.title) like :pattern escape '!' or lower(coalesce(a.titleKo, '')) like :pattern escape '!')"
             + " and (a.publishedAt < :before or (a.publishedAt = :before and a.id < :beforeId))"
             + " order by a.publishedAt desc, a.id desc")
     List<NewsArticle> findPageMatching(@Param("subjects") Collection<String> subjects,
