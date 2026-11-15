@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -54,6 +55,10 @@ public class NewsListFinder {
     static final int BATCH = 200;
     /** 한 쪽을 만들려고 읽는 기사 수의 상한(앞 쪽과 겹쳐 다시 읽는 NEAR 범위 포함). 걸리면 다 모인 묶음까지만 보인다 */
     static final int MAX_ROWS = 2000;
+    /** 검색어 길이 상한 */
+    static final int MAX_QUERY = 30;
+    /** 많이 나온 말을 셀 최근 기사 수(운영 규모에서 2~3주치) */
+    static final int TOPIC_ROWS = 300;
 
     private final NewsArticleRepository news;
     private final Postings postings;
@@ -79,13 +84,18 @@ public class NewsListFinder {
     /**
      * @param player 거를 선수(한글 이름). null이나 빈 값이면 전체
      * @param before 앞 쪽이 준 커서(next). null이나 빈 값이면 첫 쪽
-     * @throws BadRequestException 커서 모양이 틀렸거나 선수 이름이 너무 길 때
+     * @param query  검색어(제목·요약에 있는 기사만, 이슈 #158). null이나 빈 값이면 거르지 않는다
+     * @throws BadRequestException 커서 모양이 틀렸거나 선수 이름·검색어가 너무 길 때
      */
-    public NewsListResponse find(String player, String before) {
+    public NewsListResponse find(String player, String before, String query) {
         Cursor cursor = Cursor.parse(before);
         String wanted = player == null || player.isBlank() ? null : player.trim();
         if (wanted != null && wanted.length() > 50) {
             throw new BadRequestException("player is too long");
+        }
+        String q = query == null || query.isBlank() ? null : query.trim();
+        if (q != null && q.length() > MAX_QUERY) {
+            throw new BadRequestException("q is too long");
         }
         Map<String, NewsListResponse.Subject> all = subjects();
         if (all.isEmpty() || publishers.isEmpty()) {
@@ -108,14 +118,35 @@ public class NewsListFinder {
         }
         Set<String> postingOnly = new HashSet<>();
         chips.stream().filter(NewsListResponse.Subject::posting).forEach(s -> postingOnly.add(s.nameKo()));
-        Page page = page(scope, postingOnly, cursor);
-        return new NewsListResponse(chips, wanted, page.items(), page.next());
+        String pattern = q == null ? null : likePattern(q);
+        Page page = page(scope, postingOnly, cursor, pattern);
+        // 많이 나온 말은 첫 쪽이고 검색어가 없을 때만(검색창 바로가기). 이 쪽을 만들며 읽은 기사와 별개로 최근 기사만 센다
+        List<NewsListResponse.Topic> topics = q == null && cursor.equals(Cursor.TOP)
+                ? NewsTopics.count(recentGroups(scope, postingOnly))
+                : List.of();
+        return new NewsListResponse(chips, wanted, page.items(), page.next(), q, topics);
+    }
+
+    /** 범위의 최근 기사(최대 TOPIC_ROWS건, 목록과 같은 규칙으로 거른 것)를 같은 기사끼리 묶은 것 */
+    private List<SameArticles.Group> recentGroups(List<String> scope, Set<String> postingOnly) {
+        List<NewsArticle> recent = news.findPage(scope, publishers, Cursor.TOP.at(), Cursor.TOP.id(),
+                        PageRequest.of(0, TOPIC_ROWS))
+                .stream()
+                .filter(a -> kept(a, postingOnly))
+                .toList();
+        return SameArticles.group(recent);
+    }
+
+    /** 검색어 → LIKE 패턴: 소문자로, '!'·'%'·'_'는 '!'로 막아 글자 그대로 찾게 하고 앞뒤에 '%' */
+    static String likePattern(String q) {
+        String escaped = q.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return "%" + escaped + "%";
     }
 
     private record Page(List<NewsListResponse.Item> items, String next) {
     }
 
-    private Page page(List<String> scope, Set<String> postingOnly, Cursor cursor) {
+    private Page page(List<String> scope, Set<String> postingOnly, Cursor cursor, String pattern) {
         // 첫 쪽이 아니면 커서보다 NEAR만큼 늦은 데서부터 다시 읽는다(앞 쪽에서 안 보인 묶음의, 커서보다 늦은 사본까지 묶으려고)
         Cursor read = cursor.equals(Cursor.TOP) ? cursor : new Cursor(cursor.at().plus(SameArticles.NEAR), Long.MAX_VALUE);
         List<NewsArticle> kept = new ArrayList<>();
@@ -124,7 +155,9 @@ public class NewsListFinder {
         boolean exhausted;
         boolean capped = false;
         while (true) {
-            List<NewsArticle> batch = news.findPage(scope, publishers, read.at(), read.id(), PageRequest.of(0, BATCH));
+            List<NewsArticle> batch = pattern == null
+                    ? news.findPage(scope, publishers, read.at(), read.id(), PageRequest.of(0, BATCH))
+                    : news.findPageMatching(scope, publishers, read.at(), read.id(), pattern, PageRequest.of(0, BATCH));
             rows += batch.size();
             exhausted = batch.size() < BATCH;
             if (!batch.isEmpty()) {

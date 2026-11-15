@@ -39,6 +39,21 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
                                @Param("before") Instant before, @Param("beforeId") long beforeId, Pageable page);
 
     /**
+     * findPage와 같되 제목(원제·한국어 제목)이나 요약에 검색어가 있는 기사만(뉴스 탭 검색, 이슈 #158).
+     * pattern은 소문자로 바꾸고 '%'·'_'·'!'를 '!'로 막은 뒤 앞뒤에 '%'를 붙인 값이다(NewsListFinder.likePattern)
+     */
+    @Query("select a from NewsArticle a where a.subject in :subjects and a.publisher in :publishers"
+            + " and (a.offTopic is null or a.offTopic = false)"
+            + " and (lower(a.title) like :pattern escape '!' or lower(coalesce(a.titleKo, '')) like :pattern escape '!'"
+            + " or lower(coalesce(a.summary, '')) like :pattern escape '!')"
+            + " and (a.publishedAt < :before or (a.publishedAt = :before and a.id < :beforeId))"
+            + " order by a.publishedAt desc, a.id desc")
+    List<NewsArticle> findPageMatching(@Param("subjects") Collection<String> subjects,
+                                       @Param("publishers") Collection<String> publishers,
+                                       @Param("before") Instant before, @Param("beforeId") long beforeId,
+                                       @Param("pattern") String pattern, Pageable page);
+
+    /**
      * subjects 선수마다 그 언론사들의, 선수가 주인공인 기사 중 가장 최근 발행 시각(뉴스 탭 선수 고르기의 새 기사 표시).
      * 기사가 없는 선수는 빠진다. 비어 있는 목록은 넘기지 않는다
      */
