@@ -127,7 +127,8 @@ public class NewsListFinder {
         // 많이 나온 말은 첫 쪽에만(뉴스 탭 맨 위 알약 줄). 검색어가 있어도 준다: 알약을 눌러 거른 채로도 줄이 그대로 보여야
         // 한다(이슈 #165). 그래서 검색어와 상관없이, 이 쪽을 만들며 읽은 기사와 별개로 범위의 최근 기사만 센다
         List<NewsListResponse.Topic> topics = cursor.equals(Cursor.TOP)
-                ? NewsTopics.count(recentGroups(scope, postingOnly), ownTeamWords(wanted, all))
+                ? withSearchCounts(NewsTopics.count(recentGroups(scope, postingOnly), ownTeamWords(wanted, all)),
+                        scope, postingOnly)
                 : List.of();
         return new NewsListResponse(chips, wanted, page.items(), page.next(), q, topics);
     }
@@ -147,6 +148,44 @@ public class NewsListFinder {
                 .map(Affiliation::getTeam)
                 .map(team -> NewsTopics.teamWords(team.getAbbreviation()))
                 .orElse(List.of());
+    }
+
+    /**
+     * 최근 기사에서 고른 말의 숫자를 그 말로 검색하면 나오는 줄 수로 바꾼다(이슈 #167). 말은 요즘 화제라 최근 기사에서 고르지만,
+     * 알약을 누르면 기사 전체에서 찾으므로 숫자도 전체에서 센다(최근 수만 보이면 기사가 TOPIC_ROWS를 넘은 뒤 'FA 17'을 눌러
+     * 25줄이 나오는 식으로 어긋난다). 순서는 보이는 숫자 순(같으면 최근 순)
+     */
+    private List<NewsListResponse.Topic> withSearchCounts(List<NewsListResponse.Topic> recent, List<String> scope,
+                                                          Set<String> postingOnly) {
+        return recent.stream()
+                .map(t -> new NewsListResponse.Topic(t.word(),
+                        SameArticles.group(matching(scope, postingOnly, t.word())).size()))
+                .sorted(Comparator.comparingInt(NewsListResponse.Topic::count).reversed())
+                .toList();
+    }
+
+    /**
+     * 범위에서 검색어가 제목에 있는 기사 모두(목록과 같은 규칙으로 거른 것, 최대 MAX_ROWS건을 읽는다). 검색 결과를 끝까지
+     * 넘겨 본 것과 같은 기사들이다
+     */
+    private List<NewsArticle> matching(List<String> scope, Set<String> postingOnly, String q) {
+        String pattern = likePattern(q);
+        List<NewsArticle> out = new ArrayList<>();
+        Cursor read = Cursor.TOP;
+        for (int rows = 0; rows < MAX_ROWS; ) {
+            List<NewsArticle> batch = news.findPageMatching(scope, publishers, read.at(), read.id(), pattern,
+                    PageRequest.of(0, BATCH));
+            rows += batch.size();
+            batch.stream()
+                    .filter(a -> kept(a, postingOnly))
+                    .filter(a -> matches(a, q))
+                    .forEach(out::add);
+            if (batch.size() < BATCH) {
+                break;
+            }
+            read = Cursor.of(batch.getLast());
+        }
+        return out;
     }
 
     /** 범위의 최근 기사(최대 TOPIC_ROWS건, 목록과 같은 규칙으로 거른 것)를 같은 기사끼리 묶은 것 */
