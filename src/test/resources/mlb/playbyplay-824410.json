@@ -1,0 +1,906 @@
+{
+ "allPlays": [
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Strikeout",
+    "eventType": "strikeout",
+    "description": "Trevor Larnach strikes out swinging.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 0,
+    "halfInning": "top",
+    "inning": 1,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 3,
+    "strikes": 3,
+    "outs": 1
+   },
+   "matchup": {
+    "batter": {
+     "id": 663616,
+     "fullName": "Trevor Larnach"
+    },
+    "pitcher": {
+     "id": 676440,
+     "fullName": "Tanner Bibee"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "740089a5-0e76-3fbe-ba2a-f23a3b72e055",
+     "details": {
+      "code": "F",
+      "description": "Foul",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.3
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "d6ac953e-1eff-3a08-8cbe-d9a1c5522ce8",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "CH",
+       "description": "Changeup"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 78.8
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "3328f967-78dc-37d0-a17a-c01e85b001cb",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "CH",
+       "description": "Changeup"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 78.0
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "daa98b31-32c2-34b3-bfb8-8ee8a4dd41df",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FC",
+       "description": "Cutter"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 85.9
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "973af7c9-db5d-3742-9a44-4c82acd1d78d",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FC",
+       "description": "Cutter"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 86.2
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "d8c7c5d3-1b90-35ac-b64f-c7ff493138dd",
+     "details": {
+      "code": "S",
+      "description": "Swinging Strike",
+      "type": {
+       "code": "FC",
+       "description": "Cutter"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 86.1
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 663616
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "C"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Home Run",
+    "eventType": "home_run",
+    "description": "Patrick Bailey homers (4) on a fly ball to center field.",
+    "rbi": 1
+   },
+   "about": {
+    "atBatIndex": 63,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 0,
+    "strikes": 1,
+    "outs": 0
+   },
+   "matchup": {
+    "batter": {
+     "id": 672275,
+     "fullName": "Patrick Bailey"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "00b52e38-c2b5-3106-aa13-f20468b60330",
+     "details": {
+      "code": "S",
+      "description": "Swinging Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 93.5
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "da21d8d5-202b-3e5f-96a5-aeced5c2d96e",
+     "details": {
+      "code": "E",
+      "description": "In play, run(s)",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.0
+     },
+     "hitData": {
+      "launchSpeed": 103.6,
+      "launchAngle": 30.0,
+      "totalDistance": 408.0,
+      "trajectory": "fly_ball",
+      "location": "8"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 672275
+      }
+     },
+     "credits": []
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Double",
+    "eventType": "double",
+    "description": "Petey Halpin doubles (3) on a sharp line drive to right fielder Alan Roden.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 64,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 1,
+    "strikes": 1,
+    "outs": 0
+   },
+   "matchup": {
+    "batter": {
+     "id": 690984,
+     "fullName": "Petey Halpin"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "ab1832d1-8e6b-3be0-929c-91a4b5950131",
+     "details": {
+      "code": "S",
+      "description": "Swinging Strike",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 90.6
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "1ed385ef-4cd7-33ea-bd4d-9b58e4a04e6d",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FS",
+       "description": "Splitter"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 89.2
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "584d9205-1da0-312e-86c6-593e025011f0",
+     "details": {
+      "code": "D",
+      "description": "In play, no out",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 89.6
+     },
+     "hitData": {
+      "launchSpeed": 105.0,
+      "launchAngle": 19.0,
+      "totalDistance": 315.0,
+      "trajectory": "line_drive",
+      "location": "9"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 690984
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "RF"
+       },
+       "credit": "f_fielded_ball"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Double",
+    "eventType": "double",
+    "description": "Kyle Manzardo doubles (8) on a sharp line drive to right fielder Alan Roden. Petey Halpin to 3rd.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 65,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 0,
+    "strikes": 1,
+    "outs": 0
+   },
+   "matchup": {
+    "batter": {
+     "id": 700932,
+     "fullName": "Kyle Manzardo"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "b09cc281-327b-30a0-bc64-798a31d8a8e1",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 95.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "54f61ae7-84cf-33ff-b4a6-d7c52e641181",
+     "details": {
+      "code": "D",
+      "description": "In play, no out",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 93.9
+     },
+     "hitData": {
+      "launchSpeed": 103.4,
+      "launchAngle": 22.0,
+      "totalDistance": 316.0,
+      "trajectory": "line_drive",
+      "location": "9"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 700932
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "RF"
+       },
+       "credit": "f_fielded_ball"
+      }
+     ]
+    },
+    {
+     "details": {
+      "runner": {
+       "id": 690984
+      }
+     },
+     "credits": []
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Strikeout",
+    "eventType": "strikeout",
+    "description": "Travis Bazzana strikes out swinging.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 66,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 2,
+    "strikes": 3,
+    "outs": 1
+   },
+   "matchup": {
+    "batter": {
+     "id": 683953,
+     "fullName": "Travis Bazzana"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "f1a679dd-b374-30a8-b920-d0de5649cc27",
+     "details": {
+      "code": "F",
+      "description": "Foul",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 91.0
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "e995c02e-8dba-32e8-8f30-b031801b2fbc",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "CU",
+       "description": "Curveball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 81.4
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "873a1c79-993f-3704-a6f2-1e4160916aba",
+     "details": {
+      "code": "F",
+      "description": "Foul",
+      "type": {
+       "code": "CU",
+       "description": "Curveball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 81.8
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "c360af11-393c-3993-8539-8f5507c1a0cb",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 93.2
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "c08e8e70-b25f-3c38-8a84-9e6951707cdc",
+     "details": {
+      "code": "F",
+      "description": "Foul",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 89.0
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "c9c7363b-68a5-301e-abf1-ae35609ee651",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FS",
+       "description": "Splitter"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 90.2
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "1d5493a7-f3f7-3b50-81c8-84582c446242",
+     "details": {
+      "code": "S",
+      "description": "Swinging Strike",
+      "type": {
+       "code": "CU",
+       "description": "Curveball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 81.4
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 683953
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "C"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Double",
+    "eventType": "double",
+    "description": "Chase DeLauter doubles (19) on a sharp line drive to right fielder Alan Roden. Petey Halpin scores. Kyle Manzardo scores.",
+    "rbi": 2
+   },
+   "about": {
+    "atBatIndex": 67,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 0,
+    "strikes": 0,
+    "outs": 1
+   },
+   "matchup": {
+    "batter": {
+     "id": 800050,
+     "fullName": "Chase DeLauter"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "0ddd2273-3204-3d56-a60f-c00066e35a5e",
+     "details": {
+      "code": "E",
+      "description": "In play, run(s)",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 88.8
+     },
+     "hitData": {
+      "launchSpeed": 105.0,
+      "launchAngle": 17.0,
+      "totalDistance": 378.0,
+      "trajectory": "line_drive",
+      "location": "9"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 800050
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "RF"
+       },
+       "credit": "f_fielded_ball"
+      }
+     ]
+    },
+    {
+     "details": {
+      "runner": {
+       "id": 690984
+      }
+     },
+     "credits": []
+    },
+    {
+     "details": {
+      "runner": {
+       "id": 700932
+      }
+     },
+     "credits": []
+    },
+    {
+     "details": {
+      "runner": {
+       "id": 700932
+      }
+     },
+     "credits": []
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Strikeout",
+    "eventType": "strikeout",
+    "description": "Brayan Rocchio challenged (pitch result), call on the field was confirmed: Brayan Rocchio called out on strikes.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 68,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 2,
+    "strikes": 3,
+    "outs": 2
+   },
+   "matchup": {
+    "batter": {
+     "id": 677587,
+     "fullName": "Brayan Rocchio"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "add20269-99ef-38c1-a5dd-7df45044adb1",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 93.6
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "4aa30a64-7ccf-3369-a3dd-4461428ee686",
+     "details": {
+      "code": "S",
+      "description": "Swinging Strike",
+      "type": {
+       "code": "CU",
+       "description": "Curveball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 81.6
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "5c144329-fdd9-37d2-b2b7-0c0ee6481dd3",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "CU",
+       "description": "Curveball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 81.0
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "e2a16deb-0933-3fe1-914c-b3a996103a0e",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.2
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "6989d6d1-88ce-3fb3-a578-8c5b5fcb5975",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.5
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 677587
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "C"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Flyout",
+    "eventType": "field_out",
+    "description": "Rhys Hoskins flies out to center fielder Austin Martin.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 69,
+    "halfInning": "bottom",
+    "inning": 7,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 2,
+    "strikes": 1,
+    "outs": 3
+   },
+   "matchup": {
+    "batter": {
+     "id": 656555,
+     "fullName": "Rhys Hoskins"
+    },
+    "pitcher": {
+     "id": 808970,
+     "fullName": "Woo-Suk Go"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "0a01c3c0-8b90-306c-ab00-1b8f7d398819",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 90.9
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "18640228-f7a0-36f4-8493-00b22017862a",
+     "details": {
+      "code": "T",
+      "description": "Foul Tip",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 93.9
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "ebc6ed88-183b-39f6-8109-fa5b793d30da",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "430219fc-0445-3d9a-bc5f-0ec2c5042909",
+     "details": {
+      "code": "X",
+      "description": "In play, out(s)",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 90.7
+     },
+     "hitData": {
+      "launchSpeed": 92.3,
+      "launchAngle": 38.0,
+      "totalDistance": 348.0,
+      "trajectory": "fly_ball",
+      "location": "8"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 656555
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "CF"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
