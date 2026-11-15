@@ -35,6 +35,16 @@ class SavantClipsTest {
     }
 
     @Test
+    void clipAddressWrittenWithHtmlEntitiesIsUnescaped() {
+        // 운영에서 본 모양(2026-11-15, 이정후 9-18 3회 공): 끝의 '='가 HTML 표기로 온다
+        String page = "<source src=\"https://sporty-clips.mlb.com/OTdQNGxfV0ZRVkV3dEdEUT09X0JRZ0VYRkVIQXdRQUFBRldVUUFIQ1ZKVUFGa0ZWQVVBQlZNTVV3VlFVRmRRQVFaVA&#x3D;&#x3D;.mp4\">";
+
+        assertThat(SavantClips.mp4In(page)).contains(
+                "https://sporty-clips.mlb.com/OTdQNGxfV0ZRVkV3dEdEUT09X0JRZ0VYRkVIQXdRQUFBRldVUUFIQ1ZKVUFGa0ZWQVVBQlZNTVV3VlFVRmRRQVFaVA==.mp4");
+        assertThat(SavantClips.unescape("a&#61;b&amp;c")).isEqualTo("a=b&c");
+    }
+
+    @Test
     void pageWithoutVideoIsAnsweredEmpty() {
         SavantClipsTest.this.asked.clear();
         SavantClips.Lookup lookup = clips("<html><title>Baseball Savant Videos</title></html>").find(PLAY);
