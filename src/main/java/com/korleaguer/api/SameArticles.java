@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 /**
  * 언론사만 다른 같은 기사(전재)를 목록에서 한 줄로 묶는다(사용자가 고른 '같은 기사 묶기', 11-12, 이슈 #113).
@@ -58,7 +59,11 @@ final class SameArticles {
         }
     }
 
-    /** 기사 목록(어떤 순서든)을 같은 기사끼리 묶는다. 묶음은 대표 기사의 늦은 순이다 */
+    /**
+     * 기사 목록(어떤 순서든)을 같은 기사끼리 묶는다. 묶음은 대표 기사의 늦은 순이다.
+     * 같은 기사는 NEAR 안에 나온 것뿐이라, 발행 시각 순으로 늘어놓고 NEAR 안의 기사끼리만 견준다(모든 쌍을 견주지 않아
+     * 기사가 많아도 느려지지 않는다. 견주는 쌍이 같아 묶음도 같다, 이슈 #167)
+     */
     static List<Group> group(List<NewsArticle> articles) {
         List<NewsArticle> list = List.copyOf(articles);
         int[] parent = new int[list.size()];
@@ -68,10 +73,18 @@ final class SameArticles {
         List<Instant> times = list.stream().map(NewsArticle::getPublishedAt).toList();
         List<String> titles = list.stream().map(a -> letters(a.getTitle())).toList();
         List<Set<String>> leads = list.stream().map(a -> trigrams(a.getLeadText())).toList();
-        for (int i = 0; i < list.size(); i++) {
-            for (int j = i + 1; j < list.size(); j++) {
-                if (near(times.get(i), times.get(j))
-                        && same(titles.get(i), leads.get(i), titles.get(j), leads.get(j))) {
+        int[] byTime = IntStream.range(0, list.size()).boxed()
+                .sorted(Comparator.comparing(times::get))
+                .mapToInt(Integer::intValue)
+                .toArray();
+        for (int a = 0; a < byTime.length; a++) {
+            int i = byTime[a];
+            for (int b = a + 1; b < byTime.length; b++) {
+                int j = byTime[b];
+                if (!near(times.get(i), times.get(j))) {
+                    break; // 뒤는 더 늦게 나온 기사뿐이라 더 멀다
+                }
+                if (same(titles.get(i), leads.get(i), titles.get(j), leads.get(j))) {
                     parent[root(parent, i)] = root(parent, j);
                 }
             }
