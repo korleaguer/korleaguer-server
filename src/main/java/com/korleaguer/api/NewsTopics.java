@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * 뉴스 탭 검색창의 '자주 나온 말'(이슈 #158). 정해 둔 말(MLB 구단·주제) 가운데 최근 기사 묶음의 제목·요약에 많이 나온 것을
+ * 뉴스 탭 검색창의 '자주 나온 말'(이슈 #158). 정해 둔 말(MLB 구단·주제) 가운데 최근 기사 묶음의 제목에 많이 나온 것을
  * 센다. 세는 법은 검색(NewsListFinder, mentions)과 같아서, 알약을 누르면 대개 그 수만큼 나온다(검색은 최근 기사 밖까지
  * 찾으므로 더 많을 수 있다).
  * 운영 기사 93건(11-15)을 세어 정했다: 다저스 19 · FA 18 · 영입 13 · 수비 13 · 트레이드 10 · 계약 8 · 메츠 8.
@@ -108,16 +108,16 @@ final class NewsTopics {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
     }
 
-    /** 묶음의 모든 기사 제목(원제·한국어 제목)과 요약을 소문자로 이은 글(검색이 보는 칸과 같다) */
+    /**
+     * 묶음의 모든 기사 제목(원제·한국어 제목)을 소문자로 이은 글(검색이 보는 칸과 같다). 요약은 넣지 않는다: 요약까지 세면
+     * 운영 기사 93건 중 '계약' 45건(제목에 보이는 건 8건)처럼 절반이 걸려 바로가기로 쓸모가 없었다(이슈 #161)
+     */
     private static String text(SameArticles.Group group) {
         StringBuilder sb = new StringBuilder();
         for (NewsArticle a : group.members()) {
             sb.append(a.getTitle()).append('\n');
             if (a.getTitleKo() != null) {
                 sb.append(a.getTitleKo()).append('\n');
-            }
-            if (a.getSummary() != null) {
-                sb.append(a.getSummary()).append('\n');
             }
         }
         return sb.toString().toLowerCase(Locale.ROOT);
