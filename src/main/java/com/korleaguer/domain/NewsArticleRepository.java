@@ -25,6 +25,25 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
             + " order by a.publishedAt desc, a.id desc")
     List<NewsArticle> findLatestSummarized(@Param("subject") String subject, Pageable page);
 
+    /**
+     * 뉴스 탭 한 쪽의 재료: subjects 선수들의 기사 가운데 그 언론사들의, 선수가 주인공인(AI가 아니라고 하지 않은) 기사를
+     * (before, beforeId)보다 오래된 것부터 늦은 순으로. 쪽 넘기기 기준은 발행 시각과 번호다(같은 시각이면 번호가 작은 쪽이 뒤).
+     * subjects·publishers는 비어 있으면 안 된다
+     */
+    @Query("select a from NewsArticle a where a.subject in :subjects and a.publisher in :publishers"
+            + " and (a.offTopic is null or a.offTopic = false)"
+            + " and (a.publishedAt < :before or (a.publishedAt = :before and a.id < :beforeId))"
+            + " order by a.publishedAt desc, a.id desc")
+    List<NewsArticle> findPage(@Param("subjects") Collection<String> subjects,
+                               @Param("publishers") Collection<String> publishers,
+                               @Param("before") Instant before, @Param("beforeId") long beforeId, Pageable page);
+
+    /** subjects 가운데 그 언론사들의, 선수가 주인공인 기사가 하나라도 있는 선수. 비어 있는 목록은 넘기지 않는다 */
+    @Query("select distinct a.subject from NewsArticle a where a.subject in :subjects and a.publisher in :publishers"
+            + " and (a.offTopic is null or a.offTopic = false)")
+    List<String> findSubjectsWithArticles(@Param("subjects") Collection<String> subjects,
+                                          @Param("publishers") Collection<String> publishers);
+
     /** 피드가 앞부분이나 사진을 주지 않아 기사 페이지를 읽어야 하는 그 언론사들의 기사(아직 읽지 않았고 시도가 남은 것) */
     @Query("select a from NewsArticle a where a.publisher in :publishers and a.pageReadAt is null"
             + " and (a.leadText is null or a.imageUrl is null) and a.enrichAttempts < :maxAttempts"
