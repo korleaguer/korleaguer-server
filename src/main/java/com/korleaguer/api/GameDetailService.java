@@ -106,8 +106,9 @@ public class GameDetailService {
             MlbGameContent content = facts.major() ? mlb.getGameContent(gamePk) : null;
             GameDetailResponse response = new GameDetailResponse(playerId, gamePk, role.name(), true, facts.major(),
                     GameDetails.plays(pbp, mlbId, role), GameDetails.highlights(content, mlbId));
-            boolean complete = facts.isFinal() && facts.start() != null
-                    && !now.isBefore(facts.start().plus(COMPLETE_AFTER));
+            // 시작 시각을 모르는 끝난 경기는 기다릴 기준이 없어 바로 굳힌다(5분마다 다시 받지 않게)
+            boolean complete = facts.isFinal()
+                    && (facts.start() == null || !now.isBefore(facts.start().plus(COMPLETE_AFTER)));
             save(saved.orElse(null), playerId, gamePk, response, complete, now);
             return withVideoSwitch(response);
         } catch (MlbApiException e) {
