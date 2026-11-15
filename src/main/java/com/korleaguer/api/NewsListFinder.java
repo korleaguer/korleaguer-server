@@ -84,7 +84,7 @@ public class NewsListFinder {
     /**
      * @param player 거를 선수(한글 이름). null이나 빈 값이면 전체
      * @param before 앞 쪽이 준 커서(next). null이나 빈 값이면 첫 쪽
-     * @param query  검색어(제목·요약에 있는 기사만, 이슈 #158). null이나 빈 값이면 거르지 않는다
+     * @param query  검색어(제목에 있는 기사만, 이슈 #158·#161). null이나 빈 값이면 거르지 않는다
      * @throws BadRequestException 커서 모양이 틀렸거나 선수 이름·검색어가 너무 길 때
      */
     public NewsListResponse find(String player, String before, String query) {
@@ -216,10 +216,9 @@ public class NewsListFinder {
         return byTime < 0 || (byTime == 0 && a.getId() < cursor.id());
     }
 
-    /** 이 기사의 제목(원제·한국어 제목)이나 요약에 검색어가 있나(NewsTopics.mentions 규칙) */
+    /** 이 기사의 제목(원제·한국어 제목)에 검색어가 있나(NewsTopics.mentions 규칙). 요약은 보지 않는다(목록에 안 보인다) */
     private static boolean matches(NewsArticle a, String q) {
-        return NewsTopics.mentions(a.getTitle(), q) || NewsTopics.mentions(a.getTitleKo(), q)
-                || NewsTopics.mentions(a.getSummary(), q);
+        return NewsTopics.mentions(a.getTitle(), q) || NewsTopics.mentions(a.getTitleKo(), q);
     }
 
     /** 포스팅 선수(명단 밖)의 국내 기사는 제목이 MLB 이야기일 때만(홈 MLB 도전 카드와 같은 기준) */

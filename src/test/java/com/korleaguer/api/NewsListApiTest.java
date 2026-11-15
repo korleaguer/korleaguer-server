@@ -220,7 +220,7 @@ class NewsListApiTest {
     }
 
     @Test
-    void searchLooksAtTitleKoreanTitleAndSummary() throws Exception {
+    void searchLooksAtTitleAndKoreanTitleOnly() throws Exception {
         save("이정후", "이정후 새 타격코치", "마이데일리", T0);
         save("이정후", "이정후 계약 소식", "마이데일리", T0.minusSeconds(60));
         NewsArticle english = save("이정후", "Lee extension talk", "MLB Trade Rumors", T0.minusSeconds(120));
@@ -231,13 +231,14 @@ class NewsListApiTest {
         news.save(bySummary);
         save("김하성", "김하성 FA 계약 임박", "마이데일리", T0.minusSeconds(240));
 
+        // 요약에만 있는 기사(이정후 겨울 훈련)는 나오지 않는다: 목록에 제목만 보여 왜 나왔는지 알 수 없다(이슈 #161)
         JsonNode all = page(null, null, "계약");
-        assertThat(titles(all)).containsExactly("이정후 계약 소식", "Lee extension talk", "이정후 겨울 훈련", "김하성 FA 계약 임박");
+        assertThat(titles(all)).containsExactly("이정후 계약 소식", "Lee extension talk", "김하성 FA 계약 임박");
         assertThat(all.get("query").asString()).isEqualTo("계약");
         assertThat(all.get("topics")).isEmpty(); // 검색할 때는 많이 나온 말을 주지 않는다
 
         // 선수 거르기와 함께
-        assertThat(titles(page("이정후", null, " 계약 "))).containsExactly("이정후 계약 소식", "Lee extension talk", "이정후 겨울 훈련");
+        assertThat(titles(page("이정후", null, " 계약 "))).containsExactly("이정후 계약 소식", "Lee extension talk");
         // 영어도 대소문자 상관없이
         assertThat(titles(page(null, null, "EXTENSION"))).containsExactly("Lee extension talk");
     }

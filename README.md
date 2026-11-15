@@ -75,7 +75,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
-| `GET /api/news?player=이정후&before=…` | 뉴스 탭 한 쪽: 선수 고르기 목록(`players`, 기사가 있는 선수만, 포스팅 선수 먼저·명단 순, 선수마다 가장 최근 기사 시각 `latestAt`) + 기사 20줄(늦은 순, 같은 기사는 한 줄·`alsoBy`, 누구 기사인지 `who`) + 다음 쪽 커서(`next`, `before`로 그대로 넘긴다). `player`가 없으면 전체, 모르는 선수면 빈 목록. `q`를 주면 제목·요약에 그 말이 있는 기사만(30자까지). 첫 쪽이고 `q`가 없으면 최근 기사에 많이 나온 말 `topics`(`{word, count}`, 최대 6개). 커서 모양이 틀리면 400 |
+| `GET /api/news?player=이정후&before=…` | 뉴스 탭 한 쪽: 선수 고르기 목록(`players`, 기사가 있는 선수만, 포스팅 선수 먼저·명단 순, 선수마다 가장 최근 기사 시각 `latestAt`) + 기사 20줄(늦은 순, 같은 기사는 한 줄·`alsoBy`, 누구 기사인지 `who`) + 다음 쪽 커서(`next`, `before`로 그대로 넘긴다). `player`가 없으면 전체, 모르는 선수면 빈 목록. `q`를 주면 제목(원제·한국어 제목)에 그 말이 있는 기사만(30자까지). 첫 쪽이고 `q`가 없으면 최근 기사에 많이 나온 말 `topics`(`{word, count}`, 최대 6개). 커서 모양이 틀리면 400 |
 | `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
 | `GET /actuator/health` | 상태 확인 |
 | `POST /admin/ingest/players` | 명단 선수의 정보·지금 팀·단계·이동 기록을 지금 다시 받기 |
