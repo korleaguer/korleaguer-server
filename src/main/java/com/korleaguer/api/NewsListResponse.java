@@ -10,12 +10,30 @@ import java.util.List;
  * @param player  이 쪽을 거른 선수(한글 이름). 전체면 null, 모르는 선수를 달라고 했어도 null(그때 items는 빈 목록)
  * @param items   기사(같은 기사 묶음마다 한 줄, 늦은 순, 최대 NewsListFinder.PAGE줄)
  * @param next    다음 쪽 커서(before로 그대로 넘긴다). 더 없으면 null
+ * @param query   이 쪽을 거른 검색어(앞뒤 공백을 뗀 것). 없으면 null
+ * @param topics  지금 범위(전체·선수)의 최근 기사에 많이 나온 말(검색창의 바로가기, 이슈 #158). 첫 쪽이고 검색어가 없을 때만,
+ *                아니면 빈 목록
  */
-public record NewsListResponse(List<Subject> players, String player, List<Item> items, String next) {
+public record NewsListResponse(List<Subject> players, String player, List<Item> items, String next, String query,
+                               List<Topic> topics) {
 
     public NewsListResponse {
         players = List.copyOf(players);
         items = List.copyOf(items);
+        topics = topics == null ? List.of() : List.copyOf(topics);
+    }
+
+    NewsListResponse(List<Subject> players, String player, List<Item> items, String next) {
+        this(players, player, items, next, null, List.of());
+    }
+
+    /**
+     * 많이 나온 말 하나.
+     *
+     * @param word  검색어로 그대로 쓰는 말(예: "FA", "다저스")
+     * @param count 최근 기사 묶음 가운데 제목·요약에 이 말이 있는 수
+     */
+    public record Topic(String word, int count) {
     }
 
     /**

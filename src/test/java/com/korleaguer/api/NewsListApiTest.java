@@ -220,6 +220,112 @@ class NewsListApiTest {
     }
 
     @Test
+    void searchLooksAtTitleKoreanTitleAndSummary() throws Exception {
+        save("이정후", "이정후 새 타격코치", "마이데일리", T0);
+        save("이정후", "이정후 계약 소식", "마이데일리", T0.minusSeconds(60));
+        NewsArticle english = save("이정후", "Lee extension talk", "MLB Trade Rumors", T0.minusSeconds(120));
+        english.enriched(null, "이정후 계약 연장 논의", "자이언츠가 이정후와 이야기했다.", "claude-haiku-5-5", T0);
+        news.save(english);
+        NewsArticle bySummary = save("이정후", "이정후 겨울 훈련", "마이데일리", T0.minusSeconds(180));
+        bySummary.enriched(null, null, "샌프란시스코와 맺은 계약 2년째를 앞두고 훈련한다.", "claude-haiku-5-5", T0);
+        news.save(bySummary);
+        save("김하성", "김하성 FA 계약 임박", "마이데일리", T0.minusSeconds(240));
+
+        JsonNode all = page(null, null, "계약");
+        assertThat(titles(all)).containsExactly("이정후 계약 소식", "Lee extension talk", "이정후 겨울 훈련", "김하성 FA 계약 임박");
+        assertThat(all.get("query").asString()).isEqualTo("계약");
+        assertThat(all.get("topics")).isEmpty(); // 검색할 때는 많이 나온 말을 주지 않는다
+
+        // 선수 거르기와 함께
+        assertThat(titles(page("이정후", null, " 계약 "))).containsExactly("이정후 계약 소식", "Lee extension talk", "이정후 겨울 훈련");
+        // 영어도 대소문자 상관없이
+        assertThat(titles(page(null, null, "EXTENSION"))).containsExactly("Lee extension talk");
+    }
+
+    @Test
+    void searchTreatsWildcardsAsLetters() throws Exception {
+        save("이정후", "이정후 출루율 30% 돌파", "마이데일리", T0);
+        save("이정후", "이정후 새 타격코치", "마이데일리", T0.minusSeconds(60));
+
+        assertThat(titles(page(null, null, "%"))).containsExactly("이정후 출루율 30% 돌파");
+        assertThat(titles(page(null, null, "_"))).isEmpty();
+    }
+
+    @Test
+    void searchPagesThroughWithoutRepeats() throws Exception {
+        for (int i = 0; i < 25; i++) {
+            save("이정후", "이정후 FA 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i)));
+            save("이정후", "이정후 다른 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i + 5)));
+        }
+        JsonNode first = page(null, null, "fa");
+        assertThat(first.get("items").size()).isEqualTo(NewsListFinder.PAGE);
+        JsonNode second = page(null, first.get("next").asString(), "fa");
+        List<String> seen = new ArrayList<>(titles(first));
+        seen.addAll(titles(second));
+        assertThat(seen).hasSize(25).doesNotHaveDuplicates().allMatch(t -> t.contains("FA"));
+        assertThat(second.hasNonNull("next")).isFalse();
+    }
+
+    @Test
+    void topicsAreWordsThatRecentArticlesMentionOften() throws Exception {
+        for (int i = 0; i < 4; i++) {
+            save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minusSeconds(60L * i));
+        }
+        for (int i = 0; i < 3; i++) {
+            save("김혜성", "다저스 김혜성 이야기 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
+        }
+        save("이정후", "메츠 관심 " + 1, "마이데일리", T0.minusSeconds(1200));
+        save("이정후", "메츠 관심 " + 2, "마이데일리", T0.minusSeconds(1260)); // 2번뿐: 빠진다
+
+        JsonNode all = page(null, null, null);
+        assertThat(all.get("topics").size()).isEqualTo(2);
+        assertThat(all.get("topics").get(0).get("word").asString()).isEqualTo("FA");
+        assertThat(all.get("topics").get(0).get("count").asInt()).isEqualTo(4);
+        assertThat(all.get("topics").get(1).get("word").asString()).isEqualTo("다저스");
+        assertThat(all.get("topics").get(1).get("count").asInt()).isEqualTo(3);
+        // 선수로 거르면 그 선수 기사에서만 센다
+        JsonNode kim = page("김혜성", null, null);
+        assertThat(kim.get("topics").size()).isEqualTo(1);
+        assertThat(kim.get("topics").get(0).get("word").asString()).isEqualTo("다저스");
+    }
+
+    @Test
+    void latinWordsMatchWholeWordsOnly() throws Exception {
+        save("김하성", "김하성 FA 시장 1위", "마이데일리", T0);
+        save("김혜성", "다저스, 김혜성 DFA 처리할 수도", "마이데일리", T0.minusSeconds(60)); // DFA(양도지명)는 FA가 아니다
+        save("이정후", "Fans love Lee", "MLB Trade Rumors", T0.minusSeconds(120)); // fans 속 fa도 아니다
+        for (int i = 0; i < 2; i++) {
+            save("김하성", "김하성 FA 소식 " + i, "마이데일리", T0.minusSeconds(180 + 60L * i));
+        }
+
+        assertThat(titles(page(null, null, "FA"))).containsExactly("김하성 FA 시장 1위", "김하성 FA 소식 0", "김하성 FA 소식 1");
+        JsonNode first = page(null, null, null);
+        assertThat(first.get("topics").get(0).get("word").asString()).isEqualTo("FA");
+        assertThat(first.get("topics").get(0).get("count").asInt()).isEqualTo(3);
+        // 한글 말은 글자 포함 그대로
+        assertThat(titles(page(null, null, "처리"))).containsExactly("다저스, 김혜성 DFA 처리할 수도");
+    }
+
+    @Test
+    void oneTeamTakesOneTopicEvenWithTwoNames() throws Exception {
+        for (int i = 0; i < 4; i++) {
+            save("이정후", "샌프란시스코 자이언츠 이정후 소식 " + i, "마이데일리", T0.minusSeconds(60L * i));
+        }
+        save("이정후", "샌프란시스코 이야기", "마이데일리", T0.minusSeconds(600));
+
+        JsonNode page = page("이정후", null, null);
+        List<String> words = new ArrayList<>();
+        page.get("topics").forEach(t -> words.add(t.get("word").asString()));
+        assertThat(words).contains("샌프란시스코").doesNotContain("자이언츠");
+    }
+
+    @Test
+    void tooLongQueryIsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/news").param("q", "가".repeat(31)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void copiesShowOtherPublishers() throws Exception {
         save("이정후", "이정후 새 타격코치", "마이데일리", T0);
         save("이정후", "이정후 새 타격코치", "스포츠조선", T0.plusSeconds(600));
@@ -251,7 +357,14 @@ class NewsListApiTest {
     }
 
     private JsonNode page(String player, String before) throws Exception {
+        return page(player, before, null);
+    }
+
+    private JsonNode page(String player, String before, String q) throws Exception {
         var request = get("/api/news");
+        if (q != null) {
+            request = request.param("q", q);
+        }
         if (player != null) {
             request = request.param("player", player);
         }
