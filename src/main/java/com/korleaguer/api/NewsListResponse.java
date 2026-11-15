@@ -11,8 +11,8 @@ import java.util.List;
  * @param items   기사(같은 기사 묶음마다 한 줄, 늦은 순, 최대 NewsListFinder.PAGE줄)
  * @param next    다음 쪽 커서(before로 그대로 넘긴다). 더 없으면 null
  * @param query   이 쪽을 거른 검색어(앞뒤 공백을 뗀 것). 없으면 null
- * @param topics  지금 범위(전체·선수)의 최근 기사에 많이 나온 말(검색창의 바로가기, 이슈 #158). 첫 쪽이고 검색어가 없을 때만,
- *                아니면 빈 목록
+ * @param topics  지금 범위(전체·선수)의 최근 기사에 많이 나온 말(뉴스 탭 맨 위 알약 줄, 이슈 #158·#165). 첫 쪽에만(검색어가
+ *                있어도 검색어와 상관없이 센다), 아니면 빈 목록. 선수를 고르면 그 선수의 지금 구단 이름은 뺀다
  */
 public record NewsListResponse(List<Subject> players, String player, List<Item> items, String next, String query,
                                List<Topic> topics) {
