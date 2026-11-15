@@ -35,6 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class NewsListApiTest {
 
     private static final Instant T0 = Instant.parse("2026-11-14T12:00:00Z");
+    /** 같은 글로 볼 만큼 긴 첫머리(3글자 조각이 겹친다) */
+    private static final String LEAD = "샌프란시스코 자이언츠가 이번 겨울 외야진을 정리하면서 이정후의 자리와 연봉 구조에 관심이 쏠리고 있다는 현지 보도가 나왔다";
 
     @Autowired
     private MockMvc mockMvc;
@@ -152,6 +154,51 @@ class NewsListApiTest {
         // 늦은 순
         assertThat(seen.getFirst()).isEqualTo("이정후 소식 0");
         assertThat(seen.getLast()).isEqualTo("이정후 소식 129");
+    }
+
+    @Test
+    void aCopyNewerThanTheCursorStaysWithItsGroupOnTheNextPage() throws Exception {
+        // 1~20번째 줄: 10분 간격 기사 20건. 커서는 20번째 줄(190분 전)이다
+        for (int i = 0; i < 20; i++) {
+            save("이정후", "이정후 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i)));
+        }
+        // 21번째 묶음: 원문은 커서보다 이르고(195분 전), 요약이 붙은 사본은 커서보다 늦다(185분 전, 대표 기사)
+        save("이정후", "이정후 타격코치 영입", "스포츠조선", T0.minus(Duration.ofMinutes(195)));
+        NewsArticle summarized = save("이정후", "이정후 타격코치 영입", "MLB Trade Rumors", T0.minus(Duration.ofMinutes(185)));
+        summarized.enriched(null, "이정후 타격코치 영입", "요약", "claude-haiku-5-5", T0);
+        news.save(summarized);
+        // 22번째 묶음: 서로는 다른 글로 보이는 두 사본(제목도 첫머리도 다르다)을 커서보다 늦은 기사가 이어 준다
+        NewsArticle o1 = save("이정후", "이정후 연봉 이야기", "마이데일리", T0.minus(Duration.ofMinutes(196)));
+        NewsArticle o2 = save("이정후", "샌프란시스코 외야 정리", "스포츠조선", T0.minus(Duration.ofMinutes(198)));
+        o2.setLeadText(LEAD);
+        news.save(o2);
+        NewsArticle bridge = save("이정후", "이정후 연봉 이야기", "매일경제", T0.minus(Duration.ofMinutes(186)));
+        bridge.setLeadText(LEAD);
+        news.save(bridge);
+        assertThat(o1.getId()).isNotNull();
+
+        JsonNode first = page("이정후", null);
+        assertThat(first.get("items").size()).isEqualTo(20);
+        JsonNode second = page("이정후", first.get("next").asString());
+
+        assertThat(titles(second)).containsExactly("이정후 타격코치 영입", "샌프란시스코 외야 정리");
+        JsonNode coach = second.get("items").get(0);
+        assertThat(coach.get("publisher").asString()).isEqualTo("MLB Trade Rumors"); // 요약이 붙은 사본이 대표
+        assertThat(coach.get("alsoBy").get(0).asString()).isEqualTo("스포츠조선");
+        JsonNode chained = second.get("items").get(1);
+        assertThat(chained.get("alsoBy")).hasSize(2); // 이어 주는 기사가 빠지면 두 줄로 나뉜다
+        assertThat(second.hasNonNull("next")).isFalse();
+    }
+
+    @Test
+    void postingPlayerWithOnlyDomesticKboArticlesIsNotAChoice() throws Exception {
+        save("노시환", "한화 노시환 연봉 협상", "마이데일리", T0); // MLB 이야기가 아니다
+        save("이정후", "이정후 새 타격코치", "마이데일리", T0);
+
+        mockMvc.perform(get("/api/news"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.players.length()").value(1))
+                .andExpect(jsonPath("$.players[0].nameKo").value("이정후"));
     }
 
     @Test
