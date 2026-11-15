@@ -21,7 +21,7 @@ public class NewsController {
     /**
      * 뉴스 탭 한 쪽: 선수 고르기 목록과 기사 20줄(늦은 순, 같은 기사는 한 줄) + 다음 쪽 커서(이슈 #153). DB만 읽는다.
      * player(한글 이름)를 주면 그 선수 기사만, 모르는 선수면 빈 목록. before는 앞 쪽의 next 그대로이고 모양이 틀리면 400.
-     * q를 주면 제목에 그 말이 있는 기사만(이슈 #158·#161). 첫 쪽이고 q가 없으면 많이 나온 말(topics)도 준다
+     * q를 주면 제목에 그 말이 있는 기사만(이슈 #158·#161). 첫 쪽이면 많이 나온 말(topics)도 준다(q와 상관없이 센다, 이슈 #165)
      */
     @GetMapping("/news")
     public NewsListResponse list(@RequestParam(required = false) String player,

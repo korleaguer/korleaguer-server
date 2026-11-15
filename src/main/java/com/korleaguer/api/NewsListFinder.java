@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.Affiliation;
+import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.Player;
@@ -64,6 +66,7 @@ public class NewsListFinder {
     private final Postings postings;
     private final RosterProperties roster;
     private final PlayerRepository players;
+    private final AffiliationRepository affiliations;
     private final PhotoSources photos;
     /** 지금 news/sources.yml에 있는 언론사 */
     private final Set<String> publishers;
@@ -71,11 +74,13 @@ public class NewsListFinder {
     private final Set<String> aiPublishers;
 
     public NewsListFinder(NewsArticleRepository news, Postings postings, RosterProperties roster,
-                          PlayerRepository players, PhotoSources photos, NewsProperties newsProperties) {
+                          PlayerRepository players, AffiliationRepository affiliations, PhotoSources photos,
+                          NewsProperties newsProperties) {
         this.news = news;
         this.postings = postings;
         this.roster = roster;
         this.players = players;
+        this.affiliations = affiliations;
         this.photos = photos;
         this.publishers = newsProperties.publishers();
         this.aiPublishers = newsProperties.aiPublishers();
@@ -119,11 +124,29 @@ public class NewsListFinder {
         Set<String> postingOnly = new HashSet<>();
         chips.stream().filter(NewsListResponse.Subject::posting).forEach(s -> postingOnly.add(s.nameKo()));
         Page page = page(scope, postingOnly, cursor, q);
-        // 많이 나온 말은 첫 쪽이고 검색어가 없을 때만(검색창 바로가기). 이 쪽을 만들며 읽은 기사와 별개로 최근 기사만 센다
-        List<NewsListResponse.Topic> topics = q == null && cursor.equals(Cursor.TOP)
-                ? NewsTopics.count(recentGroups(scope, postingOnly))
+        // 많이 나온 말은 첫 쪽에만(뉴스 탭 맨 위 알약 줄). 검색어가 있어도 준다: 알약을 눌러 거른 채로도 줄이 그대로 보여야
+        // 한다(이슈 #165). 그래서 검색어와 상관없이, 이 쪽을 만들며 읽은 기사와 별개로 범위의 최근 기사만 센다
+        List<NewsListResponse.Topic> topics = cursor.equals(Cursor.TOP)
+                ? NewsTopics.count(recentGroups(scope, postingOnly), ownTeamWords(wanted, all))
                 : List.of();
         return new NewsListResponse(chips, wanted, page.items(), page.next(), q, topics);
+    }
+
+    /**
+     * 고른 선수의 지금 구단 이름들(자주 나온 말에서 뺀다, 이슈 #165). 전체 보기, 선수 번호가 없는 포스팅 선수, 소속을 모르는
+     * 선수면 없다. 소속이 끝난 선수(FA)도 없다: 마지막 구단도 행선지 후보라 그 이름이 나온 기사는 걸러 볼 만하다
+     */
+    private List<String> ownTeamWords(String wanted, Map<String, NewsListResponse.Subject> all) {
+        NewsListResponse.Subject subject = wanted == null ? null : all.get(wanted);
+        if (subject == null || subject.playerId() == null) {
+            return List.of();
+        }
+        return players.findById(subject.playerId())
+                .flatMap(affiliations::findByPlayer)
+                .filter(a -> !a.isEnded() && a.getTeam() != null)
+                .map(Affiliation::getTeam)
+                .map(team -> NewsTopics.teamWords(team.getAbbreviation()))
+                .orElse(List.of());
     }
 
     /** 범위의 최근 기사(최대 TOPIC_ROWS건, 목록과 같은 규칙으로 거른 것)를 같은 기사끼리 묶은 것 */
