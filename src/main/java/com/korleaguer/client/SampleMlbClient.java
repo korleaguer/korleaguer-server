@@ -333,6 +333,18 @@ public class SampleMlbClient implements MlbClient {
         return data.boxscores().get(gamePk);
     }
 
+    /** 샘플 데이터에는 타석별 기록이 없다 */
+    @Override
+    public MlbPlayByPlay getPlayByPlay(long gamePk) {
+        return null;
+    }
+
+    /** 샘플 데이터에는 영상이 없다 */
+    @Override
+    public MlbGameContent getGameContent(long gamePk) {
+        return null;
+    }
+
     @Override
     public MlbSeason getSeason(int season) {
         requestCount.incrementAndGet();

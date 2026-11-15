@@ -2,9 +2,11 @@ package com.korleaguer.ingest;
 
 import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbClient;
+import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbGameLogSplit;
 import com.korleaguer.client.MlbMinorGameLog;
 import com.korleaguer.client.MlbPerson;
+import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbSeason;
 import com.korleaguer.client.MlbSeasonSplit;
@@ -170,6 +172,18 @@ class GameIngestTest {
             requests++;
             boxscoresAsked.add(gamePk);
             return delegate.getBoxscore(gamePk);
+        }
+
+        @Override
+        public MlbPlayByPlay getPlayByPlay(long gamePk) {
+            requests++;
+            return delegate.getPlayByPlay(gamePk);
+        }
+
+        @Override
+        public MlbGameContent getGameContent(long gamePk) {
+            requests++;
+            return delegate.getGameContent(gamePk);
         }
 
         @Override

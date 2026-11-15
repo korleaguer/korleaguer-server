@@ -238,6 +238,20 @@ public class HttpMlbClient implements MlbClient {
     }
 
     @Override
+    public MlbPlayByPlay getPlayByPlay(long gamePk) {
+        return get("game/" + gamePk + "/playByPlay",
+                uri -> uri.path("/api/v1/game/{gamePk}/playByPlay").build(gamePk),
+                MlbPlayByPlay.class);
+    }
+
+    @Override
+    public MlbGameContent getGameContent(long gamePk) {
+        return get("game/" + gamePk + "/content",
+                uri -> uri.path("/api/v1/game/{gamePk}/content").build(gamePk),
+                MlbGameContent.class);
+    }
+
+    @Override
     public MlbSeason getSeason(int season) {
         MlbResponses.Seasons body = get("seasons/" + season,
                 uri -> uri.path("/api/v1/seasons/{season}")

@@ -60,6 +60,12 @@ public interface MlbClient {
     /** 경기 박스스코어(선수별 기록, 타순, 나온 투수 순서). 없으면 null */
     MlbBoxscore getBoxscore(long gamePk);
 
+    /** 경기 타석별 기록(공 하나하나까지). 마이너 경기도 된다. 없으면 null */
+    MlbPlayByPlay getPlayByPlay(long gamePk);
+
+    /** 경기 영상 목록(하이라이트). 없으면 null */
+    MlbGameContent getGameContent(long gamePk);
+
     /** 한 시즌의 날짜(정규시즌 개막일·종료일, 포스트시즌 종료일). 아직 발표되지 않은 해면 null */
     MlbSeason getSeason(int season);
 
