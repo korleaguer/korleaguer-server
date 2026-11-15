@@ -1,0 +1,660 @@
+{
+ "allPlays": [
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Flyout",
+    "eventType": "field_out",
+    "description": "Drew Gilbert flies out to center fielder Alex Call.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 0,
+    "halfInning": "top",
+    "inning": 1,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 3,
+    "strikes": 2,
+    "outs": 1
+   },
+   "matchup": {
+    "batter": {
+     "id": 687551,
+     "fullName": "Drew Gilbert"
+    },
+    "pitcher": {
+     "id": 607192,
+     "fullName": "Tyler Glasnow"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "e92cbbb6-3001-3536-9caf-752aa8255189",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 97.0
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "2be0d002-6102-35cc-9de7-286719264c01",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 95.9
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "49219e33-1861-3be7-9c25-9e5362fb1c93",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "186d6f4a-0a2d-3e8b-82f5-df06bb5c22a4",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "SI",
+       "description": "Sinker"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.4
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "3c0908f4-8b14-3e86-aba9-23976505ef7a",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "c0aec9c4-ac69-34bf-af58-a9e362a03262",
+     "details": {
+      "code": "X",
+      "description": "In play, out(s)",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.3
+     },
+     "hitData": {
+      "launchSpeed": 84.7,
+      "launchAngle": 42.0,
+      "totalDistance": 282.0,
+      "trajectory": "fly_ball",
+      "location": "8"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 687551
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "CF"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Home Run",
+    "eventType": "home_run",
+    "description": "Jung Hoo Lee homers (10) on a fly ball to right field.",
+    "rbi": 1
+   },
+   "about": {
+    "atBatIndex": 8,
+    "halfInning": "top",
+    "inning": 2,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 2,
+    "strikes": 2,
+    "outs": 0
+   },
+   "matchup": {
+    "batter": {
+     "id": 808982,
+     "fullName": "Jung Hoo Lee"
+    },
+    "pitcher": {
+     "id": 607192,
+     "fullName": "Tyler Glasnow"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "81f73578-3b3a-3799-a206-cac1a6d22eeb",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 95.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "1ce8586e-2da1-3053-88a9-c205725b9f07",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "KC",
+       "description": "Knuckle Curve"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 79.0
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "03b12dda-2726-3a67-9623-00e3dc2eac4f",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.8
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "adfd7e90-3b7e-32e2-9ed4-052b3c2b8cd0",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 95.6
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "e17cd21d-a9c8-31ec-8111-1de99d13aef6",
+     "details": {
+      "code": "E",
+      "description": "In play, run(s)",
+      "type": {
+       "code": "KC",
+       "description": "Knuckle Curve"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 81.5
+     },
+     "hitData": {
+      "launchSpeed": 97.7,
+      "launchAngle": 33.0,
+      "totalDistance": 377.0,
+      "trajectory": "fly_ball",
+      "location": "9"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 808982
+      }
+     },
+     "credits": []
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Flyout",
+    "eventType": "field_out",
+    "description": "Jung Hoo Lee flies out to center fielder Alex Call.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 21,
+    "halfInning": "top",
+    "inning": 3,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 0,
+    "strikes": 2,
+    "outs": 3
+   },
+   "matchup": {
+    "batter": {
+     "id": 808982,
+     "fullName": "Jung Hoo Lee"
+    },
+    "pitcher": {
+     "id": 607192,
+     "fullName": "Tyler Glasnow"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "fbbd0148-0281-3512-9010-ea80a7b2a889",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "SI",
+       "description": "Sinker"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.5
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "8b32da67-5a8c-31c5-8d4e-e7547b4563ff",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.6
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "39e853e6-8cd7-38d2-807d-769c6ead5145",
+     "details": {
+      "code": "X",
+      "description": "In play, out(s)",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 90.6
+     },
+     "hitData": {
+      "launchSpeed": 93.8,
+      "launchAngle": 37.0,
+      "totalDistance": 335.0,
+      "trajectory": "fly_ball",
+      "location": "8"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 808982
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "CF"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Flyout",
+    "eventType": "field_out",
+    "description": "Jung Hoo Lee flies out to right fielder Kyle Tucker. Turner Hill to 3rd.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 44,
+    "halfInning": "top",
+    "inning": 6,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 2,
+    "strikes": 2,
+    "outs": 2
+   },
+   "matchup": {
+    "batter": {
+     "id": 808982,
+     "fullName": "Jung Hoo Lee"
+    },
+    "pitcher": {
+     "id": 607192,
+     "fullName": "Tyler Glasnow"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "b50f730e-27ef-3b0e-900c-8bdaa6a902bd",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "KC",
+       "description": "Knuckle Curve"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 79.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "cfad3129-8375-3742-9723-c9818ebe7a34",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 93.5
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "1e1be059-910d-348f-a780-6b2c769b257b",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.5
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "3517f43e-cce6-3a88-9ed8-c5fde89dcb8b",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "SI",
+       "description": "Sinker"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 95.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "c824d477-2483-32fa-a037-c44f30f360fe",
+     "details": {
+      "code": "F",
+      "description": "Foul",
+      "type": {
+       "code": "SI",
+       "description": "Sinker"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 95.3
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "1fe97626-042b-3ad3-a8ab-fc7106d6abb8",
+     "details": {
+      "code": "F",
+      "description": "Foul",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.1
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "a0a1a11d-659d-30f4-892b-238ee11798a5",
+     "details": {
+      "code": "X",
+      "description": "In play, out(s)",
+      "type": {
+       "code": "SI",
+       "description": "Sinker"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 94.8
+     },
+     "hitData": {
+      "launchSpeed": 90.8,
+      "launchAngle": 33.0,
+      "totalDistance": 331.0,
+      "trajectory": "fly_ball",
+      "location": "9"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 808982
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "RF"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    },
+    {
+     "details": {
+      "runner": {
+       "id": 806367
+      }
+     },
+     "credits": []
+    }
+   ]
+  },
+  {
+   "result": {
+    "type": "atBat",
+    "event": "Pop Out",
+    "eventType": "field_out",
+    "description": "Jung Hoo Lee pops out to third baseman Max Muncy in foul territory.",
+    "rbi": 0
+   },
+   "about": {
+    "atBatIndex": 69,
+    "halfInning": "top",
+    "inning": 9,
+    "isComplete": true
+   },
+   "count": {
+    "balls": 2,
+    "strikes": 1,
+    "outs": 1
+   },
+   "matchup": {
+    "batter": {
+     "id": 808982,
+     "fullName": "Jung Hoo Lee"
+    },
+    "pitcher": {
+     "id": 621242,
+     "fullName": "Edwin Díaz"
+    }
+   },
+   "playEvents": [
+    {
+     "isPitch": true,
+     "playId": "f64423f4-c7c2-3d2d-8228-c13cf63c96e5",
+     "details": {
+      "code": "C",
+      "description": "Called Strike",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.2
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "fa797f6a-a580-39fe-963f-0ef289575088",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 97.3
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "c5f55212-0350-3745-aa57-6307a64d0e1b",
+     "details": {
+      "code": "B",
+      "description": "Ball",
+      "type": {
+       "code": "SL",
+       "description": "Slider"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 90.5
+     }
+    },
+    {
+     "isPitch": true,
+     "playId": "905398aa-441d-37dc-80d1-d4bd4102d062",
+     "details": {
+      "code": "X",
+      "description": "In play, out(s)",
+      "type": {
+       "code": "FF",
+       "description": "Four-Seam Fastball"
+      }
+     },
+     "pitchData": {
+      "startSpeed": 96.1
+     },
+     "hitData": {
+      "launchSpeed": 84.7,
+      "launchAngle": 79.0,
+      "totalDistance": 88.0,
+      "trajectory": "popup",
+      "location": "5"
+     }
+    }
+   ],
+   "runners": [
+    {
+     "details": {
+      "runner": {
+       "id": 808982
+      }
+     },
+     "credits": [
+      {
+       "position": {
+        "abbreviation": "3B"
+       },
+       "credit": "f_putout"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

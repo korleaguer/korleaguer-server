@@ -1,0 +1,85 @@
+{
+ "highlights": {
+  "highlights": {
+   "items": [
+    {
+     "headline": "Guardians slug seven home runs in 13-4 win",
+     "date": "2026-07-21T02:16:52.839Z",
+     "duration": "00:02:57",
+     "keywordsAll": [
+      {
+       "type": "taxonomy",
+       "value": "international-feed",
+       "displayName": "International Partner feed"
+      },
+      {
+       "type": "taxonomy",
+       "value": "eclat-feed",
+       "displayName": "Eclat feed"
+      },
+      {
+       "type": "taxonomy",
+       "value": "game-recap",
+       "displayName": "game recap"
+      },
+      {
+       "type": "taxonomy",
+       "value": "3-yahoo-ads-feed",
+       "displayName": "3-Yahoo Ads Feed"
+      },
+      {
+       "type": "taxonomy",
+       "value": "apple-news",
+       "displayName": "Apple News"
+      },
+      {
+       "type": "game_pk",
+       "value": "824410",
+       "displayName": "2026/07/20 min@cle"
+      }
+     ],
+     "image": {
+      "cuts": [
+       {
+        "aspectRatio": "16:9",
+        "width": 960,
+        "height": 540,
+        "src": "https://img.mlbstatic.com/mlb-images/image/upload/w_960,h_540,f_jpg,c_fill,g_auto/mlb/jmlv17awrlspadhlkfom.jpg",
+        "at2x": "https://img.mlbstatic.com/mlb-images/image/upload/w_960,h_540,f_jpg,c_fill,g_auto,dpr_2.0/mlb/jmlv17awrlspadhlkfom.jpg",
+        "at3x": "https://img.mlbstatic.com/mlb-images/image/upload/w_960,h_540,f_jpg,c_fill,g_auto,dpr_3.0/mlb/jmlv17awrlspadhlkfom.jpg"
+       },
+       {
+        "aspectRatio": "16:9",
+        "width": 640,
+        "height": 360,
+        "src": "https://img.mlbstatic.com/mlb-images/image/upload/w_640,h_360,f_jpg,c_fill,g_auto/mlb/jmlv17awrlspadhlkfom.jpg",
+        "at2x": "https://img.mlbstatic.com/mlb-images/image/upload/w_640,h_360,f_jpg,c_fill,g_auto,dpr_2.0/mlb/jmlv17awrlspadhlkfom.jpg",
+        "at3x": "https://img.mlbstatic.com/mlb-images/image/upload/w_640,h_360,f_jpg,c_fill,g_auto,dpr_3.0/mlb/jmlv17awrlspadhlkfom.jpg"
+       }
+      ]
+     },
+     "playbacks": [
+      {
+       "name": "hlsCloud",
+       "url": "https://mlb-cuts-diamond.mlb.com/FORGE/2026/2026-07/20/9650efb9-c446e586-f994a564-csvm-diamondgcp-asset.m3u8",
+       "width": "",
+       "height": ""
+      },
+      {
+       "name": "mp4Avc",
+       "url": "https://mlb-cuts-diamond.mlb.com/FORGE/2026/2026-07/20/9650efb9-c446e586-f994a564-csvm-diamondgcp-asset_1280x720_59_4000K.mp4",
+       "width": "",
+       "height": ""
+      },
+      {
+       "name": "highBit",
+       "url": "https://mlb-cuts-diamond.mlb.com/FORGE/2026/2026-07/20/9650efb9-c446e586-f994a564-csvm-diamondgcp-asset_1280x720_59_16000K.mp4",
+       "width": "",
+       "height": ""
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
