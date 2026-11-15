@@ -2,6 +2,7 @@ package com.korleaguer.api;
 
 import com.korleaguer.domain.NewsArticle;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,6 +15,8 @@ import java.util.regex.Pattern;
  * 센다. 세는 법은 검색(NewsListFinder, mentions)과 같아서, 알약을 누르면 대개 그 수만큼 나온다(검색은 최근 기사 밖까지
  * 찾으므로 더 많을 수 있다).
  * 운영 기사 93건(11-15)을 세어 정했다: 다저스 19 · FA 18 · 영입 13 · 수비 13 · 트레이드 10 · 계약 8 · 메츠 8.
+ * 선수를 고르면 그 선수의 지금 구단 이름은 세지 않는다(이슈 #165): 그 선수 기사 대부분에 나와 눌러도 거의 걸러지지 않는다
+ * (운영 11-15 김혜성: 다저스 15 · 트레이드 4).
  */
 final class NewsTopics {
 
@@ -52,17 +55,65 @@ final class NewsTopics {
             List.of("다이아몬드백스", "애리조나"), List.of("로키스", "콜로라도"), List.of("브루어스", "밀워키"),
             List.of("카디널스", "세인트루이스"), List.of("말린스", "마이애미"), List.of("내셔널스", "워싱턴"));
 
+    /**
+     * 구단 약어(Team.abbreviation, 쓰는 곳마다 다른 약어도 함께) → WORDS에 있는 그 구단 이름들(별명·도시).
+     * 고른 선수의 지금 구단을 뺄 때 쓴다(TeamNames의 약어 표와 같은 약어)
+     */
+    private static final Map<String, List<String>> TEAM_WORDS = Map.ofEntries(
+            Map.entry("ARI", List.of("다이아몬드백스", "애리조나")), Map.entry("AZ", List.of("다이아몬드백스", "애리조나")),
+            Map.entry("ATL", List.of("브레이브스", "애틀랜타")),
+            Map.entry("BAL", List.of("오리올스", "볼티모어")),
+            Map.entry("BOS", List.of("레드삭스", "보스턴")),
+            Map.entry("CHC", List.of("컵스")),
+            Map.entry("CWS", List.of("화이트삭스")), Map.entry("CHW", List.of("화이트삭스")),
+            Map.entry("CIN", List.of("신시내티")),
+            Map.entry("CLE", List.of("가디언스", "클리블랜드")),
+            Map.entry("COL", List.of("로키스", "콜로라도")),
+            Map.entry("DET", List.of("타이거스", "디트로이트")),
+            Map.entry("HOU", List.of("애스트로스", "휴스턴")),
+            Map.entry("KC", List.of("로열스", "캔자스시티")), Map.entry("KCR", List.of("로열스", "캔자스시티")),
+            Map.entry("LAA", List.of("에인절스")),
+            Map.entry("LAD", List.of("다저스")),
+            Map.entry("MIA", List.of("말린스", "마이애미")),
+            Map.entry("MIL", List.of("브루어스", "밀워키")),
+            Map.entry("MIN", List.of("트윈스", "미네소타")),
+            Map.entry("NYM", List.of("메츠")),
+            Map.entry("NYY", List.of("양키스")),
+            Map.entry("ATH", List.of("애슬레틱스")), Map.entry("OAK", List.of("애슬레틱스")),
+            Map.entry("PHI", List.of("필리스", "필라델피아")),
+            Map.entry("PIT", List.of("파이리츠", "피츠버그")),
+            Map.entry("SD", List.of("파드리스", "샌디에이고")), Map.entry("SDP", List.of("파드리스", "샌디에이고")),
+            Map.entry("SF", List.of("자이언츠", "샌프란시스코")), Map.entry("SFG", List.of("자이언츠", "샌프란시스코")),
+            Map.entry("SEA", List.of("매리너스", "시애틀")),
+            Map.entry("STL", List.of("카디널스", "세인트루이스")),
+            Map.entry("TB", List.of("탬파베이")), Map.entry("TBR", List.of("탬파베이")),
+            Map.entry("TEX", List.of("레인저스", "텍사스")),
+            Map.entry("TOR", List.of("블루제이스", "토론토")),
+            Map.entry("WSH", List.of("내셔널스", "워싱턴")), Map.entry("WSN", List.of("내셔널스", "워싱턴")),
+            Map.entry("WAS", List.of("내셔널스", "워싱턴")));
+
     /** 영문·숫자만으로 된 말(FA 등). 이런 말은 낱말 단위로만 찾는다('DFA'·'fans' 속의 fa는 아니다) */
     private static final Pattern LATIN_WORD = Pattern.compile("[A-Za-z0-9 ]+");
 
     private NewsTopics() {
     }
 
-    /** 묶음들에서 많이 나온 말(많은 순, 같으면 정해 둔 순서) 최대 SHOWN개. MIN_COUNT번 미만은 뺀다 */
-    static List<NewsListResponse.Topic> count(List<SameArticles.Group> groups) {
+    /** 구단 약어의 이름들(WORDS에 있는 것). 모르는 약어나 null이면 빈 목록 */
+    static List<String> teamWords(String abbreviation) {
+        return abbreviation == null ? List.of() : TEAM_WORDS.getOrDefault(abbreviation, List.of());
+    }
+
+    /**
+     * 묶음들에서 많이 나온 말(많은 순, 같으면 정해 둔 순서) 최대 SHOWN개. MIN_COUNT번 미만은 뺀다.
+     * skip에 든 말(고른 선수의 지금 구단 이름)은 세지 않는다
+     */
+    static List<NewsListResponse.Topic> count(List<SameArticles.Group> groups, Collection<String> skip) {
         List<String> texts = groups.stream().map(NewsTopics::text).toList();
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (String word : WORDS) {
+            if (skip.contains(word)) {
+                continue;
+            }
             int n = (int) texts.stream().filter(t -> mentions(t, word)).count();
             if (n >= MIN_COUNT) {
                 counts.put(word, n);

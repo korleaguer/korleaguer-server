@@ -1,7 +1,13 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.Affiliation;
+import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.Team;
+import com.korleaguer.domain.TeamRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +20,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +50,15 @@ class NewsListApiTest {
 
     @Autowired
     private NewsArticleRepository news;
+
+    @Autowired
+    private PlayerRepository players;
+
+    @Autowired
+    private TeamRepository teams;
+
+    @Autowired
+    private AffiliationRepository affiliations;
 
     private final JsonMapper json = JsonMapper.builder().build();
     private int seq;
@@ -235,7 +251,10 @@ class NewsListApiTest {
         JsonNode all = page(null, null, "계약");
         assertThat(titles(all)).containsExactly("이정후 계약 소식", "Lee extension talk", "김하성 FA 계약 임박");
         assertThat(all.get("query").asString()).isEqualTo("계약");
-        assertThat(all.get("topics")).isEmpty(); // 검색할 때는 많이 나온 말을 주지 않는다
+        // 검색할 때도 많이 나온 말을 검색어와 상관없이 준다(알약을 눌러 거른 채로도 줄이 보이게, 이슈 #165). 여기는 3번 넘게 나온 말이 '계약'뿐
+        assertThat(all.get("topics").size()).isEqualTo(1);
+        assertThat(all.get("topics").get(0).get("word").asString()).isEqualTo("계약");
+        assertThat(all.get("topics").get(0).get("count").asInt()).isEqualTo(3);
 
         // 선수 거르기와 함께
         assertThat(titles(page("이정후", null, " 계약 "))).containsExactly("이정후 계약 소식", "Lee extension talk");
@@ -285,9 +304,9 @@ class NewsListApiTest {
         assertThat(all.get("topics").get(1).get("word").asString()).isEqualTo("다저스");
         assertThat(all.get("topics").get(1).get("count").asInt()).isEqualTo(3);
         // 선수로 거르면 그 선수 기사에서만 센다
-        JsonNode kim = page("김혜성", null, null);
+        JsonNode kim = page("김하성", null, null);
         assertThat(kim.get("topics").size()).isEqualTo(1);
-        assertThat(kim.get("topics").get(0).get("word").asString()).isEqualTo("다저스");
+        assertThat(kim.get("topics").get(0).get("word").asString()).isEqualTo("FA");
     }
 
     @Test
@@ -314,10 +333,79 @@ class NewsListApiTest {
         }
         save("이정후", "샌프란시스코 이야기", "마이데일리", T0.minusSeconds(600));
 
-        JsonNode page = page("이정후", null, null);
+        // 전체 보기로 본다(이정후를 고르면 그 선수의 지금 구단이라 둘 다 빠진다, ownTeamIsNotATopicForThatPlayer)
+        JsonNode page = page(null, null, null);
         List<String> words = new ArrayList<>();
         page.get("topics").forEach(t -> words.add(t.get("word").asString()));
         assertThat(words).contains("샌프란시스코").doesNotContain("자이언츠");
+    }
+
+    @Test
+    void topicsStayWhileSearching() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minusSeconds(60L * i));
+            save("김하성", "김하성 영입 경쟁 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
+        }
+
+        JsonNode searching = page("김하성", null, "FA");
+        assertThat(titles(searching)).hasSize(3);
+        List<String> words = new ArrayList<>();
+        searching.get("topics").forEach(t -> words.add(t.get("word").asString()));
+        // 검색어(FA)와 상관없이 그 선수의 최근 기사에서 센다. 같은 수면 정해 둔 순서(WORDS)
+        assertThat(words).containsExactly("FA", "영입");
+        // 다음 쪽에는 주지 않는다
+        assertThat(page("김하성", "2026-11-14T11:00:00Z_1", "FA").get("topics")).isEmpty();
+    }
+
+    @Test
+    void ownTeamIsNotATopicForThatPlayer() throws Exception {
+        inDodgers(null);
+        for (int i = 0; i < 4; i++) {
+            save("김혜성", "다저스 김혜성 이야기 " + i, "마이데일리", T0.minusSeconds(60L * i));
+        }
+        for (int i = 0; i < 3; i++) {
+            save("김혜성", "김혜성 트레이드설 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
+        }
+
+        // 그 선수 기사에선 지금 구단(다저스)을 세지 않는다: 거의 모든 기사에 나와 눌러도 걸러지지 않는다
+        JsonNode kimPage = page("김혜성", null, null);
+        assertThat(kimPage.get("topics").size()).isEqualTo(1);
+        assertThat(kimPage.get("topics").get(0).get("word").asString()).isEqualTo("트레이드");
+        // 전체 보기에선 그대로 센다(어느 선수 이야기인지 고르는 바로가기)
+        List<String> words = new ArrayList<>();
+        page(null, null, null).get("topics").forEach(t -> words.add(t.get("word").asString()));
+        assertThat(words).containsExactly("다저스", "트레이드");
+    }
+
+    @Test
+    void lastTeamStaysATopicForAFreeAgent() throws Exception {
+        inDodgers(LocalDate.of(2026, 11, 1));
+        for (int i = 0; i < 3; i++) {
+            save("김혜성", "다저스 김혜성 복귀설 " + i, "마이데일리", T0.minusSeconds(60L * i));
+        }
+
+        // FA면 마지막 구단도 행선지 후보라 뺄 까닭이 없다
+        JsonNode kimPage = page("김혜성", null, null);
+        assertThat(kimPage.get("topics").size()).isEqualTo(1);
+        assertThat(kimPage.get("topics").get(0).get("word").asString()).isEqualTo("다저스");
+    }
+
+    /** 김혜성의 소속 줄을 다저스로(시험 DB에 이미 있으면 고친다). ended가 있으면 그날 소속이 끝난 것(FA)으로 */
+    private void inDodgers(LocalDate ended) {
+        Team dodgers = teams.findById(119L).orElseGet(() -> new Team(119L));
+        dodgers.update("LAD", "Los Angeles Dodgers");
+        teams.save(dodgers);
+        Player kim = players.findByMlbId(808975L).orElseGet(() -> {
+            Player p = new Player("김혜성");
+            p.changeMlbId(808975L);
+            return players.save(p);
+        });
+        Affiliation affiliation = affiliations.findByPlayer(kim).orElseGet(() -> new Affiliation(kim, dodgers, LocalDate.of(2025, 1, 4)));
+        affiliation.changeTeam(dodgers);
+        if (ended != null) {
+            affiliation.end(ended);
+        }
+        affiliations.save(affiliation);
     }
 
     @Test
