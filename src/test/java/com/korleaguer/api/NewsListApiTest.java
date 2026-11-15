@@ -358,6 +358,45 @@ class NewsListApiTest {
     }
 
     @Test
+    void topicCountIsTheNumberOfSearchRowsBeyondRecentArticles() throws Exception {
+        // 최근 TOPIC_ROWS건: 그중 FA가 3건. 그보다 오래된 FA 기사 5건은 말을 고를 때는 안 보지만 검색에는 나온다
+        for (int i = 0; i < NewsListFinder.TOPIC_ROWS; i++) {
+            String title = i < 3 ? "김하성 FA 최근 소식 " + i : "김하성 겨울 소식 " + i;
+            save("김하성", title, "마이데일리", T0.minus(Duration.ofMinutes(i)));
+        }
+        for (int i = 0; i < 5; i++) {
+            save("김하성", "김하성 FA 지난 소식 " + i, "마이데일리", T0.minus(Duration.ofDays(30 + i)));
+        }
+
+        JsonNode first = page("김하성", null, null);
+        assertThat(first.get("topics").get(0).get("word").asString()).isEqualTo("FA");
+        // 숫자는 알약을 눌렀을 때 나오는 줄 수(최근 3건만 세면 3이었다)
+        assertThat(first.get("topics").get(0).get("count").asInt()).isEqualTo(8);
+        assertThat(titles(page("김하성", null, "FA"))).hasSize(8);
+    }
+
+    @Test
+    void topicsAreOrderedByShownCount() throws Exception {
+        // 최근엔 '영입'이 더 많지만(4 대 3), 전체로 세면 'FA'가 더 많다(3 + 오래된 3 = 6). 보이는 숫자 순으로 FA가 앞
+        for (int i = 0; i < 4; i++) {
+            save("김하성", "김하성 영입 경쟁 " + i, "마이데일리", T0.minus(Duration.ofMinutes(i)));
+        }
+        for (int i = 0; i < 3; i++) {
+            save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10 + i)));
+        }
+        for (int i = 0; i < NewsListFinder.TOPIC_ROWS; i++) {
+            save("김하성", "김하성 겨울 소식 " + i, "마이데일리", T0.minus(Duration.ofHours(1)).minus(Duration.ofMinutes(i)));
+        }
+        for (int i = 0; i < 3; i++) {
+            save("김하성", "김하성 FA 지난 소식 " + i, "마이데일리", T0.minus(Duration.ofDays(30 + i)));
+        }
+
+        List<String> shown = new ArrayList<>();
+        page("김하성", null, null).get("topics").forEach(t -> shown.add(t.get("word").asString() + " " + t.get("count").asInt()));
+        assertThat(shown).containsExactly("FA 6", "영입 4");
+    }
+
+    @Test
     void ownTeamIsNotATopicForThatPlayer() throws Exception {
         inDodgers(null);
         for (int i = 0; i < 4; i++) {
