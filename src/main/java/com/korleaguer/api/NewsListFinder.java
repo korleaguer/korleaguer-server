@@ -91,11 +91,13 @@ public class NewsListFinder {
         if (all.isEmpty() || publishers.isEmpty()) {
             return new NewsListResponse(List.of(), null, List.of(), null);
         }
-        Set<String> withArticles = new HashSet<>(news.findSubjectsWithArticles(all.keySet(), publishers));
-        // 포스팅 선수는 국내 기사가 MLB 이야기여야 보이므로, 보일 기사가 실제로 있는지 최근 기사로 한 번 더 본다
+        Map<String, Instant> latest = new HashMap<>();
+        news.findLatestBySubject(all.keySet(), publishers).forEach(r -> latest.put(r.getSubject(), r.getLatest()));
+        // 포스팅 선수는 국내 기사가 MLB 이야기여야 보이므로, 보일 기사가 실제로 있는지와 그 시각을 최근 기사로 한 번 더 본다
         List<NewsListResponse.Subject> chips = all.values().stream()
-                .filter(s -> withArticles.contains(s.nameKo()))
-                .filter(s -> !s.posting() || hasMlbArticle(s.nameKo()))
+                .filter(s -> latest.containsKey(s.nameKo()))
+                .map(s -> s.withLatestAt(s.posting() ? latestMlbArticle(s.nameKo()) : latest.get(s.nameKo())))
+                .filter(s -> s.latestAt() != null)
                 .toList();
         if (wanted != null && chips.stream().noneMatch(s -> s.nameKo().equals(wanted))) {
             return new NewsListResponse(chips, null, List.of(), null);
@@ -161,11 +163,14 @@ public class NewsListFinder {
         return new Page(shown.stream().map(NewsListFinder::item).toList(), next);
     }
 
-    /** 포스팅 선수에게 지금 보일(MLB 이야기) 기사가 있나. 최근 기사만 본다 */
-    private boolean hasMlbArticle(String nameKo) {
+    /** 포스팅 선수의 지금 보일(MLB 이야기) 기사 중 가장 최근 발행 시각. 최근 기사만 보고, 없으면 null */
+    private Instant latestMlbArticle(String nameKo) {
         return news.findPage(List.of(nameKo), publishers, Cursor.TOP.at(), Cursor.TOP.id(), PageRequest.of(0, BATCH))
                 .stream()
-                .anyMatch(a -> aiPublishers.contains(a.getPublisher()) || MlbContext.mentions(a.getTitle()));
+                .filter(a -> aiPublishers.contains(a.getPublisher()) || MlbContext.mentions(a.getTitle()))
+                .findFirst()
+                .map(NewsArticle::getPublishedAt)
+                .orElse(null);
     }
 
     /** a가 커서 자리보다 오래됐나(발행 시각, 같으면 번호. 쿼리의 순서와 같다) */
@@ -219,7 +224,8 @@ public class NewsListFinder {
         }
         Map<String, NewsListResponse.Subject> out = new LinkedHashMap<>();
         for (PostingCase posting : postings.current()) {
-            out.put(posting.nameKo(), new NewsListResponse.Subject(posting.nameKo(), photos.postingPath(posting.slug()), null, true));
+            out.put(posting.nameKo(), new NewsListResponse.Subject(posting.nameKo(), photos.postingPath(posting.slug()), null,
+                    true, null));
         }
         List<RosterProperties.Entry> entries = roster.baseball() == null ? List.of() : roster.baseball();
         for (RosterProperties.Entry entry : entries) {
@@ -231,8 +237,8 @@ public class NewsListFinder {
             Long playerId = entry.mlbId() != null ? idByMlbId.get(entry.mlbId()) : idByName.get(name);
             NewsListResponse.Subject posting = out.get(name);
             out.put(name, posting != null
-                    ? new NewsListResponse.Subject(name, posting.photoUrl(), playerId, true)
-                    : new NewsListResponse.Subject(name, photos.mlbPath(entry.mlbId()), playerId, false));
+                    ? new NewsListResponse.Subject(name, posting.photoUrl(), playerId, true, null)
+                    : new NewsListResponse.Subject(name, photos.mlbPath(entry.mlbId()), playerId, false, null));
         }
         return out;
     }

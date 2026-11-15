@@ -64,6 +64,7 @@ class NewsListApiTest {
                 .andExpect(jsonPath("$.players[0].playerId").doesNotExist())
                 .andExpect(jsonPath("$.players[1].nameKo").value("이정후"))
                 .andExpect(jsonPath("$.players[1].posting").value(false))
+                .andExpect(jsonPath("$.players[1].latestAt").value("2026-11-14T11:59:00Z"))
                 .andExpect(jsonPath("$.players[2].nameKo").value("김하성"))
                 .andExpect(jsonPath("$.player").doesNotExist())
                 .andExpect(jsonPath("$.items.length()").value(3))
@@ -95,6 +96,23 @@ class NewsListApiTest {
         JsonNode page = page("노시환", null);
 
         assertThat(titles(page)).containsExactly("노시환 MLB 포스팅 공시", "Roh Posted");
+    }
+
+    @Test
+    void latestAtIsTheNewestArticleThatTheListShows() throws Exception {
+        save("이정후", "이정후 새 타격코치", "마이데일리", T0.minusSeconds(600));
+        save("이정후", "이정후 연봉 이야기", "마이데일리", T0);
+        offTopic(save("이정후", "이정후가 잠깐 나온 기사", "마이데일리", T0.plusSeconds(600))); // 주인공 아님: 세지 않는다
+        save("이정후", "이정후 다른 소식", "없는 언론사", T0.plusSeconds(1200)); // 뺀 언론사: 세지 않는다
+        save("노시환", "한화 노시환 연봉 협상", "마이데일리", T0.plusSeconds(600)); // 포스팅 선수의 KBO 기사: 세지 않는다
+        save("노시환", "노시환 MLB 포스팅 공시", "마이데일리", T0.minusSeconds(60));
+
+        mockMvc.perform(get("/api/news"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.players[0].nameKo").value("노시환"))
+                .andExpect(jsonPath("$.players[0].latestAt").value("2026-11-14T11:59:00Z"))
+                .andExpect(jsonPath("$.players[1].nameKo").value("이정후"))
+                .andExpect(jsonPath("$.players[1].latestAt").value("2026-11-14T12:00:00Z"));
     }
 
     @Test
