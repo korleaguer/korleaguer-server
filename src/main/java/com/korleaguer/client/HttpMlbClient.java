@@ -180,6 +180,25 @@ public class HttpMlbClient implements MlbClient {
                 MlbResponses.SeasonStats.class));
     }
 
+    @Override
+    public List<MlbGameLogSplit> getTeamSeasonTotals(int sportId, Group group, int season) {
+        MlbResponses.Stats body = get("teams/stats " + group.value() + " sport " + sportId + " " + season,
+                uri -> uri.path("/api/v1/teams/stats")
+                        .queryParam("stats", "season")
+                        .queryParam("group", group.value())
+                        .queryParam("season", season)
+                        .queryParam("sportIds", sportId)
+                        .build(),
+                MlbResponses.Stats.class);
+        if (body == null || body.stats() == null) {
+            return List.of();
+        }
+        return body.stats().stream()
+                .filter(statGroup -> statGroup.splits() != null)
+                .flatMap(statGroup -> statGroup.splits().stream())
+                .toList();
+    }
+
     private static List<MlbSeasonSplit> seasonSplits(MlbResponses.SeasonStats body) {
         if (body == null || body.stats() == null) {
             return List.of();

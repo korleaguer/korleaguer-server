@@ -45,6 +45,15 @@ public interface MlbClient {
     /** 한 시즌 MLB 전체 선수의 고급 지표(stats=sabermetrics, 정규시즌). 선수마다 한 줄이다. 기록이 없으면 빈 목록 */
     List<MlbSeasonSplit> getLeagueSabermetrics(Group group, int season);
 
+    /**
+     * 한 리그 단계의 한 시즌 팀별 합계(teams/stats?stats=season, 정규시즌). sportId 1 = MLB, 11 = 트리플A, 12 = 더블A,
+     * 13 = 하이싱글A, 14 = 싱글A, 16 = 루키. 팀마다 한 줄(stat에 그 팀 타격 또는 투구 합계)이다.
+     * 성적표 달별 wRC+의 리그 평균에 쓴다(LeagueEnvironments). 기록이 없거나 지원하지 않는 클라이언트면 빈 목록
+     */
+    default List<MlbGameLogSplit> getTeamSeasonTotals(int sportId, Group group, int season) {
+        return List.of();
+    }
+
     /** 팀들의 한 시즌 메이저 일정(시범경기·포스트시즌 포함). 점수와 상태도 들어 있다. */
     List<MlbScheduleGame> getSeasonSchedule(Collection<Long> teamIds, int season);
 
