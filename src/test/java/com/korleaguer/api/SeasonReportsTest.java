@@ -65,6 +65,9 @@ class SeasonReportsTest {
         assertThat(report.level()).isEqualTo(Level.MLB);
         assertThat(report.war()).isEqualTo(1.0);
         assertThat(report.stories()).hasSizeLessThanOrEqualTo(2);
+        // 달별 기록: 3월 말(개막 뒤 6일)은 4월 칸이라 4~9월 여섯 칸, 모두 메이저(SeasonMonthsTest)
+        assertThat(report.months()).extracting(SeasonReport.Month::month).containsExactly(4, 5, 6, 7, 8, 9);
+        assertThat(report.months()).extracting(SeasonReport.Month::kind).containsOnly(SeasonReport.Month.Kind.MLB);
         assertThat(report.winterMoves()).isEmpty();
     }
 
