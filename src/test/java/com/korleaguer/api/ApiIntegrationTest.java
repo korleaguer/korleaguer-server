@@ -127,7 +127,8 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.offseason.report[0].label").isString())
                 .andExpect(jsonPath("$.offseason.report[0].headline").isString())
                 .andExpect(jsonPath("$.offseason.report[0].level").isString())
-                .andExpect(jsonPath("$.offseason.report[0].stories").isArray())
+                .andExpect(jsonPath("$.offseason.report[0].stories").doesNotExist())
+                .andExpect(jsonPath("$.offseason.report[0].months").isArray())
                 .andExpect(jsonPath("$.offseason.report[0].winterMoves").isArray());
     }
 
