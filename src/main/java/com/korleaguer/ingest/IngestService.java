@@ -49,6 +49,7 @@ public class IngestService {
     private final SeasonDatesRefresher seasonDatesRefresher;
     private final SeasonMetricRefresher seasonMetricRefresher;
     private final LeaguePositionRefresher leaguePositionRefresher;
+    private final KoreanRecordsRefresher koreanRecordsRefresher;
     private final GameIngest gameIngest;
     private final PlayerRepository players;
     private final PlayerSeasonRepository seasons;
@@ -61,7 +62,8 @@ public class IngestService {
 
     public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher,
                          SeasonDatesRefresher seasonDatesRefresher, SeasonMetricRefresher seasonMetricRefresher,
-                         LeaguePositionRefresher leaguePositionRefresher, GameIngest gameIngest, PlayerRepository players,
+                         LeaguePositionRefresher leaguePositionRefresher, KoreanRecordsRefresher koreanRecordsRefresher,
+                         GameIngest gameIngest, PlayerRepository players,
                          PlayerSeasonRepository seasons, IngestLogRepository ingestLogs, RosterProperties roster,
                          CurrentSeason currentSeason, ResponseCaches responseCaches, Clock clock) {
         this.client = client;
@@ -70,6 +72,7 @@ public class IngestService {
         this.seasonDatesRefresher = seasonDatesRefresher;
         this.seasonMetricRefresher = seasonMetricRefresher;
         this.leaguePositionRefresher = leaguePositionRefresher;
+        this.koreanRecordsRefresher = koreanRecordsRefresher;
         this.gameIngest = gameIngest;
         this.players = players;
         this.seasons = seasons;
@@ -112,6 +115,7 @@ public class IngestService {
      *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
      *   <li>오늘 아직 안 받은 선수의 MLB 안 위치·시즌별 기록(하루 한 번, LeaguePositionRefresher. lookAhead 단계보다도 뒤)</li>
+     *   <li>한국인 메이저리거 역대 기록의 시즌별 개수 기록(명단 선수는 하루 한 번, 명단 밖 선수는 처음 한 번, KoreanRecordsRefresher)</li>
      * </ol>
      */
     public IngestLog catchUp(boolean refreshGames) {
@@ -143,6 +147,7 @@ public class IngestService {
             }
             // 맨 뒤: 이 단계가 실패해도 앞 일정 보기(시즌 복귀)·성적표 수집이 그 실행에서 빠지지 않는다
             steps.add(leaguePositionRefresher::refresh);
+            steps.add(koreanRecordsRefresher::refresh);
         });
     }
 
