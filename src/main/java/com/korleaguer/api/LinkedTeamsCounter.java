@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,12 +62,74 @@ final class LinkedTeamsCounter {
                 .filter(a -> !a.getPublishedAt().isBefore(since))
                 .toList();
         Map<Long, Long> storyOf = new HashMap<>();
+        Map<Long, SameArticles.Group> groupOf = new HashMap<>();
+        Map<Long, NewsArticle> byId = new HashMap<>();
         for (SameArticles.Group group : SameArticles.group(recent)) {
+            groupOf.put(group.article().getId(), group);
             for (NewsArticle member : group.members()) {
                 storyOf.put(member.getId(), group.article().getId());
+                byId.put(member.getId(), member);
             }
         }
-        return linkedTeams(onePerStory(mentions, storyOf), today);
+        List<DestinationMention> stories = onePerStory(mentions, storyOf);
+        return linkedTeams(stories, today, linkedArticles(stories, mentions, storyOf, groupOf, byId));
+    }
+
+    /**
+     * 거론(linked)으로 센 글마다 대표 기사 한 줄을 구단별로 모은다(최근 순). 숫자와 건수가 같도록 센 글 그대로 쓴다.
+     * 근거 문장은 대표 기사 → 그 묶음에서 그 구단을 고른 기사 순으로 찾는다(대표 기사 요약에 그 구단이 없을 수 있다).
+     * 묶음 밖 기사(목록 거르기에서 빠졌거나 읽은 기사 수를 넘은 기사)는 따로 읽는다
+     */
+    private Map<String, List<PostingSummary.LinkedArticle>> linkedArticles(List<DestinationMention> stories,
+                                                                           List<DestinationMention> mentions,
+                                                                           Map<Long, Long> storyOf,
+                                                                           Map<Long, SameArticles.Group> groupOf,
+                                                                           Map<Long, NewsArticle> byId) {
+        List<DestinationMention> linked = stories.stream()
+                .filter(m -> m.stance() == NewsDestination.Stance.LINKED)
+                .toList();
+        if (linked.isEmpty()) {
+            return Map.of();
+        }
+        // 이야기·구단마다 그 구단을 거론(linked)으로 고른 기사들(근거 문장을 찾을 곳)
+        record Key(Long story, String team) {
+        }
+        Map<Key, List<Long>> taggedBy = new HashMap<>();
+        for (DestinationMention m : mentions) {
+            if (m.stance() == NewsDestination.Stance.LINKED) {
+                Long story = storyOf.getOrDefault(m.articleId(), m.articleId());
+                taggedBy.computeIfAbsent(new Key(story, m.team()), k -> new ArrayList<>()).add(m.articleId());
+            }
+        }
+        Set<Long> missing = new HashSet<>();
+        linked.forEach(m -> missing.add(m.articleId()));
+        taggedBy.values().forEach(missing::addAll);
+        missing.removeAll(byId.keySet());
+        Map<Long, NewsArticle> articles = new HashMap<>(byId);
+        if (!missing.isEmpty()) {
+            news.findAllById(missing).forEach(a -> articles.put(a.getId(), a));
+        }
+        Map<String, List<PostingSummary.LinkedArticle>> byTeam = new HashMap<>();
+        for (DestinationMention story : linked) {
+            NewsArticle lead = articles.get(story.articleId());
+            if (lead == null) {
+                continue;
+            }
+            List<NewsArticle> sources = new ArrayList<>();
+            sources.add(lead);
+            taggedBy.getOrDefault(new Key(story.articleId(), story.team()), List.of()).stream()
+                    .map(articles::get)
+                    .filter(a -> a != null && a != lead)
+                    .forEach(sources::add);
+            LinkedReasons.Reason reason = LinkedReasons.find(story.team(), sources);
+            SameArticles.Group group = groupOf.get(story.articleId());
+            byTeam.computeIfAbsent(story.team(), k -> new ArrayList<>()).add(new PostingSummary.LinkedArticle(
+                    lead.getId(), lead.getTitle(), lead.getTitleKo(), lead.getPublisher(), lead.getPublishedAt(),
+                    lead.getImageUrl(), group == null ? List.of() : group.alsoBy(), reason.sentence(), reason.name()));
+        }
+        byTeam.values().forEach(list -> list.sort(Comparator.comparing(PostingSummary.LinkedArticle::publishedAt)
+                .thenComparing(PostingSummary.LinkedArticle::id).reversed()));
+        return byTeam;
     }
 
     /**
@@ -97,6 +160,12 @@ final class LinkedTeamsCounter {
      * 오늘(today)은 한국 날짜로 오늘 나온 기사에서 거론(linked)된 구단이다(반대 전망은 '오늘'로 치지 않는다)
      */
     static PostingSummary.LinkedTeams linkedTeams(List<DestinationMention> mentions, LocalDate today) {
+        return linkedTeams(mentions, today, Map.of());
+    }
+
+    /** @param articles 구단별 거론 기사(linkedArticles). 없는 구단은 빈 목록 */
+    static PostingSummary.LinkedTeams linkedTeams(List<DestinationMention> mentions, LocalDate today,
+                                                  Map<String, List<PostingSummary.LinkedArticle>> articles) {
         record Tally(String team, int linked, int doubted, boolean today, Instant last) {
         }
         Map<String, Tally> byTeam = new LinkedHashMap<>();
@@ -114,7 +183,7 @@ final class LinkedTeamsCounter {
                         .thenComparing(Tally::last, Comparator.reverseOrder())
                         .thenComparing(Tally::team))
                 .map(t -> new PostingSummary.LinkedTeam(t.team(), TeamNames.korean(t.team(), t.team()), t.linked(),
-                        t.doubted(), t.today()))
+                        t.doubted(), t.today(), articles.getOrDefault(t.team(), List.of())))
                 .toList();
         return new PostingSummary.LinkedTeams(LINKED_DAYS, teams);
     }
