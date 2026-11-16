@@ -56,6 +56,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
 - **MLB 안 위치·시즌별 기록(하루 한 번, 시즌 중·비시즌 모두):** 리그 전체 `stats?stats=season|sabermetrics&group=hitting|pitching&season=Y&sportIds=1&playerPool=ALL&limit=2000` 묶음마다 2번(우리 선수에 투수가 없으면 타격만), `people/{id}/stats?stats=yearByYear` 선수마다 1번, 지난 시즌 지표 `people/{id}/stats?stats=sabermetrics&season=Y`는 선수·시즌마다 처음 한 번만. 아래 "MLB 안 위치와 지난 시즌 표".
+- **한국인 메이저리거 역대 기록(이슈 #177):** `people/{id}/stats?stats=yearByYear` 선수마다 1번. 명단 선수는 하루 한 번, 명단 밖 선수(`roster/korean-mlb.yml`, 은퇴·국내 복귀 24명)는 저장한 줄이 없을 때 서버가 켜져 있는 동안 한 번. 아래 "한국인 메이저리거 역대 기록".
 - **경기 갱신(시즌 중):** 우리 선수 팀들의 오늘·어제(미국 동부 날짜) 일정을 받고(1번), 진행 중인 경기와 다시 확인할 때가 된 끝난 경기만 `game/{gamePk}/boxscore`로 받는다.
   - 한국 시간 01:00~16:00(미국 경기 시간대)에는 12분마다, 그 밖에는 1시간마다(정각 근처 실행만).
   - 서버가 멈췄거나 MLB가 막아(403/429) 며칠 갱신을 못 했으면, 결과를 못 받은 경기(시작했는데 끝남·연기·취소가 아님)나 마지막으로 끝난 경기가 있는 날부터 오늘까지를 한 번에 받는다(일정 요청은 그대로 1번, 최대 14일 전까지). 그보다 오래 멈췄으면 `/admin/ingest/season`으로 시즌을 다시 받는다.
@@ -77,6 +78,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
 | `GET /api/news?player=이정후&before=…` | 뉴스 탭 한 쪽: 선수 고르기 목록(`players`, 기사가 있는 선수만, 포스팅 선수 먼저·명단 순, 선수마다 가장 최근 기사 시각 `latestAt`) + 기사 20줄(늦은 순, 같은 기사는 한 줄·`alsoBy`, 누구 기사인지 `who`) + 다음 쪽 커서(`next`, `before`로 그대로 넘긴다). `player`가 없으면 전체, 모르는 선수면 빈 목록. `q`를 주면 제목(원제·한국어 제목)에 그 말이 있는 기사만(30자까지). 첫 쪽이고 `q`가 없으면 최근 기사에 많이 나온 말 `topics`(`{word, count}`, 최대 6개). 커서 모양이 틀리면 400 |
 | `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
+| `GET /api/records` | 한국인 메이저리거 역대 기록: 통산 순위(`categories`), 현역의 다음 선배(`next`), 이번 시즌 넘은 선배(`passed`), 한 시즌 최다(`singleSeason`) |
 | `GET /actuator/health` | 상태 확인 |
 | `POST /admin/ingest/players` | 명단 선수의 정보·지금 팀·단계·이동 기록을 지금 다시 받기 |
 | `POST /admin/ingest/season?season=2026` | 명단 선수 전원의 시즌을 다시 받기(받은 적이 있어도) |
@@ -174,6 +176,16 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - `news`: 그 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 성적표 `news`와 같은 모양·규칙(지금 수집하는 언론사만, 주인공이 아닌 기사 뺌)이고 기간 제한만 없다.
 - `games[].batting`에 타격 흐름 그래프용 `doubles`·`triples`·`hitByPitch`·`sacFlies`·`plateAppearances`·`strikeouts`(MLB가 주지 않았으면 null)가 있다.
 - 샘플 모드: 리그 전체는 샘플 선수 줄(`sample/mlb.json`의 `yearByYear`·`sabermetrics`)에 지어낸 선수 240명씩을 더해 만든다(`SampleMlbClient.madeUpLeague`).
+
+### 한국인 메이저리거 역대 기록(`GET /api/records`, 이슈 #177)
+- 웹 기록 탭(아래 탭 '내 선수' 자리)에 쓴다. 사람은 지금 명단(MLB 번호 있는 선수) + `roster/korean-mlb.yml`(1994~2026 MLB 선수 중 출생 국가가 한국인 선수, MLB 자료에 출생 국가가 빠진 강정호를 더하고 한국 출생 미국 국적 선수는 뺐다).
+- 값은 MLB 정규시즌 기록이다. 선수마다 `yearByYear`를 받아 시즌·묶음(타자·투수)마다 한 줄로 저장한다(`korean_mlb_season`, V26, 여러 팀 시즌은 합친 줄). 명단 밖 선수는 `role`(hitter/pitcher) 한 묶음만, 명단 선수는 역할대로 받는다.
+- `categories`: 타자 안타·홈런·경기·도루·타점, 투수 승·탈삼진·세이브의 통산 순위(0은 뺀다). 한 줄 `{rank, playerId, mlbId, nameKo, photoUrl, value, firstSeason, lastSeason, active}`. 같은 값이면 같은 등수이고 먼저 데뷔한 선수가 앞이다. `unit`은 숫자 뒤에 붙이는 말(`"안타"`, `"승"`).
+- 현역(`active`)은 지금 명단 선수 중 국내 리그로 돌아가지 않은(`returned-ko` 없음) 선수다. `playerId`·`photoUrl`은 명단 선수만 있다.
+- `next`: 현역 선수마다·기록마다 바로 위 선수(`target*`), 넘으려면 남은 수 `toPass`(같아지려면 `toPass - 1`), 넘으면 오르는 등수 `rankAfter`. 넘기 쉬운(`toPass ÷ targetValue`가 작은) 순.
+- `passed`: 이번 시즌 현역이 현역이 아닌 선수의 통산 값을 처음 넘은 경기(한국 날짜 `dateKst`). 지난 시즌까지의 `yearByYear` 합에 이번 시즌 메이저 정규시즌 경기 기록(`appearance`)을 차례로 더해 찾는다. 같아진 것은 넘은 것이 아니다. 최근 것부터.
+- `singleSeason`: 안타·홈런·도루·승·탈삼진·세이브의 한 시즌 최다 10위까지(10위와 같은 값이면 함께, 같은 선수의 다른 시즌도 따로).
+- 샘플 모드: `sample/mlb.json`의 `yearByYear`(명단 6명)만 있어 명단 밖 선수는 나오지 않는다.
 
 ### 마이너 경기 줄(`GET /api/players/{id}`의 `minorGames`, 이슈 #145)
 - 이번 시즌 마이너 경기를 최신 경기부터 모두 준다(없으면 빈 목록). 웹이 `games`(메이저)와 날짜순으로 섞어 '경기 기록'에 보인다. 마이너에서 잘해야 콜업되니 마이너에 오래 있는 선수도 경기 소식이 보이게 한다(11-13 결정).

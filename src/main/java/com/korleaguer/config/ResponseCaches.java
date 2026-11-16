@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 화면용 응답 캐시(홈·선수·내 선수·내 선수 카드)를 지우는 곳. 데이터가 실제로 바뀌었을 때만, 바뀐 것이 나오는 캐시만 지운다.
+ * 화면용 응답 캐시(홈·선수·내 선수·내 선수 카드·한국인 역대 기록)를 지우는 곳. 데이터가 실제로 바뀌었을 때만, 바뀐 것이 나오는 캐시만 지운다.
  * <ul>
  *   <li>clearIfDataChanged: 지난번 확인 뒤 DB에 쓴 것(DataChanges)이 있으면 지운다. 모든 응답에 나오는 데이터면 모두,
  *       기사 표(homeVersion)뿐이면 기사가 나오는 홈·선수 페이지만(NEWS). 수집이 끝날 때(IngestService)와
@@ -24,7 +24,7 @@ public class ResponseCaches {
 
     private static final Logger log = LoggerFactory.getLogger(ResponseCaches.class);
     public static final List<String> ALL = List.of(AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE,
-            AppConfig.CARD_CACHE);
+            AppConfig.CARD_CACHE, AppConfig.RECORDS_CACHE);
     public static final List<String> HOME = List.of(AppConfig.HOME_CACHE);
     /** 기사가 나오는 응답: 홈(포스팅·성적표 기사)과 선수 페이지(그 선수 기사, 이슈 #133) */
     public static final List<String> NEWS = List.of(AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE);
