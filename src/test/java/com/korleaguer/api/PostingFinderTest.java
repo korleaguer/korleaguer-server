@@ -427,8 +427,57 @@ class PostingFinderTest {
                 mention(41, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:00:00Z"),
                 mention(42, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:30:00Z")));
 
-        assertThat(finder(roh(null)).find(now).players().getFirst().linkedTeams().teams())
-                .containsExactly(new PostingSummary.LinkedTeam("NYM", "뉴욕 메츠", 1, 0, true));
+        List<PostingSummary.LinkedTeam> teams = finder(roh(null)).find(now).players().getFirst().linkedTeams().teams();
+
+        assertThat(teams).extracting(PostingSummary.LinkedTeam::abbreviation, PostingSummary.LinkedTeam::linked,
+                PostingSummary.LinkedTeam::today).containsExactly(org.assertj.core.groups.Tuple.tuple("NYM", 1, true));
+        // 창에는 묶음 대표 기사 한 줄만
+        assertThat(teams.getFirst().articles()).extracting(PostingSummary.LinkedArticle::id).containsExactly(41L);
+    }
+
+    @Test
+    void eachLinkedTeamListsTheStoriesItCountedWithTheSentenceThatNamesTheTeam() {
+        Instant now = Instant.parse("2026-11-12T10:00:00Z"); // 한국 11/12 19시
+        // 41·42는 같은 글(대표 41, 42는 다른 언론사 사본). 대표 요약에는 메츠가 없고 사본 요약에 있다
+        NewsArticle original = article(41L, "https://a.example/1", "노시환 MLB 도전, 메츠행 급부상", "마이데일리", "2026-11-12T01:00:00Z");
+        original.enriched(null, null, "노시환이 포스팅을 신청했다.\n미국 매체가 행선지를 꼽았다.", "m", now);
+        NewsArticle copy = article(42L, "https://b.example/1", "노시환 MLB 도전, 메츠행 급부상", "MLB Trade Rumors", "2026-11-12T01:30:00Z");
+        copy.enriched(null, null, "노시환이 포스팅을 신청했다.\n뉴욕 메츠가 3루수 후보로 노시환을 꼽았다.", "m", now);
+        // 요약이 없으면 근거 문장 없이 제목에서 이름만
+        NewsArticle titleOnly = article(43L, "https://a.example/2", "노시환, 필라델피아행? MLB 관심", "마이데일리", "2026-11-11T03:00:00Z");
+        // 목록 기사(findLatest) 밖의 기사는 따로 읽는다
+        NewsArticle older = article(44L, "https://a.example/3", "노시환 MLB 행선지", "마이데일리", "2026-11-08T03:00:00Z");
+        older.enriched(null, null, "필라델피아 필리스와 뉴욕 메츠가 노시환에게 관심을 보였다.", "m", now);
+        NewsArticle doubt = article(45L, "https://a.example/4", "메츠는 노시환 영입 안 한다 MLB", "마이데일리", "2026-11-12T05:00:00Z");
+        when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(doubt, copy, original, titleOnly));
+        when(news.findAllById(any())).thenReturn(List.of(older));
+        when(destinations.findMentions(eq("노시환"), any(), any())).thenReturn(List.of(
+                mention(41, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:00:00Z"),
+                mention(42, "NYM", NewsDestination.Stance.LINKED, "2026-11-12T01:30:00Z"),
+                mention(43, "PHI", NewsDestination.Stance.LINKED, "2026-11-11T03:00:00Z"),
+                mention(44, "PHI", NewsDestination.Stance.LINKED, "2026-11-08T03:00:00Z"),
+                mention(44, "NYM", NewsDestination.Stance.LINKED, "2026-11-08T03:00:00Z"),
+                mention(45, "NYM", NewsDestination.Stance.DOUBTED, "2026-11-12T05:00:00Z")));
+
+        List<PostingSummary.LinkedTeam> teams = finder(roh(null)).find(now).players().getFirst().linkedTeams().teams();
+
+        // 숫자와 기사 건수가 같다(반대 전망 45는 넣지 않는다)
+        assertThat(teams).allSatisfy(t -> assertThat(t.articles()).hasSize(t.linked()));
+        assertThat(teams).extracting(PostingSummary.LinkedTeam::abbreviation).containsExactly("NYM", "PHI");
+        List<PostingSummary.LinkedArticle> mets = teams.getFirst().articles();
+        assertThat(mets).extracting(PostingSummary.LinkedArticle::id).containsExactly(41L, 44L);
+        assertThat(mets.getFirst().alsoBy()).containsExactly("MLB Trade Rumors");
+        assertThat(mets).extracting(PostingSummary.LinkedArticle::reason, PostingSummary.LinkedArticle::reasonName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("뉴욕 메츠가 3루수 후보로 노시환을 꼽았다.", "뉴욕 메츠"),
+                        org.assertj.core.groups.Tuple.tuple("필라델피아 필리스와 뉴욕 메츠가 노시환에게 관심을 보였다.", "뉴욕 메츠"));
+        assertThat(teams.get(1).articles())
+                .extracting(PostingSummary.LinkedArticle::id, PostingSummary.LinkedArticle::reason,
+                        PostingSummary.LinkedArticle::reasonName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(43L, null, "필라델피아"),
+                        org.assertj.core.groups.Tuple.tuple(44L, "필라델피아 필리스와 뉴욕 메츠가 노시환에게 관심을 보였다.",
+                                "필라델피아 필리스"));
     }
 
     private static NewsArticle article(long id, String url, String title, String publisher, String publishedAt) {
