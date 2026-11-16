@@ -38,7 +38,7 @@ class SeasonReportFinderNewsTest {
             mock(SeasonDatesRepository.class), news, destinations, new NewsProperties(true, "0 */30 * * * *",
             "korleaguer/test", List.of("korleaguer"), List.of(new NewsProperties.Source("마이데일리", "https://a.example/rss",
             null, null, null, "lead"), new NewsProperties.Source("스포츠조선", "https://b.example/rss", null, null, null,
-            "lead"))), Clock.fixed(NOW, ZoneOffset.UTC));
+            "lead"))), mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void onlyWinterArticlesFromCurrentPublishersOneLinePerStory() {

@@ -5,6 +5,7 @@ import com.korleaguer.api.SeasonReport.Month.Kind;
 import com.korleaguer.api.SeasonReports.GameDay;
 import com.korleaguer.api.SeasonReports.Input;
 import com.korleaguer.api.SeasonReports.Move;
+import com.korleaguer.api.SeasonVerdict.Line;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Role;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -28,11 +30,11 @@ class SeasonMonthsTest {
 
     @Test
     void fullMajorSeasonShowsEveryMonthAndOnlyTheBigMonthIsHot() {
-        // 이정후: 3월 말 경기는 4월 칸, 6월 .384(26경기)만 주황. 짧은 부상자 명단 두 번은 경기가 있어 칸에 안 보인다
+        // 이정후: 3월 말 경기는 4월 칸. 짧은 부상자 명단 두 번은 경기가 있어 칸에 안 보인다
         List<GameDay> majors = new ArrayList<>();
         majors.addAll(hitGames(null, OPENING, 29, 103, 31));
         majors.addAll(hitGames(null, LocalDate.of(2026, 5, 1), 21, 85, 23));
-        majors.addAll(hitGames(null, LocalDate.of(2026, 6, 1), 26, 99, 38));
+        majors.addAll(hitGames(null, LocalDate.of(2026, 6, 1), 26, 99, 38, 8, 12));
         majors.addAll(hitGames(null, LocalDate.of(2026, 7, 1), 23, 87, 21));
         majors.addAll(hitGames(null, LocalDate.of(2026, 8, 1), 26, 97, 24));
         majors.addAll(hitGames(null, LocalDate.of(2026, 9, 1), 17, 72, 12));
@@ -43,6 +45,7 @@ class SeasonMonthsTest {
 
         List<Month> months = SeasonMonths.build(hitter(majors, List.of(), moves));
 
+        // 6월만 wRC+ 130 이상(8홈런·12볼넷)이라 주황
         assertThat(months).extracting(Month::month, Month::kind, Month::games, Month::avg, Month::few, Month::hot)
                 .containsExactly(
                         tuple(4, Kind.MLB, 29, 0.301, false, false),
@@ -51,10 +54,49 @@ class SeasonMonthsTest {
                         tuple(7, Kind.MLB, 23, 0.241, false, false),
                         tuple(8, Kind.MLB, 26, 0.247, false, false),
                         tuple(9, Kind.MLB, 17, 0.167, false, false));
+        assertThat(months.get(2).wrcPlus()).isGreaterThanOrEqualTo(SeasonMonths.HOT_WRC);
         assertThat(months).allSatisfy(m -> {
             assertThat(m.levelKo()).isNull();
             assertThat(m.era()).isNull();
+            assertThat(m.eraPlus()).isNull();
         });
+    }
+
+    @Test
+    void wrcPlusSeesWalksAndPowerThatAverageMisses() {
+        // 배지환 6월처럼: 타율 .240이어도 볼넷·홈런이 많으면 wRC+는 평균(100) 위. 타율 .301에 단타뿐인 달은 평균 아래
+        List<GameDay> majors = new ArrayList<>();
+        majors.addAll(hitGames(null, LocalDate.of(2026, 4, 1), 29, 103, 31));
+        majors.addAll(hitGames(null, LocalDate.of(2026, 6, 1), 26, 96, 23, 8, 20));
+
+        List<Month> months = SeasonMonths.build(hitter(majors, List.of(), List.of()));
+
+        assertThat(months.get(0)).extracting(Month::avg, Month::wrcPlus, Month::hot).containsExactly(0.301, 69, false);
+        assertThat(months.get(2)).extracting(Month::avg, Month::wrcPlus, Month::hot).containsExactly(0.24, 144, true);
+    }
+
+    @Test
+    void minorMonthsAreMeasuredAgainstTheirOwnLeague() {
+        // 같은 트리플A 기록도 타고 리그(2026 트리플A wOBA .338)와 비교하면 MLB 표준값과 비교할 때보다 낮다
+        List<GameDay> minors = hitGames("AAA", LocalDate.of(2026, 7, 1), 20, 72, 21, 2, 8);
+        Input input = hitter(List.of(), minors, List.of());
+
+        int standard = SeasonMonths.build(input).get(3).wrcPlus();
+        int tripleA = SeasonMonths.build(input, Map.of("AAA", new LeagueEnvironments.Env(0.338, 0.138, 4.99)))
+                .get(3).wrcPlus();
+
+        assertThat(tripleA).isLessThan(standard);
+        assertThat(tripleA).isBetween(90, 110);
+    }
+
+    @Test
+    void majorMonthsFollowTheOfficialSeasonWrcPlus() {
+        // 공식 시즌 wRC+(구장 보정 포함)가 120이면, 한 달만 뛴 선수의 그 달 wRC+도 120이다
+        List<GameDay> majors = hitGames(null, LocalDate.of(2026, 5, 1), 25, 90, 25, 3, 10);
+        Input input = new Input(1, Role.HITTER, 2026, OPENING, LAST_DAY, false, new Line(2026, 100, 0, 120.0, 1.0),
+                List.of(), majors, List.of(), List.of());
+
+        assertThat(SeasonMonths.build(input).get(1).wrcPlus()).isEqualTo(120);
     }
 
     @Test
@@ -124,19 +166,25 @@ class SeasonMonthsTest {
                 new Move(LocalDate.of(2026, 8, 30), "DFA", "Declared Free Agency", "RHP Woo-Suk Go elected free agency."),
                 move("2026-08-30", "OUT", "Minnesota Twins sent RHP Woo-Suk Go outright to St. Paul Saints."));
 
+        // 2026 리그 평균자책점: MLB 4.17, 트리플A 4.99, 더블A 4.85
+        Map<String, LeagueEnvironments.Env> leagues = Map.of("MLB", new LeagueEnvironments.Env(0.314, 0.118, 4.17),
+                "AAA", new LeagueEnvironments.Env(0.338, 0.138, 4.99), "AA", new LeagueEnvironments.Env(0.331, 0.137, 4.85));
         List<Month> months = SeasonMonths.build(new Input(808970, Role.PITCHER, 2026, OPENING, LAST_DAY, false, null,
-                List.of(), majors, minors, moves));
+                List.of(), majors, minors, moves), leagues);
 
-        assertThat(months).extracting(Month::month, Month::kind, Month::levelKo, Month::games, Month::era, Month::few)
+        // ERA+: 무자책 달은 300(최대), 1.46은 4.99/1.46 = 342라 300에서 자른다
+        assertThat(months).extracting(Month::month, Month::kind, Month::levelKo, Month::games, Month::era,
+                        Month::eraPlus, Month::few)
                 .containsExactly(
-                        tuple(4, Kind.MINORS, "더블A", 6, 0.0, false),
-                        tuple(5, Kind.MINORS, "트리플A", 7, 2.08, false),
-                        tuple(6, Kind.MINORS, "트리플A", 9, 1.46, false),
-                        tuple(7, Kind.MLB, null, 4, 9.0, true),
-                        tuple(8, Kind.MINORS, "트리플A", 8, 12.54, false),
-                        tuple(9, Kind.FREE_AGENT, null, 0, null, false));
+                        tuple(4, Kind.MINORS, "더블A", 6, 0.0, 300, false),
+                        tuple(5, Kind.MINORS, "트리플A", 7, 2.08, 240, false),
+                        tuple(6, Kind.MINORS, "트리플A", 9, 1.46, 300, false),
+                        tuple(7, Kind.MLB, null, 4, 9.0, 46, true),
+                        tuple(8, Kind.MINORS, "트리플A", 8, 12.54, 40, false),
+                        tuple(9, Kind.FREE_AGENT, null, 0, null, null, false));
         assertThat(months).allSatisfy(m -> {
             assertThat(m.avg()).isNull();
+            assertThat(m.wrcPlus()).isNull();
             assertThat(m.hot()).isFalse();
         });
     }
@@ -239,11 +287,19 @@ class SeasonMonthsTest {
 
     /** from부터 하루 한 경기씩 count경기. 타수·안타 합계가 atBats·hits가 되게 나눈다. level이 null이면 메이저 */
     private static List<GameDay> hitGames(String level, LocalDate from, int count, int atBats, int hits) {
+        return hitGames(level, from, count, atBats, hits, 0, 0);
+    }
+
+    /** 안타 중 homeRuns개는 홈런, 볼넷 walks개 */
+    private static List<GameDay> hitGames(String level, LocalDate from, int count, int atBats, int hits, int homeRuns,
+                                          int walks) {
         List<GameDay> games = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             int ab = share(atBats, count, i);
             int h = share(hits, count, i);
-            Batting batting = new Batting(ab, 0, h, 0, 0, 0, 0, 0, 0, 0, 0, 0, ab, null);
+            int hr = Math.min(h, share(homeRuns, count, i));
+            int bb = share(walks, count, i);
+            Batting batting = new Batting(ab, 0, h, 0, 0, hr, 0, bb, 0, 0, 0, 0, ab + bb, null);
             games.add(new GameDay(from.plusDays(i), level, null, null, batting, null, false, null));
         }
         return games;

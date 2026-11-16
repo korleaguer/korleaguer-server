@@ -3,6 +3,7 @@ package com.korleaguer.api;
 import com.korleaguer.api.SeasonReport.Month;
 import com.korleaguer.api.SeasonReports.GameDay;
 import com.korleaguer.api.SeasonReports.Move;
+import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Role;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.MoveLabels;
@@ -18,7 +19,8 @@ import java.util.Map;
 
 /**
  * 시즌 성적표의 달별 기록(이슈 #170). 홈 카드가 달마다 막대 하나를 그린다(사용자 11-16 'B 보완' 시안).
- * 달마다 어디서 뛰었나(메이저·마이너 단계·부상·FA)와 그곳의 타율(투수는 평균자책점)을 준다.
+ * 달마다 어디서 뛰었나(메이저·마이너 단계·부상·FA)와 그곳의 타율·wRC+(투수는 평균자책점·ERA+)를 준다.
+ * 막대는 wRC+·ERA+(그 리그 평균 = 100)로 그린다(사용자 11-17: 타율로 시즌을 그리는 건 원시적, 이슈 #175).
  * <ul>
  *   <li>달: 정규시즌 개막일부터 마지막 날까지. 시즌 날이 MIN_MONTH_DAYS보다 적은 첫 달·끝 달은 옆 달에 붙인다
  *       (3월 26일 개막이면 3월 말은 4월 칸이다).</li>
@@ -29,6 +31,10 @@ import java.util.Map;
  *   <li>그 달 경기가 가장 많은 곳(메이저 또는 마이너 단계, 같으면 메이저·높은 단계)의 기록을 쓴다. 재활 경기가 더 많거나
  *       경기가 없으면 부상(재활 경기가 있었거나 부상자 명단 날이 팀 없는 날보다 많으면)·FA(팀 없는 날이 더 많으면)·
  *       없음 중 하나다.</li>
+ *   <li>wRC+: 그 단계 리그 평균(LeagueEnvironments) 대비. 메이저 달은 선수의 MLB 공식 시즌 wRC+와 우리 계산의 차이만큼
+ *       옮긴다(구장·해마다 다른 가중치 보정, 웹 '타격 흐름'과 같은 방식). 마이너 달은 옮기지 않는다.</li>
+ *   <li>ERA+: 100 × 리그 평균자책점 ÷ 그 달 평균자책점(높을수록 잘함, ERA_PLUS_CAP까지, 무자책이면 CAP). 메이저 달은
+ *       공식 시즌 ERA-로 낸 ERA+(10000 ÷ ERA-)와 우리 계산의 비율만큼 곱한다.</li>
  * </ul>
  */
 final class SeasonMonths {
@@ -39,14 +45,19 @@ final class SeasonMonths {
     static final int FEW_HITTER_GAMES = 10;
     /** 투수 등판 수 */
     static final int FEW_PITCHER_GAMES = 5;
-    /** 아주 잘한 달(화면이 숫자를 주황으로): 메이저 타자 이 경기 수 이상에 HOT_AVG 이상 */
+    /**
+     * 아주 잘한 달(화면이 숫자를 주황으로): 메이저 타자 이 경기 수 이상에 wRC+ HOT_WRC 이상.
+     * 성적표 문구의 '리그 상위급 타격'(wRC+ 130, SeasonReports.hittingWords)과 같은 선
+     */
     static final int HOT_HITTER_GAMES = 15;
-    static final double HOT_AVG = 0.330;
-    /** 메이저 투수 이 아웃 수(15이닝) 이상에 HOT_ERA 이하 */
+    static final int HOT_WRC = 130;
+    /** 메이저 투수 이 아웃 수(15이닝) 이상에 ERA+ HOT_ERA_PLUS 이상('리그 상위급 투구' ERA- 70 = ERA+ 143) */
     static final int HOT_PITCHER_OUTS = 45;
-    static final double HOT_ERA = 2.00;
+    static final int HOT_ERA_PLUS = 143;
+    /** ERA+ 최댓값(무자책 달 포함). 화면 막대는 200에서 꽉 찬다 */
+    static final int ERA_PLUS_CAP = 300;
 
-    private static final String MLB = "MLB";
+    private static final String MLB = LeagueEnvironments.MLB;
 
     private SeasonMonths() {
     }
@@ -59,7 +70,15 @@ final class SeasonMonths {
     private record Span(int month, LocalDate from, LocalDate to) {
     }
 
+    /** 리그 평균 없이(모든 단계를 LeagueEnvironments.STANDARD로) */
     static List<Month> build(SeasonReports.Input in) {
+        return build(in, Map.of());
+    }
+
+    /**
+     * @param leagues 단계(MLB·AAA 등)별 리그 평균. 없는 단계는 LeagueEnvironments.STANDARD로 잰다
+     */
+    static List<Month> build(SeasonReports.Input in, Map<String, LeagueEnvironments.Env> leagues) {
         LocalDate opening = in.openingDay();
         LocalDate last = in.lastRegularDay();
         if (opening == null || last == null || last.isBefore(opening)) {
@@ -67,11 +86,54 @@ final class SeasonMonths {
         }
         boolean pitcher = in.role() == Role.PITCHER;
         Map<LocalDate, DayState> days = dayStates(in);
+        Scale scale = scale(in, pitcher, league(leagues, MLB));
         List<Month> months = new ArrayList<>();
         for (Span span : spans(opening, last)) {
-            months.add(month(span, pitcher, days, in.majors(), in.minors()));
+            months.add(month(span, pitcher, days, in.majors(), in.minors(), leagues, scale));
         }
         return months;
+    }
+
+    /** 메이저 달을 공식 시즌 값에 맞추는 보정: 타자 wRC+에 더할 값, 투수 ERA+에 곱할 값 */
+    private record Scale(double wrcShift, double eraFactor) {
+        static final Scale NONE = new Scale(0, 1);
+    }
+
+    /**
+     * 공식 시즌 지표(in.mlb().quality(): 타자 wRC+, 투수 ERA-)와 경기별 기록으로 낸 시즌 값의 차이.
+     * 공식 값이 없거나 경기 기록이 비면 보정하지 않는다
+     */
+    private static Scale scale(SeasonReports.Input in, boolean pitcher, LeagueEnvironments.Env mlb) {
+        Double official = in.mlb() == null ? null : in.mlb().quality();
+        if (official == null) {
+            return Scale.NONE;
+        }
+        List<GameDay> majors = in.majors().stream().filter(g -> hasStat(g, pitcher)).toList();
+        if (pitcher) {
+            int outs = majors.stream().mapToInt(g -> orZero(g.pitching().pitchingOuts())).sum();
+            int earnedRuns = majors.stream().mapToInt(g -> orZero(g.pitching().earnedRuns())).sum();
+            if (official <= 0 || outs == 0 || earnedRuns == 0) {
+                return Scale.NONE;
+            }
+            double ours = 100 * mlb.era() / (earnedRuns * 27.0 / outs);
+            return new Scale(0, (10000 / official) / ours);
+        }
+        Double woba = woba(majors);
+        return woba == null ? Scale.NONE : new Scale(official - WrcMath.wrcPlus(woba, mlb), 1);
+    }
+
+    private static LeagueEnvironments.Env league(Map<String, LeagueEnvironments.Env> leagues, String stage) {
+        return leagues.getOrDefault(stage, LeagueEnvironments.STANDARD);
+    }
+
+    private static Double woba(List<GameDay> games) {
+        WrcMath.Sum sum = new WrcMath.Sum();
+        for (GameDay g : games) {
+            Batting b = g.batting();
+            sum.add(orZero(b.atBats()), orZero(b.hits()), orZero(b.doubles()), orZero(b.triples()),
+                    orZero(b.homeRuns()), orZero(b.walks()), orZero(b.hitByPitch()), orZero(b.sacFlies()));
+        }
+        return sum.woba();
     }
 
     // ---- 칸 나누기 ----
@@ -194,7 +256,7 @@ final class SeasonMonths {
     // ---- 칸 하나 ----
 
     private static Month month(Span span, boolean pitcher, Map<LocalDate, DayState> days, List<GameDay> majors,
-                               List<GameDay> minors) {
+                               List<GameDay> minors, Map<String, LeagueEnvironments.Env> leagues, Scale scale) {
         Map<String, List<GameDay>> byStage = new HashMap<>();
         int rehabGames = 0;
         for (GameDay game : majors) {
@@ -219,25 +281,44 @@ final class SeasonMonths {
                 .map(Map.Entry::getKey)
                 .orElse(null);
         if (stage == null || rehabGames > byStage.get(stage).size()) {
-            return new Month(span.month(), restKind(span, days, rehabGames), null, 0, null, null, false, false);
+            return new Month(span.month(), restKind(span, days, rehabGames), null, 0, null, null, null, null, false,
+                    false);
         }
         List<GameDay> games = byStage.get(stage);
         boolean majorsStage = MLB.equals(stage);
         String levelKo = majorsStage ? null : MinorRecords.levelKo(stage);
+        Month.Kind kind = majorsStage ? Month.Kind.MLB : Month.Kind.MINORS;
+        LeagueEnvironments.Env league = league(leagues, stage);
         if (pitcher) {
             int outs = games.stream().mapToInt(g -> orZero(g.pitching().pitchingOuts())).sum();
             int earnedRuns = games.stream().mapToInt(g -> orZero(g.pitching().earnedRuns())).sum();
             Double era = BaseballMath.era(earnedRuns, outs);
-            boolean hot = majorsStage && outs >= HOT_PITCHER_OUTS && era != null && era <= HOT_ERA;
-            return new Month(span.month(), majorsStage ? Month.Kind.MLB : Month.Kind.MINORS, levelKo, games.size(),
-                    null, era, games.size() < FEW_PITCHER_GAMES, hot);
+            Integer eraPlus = eraPlus(earnedRuns, outs, league, majorsStage ? scale.eraFactor() : 1);
+            boolean hot = majorsStage && outs >= HOT_PITCHER_OUTS && eraPlus != null && eraPlus >= HOT_ERA_PLUS;
+            return new Month(span.month(), kind, levelKo, games.size(), null, null, era, eraPlus,
+                    games.size() < FEW_PITCHER_GAMES, hot);
         }
         int hits = games.stream().mapToInt(g -> orZero(g.batting().hits())).sum();
         int atBats = games.stream().mapToInt(g -> orZero(g.batting().atBats())).sum();
         Double avg = BaseballMath.avg(hits, atBats);
-        boolean hot = majorsStage && games.size() >= HOT_HITTER_GAMES && avg != null && avg >= HOT_AVG;
-        return new Month(span.month(), majorsStage ? Month.Kind.MLB : Month.Kind.MINORS, levelKo, games.size(),
-                avg, null, games.size() < FEW_HITTER_GAMES, hot);
+        Double woba = woba(games);
+        Integer wrcPlus = woba == null ? null
+                : (int) Math.round(WrcMath.wrcPlus(woba, league) + (majorsStage ? scale.wrcShift() : 0));
+        boolean hot = majorsStage && games.size() >= HOT_HITTER_GAMES && wrcPlus != null && wrcPlus >= HOT_WRC;
+        return new Month(span.month(), kind, levelKo, games.size(), avg, wrcPlus, null, null,
+                games.size() < FEW_HITTER_GAMES, hot);
+    }
+
+    /** ERA+(높을수록 잘함). 아웃이 없으면 null, 무자책이면 ERA_PLUS_CAP */
+    private static Integer eraPlus(int earnedRuns, int outs, LeagueEnvironments.Env league, double factor) {
+        if (outs == 0) {
+            return null;
+        }
+        if (earnedRuns == 0) {
+            return ERA_PLUS_CAP;
+        }
+        double value = 100 * league.era() / (earnedRuns * 27.0 / outs) * factor;
+        return (int) Math.min(ERA_PLUS_CAP, Math.round(value));
     }
 
     /** 뛴 기록이 없는 달: 재활 경기가 있었거나 부상자 명단 날이 팀 없는 날 이상이면 부상, 팀 없는 날이 더 많으면 FA */
