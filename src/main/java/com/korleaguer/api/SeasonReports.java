@@ -30,8 +30,6 @@ import java.util.stream.Stream;
  *   <li>이유(reason): 부상자 명단 등재, 트리플A 강등·콜업, 짧은 메이저 출전 중 두 개까지.
  *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 좋은 시즌·제 몫 한 시즌 타자는 전·후반 타율 차이가 크면
  *       그것 하나만 쓴다. 개막일(당일 포함)까지 오른 부상자 명단은 '개막 직전'이다. 없으면 null.</li>
- *   <li>자랑거리(stories): 좋은·짧았지만 좋았던·제 몫 한·마이너 시즌만. 시즌 최장 연속 안타(8경기 이상)·무실점 등판(5번 이상),
- *       최고 경기(2홈런 이상·3안타 이상, 투수는 7이닝 이상 승리·무실점 또는 10탈삼진 이상). 두 개까지.</li>
  *   <li>달별 기록(months): SeasonMonths. 판정과 상관없이 모든 선수에게 준다.</li>
  *   <li>겨울 이동: 정규시즌 마지막 날 SEASON_WRAP_DAYS(3일) 뒤의 이동 기록, 최신순 세 개까지.
  *       그 사이 이동(포스트시즌 명단 콜업 등)은 이유 쪽에서 시즌 이야기로 쓴다.</li>
@@ -44,9 +42,6 @@ final class SeasonReports {
     static final List<String> FORBIDDEN_WORDS = List.of("부진", "실패", "최악", "몰락", "추락", "망");
 
     static final int FULL_SEASON_GAMES = 140;
-    static final int MIN_HIT_STREAK = 8;
-    static final int MIN_SCORELESS_STREAK = 5;
-    static final int MAX_STORIES = 2;
     static final int MAX_REASONS = 2;
     static final int MAX_WINTER_MOVES = 3;
     /** 전·후반 타율이 이만큼 이상 다르면 이유로 쓴다 */
@@ -123,11 +118,8 @@ final class SeasonReports {
         Double war = mlb.war() == null ? null : Math.round(mlb.war() * 10) / 10.0;
         Headline headline = headline(in, tier, mlb, majors, minors, mixedMinors, war);
         String reason = reason(in, tier, majors, minors, headline.used());
-        List<String> stories = tier.hasStories()
-                ? stories(pitcher, tier == SeasonTier.MINORS ? minors : majors, tier != SeasonTier.MINORS)
-                : List.of();
         SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline.text(), reason,
-                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, stories, SeasonMonths.build(in),
+                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, SeasonMonths.build(in),
                 winterMoves(in), List.of(), null);
         return new Built(report, majors.size());
     }
@@ -519,135 +511,6 @@ final class SeasonReports {
                 atBats(first))) + " → " + boundary.getMonthValue() + "월부터 " + avgText(BaseballMath.avg(hits(second),
                 atBats(second)));
         return new Fact(boundary, 3, text, FactKind.HALF);
-    }
-
-    // ---- 자랑거리 ----
-
-    private static List<String> stories(boolean pitcher, List<GameDay> games, boolean majors) {
-        List<String> stories = new ArrayList<>();
-        int streak = pitcher ? scorelessStreak(games) : hitStreak(games);
-        if (pitcher && streak >= MIN_SCORELESS_STREAK) {
-            stories.add("시즌 최장 " + streak + "번 연속 무실점 등판");
-        } else if (!pitcher && streak >= MIN_HIT_STREAK) {
-            stories.add("시즌 최장 " + streak + "경기 연속 안타");
-        }
-        String best = pitcher ? bestPitchingGame(games, majors) : bestHittingGame(games, majors);
-        if (best != null) {
-            stories.add(best);
-        }
-        return stories.stream().limit(MAX_STORIES).toList();
-    }
-
-    /** 가장 긴 연속 안타 경기. 타수 없는 경기(볼넷만 등)는 끊지도 늘리지도 않는다. */
-    static int hitStreak(List<GameDay> games) {
-        int best = 0;
-        int current = 0;
-        for (GameDay game : games) {
-            Batting b = game.batting();
-            if (b == null) {
-                continue;
-            }
-            if (orZero(b.hits()) > 0) {
-                current++;
-                best = Math.max(best, current);
-            } else if (orZero(b.atBats()) > 0) {
-                current = 0;
-            }
-        }
-        return best;
-    }
-
-    /** 가장 긴 연속 무실점 등판 */
-    static int scorelessStreak(List<GameDay> games) {
-        int best = 0;
-        int current = 0;
-        for (GameDay game : games) {
-            Pitching p = game.pitching();
-            if (p == null || p.pitchingOuts() == null) {
-                continue;
-            }
-            if (orZero(p.runsAllowed()) == 0) {
-                current++;
-                best = Math.max(best, current);
-            } else {
-                current = 0;
-            }
-        }
-        return best;
-    }
-
-    /** "최고 경기 8월 4일 텍사스전 3안타 2홈런". 2홈런 이상이나 3안타 이상인 경기 중 가장 큰 경기(같으면 먼저 것) */
-    private static String bestHittingGame(List<GameDay> games, boolean majors) {
-        GameDay best = null;
-        int bestScore = -1;
-        for (GameDay game : games) {
-            Batting b = game.batting();
-            if (b == null || (orZero(b.homeRuns()) < 2 && orZero(b.hits()) < 3)) {
-                continue;
-            }
-            int score = orZero(b.homeRuns()) * 3 + orZero(b.hits()) * 2 + orZero(b.rbi());
-            if (score > bestScore) {
-                bestScore = score;
-                best = game;
-            }
-        }
-        if (best == null) {
-            return null;
-        }
-        Batting b = best.batting();
-        List<String> parts = new ArrayList<>();
-        // 경기 줄과 같은 순서(안타 → 홈런 → 타점)
-        parts.add(orZero(b.hits()) + "안타");
-        if (orZero(b.homeRuns()) > 0) {
-            parts.add(b.homeRuns() + "홈런");
-        }
-        if (orZero(b.rbi()) >= 3) {
-            parts.add(b.rbi() + "타점");
-        }
-        return bestGameText(best, majors, String.join(" ", parts));
-    }
-
-    /** "최고 경기 6월 12일 시애틀전 7이닝 무실점 9탈삼진 · 승". 7이닝 이상 승리·무실점이거나 10탈삼진 이상인 경기 */
-    private static String bestPitchingGame(List<GameDay> games, boolean majors) {
-        GameDay best = null;
-        int bestScore = Integer.MIN_VALUE;
-        for (GameDay game : games) {
-            Pitching p = game.pitching();
-            if (p == null || p.pitchingOuts() == null) {
-                continue;
-            }
-            int outs = p.pitchingOuts();
-            int runs = orZero(p.runsAllowed());
-            int strikeouts = orZero(p.pitcherStrikeouts());
-            boolean qualifies = (outs >= 21 && (orZero(p.wins()) > 0 || runs == 0)) || strikeouts >= 10;
-            if (!qualifies) {
-                continue;
-            }
-            int score = outs + 3 * strikeouts - 5 * runs;
-            if (score > bestScore) {
-                bestScore = score;
-                best = game;
-            }
-        }
-        if (best == null) {
-            return null;
-        }
-        Pitching p = best.pitching();
-        List<String> parts = new ArrayList<>();
-        parts.add(BaseballMath.inningsText(p.pitchingOuts()) + "이닝");
-        parts.add(orZero(p.runsAllowed()) == 0 ? "무실점" : p.runsAllowed() + "실점");
-        if (orZero(p.pitcherStrikeouts()) >= 5) {
-            parts.add(p.pitcherStrikeouts() + "탈삼진");
-        }
-        String text = String.join(" ", parts) + (orZero(p.wins()) > 0 ? " · 승" : "");
-        return bestGameText(best, majors, text);
-    }
-
-    private static String bestGameText(GameDay game, boolean majors, String summary) {
-        // 다른 화면과 같은 'M월 D일'(슬래시는 쓰지 않는다, 문구 점검 11-13)
-        String day = game.date().getMonthValue() + "월 " + game.date().getDayOfMonth() + "일";
-        String opponent = majors && game.opponentKo() != null ? " " + game.opponentKo() + "전" : "";
-        return "최고 경기 " + day + opponent + " " + summary;
     }
 
     // ---- 겨울 이동 ----

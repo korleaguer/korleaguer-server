@@ -24,9 +24,4 @@ public enum SeasonTier {
     public String label() {
         return label;
     }
-
-    /** 자랑할 이야기(stories)를 붙이는 판정인지. 출전이 적었던·아쉬운 시즌에는 붙이지 않는다. */
-    boolean hasStories() {
-        return this != SHORT && this != POOR;
-    }
 }

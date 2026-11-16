@@ -64,7 +64,6 @@ class SeasonReportsTest {
         assertThat(report.reason()).isEqualTo("6월까지 타율 .316 → 7월부터 .230");
         assertThat(report.level()).isEqualTo(Level.MLB);
         assertThat(report.war()).isEqualTo(1.0);
-        assertThat(report.stories()).hasSizeLessThanOrEqualTo(2);
         // 달별 기록: 3월 말(개막 뒤 6일)은 4월 칸이라 4~9월 여섯 칸, 모두 메이저(SeasonMonthsTest)
         assertThat(report.months()).extracting(SeasonReport.Month::month).containsExactly(4, 5, 6, 7, 8, 9);
         assertThat(report.months()).extracting(SeasonReport.Month::kind).containsOnly(SeasonReport.Month.Kind.MLB);
@@ -178,7 +177,6 @@ class SeasonReportsTest {
         // 78경기·타율 .191은 숫자 칸에 있다. 트리플A를 오간 이야기를 제목으로 올리고 이유 줄에서는 뺀다
         assertThat(report.headline()).isEqualTo("메이저 첫 시즌, 트리플A 오가며 적응");
         assertThat(report.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
-        assertThat(report.stories()).isEmpty();
     }
 
     @Test
@@ -202,7 +200,6 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("손가락 부상으로 두 번 빠진 시즌");
         assertThat(report.reason()).isEqualTo("3월 손가락 부상 · 7월 같은 곳 다시 이탈");
         assertThat(report.war()).isEqualTo(-1.2);
-        assertThat(report.stories()).isEmpty();
     }
 
     @Test
@@ -220,41 +217,7 @@ class SeasonReportsTest {
     }
 
     @Test
-    void hitStreakNeedsEightGames() {
-        List<GameDay> seven = streakThenOut(7);
-        List<GameDay> eight = streakThenOut(8);
-        assertThat(SeasonReports.hitStreak(seven)).isEqualTo(7);
-
-        SeasonReport noStory = build(hitter(1, new Line(2026, 600, 0, 100.0, 1.0), seven, List.of(), List.of(), false));
-        SeasonReport story = build(hitter(1, new Line(2026, 600, 0, 100.0, 1.0), eight, List.of(), List.of(), false));
-
-        assertThat(noStory.stories()).isEmpty();
-        assertThat(story.stories()).containsExactly("시즌 최장 8경기 연속 안타");
-    }
-
-    @Test
-    void walkOnlyGamesDoNotBreakAHitStreak() {
-        List<GameDay> games = List.of(hitting(day(1), 4, 1, 0, 0, 0), hitting(day(2), 0, 0, 0, 0, 0),
-                hitting(day(3), 3, 2, 0, 0, 0), hitting(day(4), 4, 0, 0, 0, 0));
-        assertThat(SeasonReports.hitStreak(games)).isEqualTo(2);
-    }
-
-    @Test
-    void bestHittingGameNeedsTwoHomersOrThreeHits() {
-        List<GameDay> games = List.of(hitting(day(1), 4, 2, 1, 3, 0, "샌프란시스코", "LA 다저스"),
-                hitting(day(132), 5, 3, 2, 5, 0, "샌프란시스코", "텍사스"));
-        SeasonReport report = build(hitter(1, new Line(2026, 600, 0, 120.0, 3.0), games, List.of(), List.of(), false));
-
-        assertThat(report.tier()).isEqualTo(SeasonTier.GOOD);
-        assertThat(report.stories()).containsExactly("최고 경기 8월 4일 텍사스전 3안타 2홈런 5타점");
-
-        List<GameDay> ordinary = List.of(hitting(day(1), 4, 2, 1, 3, 0, "샌프란시스코", "LA 다저스"));
-        assertThat(build(hitter(1, new Line(2026, 600, 0, 120.0, 3.0), ordinary, List.of(), List.of(), false))
-                .stories()).isEmpty();
-    }
-
-    @Test
-    void pitcherScorelessStreakAndBestGame() {
+    void starterHeadlineUsesWinsInsteadOfTheNumbersBox() {
         List<GameDay> games = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             games.add(pitching(day(1 + i * 5), 18, 0, 0, 6, false, "토론토", "보스턴"));
@@ -267,27 +230,18 @@ class SeasonReportsTest {
         assertThat(report.tier()).isEqualTo(SeasonTier.GOOD);
         // 숫자 칸의 등판·이닝 대신 승(이 재료는 7경기 중 1승)
         assertThat(report.headline()).isEqualTo("선발 1승, 평균보다 좋은 투구");
-        assertThat(report.stories()).containsExactly("시즌 최장 6번 연속 무실점 등판",
-                "최고 경기 4월 24일 시애틀전 7이닝 무실점 9탈삼진 · 승");
-
-        assertThat(SeasonReports.scorelessStreak(games.subList(0, 4))).isEqualTo(4);
-        SeasonReport four = build(new Input(1, Role.PITCHER, 2026, OPENING, LAST_DAY, false,
-                new Line(2026, 130, 25, 85.0, 2.8), List.of(), games.subList(0, 4), List.of(), List.of()));
-        assertThat(four.stories()).isEmpty();
     }
 
     @Test
-    void shortAndPoorSeasonsNeverBrag() {
+    void shortAndPoorSeasonsByVolumeAndQuality() {
         List<GameDay> streak = streakThenOut(12);
         SeasonReport shortSeason = build(hitter(1, new Line(2026, 60, 0, 140.0, 0.5), streak, List.of(), List.of(),
                 false));
         assertThat(shortSeason.tier()).isEqualTo(SeasonTier.SHORT);
         assertThat(shortSeason.label()).isEqualTo("출전이 적었던 시즌");
-        assertThat(shortSeason.stories()).isEmpty();
 
         SeasonReport poor = build(hitter(1, new Line(2026, 400, 0, 70.0, -0.5), streak, List.of(), List.of(), false));
         assertThat(poor.tier()).isEqualTo(SeasonTier.POOR);
-        assertThat(poor.stories()).isEmpty();
     }
 
     @Test
@@ -459,7 +413,7 @@ class SeasonReportsTest {
 
         List<String> texts = reports.stream()
                 .flatMap(r -> Stream.concat(Stream.of(r.label(), r.headline(), r.reason()),
-                        Stream.concat(r.stories().stream(), r.winterMoves().stream().map(SeasonReport.WinterMove::label))))
+                        r.winterMoves().stream().map(SeasonReport.WinterMove::label)))
                 .filter(text -> text != null)
                 .toList();
         assertThat(texts).isNotEmpty();
