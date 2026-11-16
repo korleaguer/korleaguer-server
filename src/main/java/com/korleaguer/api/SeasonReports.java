@@ -32,6 +32,7 @@ import java.util.stream.Stream;
  *       그것 하나만 쓴다. 개막일(당일 포함)까지 오른 부상자 명단은 '개막 직전'이다. 없으면 null.</li>
  *   <li>자랑거리(stories): 좋은·짧았지만 좋았던·제 몫 한·마이너 시즌만. 시즌 최장 연속 안타(8경기 이상)·무실점 등판(5번 이상),
  *       최고 경기(2홈런 이상·3안타 이상, 투수는 7이닝 이상 승리·무실점 또는 10탈삼진 이상). 두 개까지.</li>
+ *   <li>달별 기록(months): SeasonMonths. 판정과 상관없이 모든 선수에게 준다.</li>
  *   <li>겨울 이동: 정규시즌 마지막 날 SEASON_WRAP_DAYS(3일) 뒤의 이동 기록, 최신순 세 개까지.
  *       그 사이 이동(포스트시즌 명단 콜업 등)은 이유 쪽에서 시즌 이야기로 쓴다.</li>
  * </ul>
@@ -126,7 +127,8 @@ final class SeasonReports {
                 ? stories(pitcher, tier == SeasonTier.MINORS ? minors : majors, tier != SeasonTier.MINORS)
                 : List.of();
         SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline.text(), reason,
-                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, stories, winterMoves(in), List.of(), null);
+                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, stories, SeasonMonths.build(in),
+                winterMoves(in), List.of(), null);
         return new Built(report, majors.size());
     }
 
@@ -682,7 +684,7 @@ final class SeasonReports {
         return games.stream().filter(g -> level.equals(g.level())).toList();
     }
 
-    private static int levelRank(String level) {
+    static int levelRank(String level) {
         int rank = LEVEL_ORDER.indexOf(level);
         return rank < 0 ? -1 : rank;
     }
@@ -746,7 +748,7 @@ final class SeasonReports {
         return games.stream().filter(g -> g.batting() != null).mapToInt(g -> orZero(field.apply(g.batting()))).sum();
     }
 
-    private static int orZero(Integer value) {
+    static int orZero(Integer value) {
         return value == null ? 0 : value;
     }
 }
