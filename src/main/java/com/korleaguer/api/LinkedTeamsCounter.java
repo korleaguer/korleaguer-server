@@ -91,9 +91,19 @@ final class LinkedTeamsCounter {
         if (linked.isEmpty()) {
             return Map.of();
         }
+        // 이야기·구단마다 그 구단을 거론(linked)으로 고른 기사들(근거 문장을 찾을 곳)
+        record Key(Long story, String team) {
+        }
+        Map<Key, List<Long>> taggedBy = new HashMap<>();
+        for (DestinationMention m : mentions) {
+            if (m.stance() == NewsDestination.Stance.LINKED) {
+                Long story = storyOf.getOrDefault(m.articleId(), m.articleId());
+                taggedBy.computeIfAbsent(new Key(story, m.team()), k -> new ArrayList<>()).add(m.articleId());
+            }
+        }
         Set<Long> missing = new HashSet<>();
         linked.forEach(m -> missing.add(m.articleId()));
-        mentions.forEach(m -> missing.add(m.articleId()));
+        taggedBy.values().forEach(missing::addAll);
         missing.removeAll(byId.keySet());
         Map<Long, NewsArticle> articles = new HashMap<>(byId);
         if (!missing.isEmpty()) {
@@ -107,10 +117,8 @@ final class LinkedTeamsCounter {
             }
             List<NewsArticle> sources = new ArrayList<>();
             sources.add(lead);
-            mentions.stream()
-                    .filter(m -> m.team().equals(story.team()) && m.stance() == NewsDestination.Stance.LINKED)
-                    .filter(m -> storyOf.getOrDefault(m.articleId(), m.articleId()).equals(story.articleId()))
-                    .map(m -> articles.get(m.articleId()))
+            taggedBy.getOrDefault(new Key(story.articleId(), story.team()), List.of()).stream()
+                    .map(articles::get)
                     .filter(a -> a != null && a != lead)
                     .forEach(sources::add);
             LinkedReasons.Reason reason = LinkedReasons.find(story.team(), sources);
