@@ -23,7 +23,7 @@ import java.util.Map;
  *   <li>달: 정규시즌 개막일부터 마지막 날까지. 시즌 날이 MIN_MONTH_DAYS보다 적은 첫 달·끝 달은 옆 달에 붙인다
  *       (3월 26일 개막이면 3월 말은 4월 칸이다).</li>
  *   <li>날마다 부상자 명단에 있었나·재활 경기 중이었나·팀이 없었나를 이동 기록으로 따라간다. 같은 날 이동은
- *       해제 → 재활 → 등재 → 계약·트레이드 → 지명 할당 → 강등·이관·팀 배정 → 콜업 → 방출 → FA 선언 순으로 본다.</li>
+ *       해제 → 등재 → 재활 → 계약·트레이드 → 지명 할당 → 강등·이관·팀 배정 → 콜업 → 방출 → FA 선언 순으로 본다.</li>
  *   <li>재활 경기(부상자 명단에 있으면서 재활 경기 배정 뒤 치른 마이너 경기)는 그 달 성적에서 뺀다. 마이너 부상자 명단은
  *       해제 기록이 없을 때가 많아, 재활 배정이 없으면 부상자 명단 중 경기도 보통 경기로 센다.</li>
  *   <li>그 달 경기가 가장 많은 곳(메이저 또는 마이너 단계, 같으면 메이저·높은 단계)의 기록을 쓴다. 재활 경기가 더 많거나
@@ -47,7 +47,6 @@ final class SeasonMonths {
     static final double HOT_ERA = 2.00;
 
     private static final String MLB = "MLB";
-    private static final List<String> LEVEL_ORDER = List.of("ROK", "A", "A+", "AA", "AAA");
 
     private SeasonMonths() {
     }
@@ -105,7 +104,7 @@ final class SeasonMonths {
 
     /** 이동이 상태를 어떻게 바꾸나. order는 같은 날 이동을 보는 순서 */
     private enum Change {
-        ACTIVATED(0), REHAB(1), INJURED(2), JOINED(3), DESIGNATED(4), ASSIGNED(5), CALLED_UP(6), RELEASED(7),
+        ACTIVATED(0), INJURED(1), REHAB(2), JOINED(3), DESIGNATED(4), ASSIGNED(5), CALLED_UP(6), RELEASED(7),
         FREE_AGENT(8), OTHER(5);
 
         final int order;
@@ -164,6 +163,11 @@ final class SeasonMonths {
                     case REHAB -> rehab = counts && injured;
                     case INJURED -> {
                         if (counts) {
+                            // 새 등재는 새 부상이라 재활을 다시 센다(해제 기록이 없는 마이너 부상자 명단 뒤 재활 상태가
+                            // 넘어오지 않게). 10일 → 60일 옮김은 같은 부상이라 재활을 그대로 둔다
+                            if (InjuryParts.isPlacement(move.typeCode(), move.description())) {
+                                rehab = false;
+                            }
                             injured = true;
                         }
                     }
@@ -265,12 +269,12 @@ final class SeasonMonths {
         return pitcher ? game.pitching() != null && game.pitching().pitchingOuts() != null : game.batting() != null;
     }
 
-    /** 메이저가 가장 높고, 마이너는 트리플A → 루키 순 */
+    /** 메이저가 가장 높고, 마이너는 트리플A → 루키 순(SeasonReports와 같은 단계 순서) */
     private static int stageRank(String stage) {
-        return MLB.equals(stage) ? LEVEL_ORDER.size() : LEVEL_ORDER.indexOf(stage);
+        return MLB.equals(stage) ? Integer.MAX_VALUE : SeasonReports.levelRank(stage);
     }
 
     private static int orZero(Integer value) {
-        return value == null ? 0 : value;
+        return SeasonReports.orZero(value);
     }
 }

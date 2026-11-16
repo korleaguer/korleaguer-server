@@ -192,6 +192,26 @@ class SeasonMonthsTest {
     }
 
     @Test
+    void rehabFollowsTheCurrentInjuryStint() {
+        // 같은 날 등재 + 재활 배정이면 재활이다. 60일 명단으로 옮겨도 재활은 이어진다.
+        // 해제 기록 없이 끝난 부상 뒤 새 등재(재활 배정 없음)의 마이너 경기는 보통 경기다
+        List<GameDay> minors = new ArrayList<>();
+        minors.addAll(hitGames("AAA", LocalDate.of(2026, 4, 10), 12, 40, 10));
+        minors.addAll(hitGames("AAA", LocalDate.of(2026, 6, 10), 15, 50, 15));
+        List<Move> moves = List.of(
+                move("2026-04-05", "SC", "Seattle Mariners placed 2B A on the 10-day injured list."),
+                move("2026-04-05", "ASG", "Seattle Mariners sent 2B A on a rehab assignment to Tacoma Rainiers."),
+                move("2026-04-15", "SC", "Seattle Mariners transferred 2B A from the 10-day injured list to the "
+                        + "60-day injured list."),
+                move("2026-06-01", "SC", "Tacoma Rainiers placed 2B A on the 7-day injured list."));
+
+        List<Month> months = SeasonMonths.build(hitter(List.of(), minors, moves));
+
+        assertThat(months.get(0).kind()).isEqualTo(Kind.INJURED);
+        assertThat(months.get(2)).extracting(Month::kind, Month::games).containsExactly(Kind.MINORS, 15);
+    }
+
+    @Test
     void shortFirstAndLastMonthsJoinTheirNeighbours() {
         // 3월 26일 개막(3월 6일치)은 4월 칸, 10월 2일 끝(10월 2일치)은 9월 칸
         LocalDate lastDay = LocalDate.of(2026, 10, 2);

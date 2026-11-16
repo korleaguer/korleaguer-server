@@ -684,7 +684,7 @@ final class SeasonReports {
         return games.stream().filter(g -> level.equals(g.level())).toList();
     }
 
-    private static int levelRank(String level) {
+    static int levelRank(String level) {
         int rank = LEVEL_ORDER.indexOf(level);
         return rank < 0 ? -1 : rank;
     }
@@ -748,7 +748,7 @@ final class SeasonReports {
         return games.stream().filter(g -> g.batting() != null).mapToInt(g -> orZero(field.apply(g.batting()))).sum();
     }
 
-    private static int orZero(Integer value) {
+    static int orZero(Integer value) {
         return value == null ? 0 : value;
     }
 }
