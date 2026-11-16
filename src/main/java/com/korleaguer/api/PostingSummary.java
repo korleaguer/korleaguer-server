@@ -52,8 +52,37 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param linked       갈 수 있다·관심 있다는 거론이 나온 기사 수
      * @param doubted      필요 없다·안 갈 것이라는 전망이 나온 기사 수
      * @param today        오늘(한국 날짜) 나온 기사에서 거론(linked)됐나
+     * @param articles     거론(linked)으로 센 기사(같은 글 묶음은 대표 기사 한 줄), 최근 순. 건수가 linked와 같다(이슈 #169).
+     *                     웹이 구단을 누르면 이 목록을 창에 보인다
      */
-    public record LinkedTeam(String abbreviation, String nameKo, int linked, int doubted, boolean today) {
+    public record LinkedTeam(String abbreviation, String nameKo, int linked, int doubted, boolean today,
+                             List<LinkedArticle> articles) {
+
+        public LinkedTeam {
+            articles = articles == null ? List.of() : List.copyOf(articles);
+        }
+
+        public LinkedTeam(String abbreviation, String nameKo, int linked, int doubted, boolean today) {
+            this(abbreviation, nameKo, linked, doubted, today, List.of());
+        }
+    }
+
+    /**
+     * 구단을 행선지로 거론한 기사 한 건. 화면은 제목 대신 '왜 거론됐나' 한 줄(reason)을 보인다.
+     *
+     * @param id         우리 기사 번호(/news/{id})
+     * @param titleKo    영어 기사 제목의 한국어 번역. 없으면 null
+     * @param imageUrl   기사 대표 사진의 원본 주소. 없으면 null
+     * @param alsoBy     같은 글을 실은 다른 언론사(낸 순). 없으면 빈 목록
+     * @param reason     Claude 요약에서 그 구단 이름이 처음 나온 문장. 요약에 없으면 null(화면은 제목을 보인다)
+     * @param reasonName reason(없으면 제목)에서 찾은 구단 이름 그대로(뉴욕 메츠, 메츠 …). 화면이 이 글자를 강조한다. 못 찾으면 null
+     */
+    public record LinkedArticle(Long id, String title, String titleKo, String publisher, Instant publishedAt,
+                                String imageUrl, List<String> alsoBy, String reason, String reasonName) {
+
+        public LinkedArticle {
+            alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);
+        }
     }
 
     /**
