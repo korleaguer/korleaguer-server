@@ -14,8 +14,8 @@ import java.util.function.Function;
 
 /**
  * 한국인 메이저리거 역대 기록 계산(GET /api/records, 이슈 #177). DB를 모르는 순수 계산이라 따로 시험한다.
- * 통산 값은 저장한 MLB 시즌별 기록(yearByYear)의 합이다. 이번 시즌 '넘은 선배'는 지난 시즌까지의 합에
- * 이번 시즌 경기별 기록(우리가 받은 메이저 정규시즌 경기)을 차례로 더하며 찾는다.
+ * 통산 값은 저장한 MLB 시즌별 기록(yearByYear)의 합이고, 현역의 이번 시즌은 경기 기록 합과 견줘 큰 값을 쓴다.
+ * 이번 시즌 '넘은 선배'는 지난 시즌까지의 합에 이번 시즌 경기별 기록(우리가 받은 메이저 정규시즌 경기)을 차례로 더하며 찾는다.
  */
 final class KoreanRecords {
 
@@ -82,7 +82,8 @@ final class KoreanRecords {
      * @param seasonGames MLB 번호 → 이번 시즌 경기(오래된 것부터). 현역만 있으면 된다
      */
     static RecordsResponse build(String dataMode, int season, Instant now, List<Person> people,
-                                 Map<Long, List<SeasonLine>> seasons, Map<Long, List<GameLine>> seasonGames) {
+                                 Map<Long, List<SeasonLine>> savedSeasons, Map<Long, List<GameLine>> seasonGames) {
+        Map<Long, List<SeasonLine>> seasons = withSeasonGames(season, savedSeasons, seasonGames);
         Map<Long, Map<Stat, Integer>> totals = new HashMap<>();
         for (Person person : people) {
             Map<Stat, Integer> byStat = new HashMap<>();
@@ -129,6 +130,34 @@ final class KoreanRecords {
             }
         }
         return new RecordsResponse(dataMode, season, now, categories, next, passed, best);
+    }
+
+    /**
+     * 이번 시즌 줄을 경기 기록으로 채운다. yearByYear는 하루 한 번 받아 그날 경기가 늦게 들어가므로, 기록마다 저장한 줄과
+     * 경기 기록 합 중 큰 값을 쓴다(경기 기록에 빠진 출전이 있어도 줄지 않게). 그래서 순위·다음 선배·넘은 선배가 같은 시점이다.
+     */
+    private static Map<Long, List<SeasonLine>> withSeasonGames(int season, Map<Long, List<SeasonLine>> saved,
+                                                               Map<Long, List<GameLine>> seasonGames) {
+        Map<Long, List<SeasonLine>> result = new HashMap<>(saved);
+        seasonGames.forEach((mlbId, games) -> {
+            if (games.isEmpty()) {
+                return;
+            }
+            List<SeasonLine> lines = new ArrayList<>(saved.getOrDefault(mlbId, List.of()));
+            KoreanMlbSeason.Counts stored = lines.stream().filter(l -> l.season() == season)
+                    .map(SeasonLine::counts).findFirst().orElse(null);
+            lines.removeIf(l -> l.season() == season);
+            Map<Stat, Integer> merged = new HashMap<>();
+            for (Stat stat : Stat.values()) {
+                int fromGames = games.stream().mapToInt(g -> stat.of(g.counts())).sum();
+                merged.put(stat, Math.max(stat.of(stored), fromGames));
+            }
+            lines.add(new SeasonLine(season, new KoreanMlbSeason.Counts(merged.get(Stat.GAMES), merged.get(Stat.HITS),
+                    merged.get(Stat.HOME_RUNS), merged.get(Stat.RBI), merged.get(Stat.STOLEN_BASES),
+                    merged.get(Stat.WINS), merged.get(Stat.SAVES), merged.get(Stat.STRIKEOUTS))));
+            result.put(mlbId, lines);
+        });
+        return result;
     }
 
     /** 통산 순위(값 0은 뺀다). 같은 값이면 먼저 데뷔한 선수가 앞이고 등수는 같다 */

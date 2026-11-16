@@ -45,6 +45,7 @@ class WarmEndpointTest {
         KorleaguerProperties properties = new KorleaguerProperties(2026, null,
                 new KorleaguerProperties.Ingest(true, null, null), null, null, null);
         CacheWarmer warmer = new CacheWarmer(mock(BaseballQueryService.class), mock(MyPlayersService.class),
+                mock(RecordsService.class),
                 mock(ResponseCaches.class), new Postings(new PostingProperties(List.of(), List.of())),
                 Executors.newVirtualThreadPerTaskExecutor(), Clock.systemUTC(), properties);
         WarmEndpoint endpoint = new WarmEndpoint(warmer);

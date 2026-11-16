@@ -130,6 +130,17 @@ class KoreanRecordsTest {
     }
 
     @Test
+    void todaysGamesCountBeforeTheDailySeasonLineArrives() {
+        // 저장한 2026 줄은 149안타인데 경기 기록 합이 150이면(오늘 경기를 아직 yearByYear로 못 받음) 통산은 337
+        RecordsResponse records = build(Map.of(LEE.mlbId(), List.of(game("2026-09-27", 150))));
+        assertThat(category(records, "hits").leaders().get(1).value()).isEqualTo(337);
+        assertThat(next(records, "hits").toPass()).isEqualTo(31);
+        // 경기 기록 합이 더 적으면(빠진 경기) 저장한 줄을 그대로 쓴다
+        RecordsResponse fewer = build(Map.of(LEE.mlbId(), List.of(game("2026-09-27", 100))));
+        assertThat(category(fewer, "hits").leaders().get(1).value()).isEqualTo(336);
+    }
+
+    @Test
     void reachingTheSameValueIsNotPassing() {
         // 187 + 33 = 220: 최희섭과 같아졌을 뿐 넘지 않았다
         RecordsResponse records = build(Map.of(LEE.mlbId(), List.of(game("2026-04-30", 33))));
