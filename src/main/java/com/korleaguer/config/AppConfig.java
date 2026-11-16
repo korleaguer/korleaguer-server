@@ -1,6 +1,7 @@
 package com.korleaguer.config;
 
 import com.korleaguer.api.MinorTeamProperties;
+import com.korleaguer.ingest.KoreanMlbProperties;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.news.NewsProperties;
 import com.korleaguer.posting.PostingProperties;
@@ -23,7 +24,7 @@ import java.util.concurrent.Executors;
 @EnableCaching
 @EnableScheduling
 @EnableConfigurationProperties({KorleaguerProperties.class, RosterProperties.class, PostingProperties.class,
-        NewsProperties.class, MinorTeamProperties.class})
+        NewsProperties.class, MinorTeamProperties.class, KoreanMlbProperties.class})
 public class AppConfig {
 
     public static final String HOME_CACHE = "home";
@@ -32,6 +33,8 @@ public class AppConfig {
     public static final String MY_CACHE = "my";
     /** 내 선수 카드 한 장. 선수와 기간(days)마다 따로 둔다. 처음 보는 조합도 이것을 모아 바로 답한다 */
     public static final String CARD_CACHE = "card";
+    /** 한국인 메이저리거 역대 기록(GET /api/records, 이슈 #177). 응답이 하나뿐이다 */
+    public static final String RECORDS_CACHE = "records";
 
     // 테스트에서 시각을 고정할 수 있게 Clock을 빈으로 둔다.
     @Bean

@@ -25,6 +25,7 @@ public record MlbSeasonSplit(
      *       baseOnBalls·battersFaced(투구)와 글자로 오는 비율 avg(".258")·ops·era("3.23"). 값이 없으면 ".---"처럼 온다.</li>
      *   <li>sabermetrics: wRcPlus·war, 타격의 batting(타격 득점)·baseRunning(주루 득점)·fielding(수비 득점)·
      *       positional(포지션 보정 득점), 투구의 eraMinus·fipMinus</li>
+     *   <li>yearByYear 개수 기록(한국인 역대 기록, 이슈 #177): 타격의 hits·rbi·stolenBases, 투구의 wins·saves</li>
      * </ul>
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -47,7 +48,22 @@ public record MlbSeasonSplit(
             Double baseRunning,
             Double fielding,
             Double positional,
-            Double fipMinus) {
+            Double fipMinus,
+            Integer hits,
+            Integer rbi,
+            Integer stolenBases,
+            Integer wins,
+            Integer saves) {
+
+        /** 개수 기록(hits·rbi·stolenBases·wins·saves)이 없는 줄 */
+        public Stat(Integer plateAppearances, String inningsPitched, Integer gamesStarted, Double wRcPlus,
+                    Double eraMinus, Double war, Integer gamesPlayed, Integer homeRuns, Integer strikeOuts,
+                    Integer baseOnBalls, Integer battersFaced, String avg, String ops, String era, Double batting,
+                    Double baseRunning, Double fielding, Double positional, Double fipMinus) {
+            this(plateAppearances, inningsPitched, gamesStarted, wRcPlus, eraMinus, war, gamesPlayed, homeRuns,
+                    strikeOuts, baseOnBalls, battersFaced, avg, ops, era, batting, baseRunning, fielding, positional,
+                    fipMinus, null, null, null, null, null);
+        }
 
         /** 시즌 성적표용 칸(합계·wRC+·ERA-·WAR)만 있는 줄 */
         public Stat(Integer plateAppearances, String inningsPitched, Integer gamesStarted, Double wRcPlus,

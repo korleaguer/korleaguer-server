@@ -59,6 +59,7 @@ public class CacheWarmer {
 
     private final BaseballQueryService queryService;
     private final MyPlayersService myPlayers;
+    private final RecordsService records;
     private final ResponseCaches responseCaches;
     private final Postings postings;
     private final ExecutorService executor;
@@ -71,11 +72,13 @@ public class CacheWarmer {
     private String seenDateKey;
     private String seenPostingKey;
 
-    public CacheWarmer(BaseballQueryService queryService, MyPlayersService myPlayers, ResponseCaches responseCaches,
+    public CacheWarmer(BaseballQueryService queryService, MyPlayersService myPlayers, RecordsService records,
+                       ResponseCaches responseCaches,
                        Postings postings, @Qualifier("ingestExecutor") ExecutorService executor, Clock clock,
                        KorleaguerProperties properties) {
         this.queryService = queryService;
         this.myPlayers = myPlayers;
+        this.records = records;
         this.responseCaches = responseCaches;
         this.postings = postings;
         this.executor = executor;
@@ -207,6 +210,14 @@ public class CacheWarmer {
             } catch (RuntimeException e) {
                 log.warn("cache warm: off-season cards failed", e);
             }
+        }
+
+        // 한국인 역대 기록(기록 탭, 이슈 #177)
+        try {
+            records.records();
+            filled++;
+        } catch (RuntimeException e) {
+            log.warn("cache warm: records failed", e);
         }
 
         log.info("cache warm: {} responses ready in {} ms", filled, (System.nanoTime() - started) / 1_000_000);
