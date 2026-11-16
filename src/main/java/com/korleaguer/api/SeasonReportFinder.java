@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -69,13 +70,16 @@ public class SeasonReportFinder {
     /** 지금 news/sources.yml에 있는 언론사(뺀 언론사의 예전 기사는 보이지 않는다) */
     private final Set<String> publishers;
     private final LinkedTeamsCounter linkedTeams;
+    private final LeagueEnvironments leagues;
     private final Clock clock;
 
     public SeasonReportFinder(AppearanceRepository appearances, MinorGameLogRepository minorGameLogs,
                               PlayerMoveRepository moves, PlayerSeasonMetricRepository metrics,
                               SeasonDatesRepository seasonDates, NewsArticleRepository news,
-                              NewsDestinationRepository destinations, NewsProperties newsProperties, Clock clock) {
+                              NewsDestinationRepository destinations, NewsProperties newsProperties,
+                              LeagueEnvironments leagues, Clock clock) {
         this.news = news;
+        this.leagues = leagues;
         this.publishers = newsProperties.publishers();
         this.linkedTeams = new LinkedTeamsCounter(news, destinations, publishers);
         this.clock = clock;
@@ -121,6 +125,12 @@ public class SeasonReportFinder {
                                 .map(SeasonReports.GameDay::date))
                         .max(Comparator.naturalOrder()).orElse(LocalDate.of(season, 9, 30)));
 
+        // 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 메모리에 둔다)
+        Set<String> levels = new HashSet<>();
+        levels.add(LeagueEnvironments.MLB);
+        minors.values().forEach(games -> games.forEach(g -> levels.add(g.level())));
+        Map<String, LeagueEnvironments.Env> environments = leagues.of(season, levels);
+
         List<SeasonReports.Built> built = new ArrayList<>();
         for (RosterMember member : roster) {
             Player player = member.player();
@@ -129,7 +139,7 @@ public class SeasonReportFinder {
                         majors.getOrDefault(player.getId(), List.of()), minors.getOrDefault(player.getId(), List.of()),
                         metricRows.getOrDefault(player.getId(), List.of()));
                 if (input != null) {
-                    built.add(SeasonReports.build(input));
+                    built.add(SeasonReports.build(input, environments));
                 }
             } catch (RuntimeException e) {
                 log.warn("season report for {} failed, left out: {}", player.getNameKo(), e.toString());

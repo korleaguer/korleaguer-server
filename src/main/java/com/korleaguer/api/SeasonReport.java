@@ -40,12 +40,15 @@ public record SeasonReport(long playerId, SeasonTier tier, String label, String 
      * @param levelKo 마이너 단계 이름(트리플A 등). MINORS가 아니면 null
      * @param games   기록을 낸 경기 수(타자 경기, 투수 등판). 재활 경기는 세지 않는다
      * @param avg     타자 타율. 투수거나 타수가 없으면 null
+     * @param wrcPlus 타자 wRC+(그 단계 리그 평균 = 100, 메이저 달은 공식 시즌 값에 맞춤). 투수거나 타석이 없으면 null.
+     *                화면 막대 높이(이슈 #175)
      * @param era     투수 평균자책점. 타자거나 아웃이 없으면 null
+     * @param eraPlus 투수 ERA+(그 단계 리그 평균 = 100, 높을수록 잘함, 300까지, 무자책이면 300). 화면 막대 높이
      * @param few     경기가 적은 달(타자 10경기·투수 5등판 미만). 화면이 막대를 옅게 그린다
-     * @param hot     아주 잘한 달(메이저 타자 15경기 이상 .330 이상, 투수 15이닝 이상 2.00 이하). 화면이 숫자를 주황으로
+     * @param hot     아주 잘한 달(메이저 타자 15경기 이상 wRC+ 130 이상, 투수 15이닝 이상 ERA+ 143 이상). 화면이 숫자를 주황으로
      */
-    public record Month(int month, Kind kind, String levelKo, int games, Double avg, Double era, boolean few,
-                        boolean hot) {
+    public record Month(int month, Kind kind, String levelKo, int games, Double avg, Integer wrcPlus, Double era,
+                        Integer eraPlus, boolean few, boolean hot) {
 
         /** MLB 메이저 · MINORS 마이너 · INJURED 부상(재활 경기만 뛰었거나 경기 없이 부상자 명단) · FREE_AGENT 팀 없음 · NONE 기록 없음 */
         public enum Kind { MLB, MINORS, INJURED, FREE_AGENT, NONE }

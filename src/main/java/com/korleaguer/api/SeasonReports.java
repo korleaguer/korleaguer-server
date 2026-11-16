@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -30,7 +31,7 @@ import java.util.stream.Stream;
  *   <li>이유(reason): 부상자 명단 등재, 트리플A 강등·콜업, 짧은 메이저 출전 중 두 개까지.
  *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 좋은 시즌·제 몫 한 시즌 타자는 전·후반 타율 차이가 크면
  *       그것 하나만 쓴다. 개막일(당일 포함)까지 오른 부상자 명단은 '개막 직전'이다. 없으면 null.</li>
- *   <li>달별 기록(months): SeasonMonths. 판정과 상관없이 모든 선수에게 준다.</li>
+ *   <li>달별 기록(months): SeasonMonths. 판정과 상관없이 모든 선수에게 준다. wRC+·ERA+는 단계별 리그 평균으로 잰다.</li>
  *   <li>겨울 이동: 정규시즌 마지막 날 SEASON_WRAP_DAYS(3일) 뒤의 이동 기록, 최신순 세 개까지.
  *       그 사이 이동(포스트시즌 명단 콜업 등)은 이유 쪽에서 시즌 이야기로 쓴다.</li>
  * </ul>
@@ -106,6 +107,13 @@ final class SeasonReports {
     }
 
     static Built build(Input in) {
+        return build(in, Map.of());
+    }
+
+    /**
+     * @param leagues 단계(MLB·AAA 등)별 리그 평균(달별 wRC+·ERA+에 쓴다, LeagueEnvironments). 없는 단계는 표준값
+     */
+    static Built build(Input in, Map<String, LeagueEnvironments.Env> leagues) {
         boolean pitcher = in.role() == Role.PITCHER;
         List<GameDay> majors = byDate(in.majors());
         List<GameDay> minors = byDate(in.minors());
@@ -119,7 +127,7 @@ final class SeasonReports {
         Headline headline = headline(in, tier, mlb, majors, minors, mixedMinors, war);
         String reason = reason(in, tier, majors, minors, headline.used());
         SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline.text(), reason,
-                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, SeasonMonths.build(in),
+                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, SeasonMonths.build(in, leagues),
                 winterMoves(in), List.of(), null);
         return new Built(report, majors.size());
     }
