@@ -14,9 +14,15 @@ import java.util.List;
  * @param imageUrl       기사 대표 사진의 원본 주소(언론사 서버, https). 없으면 null
  * @param summary        Claude가 쓴 한국어 요약(줄마다 한 문장). 아직 없으면 null
  * @param lead           기사 첫머리(피드가 준 글자 200자 안팎). 요약이 없을 때 쓴다. 없으면 null
- * @param more           같은 선수의 다른 기사(늦은 순 NewsPageFinder.MORE건, 이 기사는 빼고)
+ * @param more           같은 선수의 다른 기사(늦은 순 NewsPageFinder.MORE건, 이 기사와 그 사본은 빼고)
+ * @param alsoBy         이 기사와 같은 글을 실은 다른 언론사(낸 순, 이 기사의 언론사는 빼고). 뉴스 탭 목록 한 줄의
+ *                       alsoBy와 같은 계산이다(SameArticles.Group.alsoBy). 없으면 빈 목록
  */
 public record NewsPageResponse(long id, String player, String playerPhotoUrl, String title, String titleKo, String url,
                                String publisher, Instant publishedAt, String imageUrl, String summary, String lead,
-                               List<PostingSummary.Headline> more) {
+                               List<PostingSummary.Headline> more, List<String> alsoBy) {
+
+    public NewsPageResponse {
+        alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);
+    }
 }

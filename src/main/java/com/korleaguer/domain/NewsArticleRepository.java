@@ -20,6 +20,15 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     @Query("select a from NewsArticle a where a.subject = :subject order by a.publishedAt desc, a.id desc")
     List<NewsArticle> findLatest(@Param("subject") String subject, Pageable page);
 
+    /**
+     * 그 선수의 기사 가운데 from~to(양 끝 포함)에 나온 것(낸 순). 기사 페이지가 그 기사와 같은 글을 찾는다: 같은 글은
+     * 발행 시각이 가까워(SameArticles.NEAR) 최근 기사만 읽으면 오래된 기사의 사본을 놓친다
+     */
+    @Query("select a from NewsArticle a where a.subject = :subject and a.publishedAt between :from and :to"
+            + " order by a.publishedAt, a.id")
+    List<NewsArticle> findPublishedBetween(@Param("subject") String subject, @Param("from") Instant from,
+                                           @Param("to") Instant to);
+
     /** 그 선수의 AI 요약이 있는 기사(최근 순) */
     @Query("select a from NewsArticle a where a.subject = :subject and a.summary is not null"
             + " order by a.publishedAt desc, a.id desc")

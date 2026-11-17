@@ -49,13 +49,31 @@ final class SameArticles {
      * 묶음 하나.
      *
      * @param article 목록에 보일 대표 기사: 요약이 있는 기사 가운데 가장 먼저 낸 것(대개 원문을 쓴 언론사), 요약이 없으면 가장 먼저 낸 것
-     * @param alsoBy  같은 글을 실은 다른 언론사(낸 순, 대표 언론사는 빼고)
-     * @param members 묶인 기사 모두(대표 포함)
+     * @param members 묶인 기사 모두(대표 포함, 낸 순)
      */
-    record Group(NewsArticle article, List<String> alsoBy, List<NewsArticle> members) {
+    record Group(NewsArticle article, List<NewsArticle> members) {
 
         boolean contains(Long id) {
             return members.stream().anyMatch(a -> Objects.equals(a.getId(), id));
+        }
+
+        /** 목록 한 줄(대표 기사)에 붙는 같은 글을 실은 다른 언론사. alsoBy(대표)다 */
+        List<String> alsoBy() {
+            return alsoBy(article);
+        }
+
+        /**
+         * 이 묶음의 기사 shown을 보일 때 같은 글을 실은 다른 언론사: 낸 순, 겹치면 한 번, shown의 언론사는 빼고.
+         * 목록 한 줄은 대표 기사로, 기사 페이지(GET /api/news/{id})는 지금 보는 기사로 센다. 기사 페이지는 대표가 아닌 사본도
+         * 열 수 있어서다(옛 링크, 나중에 요약이 붙어 대표가 바뀐 묶음). 화면마다 '같은 기사' 언론사가 어긋나지 않게 이 계산은
+         * 여기 하나만 둔다(이슈 #180)
+         */
+        List<String> alsoBy(NewsArticle shown) {
+            Set<String> others = new LinkedHashSet<>();
+            members.stream().map(NewsArticle::getPublisher)
+                    .filter(p -> !p.equals(shown.getPublisher()))
+                    .forEach(others::add);
+            return List.copyOf(others);
         }
     }
 
@@ -100,10 +118,7 @@ final class SameArticles {
                     List<NewsArticle> ordered = members.stream().sorted(firstPublished).toList();
                     NewsArticle lead = ordered.stream().filter(a -> a.getSummary() != null).findFirst()
                             .orElse(ordered.getFirst());
-                    Set<String> others = new LinkedHashSet<>();
-                    ordered.stream().filter(a -> a != lead).map(NewsArticle::getPublisher)
-                            .filter(p -> !p.equals(lead.getPublisher())).forEach(others::add);
-                    return new Group(lead, List.copyOf(others), ordered);
+                    return new Group(lead, ordered);
                 })
                 .sorted(Comparator.comparing((Group g) -> g.article().getPublishedAt()).reversed()
                         .thenComparing(g -> g.article().getId() == null ? Long.MIN_VALUE : g.article().getId(),
