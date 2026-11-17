@@ -132,7 +132,7 @@ final class SeasonReports {
         SeasonRates.Rates rates = SeasonRates.of(in, tier == SeasonTier.MINORS, leagues);
         SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline.text(), reason,
                 tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, rates.wrcPlus(), rates.eraPlus(),
-                rates.statLevelKo(), SeasonMonths.build(in, leagues), winterMoves(in), List.of(), null);
+                rates.statLevelKo(), SeasonMonths.build(in, leagues), winterMoves(in), List.of(), null, null);
         return new Built(report, majors.size());
     }
 

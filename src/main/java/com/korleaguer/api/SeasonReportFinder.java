@@ -10,6 +10,8 @@ import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerLeaguePosition;
+import com.korleaguer.domain.PlayerLeaguePositionRepository;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
@@ -31,6 +33,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Locale;
@@ -50,6 +53,8 @@ import java.util.stream.Stream;
  *   <li>'이번 겨울' 기사: 정규시즌 마지막 날 뒤에 나온 이 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 최대 NEWS건).
  *       같은 언론사가 연달아 오지 않게 섞는다(spreadPublishers, 이슈 #140).</li>
  *   <li>FA 선수(소속이 끝난 선수)는 행선지로 거론된 구단을 포스팅 카드와 같은 규칙으로 센다. 직전 구단은 세지 않는다(이슈 #140).</li>
+ *   <li>'MLB 안 위치'(saber): 선수 화면과 같은 값(그 시즌 player_league_position 중 선수 역할의 묶음 → PlayerSaber.of).
+ *       명단 전원을 한 번에 읽고, 못 읽으면 모두 null이다(성적표는 그대로 보인다, 이슈 #179).</li>
  * </ul>
  * 순서: 판정(SeasonTier) 순, 그 안에서 메이저 경기 많은 순.
  */
@@ -65,6 +70,7 @@ public class SeasonReportFinder {
     private final MinorGameLogRepository minorGameLogs;
     private final PlayerMoveRepository moves;
     private final PlayerSeasonMetricRepository metrics;
+    private final PlayerLeaguePositionRepository leaguePositions;
     private final SeasonDatesRepository seasonDates;
     private final NewsArticleRepository news;
     /** 지금 news/sources.yml에 있는 언론사(뺀 언론사의 예전 기사는 보이지 않는다) */
@@ -75,9 +81,9 @@ public class SeasonReportFinder {
 
     public SeasonReportFinder(AppearanceRepository appearances, MinorGameLogRepository minorGameLogs,
                               PlayerMoveRepository moves, PlayerSeasonMetricRepository metrics,
-                              SeasonDatesRepository seasonDates, NewsArticleRepository news,
-                              NewsDestinationRepository destinations, NewsProperties newsProperties,
-                              LeagueEnvironments leagues, Clock clock) {
+                              PlayerLeaguePositionRepository leaguePositions, SeasonDatesRepository seasonDates,
+                              NewsArticleRepository news, NewsDestinationRepository destinations,
+                              NewsProperties newsProperties, LeagueEnvironments leagues, Clock clock) {
         this.news = news;
         this.leagues = leagues;
         this.publishers = newsProperties.publishers();
@@ -87,6 +93,7 @@ public class SeasonReportFinder {
         this.minorGameLogs = minorGameLogs;
         this.moves = moves;
         this.metrics = metrics;
+        this.leaguePositions = leaguePositions;
         this.seasonDates = seasonDates;
     }
 
@@ -149,6 +156,7 @@ public class SeasonReportFinder {
                 .collect(Collectors.toMap(m -> m.player().getId(), m -> m, (a, b) -> a));
         Instant winterStart = lastRegularDay.plusDays(1).atStartOfDay(GameIngest.US_EASTERN).toInstant();
         Instant now = clock.instant();
+        Map<Long, PlayerSaber> sabers = sabers(roster, season);
         return built.stream()
                 .sorted(Comparator.comparing((SeasonReports.Built b) -> b.report().tier())
                         .thenComparing(SeasonReports.Built::majorGames, Comparator.reverseOrder()))
@@ -156,9 +164,34 @@ public class SeasonReportFinder {
                 .map(r -> {
                     RosterMember member = members.get(r.playerId());
                     String name = member.player().getNameKo();
-                    return r.withNews(winterNews(name, winterStart), freeAgentLinkedTeams(member, now));
+                    return r.withNews(winterNews(name, winterStart), freeAgentLinkedTeams(member, now))
+                            .withSaber(sabers.get(r.playerId()));
                 })
                 .toList();
+    }
+
+    /**
+     * 명단 선수들의 그 시즌 'MLB 안 위치'(선수 번호 → 선수 화면 saber와 같은 값). 선수 역할의 묶음(타자 HITTING·투수
+     * PITCHING) 줄만 쓴다(선수 화면과 같다). 줄이 없거나 그 시즌 MLB 기록이 없는 선수는 빠지고, 못 읽으면 빈 맵이다
+     * (펼친 카드에서 위치만 빠지고 성적표는 그대로 보인다)
+     */
+    Map<Long, PlayerSaber> sabers(List<RosterMember> roster, int season) {
+        Map<Long, PlayerSeasonMetric.Group> groups = new HashMap<>();
+        roster.forEach(m -> groups.putIfAbsent(m.player().getId(), PlayerSeasonMetric.Group.of(m.player().role())));
+        try {
+            Map<Long, PlayerSaber> out = new HashMap<>();
+            for (PlayerLeaguePosition row : leaguePositions.findSeason(groups.keySet(), season)) {
+                long playerId = row.getPlayer().getId();
+                PlayerSaber saber = row.getStatGroup() == groups.get(playerId) ? PlayerSaber.of(row) : null;
+                if (saber != null) {
+                    out.put(playerId, saber);
+                }
+            }
+            return out;
+        } catch (RuntimeException e) {
+            log.warn("league positions for season report failed, left out: {}", e.toString());
+            return Map.of();
+        }
     }
 
     /**

@@ -133,7 +133,15 @@ class ApiIntegrationTest {
                 // 목록 한 줄의 시즌 wRC+·ERA+와 그 숫자의 단계(이슈 #179). 모르면 null로 온다(칸은 늘 있다)
                 .andExpect(jsonPath("$.offseason.report[0].wrcPlus").hasJsonPath())
                 .andExpect(jsonPath("$.offseason.report[0].eraPlus").hasJsonPath())
-                .andExpect(jsonPath("$.offseason.report[0].statLevelKo").hasJsonPath());
+                .andExpect(jsonPath("$.offseason.report[0].statLevelKo").hasJsonPath())
+                // 펼친 카드의 'MLB 안 위치'는 선수 화면 saber와 같은 값이다(이슈 #179): 이정후(1)는 타자 값·위치,
+                // 고우석(5)은 투수 값(10이닝 미만이라 위치 null)
+                .andExpect(jsonPath("$.offseason.report[?(@.playerId == 1)].saber.wrcPlus").value(contains(101.8)))
+                .andExpect(jsonPath("$.offseason.report[?(@.playerId == 1)].saber.percentiles.batting")
+                        .value(contains(55)))
+                .andExpect(jsonPath("$.offseason.report[?(@.playerId == 5)].saber.eraMinus").value(contains(216.1)))
+                .andExpect(jsonPath("$.offseason.report[?(@.playerId == 5)].saber.percentiles")
+                        .value(contains(nullValue())));
     }
 
     @Test

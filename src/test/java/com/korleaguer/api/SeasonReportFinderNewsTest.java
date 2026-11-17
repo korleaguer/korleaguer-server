@@ -8,6 +8,7 @@ import com.korleaguer.domain.DestinationMention;
 import com.korleaguer.domain.NewsDestination;
 import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerLeaguePositionRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
@@ -35,7 +36,8 @@ class SeasonReportFinderNewsTest {
     private final NewsDestinationRepository destinations = mock(NewsDestinationRepository.class);
     private final SeasonReportFinder finder = new SeasonReportFinder(mock(AppearanceRepository.class),
             mock(MinorGameLogRepository.class), mock(PlayerMoveRepository.class), mock(PlayerSeasonMetricRepository.class),
-            mock(SeasonDatesRepository.class), news, destinations, new NewsProperties(true, "0 */30 * * * *",
+            mock(PlayerLeaguePositionRepository.class), mock(SeasonDatesRepository.class), news, destinations,
+            new NewsProperties(true, "0 */30 * * * *",
             "korleaguer/test", List.of("korleaguer"), List.of(new NewsProperties.Source("마이데일리", "https://a.example/rss",
             null, null, null, "lead"), new NewsProperties.Source("스포츠조선", "https://b.example/rss", null, null, null,
             "lead"))), mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC));

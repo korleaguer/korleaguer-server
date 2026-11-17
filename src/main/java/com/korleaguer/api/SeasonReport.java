@@ -27,16 +27,25 @@ import java.util.List;
  *                    화면은 '이번 겨울' 칸에 앞 두 건과 'n건 더 보기'를 보인다. 같은 언론사가 연달아 오지 않게 섞었다
  * @param linkedTeams FA 선수의 행선지로 거론된 구단(최근 7일, 포스팅 카드와 같은 규칙, 직전 구단은 세지 않는다, 이슈 #140).
  *                    FA가 아니거나 거론된 구단이 없으면 null
+ * @param saber       그 시즌 'MLB 안 위치'. 선수 화면(GET /api/players/{id})의 saber와 같은 값·모양이다(PlayerSaber).
+ *                    펼친 카드가 선수 화면에 가지 않고 백분위를 보인다(이슈 #179). 그 시즌 MLB 기록이 없거나 아직 받지
+ *                    않았으면 null. 메이저 기록이라 마이너 합계인 wrcPlus·eraPlus와 단계가 다를 수 있다
  */
 public record SeasonReport(long playerId, SeasonTier tier, String label, String headline, String reason, Level level,
                            Double war, Integer wrcPlus, Integer eraPlus, String statLevelKo, List<Month> months,
                            List<WinterMove> winterMoves, List<PostingSummary.Headline> news,
-                           PostingSummary.LinkedTeams linkedTeams) {
+                           PostingSummary.LinkedTeams linkedTeams, PlayerSaber saber) {
 
     /** 기사와 거론 구단을 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
     SeasonReport withNews(List<PostingSummary.Headline> headlines, PostingSummary.LinkedTeams linked) {
         return new SeasonReport(playerId, tier, label, headline, reason, level, war, wrcPlus, eraPlus, statLevelKo,
-                months, winterMoves, List.copyOf(headlines), linked);
+                months, winterMoves, List.copyOf(headlines), linked, saber);
+    }
+
+    /** 'MLB 안 위치'를 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
+    SeasonReport withSaber(PlayerSaber position) {
+        return new SeasonReport(playerId, tier, label, headline, reason, level, war, wrcPlus, eraPlus, statLevelKo,
+                months, winterMoves, news, linkedTeams, position);
     }
 
     /**
