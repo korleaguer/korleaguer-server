@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 시즌 성적표 글: 2026 시즌 우리 선수 6명과 비슷하게 만든 재료로 판정·한 줄 요약·이유·자랑거리·겨울 이동을 확인한다.
+ * 시즌 성적표 글: 2026 시즌 우리 선수 6명과 비슷하게 만든 재료로 판정·한 줄 요약·이유·시즌 wRC+·ERA+·겨울 이동을 확인한다.
  * (경기별 기록은 실제 기록이 아니라 합계가 맞게 지어낸 값이다.)
  */
 class SeasonReportsTest {
@@ -64,6 +64,9 @@ class SeasonReportsTest {
         assertThat(report.reason()).isEqualTo("6월까지 타율 .316 → 7월부터 .230");
         assertThat(report.level()).isEqualTo(Level.MLB);
         assertThat(report.war()).isEqualTo(1.0);
+        // 시즌 wRC+는 공식 값(101.8) 반올림(SeasonRatesTest)
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(102, null, null);
         // 달별 기록: 3월 말(개막 뒤 6일)은 4월 칸이라 4~9월 여섯 칸, 모두 메이저(SeasonMonthsTest)
         assertThat(report.months()).extracting(SeasonReport.Month::month).containsExactly(4, 5, 6, 7, 8, 9);
         assertThat(report.months()).extracting(SeasonReport.Month::kind).containsOnly(SeasonReport.Month.Kind.MLB);
@@ -94,6 +97,10 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("트리플A에서 도루 36개");
         assertThat(report.reason()).isEqualTo("5월 밀워키에서 메이저 2경기 · 8월 말 부상으로 일찍 시즌 마감");
         assertThat(report.level()).isEqualTo(Level.MINORS);
+        // 숫자 칸이 트리플A 합계라 시즌 wRC+도 트리플A 합계로 잰다(메이저 4타석 공식 249.4가 아니다).
+        // 리그 평균을 넘기지 않아 표준값으로 잰 값: 330타수 86안타 38볼넷 → 77
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(77, null, "트리플A");
     }
 
     @Test
@@ -116,6 +123,7 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
         assertThat(report.reason()).isEqualTo("5월 말 트리플A로 · 9월 말 다시 메이저");
         assertThat(report.winterMoves()).isEmpty();
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(103, "트리플A");
     }
 
     @Test
@@ -148,6 +156,9 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("더블A 평균자책점 0.66, 트리플A 5.11");
         assertThat(report.reason()).isEqualTo("7월 미네소타에서 메이저 4경기");
         assertThat(report.war()).isEqualTo(-0.1);
+        // 더블A·트리플A 합계 50⅔이닝 22자책(3.91)을 리그 평균(여기서는 표준값 4.20)과 견준 ERA+. 단계가 섞여 '마이너'
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(null, 107, "마이너");
         assertThat(report.winterMoves()).containsExactly(
                 new SeasonReport.WinterMove(LocalDate.of(2026, 11, 3), "FA 선언"),
                 new SeasonReport.WinterMove(LocalDate.of(2026, 10, 6), "마이너 이관(아웃라이트)"));
@@ -177,6 +188,7 @@ class SeasonReportsTest {
         // 78경기·타율 .191은 숫자 칸에 있다. 트리플A를 오간 이야기를 제목으로 올리고 이유 줄에서는 뺀다
         assertThat(report.headline()).isEqualTo("메이저 첫 시즌, 트리플A 오가며 적응");
         assertThat(report.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(58, null);
     }
 
     @Test
@@ -200,6 +212,7 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("손가락 부상으로 두 번 빠진 시즌");
         assertThat(report.reason()).isEqualTo("3월 손가락 부상 · 7월 같은 곳 다시 이탈");
         assertThat(report.war()).isEqualTo(-1.2);
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(7, null);
     }
 
     @Test

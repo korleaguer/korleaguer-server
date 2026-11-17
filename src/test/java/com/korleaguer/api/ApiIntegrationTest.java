@@ -129,7 +129,11 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.offseason.report[0].level").isString())
                 .andExpect(jsonPath("$.offseason.report[0].stories").doesNotExist())
                 .andExpect(jsonPath("$.offseason.report[0].months").isArray())
-                .andExpect(jsonPath("$.offseason.report[0].winterMoves").isArray());
+                .andExpect(jsonPath("$.offseason.report[0].winterMoves").isArray())
+                // 목록 한 줄의 시즌 wRC+·ERA+와 그 숫자의 단계(이슈 #179). 모르면 null로 온다(칸은 늘 있다)
+                .andExpect(jsonPath("$.offseason.report[0].wrcPlus").hasJsonPath())
+                .andExpect(jsonPath("$.offseason.report[0].eraPlus").hasJsonPath())
+                .andExpect(jsonPath("$.offseason.report[0].statLevelKo").hasJsonPath());
     }
 
     @Test

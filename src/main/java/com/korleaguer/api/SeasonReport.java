@@ -15,6 +15,12 @@ import java.util.List;
  * @param reason      왜 그런 시즌이었나(부상·강등 등 사실 두 개까지 " · "로 잇는다). 없으면 null
  * @param level       카드가 앞세울 시즌 합계. 마이너 시즌이면 MINORS, 아니면 MLB
  * @param war         메이저 WAR(소수 첫째 자리). 모르면 null. 화면은 좋은 시즌·제 몫 한 시즌에만 보인다
+ * @param wrcPlus     타자의 시즌 wRC+(리그 평균 = 100). 카드 숫자 칸과 같은 단계 합계다: 메이저면 MLB 공식 시즌 wRC+,
+ *                    마이너면 마이너 합계를 단계 리그 평균과 견준 값(SeasonRates, 이슈 #179). 투수거나 50타석 미만이면 null
+ * @param eraPlus     투수의 시즌 ERA+(리그 평균 = 100, 높을수록 잘함, 300까지, 무자책이면 300). wrcPlus와 같은 단계·방식이다.
+ *                    타자거나 10이닝 미만이면 null
+ * @param statLevelKo wrcPlus·eraPlus가 마이너 합계일 때 그 단계 이름(한 단계면 '트리플A', 섞였으면 '마이너').
+ *                    메이저거나 숫자가 없으면 null
  * @param months      정규시즌 달마다 어디서 뛰었나와 타율·평균자책점(SeasonMonths, 이슈 #170). 홈 카드의 달별 막대
  * @param winterMoves 정규시즌이 끝나고 3일 뒤부터의 이동 기록(FA 선언 등), 최신순 세 개까지
  * @param news        정규시즌이 끝난 뒤 나온 이 선수 관련 기사(늦은 순, 같은 기사는 한 줄, 최대 12건, 이슈 #119로 모은 것).
@@ -23,13 +29,14 @@ import java.util.List;
  *                    FA가 아니거나 거론된 구단이 없으면 null
  */
 public record SeasonReport(long playerId, SeasonTier tier, String label, String headline, String reason, Level level,
-                           Double war, List<Month> months, List<WinterMove> winterMoves,
-                           List<PostingSummary.Headline> news, PostingSummary.LinkedTeams linkedTeams) {
+                           Double war, Integer wrcPlus, Integer eraPlus, String statLevelKo, List<Month> months,
+                           List<WinterMove> winterMoves, List<PostingSummary.Headline> news,
+                           PostingSummary.LinkedTeams linkedTeams) {
 
     /** 기사와 거론 구단을 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
     SeasonReport withNews(List<PostingSummary.Headline> headlines, PostingSummary.LinkedTeams linked) {
-        return new SeasonReport(playerId, tier, label, headline, reason, level, war, months, winterMoves,
-                List.copyOf(headlines), linked);
+        return new SeasonReport(playerId, tier, label, headline, reason, level, war, wrcPlus, eraPlus, statLevelKo,
+                months, winterMoves, List.copyOf(headlines), linked);
     }
 
     /**

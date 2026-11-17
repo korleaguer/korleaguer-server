@@ -36,6 +36,8 @@ import java.util.Map;
  *   <li>ERA+: 100 × 리그 평균자책점 ÷ 그 달 평균자책점(높을수록 잘함, ERA_PLUS_CAP까지, 무자책이면 CAP). 메이저 달은
  *       공식 시즌 ERA-로 낸 ERA+(10000 ÷ ERA-)와 우리 계산의 비율만큼 곱한다.</li>
  * </ul>
+ * 성적표의 시즌 wRC+·ERA+(SeasonRates)도 같은 계산(wrcPlus·eraPlus)을 쓴다. 그래서 한 카드의 달 막대와 시즌 숫자가
+ * 같은 잣대로 읽힌다(이슈 #179).
  */
 final class SeasonMonths {
 
@@ -122,11 +124,19 @@ final class SeasonMonths {
         return woba == null ? Scale.NONE : new Scale(official - WrcMath.wrcPlus(woba, mlb), 1);
     }
 
-    private static LeagueEnvironments.Env league(Map<String, LeagueEnvironments.Env> leagues, String stage) {
-        return leagues.getOrDefault(stage, LeagueEnvironments.STANDARD);
+    /** 그 단계 리그 평균. 받지 못한 단계(단계를 모르는 경기 포함)는 LeagueEnvironments.STANDARD */
+    static LeagueEnvironments.Env league(Map<String, LeagueEnvironments.Env> leagues, String stage) {
+        return stage == null ? LeagueEnvironments.STANDARD : leagues.getOrDefault(stage, LeagueEnvironments.STANDARD);
     }
 
-    private static Double woba(List<GameDay> games) {
+    /** 경기들의 wRC+(그 리그 평균 대비에 shift를 더해 반올림). 타격 기록이 있는 경기만 넘긴다. 타석이 없으면 null */
+    static Integer wrcPlus(List<GameDay> games, LeagueEnvironments.Env league, double shift) {
+        Double woba = woba(games);
+        return woba == null ? null : (int) Math.round(WrcMath.wrcPlus(woba, league) + shift);
+    }
+
+    /** 경기들의 wOBA. 타격 기록이 있는 경기만 넘긴다. 타석이 없으면 null */
+    static Double woba(List<GameDay> games) {
         WrcMath.Sum sum = new WrcMath.Sum();
         for (GameDay g : games) {
             Batting b = g.batting();
@@ -301,16 +311,14 @@ final class SeasonMonths {
         int hits = games.stream().mapToInt(g -> orZero(g.batting().hits())).sum();
         int atBats = games.stream().mapToInt(g -> orZero(g.batting().atBats())).sum();
         Double avg = BaseballMath.avg(hits, atBats);
-        Double woba = woba(games);
-        Integer wrcPlus = woba == null ? null
-                : (int) Math.round(WrcMath.wrcPlus(woba, league) + (majorsStage ? scale.wrcShift() : 0));
+        Integer wrcPlus = wrcPlus(games, league, majorsStage ? scale.wrcShift() : 0);
         boolean hot = majorsStage && games.size() >= HOT_HITTER_GAMES && wrcPlus != null && wrcPlus >= HOT_WRC;
         return new Month(span.month(), kind, levelKo, games.size(), avg, wrcPlus, null, null,
                 games.size() < FEW_HITTER_GAMES, hot);
     }
 
     /** ERA+(높을수록 잘함). 아웃이 없으면 null, 무자책이면 ERA_PLUS_CAP */
-    private static Integer eraPlus(int earnedRuns, int outs, LeagueEnvironments.Env league, double factor) {
+    static Integer eraPlus(int earnedRuns, int outs, LeagueEnvironments.Env league, double factor) {
         if (outs == 0) {
             return null;
         }
