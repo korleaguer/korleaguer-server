@@ -76,6 +76,32 @@ class SameArticlesTest {
     }
 
     @Test
+    void otherOutletsAreCountedFromTheArticleBeingShown() {
+        // 기사 페이지는 대표가 아닌 사본도 연다(이슈 #180): 그 사본의 언론사는 빠지고 대표 언론사가 들어간다
+        NewsArticle wire = summarized(article(1, "노시환과 메츠 코치의 인연", "연합뉴스", "2026-11-11T00:30:00Z", WIRE));
+        NewsArticle paper = article(2, "'노시환 특급 인맥?'", "노컷뉴스", "2026-11-11T01:23:00Z", COPY);
+        NewsArticle tv = article(3, "노시환과 메츠 코치의 인연, 현지도 관심", "SBS", "2026-11-11T01:44:00Z", COPY);
+        NewsArticle paperAgain = article(4, "'노시환 특급 인맥?' 메츠 코치", "노컷뉴스", "2026-11-11T02:00:00Z", COPY);
+
+        SameArticles.Group group = SameArticles.group(List.of(paperAgain, tv, paper, wire)).getFirst();
+
+        assertThat(group.article()).isSameAs(wire);
+        assertThat(group.alsoBy(wire)).isEqualTo(group.alsoBy()).containsExactly("노컷뉴스", "SBS"); // 목록 한 줄과 같다
+        assertThat(group.alsoBy(paper)).containsExactly("연합뉴스", "SBS"); // 낸 순, 두 번 실은 노컷뉴스도 빠진다
+        assertThat(group.alsoBy(tv)).containsExactly("연합뉴스", "노컷뉴스"); // 같은 언론사는 한 번
+    }
+
+    @Test
+    void anArticleWithNoCopiesHasNoOtherOutlets() {
+        NewsArticle alone = article(1, "노시환 수비 호평", "마이데일리", "2026-11-11T03:00:00Z", OWN);
+
+        SameArticles.Group group = SameArticles.group(List.of(alone)).getFirst();
+
+        assertThat(group.alsoBy()).isEmpty();
+        assertThat(group.alsoBy(alone)).isEmpty();
+    }
+
+    @Test
     void aSummarizedCopyLeadsWhenTheFirstOneHasNoSummary() {
         // 조선일보처럼 본문을 못 읽어 요약이 없는 사본보다 요약이 있는 기사를 보인다
         NewsArticle first = article(1, "'307억 포기' 노시환이 유격수?", "스포츠조선", "2026-11-12T00:50:00Z", null);

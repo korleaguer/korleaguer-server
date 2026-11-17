@@ -30,7 +30,10 @@ public class NewsController {
         return list.find(player, before, q);
     }
 
-    /** 우리 기사 페이지 한 건(제목·대표 사진·요약·출처). 없는 번호이거나 지금 받지 않는 언론사의 기사면 404. DB만 읽는다 */
+    /**
+     * 우리 기사 페이지 한 건(제목·대표 사진·요약·출처, 같은 글을 실은 다른 언론사 alsoBy). 없는 번호이거나 지금 받지 않는
+     * 언론사의 기사면 404. DB만 읽는다
+     */
     @GetMapping("/news/{id}")
     public NewsPageResponse news(@PathVariable long id) {
         return finder.find(id);
