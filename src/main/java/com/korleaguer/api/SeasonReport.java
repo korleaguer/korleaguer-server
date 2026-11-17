@@ -12,7 +12,8 @@ import java.util.List;
  * @param tier        판정(SeasonTier). 홈은 이 순서(좋은 시즌 먼저), 그 안에서 메이저 경기 많은 순이다
  * @param label       판정 이름(좋은 시즌 등). 마이너 시즌은 '트리플A에서 보낸 시즌' 또는 '마이너에서 보낸 시즌'
  * @param headline    한 줄 요약(예: "143경기 완주, 타격은 리그 평균")
- * @param reason      왜 그런 시즌이었나(부상·강등 등 사실 두 개까지 " · "로 잇는다). 없으면 null
+ * @param reason      왜 그런 시즌이었나(부상·강등 등 사실 두 개까지 " · "로 잇는다. 다 뛴 타자는 전·후반 흐름이 크면
+ *                    "6월까지 wRC+ 123 → 7월부터 78" 하나). 없으면 null
  * @param level       카드가 앞세울 시즌 합계. 마이너 시즌이면 MINORS, 아니면 MLB
  * @param war         메이저 WAR(소수 첫째 자리). 모르면 null. 화면은 좋은 시즌·제 몫 한 시즌에만 보인다
  * @param wrcPlus     타자의 시즌 wRC+(리그 평균 = 100). 카드 숫자 칸과 같은 단계 합계다: 메이저면 MLB 공식 시즌 wRC+,

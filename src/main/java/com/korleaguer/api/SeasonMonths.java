@@ -36,8 +36,8 @@ import java.util.Map;
  *   <li>ERA+: 100 × 리그 평균자책점 ÷ 그 달 평균자책점(높을수록 잘함, ERA_PLUS_CAP까지, 무자책이면 CAP). 메이저 달은
  *       공식 시즌 ERA-로 낸 ERA+(10000 ÷ ERA-)와 우리 계산의 비율만큼 곱한다.</li>
  * </ul>
- * 성적표의 시즌 wRC+·ERA+(SeasonRates)도 같은 계산(wrcPlus·eraPlus)을 쓴다. 그래서 한 카드의 달 막대와 시즌 숫자가
- * 같은 잣대로 읽힌다(이슈 #179).
+ * 성적표의 시즌 wRC+·ERA+(SeasonRates)와 전·후반 이유(SeasonReports)도 같은 계산(wrcPlus·eraPlus·scale)을 쓴다.
+ * 그래서 한 카드의 달 막대·시즌 숫자·이유 줄이 같은 잣대로 읽힌다(이슈 #179).
  */
 final class SeasonMonths {
 
@@ -97,15 +97,15 @@ final class SeasonMonths {
     }
 
     /** 메이저 달을 공식 시즌 값에 맞추는 보정: 타자 wRC+에 더할 값, 투수 ERA+에 곱할 값 */
-    private record Scale(double wrcShift, double eraFactor) {
+    record Scale(double wrcShift, double eraFactor) {
         static final Scale NONE = new Scale(0, 1);
     }
 
     /**
      * 공식 시즌 지표(in.mlb().quality(): 타자 wRC+, 투수 ERA-)와 경기별 기록으로 낸 시즌 값의 차이.
-     * 공식 값이 없거나 경기 기록이 비면 보정하지 않는다
+     * 공식 값이 없거나 경기 기록이 비면 보정하지 않는다. 전·후반 이유(SeasonReports)도 이 보정으로 두 반을 잰다
      */
-    private static Scale scale(SeasonReports.Input in, boolean pitcher, LeagueEnvironments.Env mlb) {
+    static Scale scale(SeasonReports.Input in, boolean pitcher, LeagueEnvironments.Env mlb) {
         Double official = in.mlb() == null ? null : in.mlb().quality();
         if (official == null) {
             return Scale.NONE;
