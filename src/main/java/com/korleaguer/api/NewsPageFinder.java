@@ -71,7 +71,10 @@ public class NewsPageFinder {
                 same.alsoBy(article));
     }
 
-    /** find가 404 없이 기사를 줄지만 본다(HEAD /api/news/{id}). 기사 한 줄만 읽고 같은 기사 묶음·다른 기사는 찾지 않는다 */
+    /**
+     * find가 404 없이 기사를 줄지만 본다(HEAD /api/news/{id}). 기사 한 줄만 읽고 같은 기사 묶음·다른 기사는 찾지 않는다.
+     * 있는지만 묻는 쿼리를 따로 두지 않는다: 한 줄이 1KB 안팎(칼럼이 모두 varchar)이라 읽는 양이 거의 같고, find와 기준이 하나로 남는다
+     */
     public boolean exists(long id) {
         return shown(id).isPresent();
     }
