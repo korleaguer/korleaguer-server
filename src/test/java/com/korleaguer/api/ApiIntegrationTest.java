@@ -461,6 +461,8 @@ class ApiIntegrationTest {
         mockMvc.perform(head("/api/players/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string(""));
+        // 숫자가 아닌 id는 GET처럼 400(404 아님). 웹 proxy는 이런 주소를 api에 묻지 않고 바로 404를 준다(lib/ids)
+        mockMvc.perform(head("/api/players/abc")).andExpect(status().isBadRequest());
     }
 
     @Test

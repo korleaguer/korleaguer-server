@@ -152,6 +152,8 @@ class NewsApiTest {
                 .andExpect(content().string(""));
         mockMvc.perform(head("/api/news/" + dropped.getId())).andExpect(status().isNotFound());
         mockMvc.perform(head("/api/news/999999")).andExpect(status().isNotFound());
+        // 숫자가 아닌 id는 GET처럼 400(404 아님). 웹 proxy는 이런 주소를 api에 묻지 않고 바로 404를 준다(lib/ids)
+        mockMvc.perform(head("/api/news/abc")).andExpect(status().isBadRequest());
     }
 
     private NewsArticle save(String subject, String title, String publisher, Instant publishedAt) {
