@@ -3,11 +3,15 @@ package com.korleaguer.api;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Role;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
 /**
  * GET /api/players/{id}. 타자면 pitching이, 투수면 hitting이 null이다.
+ * generatedAt(이슈 #184)은 이 응답을 만든 시각(초 단위)으로, 홈(HomeResponse)·내 선수(MyPlayersResponse)와 뜻·꼴이 같다.
+ * 응답을 캐시하므로 캐시에서 준 응답이면 처음 계산한 시각이다. 웹이 시즌 성적 제목 옆에 '기준 …'으로 보여,
+ * 보고 있는 숫자를 언제 계산했는지 알 수 있게 한다.
  * minorHitting·minorPitching은 같은 시즌 마이너 경기 기록을 더한 것(홈 minorHitters·minorPitchers와 같은 계산)이고,
  * 마이너 경기가 없으면 null이다. 메이저 기록(hitting·pitching)과 따로 보여 줘야 작은 표본이 시즌 전체처럼 보이지 않는다.
  * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록).
@@ -24,6 +28,7 @@ public record PlayerPageResponse(
         String dataMode,
         boolean statsAvailable,
         int season,
+        Instant generatedAt,
         PlayerInfo player,
         HitterSeason hitting,
         PitcherSeason pitching,

@@ -260,6 +260,17 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void playerPageSaysWhenItWasMade() throws Exception {
+        // 홈·내 선수와 같은 꼴(UTC, 초 단위): 웹이 시즌 성적 제목 옆에 '기준 …'으로 보인다(이슈 #184)
+        mockMvc.perform(get("/api/players/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedAt").value("2026-11-01T11:00:00Z"));
+        mockMvc.perform(get("/api/players/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedAt").value("2026-11-01T11:00:00Z"));
+    }
+
+    @Test
     void pitcherProfileWithoutJersey() throws Exception {
         // 고우석: 등번호(primaryNumber) 없음, 키 5' 11", 몸무게 198
         mockMvc.perform(get("/api/players/5"))

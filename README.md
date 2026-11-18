@@ -74,7 +74,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 |---|---|
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
-| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`). 없으면 404 |
+| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`) + 만든 시각(`generatedAt`). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
 | `GET /api/news?player=이정후&before=…` | 뉴스 탭 한 쪽: 선수 고르기 목록(`players`, 기사가 있는 선수만, 포스팅 선수 먼저·명단 순, 선수마다 가장 최근 기사 시각 `latestAt`) + 기사 20줄(늦은 순, 같은 기사는 한 줄·`alsoBy`, 누구 기사인지 `who`) + 다음 쪽 커서(`next`, `before`로 그대로 넘긴다). `player`가 없으면 전체, 모르는 선수면 빈 목록. `q`를 주면 제목(원제·한국어 제목)에 그 말이 있는 기사만(30자까지). 첫 쪽이고 `q`가 없으면 최근 기사에 많이 나온 말 `topics`(`{word, count}`, 최대 6개). 커서 모양이 틀리면 400 |
 | `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 글을 실은 다른 언론사(`alsoBy`, 낸 순, 선수를 고른 뉴스 탭 목록 한 줄과 같은 규칙, 없으면 빈 목록. 검색(`q`) 줄은 제목에 검색어가 있는 사본만 묶어 이보다 적을 수 있다) + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
@@ -92,6 +92,8 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 "올해 주로 마이너"(`mainlyMinors`)는 같은 시즌 마이너(트리플A ~ 루키) 경기 수(`minorGames`, 타자는 타자로 나온 경기, 투수는 등판)가 메이저 정규시즌 경기 수(`games`)보다 많은 선수다. 지금 단계(`level`)가 아니라 시즌 경기 수로 정하므로, 시즌 중에 콜업돼 지금 메이저에 있어도 마이너에서 더 많이 뛰었으면 true다. 홈 시즌 성적에서는 맨 아래에 두고, 선수 페이지의 시즌 성적에도 같은 두 값이 있다. 마이너 경기 수를 아직 받지 않았으면 0이다.
 
 응답의 `dataMode`는 `"mlb"` / `"sample"`이고, `statsAvailable`은 늘 `true`다(화면 호환 때문에 남긴 필드).
+
+홈·선수 화면·내 선수·기록 응답의 `generatedAt`은 그 응답을 만든 시각(UTC, 초 단위, 예: `"2026-11-01T11:00:00Z"`)이다. 응답을 캐시하므로(아래 "캐시") 캐시에서 준 응답이면 처음 계산한 시각이다. 웹은 이 값을 '기준 …'으로 보인다(선수 화면은 시즌 성적 제목 옆, 이슈 #184).
 
 ```bash
 curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/ingest/players

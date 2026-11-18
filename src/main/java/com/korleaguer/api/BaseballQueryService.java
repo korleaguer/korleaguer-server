@@ -211,6 +211,9 @@ public class BaseballQueryService {
 
     @Cacheable(cacheNames = AppConfig.PLAYER_CACHE, key = "#id")
     public PlayerPageResponse player(long id) {
+        // 계산을 시작한 시각이 응답의 generatedAt이다(홈과 같다). 응답째 캐시하므로 캐시에서 줄 때도 이 시각이 그대로 나가
+        // 화면의 '기준 …'이 실제로 숫자를 계산한 때를 가리킨다
+        Instant now = clock.instant();
         Player player = players.findById(id).orElseThrow(() -> new PlayerNotFoundException(id));
         RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
         Team team = member.team();
@@ -242,7 +245,6 @@ public class BaseballQueryService {
         // 시즌(1월 1일 ~ 지금) 동안 시작한 경기
         Instant seasonStart = LocalDate.of(season, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant seasonEnd = LocalDate.of(season + 1, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
-        Instant now = clock.instant();
         List<GameLine> games = gameLines.lines(List.of(member), seasonStart,
                 now.isBefore(seasonEnd) ? now : seasonEnd, statsAvailable);
 
@@ -262,8 +264,8 @@ public class BaseballQueryService {
         List<CareerSeason> careers = careerSeasons.findNewestFirst(player.getId(), group).stream()
                 .map(CareerSeason::of)
                 .toList();
-        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching,
-                minorHitting, minorPitching, games,
+        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
+                info, hitting, pitching, minorHitting, minorPitching, games,
                 fanMoves(moves.findNewestFirst(player.getId())), saber, careers,
                 seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS), minorGames);
     }
