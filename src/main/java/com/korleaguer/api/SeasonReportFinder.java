@@ -49,7 +49,9 @@ import java.util.stream.Stream;
  *   <li>명단 전원(국내 리그로 돌아간 선수 포함). 이번 시즌 메이저·마이너 기록이 하나도 없는 선수는 뺀다.</li>
  *   <li>메이저 합계·지표(player_season_metric)를 아직 받지 못했으면 경기별 기록으로 양만 세어 판정한다.</li>
  *   <li>정규시즌 날짜를 모르면 개막일은 그 시즌 첫 메이저 경기일, 마지막 날은 마지막 경기일로 본다.</li>
- *   <li>선수 한 명이 실패하면 그 선수만 빼고, 전체가 실패하면 빈 목록이다(홈 응답은 깨지지 않는다).</li>
+ *   <li>선수 한 명이 실패하면 그 선수만 빼고, 전체가 실패하면 빈 목록이다(홈 응답은 깨지지 않는다).
+ *       실패해도 되는 DB 조회는 OptionalReads로 홈 조회 트랜잭션과 떼어 따로 돌린다(같은 트랜잭션에서 실패하면 예외를
+ *       삼켜도 커밋에서 홈 전체가 500이 됐다, 이슈 #179 리뷰). 따로 돌리는 조회는 서로 겹치지 않게 둔다(연결 수).</li>
  *   <li>'이번 겨울' 기사: 정규시즌 마지막 날 뒤에 나온 이 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 최대 NEWS건).
  *       같은 언론사가 연달아 오지 않게 섞는다(spreadPublishers, 이슈 #140).</li>
  *   <li>FA 선수(소속이 끝난 선수)는 행선지로 거론된 구단을 포스팅 카드와 같은 규칙으로 센다. 직전 구단은 세지 않는다(이슈 #140).</li>
@@ -78,12 +80,15 @@ public class SeasonReportFinder {
     private final LinkedTeamsCounter linkedTeams;
     private final LeagueEnvironments leagues;
     private final Clock clock;
+    private final OptionalReads reads;
 
     public SeasonReportFinder(AppearanceRepository appearances, MinorGameLogRepository minorGameLogs,
                               PlayerMoveRepository moves, PlayerSeasonMetricRepository metrics,
                               PlayerLeaguePositionRepository leaguePositions, SeasonDatesRepository seasonDates,
                               NewsArticleRepository news, NewsDestinationRepository destinations,
-                              NewsProperties newsProperties, LeagueEnvironments leagues, Clock clock) {
+                              NewsProperties newsProperties, LeagueEnvironments leagues, Clock clock,
+                              OptionalReads reads) {
+        this.reads = reads;
         this.news = news;
         this.leagues = leagues;
         this.publishers = newsProperties.publishers();
@@ -97,21 +102,37 @@ public class SeasonReportFinder {
         this.seasonDates = seasonDates;
     }
 
-    /** 명단 선수들의 시즌 성적표. 실패하면 빈 목록 */
+    /** 명단 선수들의 시즌 성적표. 재료를 못 읽거나 계산이 실패하면 빈 목록 */
     List<SeasonReport> find(List<RosterMember> roster, int season) {
         if (roster.isEmpty()) {
             return List.of();
         }
+        List<Long> ids = roster.stream().map(m -> m.player().getId()).toList();
+        SeasonRecords records = reads.read("season report records", () -> records(ids, season), null);
+        if (records == null) {
+            return List.of();
+        }
         try {
-            return reports(roster, season);
+            return reports(roster, season, records);
         } catch (RuntimeException e) {
+            // 계산 실패만 여기로 온다. 이 안의 DB 조회는 저마다 OptionalReads로 따로 돌고, 실패하면 그 부분만 빠진다
             log.warn("season report failed, home shows none: {}", e.toString());
             return List.of();
         }
     }
 
-    private List<SeasonReport> reports(List<RosterMember> roster, int season) {
-        List<Long> ids = roster.stream().map(m -> m.player().getId()).toList();
+    /**
+     * 명단 전원을 한 번에 읽은 성적표 재료와 그것으로 정한 개막일·정규시즌 마지막 날. 경기는 화면용 값(GameDay)으로 바꿔 둔다.
+     * 지표 줄은 엔티티 그대로지만 따로 읽는 트랜잭션이 끝난 뒤에는 기본 칸(시즌·묶음·숫자)만 쓴다
+     */
+    private record SeasonRecords(Map<Long, List<SeasonReports.GameDay>> majors,
+                                 Map<Long, List<SeasonReports.GameDay>> minors,
+                                 Map<Long, List<PlayerSeasonMetric>> metricRows,
+                                 LocalDate openingDay, LocalDate lastRegularDay) {
+    }
+
+    /** 성적표 재료를 읽는다. OptionalReads 안에서 부른다(경기의 상대 팀처럼 지연 로딩되는 값은 여기서 꺼낸다) */
+    private SeasonRecords records(List<Long> ids, int season) {
         Map<Long, List<SeasonReports.GameDay>> majors = appearances.findSeason(ids, season, REGULAR_SEASON).stream()
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId(),
                         Collectors.mapping(SeasonReportFinder::majorGame, Collectors.toList())));
@@ -131,30 +152,35 @@ public class SeasonReportFinder {
                 .orElse(Stream.concat(majorDays.stream(), minors.values().stream().flatMap(List::stream)
                                 .map(SeasonReports.GameDay::date))
                         .max(Comparator.naturalOrder()).orElse(LocalDate.of(season, 9, 30)));
+        return new SeasonRecords(majors, minors, metricRows, openingDay, lastRegularDay);
+    }
 
+    private List<SeasonReport> reports(List<RosterMember> roster, int season, SeasonRecords records) {
         // 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 메모리에 둔다)
         Set<String> levels = new HashSet<>();
         levels.add(LeagueEnvironments.MLB);
-        minors.values().forEach(games -> games.forEach(g -> levels.add(g.level())));
+        records.minors().values().forEach(games -> games.forEach(g -> levels.add(g.level())));
         Map<String, LeagueEnvironments.Env> environments = leagues.of(season, levels);
 
         List<SeasonReports.Built> built = new ArrayList<>();
         for (RosterMember member : roster) {
             Player player = member.player();
             try {
-                SeasonReports.Input input = input(player, season, openingDay, lastRegularDay,
-                        majors.getOrDefault(player.getId(), List.of()), minors.getOrDefault(player.getId(), List.of()),
-                        metricRows.getOrDefault(player.getId(), List.of()));
+                SeasonReports.Input input = input(player, season, records.openingDay(), records.lastRegularDay(),
+                        records.majors().getOrDefault(player.getId(), List.of()),
+                        records.minors().getOrDefault(player.getId(), List.of()),
+                        records.metricRows().getOrDefault(player.getId(), List.of()));
                 if (input != null) {
                     built.add(SeasonReports.build(input, environments));
                 }
             } catch (RuntimeException e) {
+                // 계산 실패(이동 기록 조회는 input 안에서 따로 돈다)
                 log.warn("season report for {} failed, left out: {}", player.getNameKo(), e.toString());
             }
         }
         Map<Long, RosterMember> members = roster.stream()
                 .collect(Collectors.toMap(m -> m.player().getId(), m -> m, (a, b) -> a));
-        Instant winterStart = lastRegularDay.plusDays(1).atStartOfDay(GameIngest.US_EASTERN).toInstant();
+        Instant winterStart = records.lastRegularDay().plusDays(1).atStartOfDay(GameIngest.US_EASTERN).toInstant();
         Instant now = clock.instant();
         Map<Long, PlayerSaber> sabers = sabers(roster, season);
         return built.stream()
@@ -173,12 +199,12 @@ public class SeasonReportFinder {
     /**
      * 명단 선수들의 그 시즌 'MLB 안 위치'(선수 번호 → 선수 화면 saber와 같은 값). 선수 역할의 묶음(타자 HITTING·투수
      * PITCHING) 줄만 쓴다(선수 화면과 같다). 줄이 없거나 그 시즌 MLB 기록이 없는 선수는 빠지고, 못 읽으면 빈 맵이다
-     * (펼친 카드에서 위치만 빠지고 성적표는 그대로 보인다)
+     * (펼친 카드에서 위치만 빠지고 성적표는 그대로 보인다. OptionalReads로 따로 읽는다)
      */
     Map<Long, PlayerSaber> sabers(List<RosterMember> roster, int season) {
         Map<Long, PlayerSeasonMetric.Group> groups = new HashMap<>();
         roster.forEach(m -> groups.putIfAbsent(m.player().getId(), PlayerSeasonMetric.Group.of(m.player().role())));
-        try {
+        return reads.read("league positions for season report", () -> {
             Map<Long, PlayerSaber> out = new HashMap<>();
             for (PlayerLeaguePosition row : leaguePositions.findSeason(groups.keySet(), season)) {
                 long playerId = row.getPlayer().getId();
@@ -188,10 +214,7 @@ public class SeasonReportFinder {
                 }
             }
             return out;
-        } catch (RuntimeException e) {
-            log.warn("league positions for season report failed, left out: {}", e.toString());
-            return Map.of();
-        }
+        }, Map.of());
     }
 
     /**
@@ -239,46 +262,46 @@ public class SeasonReportFinder {
         return canonical != null ? canonical : abbreviation;
     }
 
-    /** FA 선수(소속이 끝났고 직전 구단을 안다)의 거론 구단. FA가 아니거나 거론된 구단이 없거나 못 읽으면 null */
+    /**
+     * FA 선수(소속이 끝났고 직전 구단을 안다)의 거론 구단. FA가 아니거나 거론된 구단이 없거나 못 읽으면 null
+     * (기사·거론 구단은 OptionalReads로 따로 읽는다)
+     */
     PostingSummary.LinkedTeams freeAgentLinkedTeams(RosterMember member, Instant now) {
         if (!member.teamEnded() || member.team() == null || member.player().getNameKo() == null) {
             return null;
         }
-        try {
-            PostingSummary.LinkedTeams linked = linkedTeams.count(member.player().getNameKo(), now,
+        String name = member.player().getNameKo();
+        String leaveOut = lastTeam(member.team().getAbbreviation());
+        return reads.read("linked teams for " + name, () -> {
+            PostingSummary.LinkedTeams linked = linkedTeams.count(name, now,
                     articles -> articles.stream()
                             .filter(a -> publishers.contains(a.getPublisher()))
                             .filter(a -> !a.isOffTopic())
                             .toList(),
-                    lastTeam(member.team().getAbbreviation()));
+                    leaveOut);
             return linked.teams().stream().anyMatch(t -> t.linked() > 0) ? linked : null;
-        } catch (RuntimeException e) {
-            log.warn("linked teams for {} failed, left out: {}", member.player().getNameKo(), e.toString());
-            return null;
-        }
+        }, null);
     }
 
     /**
      * 그 선수의 since 뒤 기사(늦은 순, 같은 기사는 한 줄, 최대 limit건). 지금 수집하는 언론사만, 이 선수가 주인공인 기사만 둔다.
-     * 성적표의 '이번 겨울'과 선수 화면의 기사(이슈 #133)가 같은 규칙을 쓴다. 기사를 못 읽으면 빈 목록(화면은 그대로 보인다)
+     * 성적표의 '이번 겨울'과 선수 화면의 기사(이슈 #133)가 같은 규칙을 쓴다. 기사를 못 읽으면 빈 목록(화면은 그대로 보인다.
+     * OptionalReads로 따로 읽는다)
      */
     List<PostingSummary.Headline> news(String nameKo, Instant since, int limit) {
         if (nameKo == null) {
             return List.of();
         }
-        try {
+        return reads.read("news for " + nameKo, () -> {
             List<NewsArticle> recent = news.findLatest(nameKo, PageRequest.of(0, limit * 4)).stream()
                     .filter(a -> publishers.contains(a.getPublisher()) && !a.getPublishedAt().isBefore(since))
                     .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
                     .toList();
             return SameArticles.group(recent).stream().limit(limit).map(PostingSummary.Headline::of).toList();
-        } catch (RuntimeException e) {
-            log.warn("news for {} failed, left out: {}", nameKo, e.toString());
-            return List.of();
-        }
+        }, List.of());
     }
 
-    /** 선수 한 명의 재료. 이번 시즌 기록이 하나도 없으면 null */
+    /** 선수 한 명의 재료. 이번 시즌 기록이 하나도 없거나 이동 기록을 못 읽으면 null(그 선수는 성적표에서 빠진다) */
     private SeasonReports.Input input(Player player, int season, LocalDate openingDay, LocalDate lastRegularDay,
                                       List<SeasonReports.GameDay> majorGames, List<SeasonReports.GameDay> minorGames,
                                       List<PlayerSeasonMetric> rows) {
@@ -303,9 +326,15 @@ public class SeasonReportFinder {
         }
         boolean firstMlbSeason = player.getDebutYear() != null ? player.getDebutYear() == season
                 : previous.stream().noneMatch(l -> l.volume() > 0) && !majorGames.isEmpty();
-        List<SeasonReports.Move> playerMoves = moves.findNewestFirst(player.getId()).stream()
-                .map(m -> new SeasonReports.Move(m.getMoveDate(), m.getTypeCode(), m.getTypeDesc(), m.getDescription()))
-                .toList();
+        long playerId = player.getId();
+        List<SeasonReports.Move> playerMoves = reads.read("moves of " + player.getNameKo(),
+                () -> moves.findNewestFirst(playerId).stream()
+                        .map(m -> new SeasonReports.Move(m.getMoveDate(), m.getTypeCode(), m.getTypeDesc(),
+                                m.getDescription()))
+                        .toList(), null);
+        if (playerMoves == null) {
+            return null;
+        }
         return new SeasonReports.Input(player.getId(), role, season, openingDay, lastRegularDay, firstMlbSeason,
                 current, previous, majorGames, minorGames, playerMoves);
     }

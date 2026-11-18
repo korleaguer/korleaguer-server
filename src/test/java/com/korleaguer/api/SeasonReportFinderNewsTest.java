@@ -15,6 +15,7 @@ import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.news.NewsProperties;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -40,7 +41,9 @@ class SeasonReportFinderNewsTest {
             new NewsProperties(true, "0 */30 * * * *",
             "korleaguer/test", List.of("korleaguer"), List.of(new NewsProperties.Source("마이데일리", "https://a.example/rss",
             null, null, null, "lead"), new NewsProperties.Source("스포츠조선", "https://b.example/rss", null, null, null,
-            "lead"))), mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC));
+            "lead"))), mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC),
+            // 단위 시험이라 따로 읽는 트랜잭션은 흉내만 낸다(트랜잭션 관리자 mock)
+            new OptionalReads(mock(PlatformTransactionManager.class)));
 
     @Test
     void onlyWinterArticlesFromCurrentPublishersOneLinePerStory() {
