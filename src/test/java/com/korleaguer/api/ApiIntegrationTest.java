@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -76,6 +77,8 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.recent.lines[0].batting.homeRuns").value(1))
                 .andExpect(jsonPath("$.recent.lines[0].pitching").doesNotExist())
                 .andExpect(jsonPath("$.recent.lines[0].lineup").value("STARTER"))
+                // 홈 최근 경기 줄도 같은 경기 줄이라 경기 종류가 있다(이슈 #190)
+                .andExpect(jsonPath("$.recent.lines[*].seasonType").value(everyItem(is("REGULAR"))))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '고우석')].lineup").value(contains("SUB")))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].lineup").value(contains(nullValue())))
                 .andExpect(jsonPath("$.recent.lines[?(@.nameKo == '김혜성')].batting").value(contains(nullValue())))
@@ -321,7 +324,9 @@ class ApiIntegrationTest {
         // 김혜성: 2003 결장(null), 2002 선발, 2001 교체(타순 901)
         mockMvc.perform(get("/api/players/2"))
                 .andExpect(jsonPath("$.games[*].gameId").value(contains(2003, 2002, 2001)))
-                .andExpect(jsonPath("$.games[*].lineup").value(contains(nullValue(), is("STARTER"), is("SUB"))));
+                .andExpect(jsonPath("$.games[*].lineup").value(contains(nullValue(), is("STARTER"), is("SUB"))))
+                // 경기 종류(이슈 #190): 샘플 경기는 모두 정규시즌. 결장 줄도 그 경기의 종류다
+                .andExpect(jsonPath("$.games[*].seasonType").value(contains("REGULAR", "REGULAR", "REGULAR")));
     }
 
     @Test
@@ -422,7 +427,9 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.minorGames[0].pitching.outs").value(3))
                 .andExpect(jsonPath("$.minorGames[0].pitching.inningsText").value("1"))
                 .andExpect(jsonPath("$.minorGames[0].batting").value(nullValue()))
-                .andExpect(jsonPath("$.minorGames[11].startTimeKst").value("2026-09-10T08:05:00+09:00"));
+                .andExpect(jsonPath("$.minorGames[11].startTimeKst").value("2026-09-10T08:05:00+09:00"))
+                // 마이너 경기는 정규시즌만 받는다(이슈 #190)
+                .andExpect(jsonPath("$.minorGames[*].seasonType").value(everyItem(is("REGULAR"))));
 
         // 김혜성: 지금 팀이 마이너가 아니라 샘플 팀(표에 없음, 지명도 없음)이라 팀 이름을 그대로 쓴다. 9/20 4타수 무안타, 2:4 패
         mockMvc.perform(get("/api/players/2"))
