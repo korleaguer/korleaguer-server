@@ -28,7 +28,8 @@ public record MyPlayersResponse(
      * 선수 한 명. 타자면 pitching이, 투수면 hitting이 null이다.
      * 선수 기록을 받지 못한 상태(statsAvailable=false)면 hitting·pitching·streak 모두 null이다.
      * streak은 이번 시즌(정규시즌+포스트시즌) 최근 경기부터 이어진 연속 기록이다(타자: 안타 경기, 투수: 무실점 등판).
-     * games는 기간 안 경기 한 줄 기록(결장·경기 전 포함), 최신순이다.
+     * games는 기간 안 경기 한 줄 기록(결장·경기 전 포함), 최신순이다. 마이너 경기 줄의 startTimeKst는 선수 화면 마이너
+     * 경기 줄(minorGames)과 같은 시각이다(같은 경기가 같은 날, 이슈 #183).
      * 기간: 보통은 오늘까지 days일(isFallback=false). 최근 days일에 구단 경기(메이저에 있을 때)도 본인 출전도 없으면
      * (구단 시즌이 끝났거나 마이너에 있음) 그 선수가 마지막으로 뛴 날(toKst)까지 days일이다(isFallback=true).
      */
@@ -53,7 +54,7 @@ public record MyPlayersResponse(
      * 카드의 큰 숫자·막대(hitting·pitching·games)가 어떤 기간인지. level은 그 기록의 단계다(MLB 또는 마이너 약어 AAA·AA 등).
      * RECENT: 오늘까지 days일, LAST_PLAYED: 마지막으로 뛴 날까지 days일, BEFORE_INJURY: 다치기 전(메이저 부상자 명단에 오르기 전) days일,
      * REHAB: 메이저 부상자 명단에 오른 뒤 뛴 마이너 재활 경기(오늘까지, 없으면 마지막 재활 경기까지 days일. isFallback이 그 구분이고
-     * 시즌 비교 값은 없다), SEASON: 비시즌·FA라 기간 대신 시즌 합계(seasonTotals), NONE: 보여 줄 기록이 없음(이번 시즌 경기가 아직 없음 등)
+     * 시즌 비교 값은 없다), SEASON: FA·시즌 끝·국내 리그 복귀(KBO)라 기간 대신 시즌 합계(seasonTotals), NONE: 보여 줄 기록이 없음(이번 시즌 경기가 아직 없음 등)
      */
     public enum Basis {
         RECENT,
@@ -103,7 +104,7 @@ public record MyPlayersResponse(
     }
 
     /**
-     * 시즌 합계(비시즌·FA). primary는 크게 보일 쪽(MLB: 메이저 20경기 이상이거나 메이저가 더 많을 때, 아니면 MINORS).
+     * 시즌 합계(FA·시즌 끝·KBO). primary는 크게 보일 쪽(MLB: 메이저 20경기 이상이거나 메이저가 더 많을 때, 아니면 MINORS).
      * mlb·minors는 그 단계 경기가 없으면 null이다.
      */
     public record SeasonTotals(int season, String primary, Totals mlb, Totals minors) {
