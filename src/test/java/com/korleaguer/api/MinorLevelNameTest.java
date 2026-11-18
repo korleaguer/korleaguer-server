@@ -27,6 +27,13 @@ class MinorLevelNameTest {
     }
 
     @Test
+    void unknownLevelCountsAsALevel() {
+        // 단계를 모르는 경기(null)도 한 단계로 센다(성적표 statLevelKo의 SeasonRates.levelKo와 같은 규칙, 이슈 #179 리뷰)
+        assertThat(MinorRecords.levelKo(List.of(game(1, "AAA"), game(2, null)))).isEqualTo("마이너");
+        assertThat(MinorRecords.levelKo(List.of(game(1, null), game(2, null)))).isEqualTo("마이너");
+    }
+
+    @Test
     void noGamesIsMinors() {
         assertThat(MinorRecords.levelKo(List.<MinorGameLog>of())).isEqualTo("마이너");
     }

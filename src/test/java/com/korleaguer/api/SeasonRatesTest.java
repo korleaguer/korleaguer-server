@@ -97,6 +97,41 @@ class SeasonRatesTest {
     }
 
     @Test
+    void unknownMinorLevelMixedInMakesTheLevelNameMinors() {
+        // 단계를 모르는 마이너 경기(level null)는 표준값으로 재므로, 트리플A와 섞이면 '트리플A'가 아니라 '마이너'다
+        // (MinorRecords.levelKo와 같은 규칙, 이슈 #179 리뷰). 마이너 목록의 null 단계는 메이저가 아니라 '모름'이다
+        List<GameDay> tripleA = hitGames("AAA", LocalDate.of(2026, 5, 1), 30, 100, 30, 5, 2, 10);
+        List<GameDay> withUnknown = new ArrayList<>(tripleA);
+        withUnknown.addAll(hitGames(null, LocalDate.of(2026, 7, 1), 10, 30, 8, 1, 0, 3));
+
+        assertThat(SeasonRates.of(hitter(null, List.of(), tripleA), true, LEAGUES).statLevelKo()).isEqualTo("트리플A");
+        Rates mixed = SeasonRates.of(hitter(null, List.of(), withUnknown), true, LEAGUES);
+        assertThat(mixed.wrcPlus()).isNotNull();
+        assertThat(mixed.statLevelKo()).isEqualTo("마이너");
+        // 모두 모르면 MinorRecords.levelKo(null)과 같이 '마이너'
+        List<GameDay> unknownOnly = hitGames(null, LocalDate.of(2026, 7, 1), 20, 70, 20, 3, 1, 7);
+        assertThat(SeasonRates.of(hitter(null, List.of(), unknownOnly), true, LEAGUES).statLevelKo())
+                .isEqualTo("마이너");
+    }
+
+    @Test
+    void mlbCardWithTheOfficialValueButNoMajorGamesYetKeepsTheOfficialValue() {
+        // 공식 지표는 받았는데 경기별 메이저 기록이 아직 없고 재활 마이너 경기만 있는 MLB 카드: 마이너 합계가 아니라 공식 값을
+        // 쓰고 단계 이름은 없다. 같은 카드의 saber가 MLB 공식 값이다(이슈 #179 리뷰)
+        List<GameDay> rehab = hitGames("AAA", LocalDate.of(2026, 6, 1), 15, 55, 20, 4, 2, 6);
+        assertThat(SeasonRates.of(hitter(new Line(2026, 579, 0, 101.8, 0.97), List.of(), rehab), false, LEAGUES))
+                .isEqualTo(new Rates(102, null, null));
+
+        List<GameDay> rehabPitching = pitchGames("AAA", LocalDate.of(2026, 6, 1), 5, 30, 2);
+        assertThat(SeasonRates.of(pitcher(new Line(2026, 60, 0, 80.0, 1.0), List.of(), rehabPitching), false,
+                LEAGUES)).isEqualTo(new Rates(null, 125, null));
+
+        // 공식 지표가 없으면(양만 있고 값이 없어도) 전처럼 마이너 합계다
+        assertThat(SeasonRates.of(hitter(new Line(2026, 440, 0, null, null), List.of(), rehab), false, LEAGUES)
+                .statLevelKo()).isEqualTo("트리플A");
+    }
+
+    @Test
     void fewMinorGamesGiveNeitherNumberNorLevelName() {
         // 트리플A 10경기 40타석, 9이닝: 숫자가 없으면 그 앞에 붙일 단계 이름도 없다
         List<GameDay> hitting = hitGames("AAA", LocalDate.of(2026, 9, 1), 10, 36, 10, 2, 1, 4);

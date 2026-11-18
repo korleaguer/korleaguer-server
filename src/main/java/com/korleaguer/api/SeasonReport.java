@@ -20,7 +20,8 @@ import java.util.List;
  *                    마이너면 마이너 합계를 단계 리그 평균과 견준 값(SeasonRates, 이슈 #179). 투수거나 50타석 미만이면 null
  * @param eraPlus     투수의 시즌 ERA+(리그 평균 = 100, 높을수록 잘함, 300까지, 무자책이면 300). wrcPlus와 같은 단계·방식이다.
  *                    타자거나 10이닝 미만이면 null
- * @param statLevelKo wrcPlus·eraPlus가 마이너 합계일 때 그 단계 이름(한 단계면 '트리플A', 섞였으면 '마이너').
+ * @param statLevelKo wrcPlus·eraPlus가 마이너 합계일 때 그 단계 이름(한 단계면 '트리플A', 섞였거나 단계를 모르는 경기가
+ *                    끼었으면 '마이너').
  *                    메이저거나 숫자가 없으면 null
  * @param months      정규시즌 달마다 어디서 뛰었나와 타율·평균자책점(SeasonMonths, 이슈 #170). 홈 카드의 달별 막대
  * @param winterMoves 정규시즌이 끝나고 3일 뒤부터의 이동 기록(FA 선언 등), 최신순 세 개까지

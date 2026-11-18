@@ -6,7 +6,6 @@ import com.korleaguer.domain.Role;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * 성적표 숫자 칸의 시즌 wRC+·ERA+와 그 단계 이름(SeasonReport의 wrcPlus·eraPlus·statLevelKo, 이슈 #179).
@@ -14,7 +13,8 @@ import java.util.Objects;
  * (사용자 11-17 결정. 타율 하나로 시즌을 말하지 않는다).
  * <ul>
  *   <li>단계: 웹 숫자 칸과 같은 합계를 잰다. 성적표 level이 MINORS면 마이너, 아니면 메이저다. 메이저 경기가 하나도 없고
- *       마이너 경기만 있으면 웹이 마이너 합계를 크게 보이므로(SeasonReportCard) 마이너를 잰다.</li>
+ *       마이너 경기만 있으면 웹이 마이너 합계를 크게 보이므로(SeasonReportCard) 마이너를 잰다. 다만 공식 지표를 받았으면
+ *       경기별 메이저 기록이 아직 없어도 MLB 카드라 공식 값을 쓴다(같은 카드의 saber와 같은 단계).</li>
  *   <li>메이저: MLB 공식 시즌 wRC+(player_season_metric, 구장 보정 포함)를 반올림한다. SeasonMonths가 메이저 달을 맞추는
  *       값이라 달 막대를 시즌 하나로 합친 값과 같다. 투수는 공식 ERA-로 낸 ERA+(10000 ÷ ERA-, SeasonMonths와 같은 식).
  *       공식 값을 아직 받지 못했으면 경기별 기록을 MLB 리그 평균과 견준다(보정 없는 메이저 달과 같다).</li>
@@ -23,8 +23,10 @@ import java.util.Objects;
  *       비중으로 섞는다. 단계마다 '그 리그 평균 선수였다면 낸 득점·자책점'을 더해 견주는 것과 같은 뜻이다.</li>
  *   <li>ERA+: 높을수록 잘함, SeasonMonths.ERA_PLUS_CAP(300)까지, 무자책이면 300(달별 기록과 같은 규칙).</li>
  *   <li>표본이 작으면(타자 MIN_PLATE_APPEARANCES타석·투수 MIN_OUTS아웃 미만) null이다.</li>
- *   <li>statLevelKo: 숫자가 마이너 합계일 때 그 단계 이름(한 단계면 '트리플A', 섞였으면 '마이너'). 메이저거나 숫자가 없으면
- *       null. 웹 숫자 칸 위 '트리플A 기록' 이름표(/api/my 시즌 합계의 단계)와 같다.</li>
+ *   <li>statLevelKo: 숫자가 마이너 합계일 때 그 단계 이름(한 단계면 '트리플A', 섞였거나 단계를 모르는 경기가 끼었으면
+ *       '마이너'). 메이저거나 숫자가 없으면 null. 홈 마이너 줄의 단계 이름(MinorRecords.levelKo)과 같은 규칙이다. 웹 숫자 칸
+ *       위 '트리플A 기록' 이름표(/api/my 시즌 합계의 단계)와도 같되, 그쪽(MinorRecords.minors)은 단계를 모르는 경기를 빼고
+ *       단계를 정해서 그런 경기가 낀 때만 다르다.</li>
  * </ul>
  */
 final class SeasonRates {
@@ -57,7 +59,12 @@ final class SeasonRates {
      */
     static Rates of(SeasonReports.Input in, boolean minorsCard, Map<String, LeagueEnvironments.Env> leagues) {
         boolean pitcher = in.role() == Role.PITCHER;
-        boolean minors = !in.minors().isEmpty() && (minorsCard || in.majors().isEmpty());
+        // 공식 지표(wRC+·ERA-)를 받았으면 그 값, 아니면 경기별 기록
+        SeasonVerdict.Line official = in.mlb() != null && in.mlb().quality() != null ? in.mlb() : null;
+        // 마이너 합계를 재는 때: 마이너 카드거나, 메이저 기록이 경기별로도 공식 지표로도 없을 때. 공식 지표가 있으면 경기별
+        // 메이저 기록이 아직 없어도(재활 마이너 경기만 있어도) MLB 카드라 공식 값을 쓴다. 같은 카드의 saber가 MLB 공식
+        // 값이라 목록 숫자도 같은 단계여야 한다(이슈 #179 리뷰)
+        boolean minors = !in.minors().isEmpty() && (minorsCard || (in.majors().isEmpty() && official == null));
         if (minors) {
             Integer wrcPlus = pitcher ? null : wrcPlus(in.minors(), true, leagues);
             Integer eraPlus = pitcher ? eraPlus(in.minors(), true, leagues) : null;
@@ -65,8 +72,6 @@ final class SeasonRates {
             String levelKo = wrcPlus == null && eraPlus == null ? null : levelKo(in.minors());
             return new Rates(wrcPlus, eraPlus, levelKo);
         }
-        // 공식 지표(wRC+·ERA-)를 받았으면 그 값, 아니면 경기별 기록
-        SeasonVerdict.Line official = in.mlb() != null && in.mlb().quality() != null ? in.mlb() : null;
         if (pitcher) {
             return new Rates(null, official != null ? officialEraPlus(official) : eraPlus(in.majors(), false, leagues),
                     null);
@@ -142,9 +147,14 @@ final class SeasonRates {
         return new LeagueEnvironments.Env(woba, runsPerPa, era);
     }
 
-    /** 마이너 합계의 단계 이름: 한 단계면 그 이름(트리플A), 섞였으면 '마이너'(MinorRecords.minors의 단계와 같다) */
+    /**
+     * 마이너 합계의 단계 이름: 모두 한 단계면 그 이름(트리플A), 단계가 섞였거나 단계를 모르는 경기(level null)가 끼었으면
+     * '마이너'. 모르는 단계도 한 단계로 센다: 숫자는 그 경기를 표준값(LeagueEnvironments.STANDARD)으로 섞어 재므로
+     * '트리플A'라 하면 잣대와 어긋난다(이슈 #179 리뷰). 모두 모르면 MinorRecords.levelKo(null)과 같이 '마이너'.
+     * 홈 마이너 줄이 쓰는 MinorRecords.levelKo(마이너 경기 목록)와 같은 규칙이다(한쪽을 바꾸면 다른 쪽도 바꾼다)
+     */
     private static String levelKo(List<GameDay> minors) {
-        List<String> levels = minors.stream().map(GameDay::level).filter(Objects::nonNull).distinct().toList();
+        List<String> levels = minors.stream().map(GameDay::level).distinct().toList();
         return levels.size() == 1 ? MinorRecords.levelKo(levels.getFirst()) : MIXED_MINORS;
     }
 }
