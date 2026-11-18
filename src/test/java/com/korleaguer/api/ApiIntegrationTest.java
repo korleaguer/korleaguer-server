@@ -191,14 +191,15 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.moves[0].typeCode").value("OUT"))
                 .andExpect(jsonPath("$.moves[0].labelKo").value("마이너 이관(아웃라이트)"))
                 .andExpect(jsonPath("$.moves[0].fromTeam").value("미네소타"))
-                .andExpect(jsonPath("$.moves[0].toTeam").value("St. Paul Saints"))
+                // 트리플A 팀은 한국어 지명과 단계(minor-teams.yml, 이슈 #183). 선수의 levelTeam은 MLB 이름 그대로다
+                .andExpect(jsonPath("$.moves[0].toTeam").value("세인트폴(트리플A)"))
                 .andExpect(jsonPath("$.moves[0].toLevel").value("MINORS"))
                 .andExpect(jsonPath("$.moves[1].labelKo").value("지명 할당(DFA)"))
                 .andExpect(jsonPath("$.moves[1].fromTeam").value(nullValue()))
                 .andExpect(jsonPath("$.moves[1].toTeam").value("미네소타"))
                 .andExpect(jsonPath("$.moves[1].toLevel").value("MLB"))
                 .andExpect(jsonPath("$.moves[2].labelKo").value("메이저 콜업"))
-                .andExpect(jsonPath("$.moves[2].fromTeam").value("St. Paul Saints"))
+                .andExpect(jsonPath("$.moves[2].fromTeam").value("세인트폴(트리플A)"))
                 .andExpect(jsonPath("$.moves[3].labelKo").value("마이너 강등(옵션)"));
 
         // 부상자 명단 등재·해제(상태 변경 줄 중 남기는 것)

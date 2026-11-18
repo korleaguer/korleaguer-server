@@ -211,7 +211,8 @@ class MinorGameLinesTest {
                 "Albuquerque");
     }
 
-    private static MinorTeamProperties readTeams() {
+    /** 실제 roster/minor-teams.yml(이동 기록 팀 이름 시험도 같이 쓴다) */
+    static MinorTeamProperties readTeams() {
         try {
             var sources = new YamlPropertySourceLoader().load("minor-teams",
                     new ClassPathResource("roster/minor-teams.yml"));

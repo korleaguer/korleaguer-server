@@ -264,15 +264,16 @@ public class BaseballQueryService {
                 .toList();
         return new PlayerPageResponse(dataMode.value(), statsAvailable, season, info, hitting, pitching,
                 minorHitting, minorPitching, games,
-                fanMoves(moves.findNewestFirst(player.getId())), saber, careers,
+                fanMoves(moves.findNewestFirst(player.getId()), minorTeamNames), saber, careers,
                 seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS), minorGames);
     }
 
     /**
      * 이동 기록(최신순) 중 팬에게 보일 것만 고른다. 이름(labelKo)이 없는 줄(의미 없는 상태 변경)은 빼고,
-     * MLB가 같은 날 같은 내용을 두 번 준 줄은 하나만 남긴다.
+     * MLB가 같은 날 같은 내용을 두 번 준 줄은 하나만 남긴다. 팀 이름은 TeamLabels.moveTeam(MLB 구단은 한글 이름,
+     * 트리플A·더블A 팀은 "귀넷(트리플A)")이다.
      */
-    static List<PlayerPageResponse.Move> fanMoves(List<PlayerMove> newestFirst) {
+    static List<PlayerPageResponse.Move> fanMoves(List<PlayerMove> newestFirst, MinorTeamNames minorTeams) {
         record Key(LocalDate date, String typeCode, String description) {
         }
         Set<Key> seen = new HashSet<>();
@@ -283,8 +284,8 @@ public class BaseballQueryService {
                 continue;
             }
             result.add(new PlayerPageResponse.Move(move.getMoveDate(), move.getTypeCode(), label,
-                    TeamLabels.mlbTeam(move.getFromTeamId(), move.getFromTeamName()),
-                    TeamLabels.mlbTeam(move.getToTeamId(), move.getToTeamName()),
+                    TeamLabels.moveTeam(move.getFromTeamId(), move.getFromTeamName(), minorTeams),
+                    TeamLabels.moveTeam(move.getToTeamId(), move.getToTeamName(), minorTeams),
                     move.getToLevel()));
         }
         return result;

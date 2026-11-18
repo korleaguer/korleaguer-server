@@ -139,7 +139,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - `GET /api/players/{id}`의 `moves`(최신순): `{ date, typeCode, labelKo, fromTeam, toTeam, toLevel }`
   - `labelKo`: OPT 마이너 강등(옵션), CU·SE 메이저 콜업, OUT 마이너 이관(아웃라이트), DES 지명 할당(DFA), TR 트레이드, SFA·SGN·"Signed" 계약, DFA(Declared Free Agency) FA 선언, REL 방출, CLW 웨이버 클레임, SU 출장 정지, ASG 재활 경기 배정·스프링캠프 초청·팀 배정. 표에 없으면 영어 `typeDesc` 그대로.
   - 선수 상태 변경(SC)은 설명 글에 부상자 명단(등재·해제·이동)이나 출장 정지가 있을 때만 남기고 나머지("roster status changed", 그냥 "activated")는 뺀다. MLB가 같은 날 같은 내용을 두 번 준 줄도 하나만 남긴다.
-  - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`), 마이너 팀 등은 MLB가 준 영어 이름 그대로(`St. Paul Saints`).
+  - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`). 트리플A·더블A 60팀은 마이너 경기 줄과 같은 한국어 지명(`roster/minor-teams.yml`)에 단계를 붙인다(`세인트폴(트리플A)`, `콜럼버스(더블A)`. 두 단계에 '콜럼버스'가 하나씩 있다, 이슈 #183). 이동 기록에 있는 MLB 팀 번호로 찾는다. 그 밖의 팀(루키 팀·국가대표 등)은 MLB가 준 영어 이름 그대로(`FCL Braves`). 경기 줄의 팀 이름(`세인트폴`)에는 단계를 붙이지 않는다(단계 칸이 따로 있다).
 
 ### 선수 사진 호스팅(`GET /api/photos/{이름}`, 표 `photo`)
 - 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}`, 선수 페이지 과거 소속팀 사진은 `/photos/career-{KBO 선수 번호}-{시즌}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).

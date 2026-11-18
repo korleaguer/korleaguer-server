@@ -1,10 +1,15 @@
-# 마이너리그 팀 한국어 이름(선수 화면 '경기 기록'의 마이너 경기 줄, 이슈 #145). 트리플A 30팀·더블A 30팀 모두.
-#   id: MLB 팀 번호(gameLog의 team.id·opponent.id. 웹은 https://www.mlbstatic.com/team-logos/{id}.svg로 로고를 그린다)
+# 마이너리그 팀 한국어 이름(선수 화면 '경기 기록'의 마이너 경기 줄 이슈 #145, 이동 기록 팀 이름 이슈 #183).
+# 트리플A 30팀·더블A 30팀 모두.
+#   id: MLB 팀 번호(gameLog의 team.id·opponent.id, 이동 기록의 fromTeam.id·toTeam.id.
+#       웹은 https://www.mlbstatic.com/team-logos/{id}.svg로 로고를 그린다)
 #   name-ko: 화면에 쓰는 한국어 도시(지명) 이름. 한국 야구 기사에서 흔히 쓰는 표기를 따랐다
-#            (Scranton/Wilkes-Barre는 짧게 '스크랜턴'. 트리플A·더블A에 '콜럼버스'가 하나씩 있다: 단계가 함께 보인다)
-#   level·name-en: 확인용(화면에 쓰지 않는다). MLB /api/v1/teams?sportIds=11,12&season=2026 기준(11-13)
-# 여기 없는 팀(하이싱글A·싱글A·루키, 새로 생기거나 옮긴 팀)은 MLB 일정이 준 영어 지명(franchiseName, 예: Quad Cities)으로,
-# 그것도 모르면 MLB 영어 팀 이름으로 보인다. 같은 id를 두 번 적거나 name-ko를 비우면 앱이 뜰 때 실패한다.
+#            (Scranton/Wilkes-Barre는 짧게 '스크랜턴'. 트리플A·더블A에 '콜럼버스'가 하나씩 있다: 경기 줄은 단계가 함께
+#            보이고, 이동 기록은 이름 뒤에 단계를 붙인다)
+#   level: 단계(AAA·AA). 이동 기록 팀 이름 뒤에 붙인다(귀넷(트리플A)). 모르는 약어면 앱이 뜰 때 실패한다
+#   name-en: 확인용(화면에 쓰지 않는다). MLB /api/v1/teams?sportIds=11,12&season=2026 기준(11-13)
+# 여기 없는 팀(하이싱글A·싱글A·루키, 새로 생기거나 옮긴 팀)은 경기 줄에서 MLB 일정이 준 영어 지명(franchiseName,
+# 예: Quad Cities)으로, 그것도 모르면 MLB 영어 팀 이름으로 보인다. 이동 기록에는 지명이 없어 영어 팀 이름(FCL Braves)
+# 그대로다. 같은 id를 두 번 적거나 name-ko를 비우면 앱이 뜰 때 실패한다.
 minor-league:
   teams:
     # 트리플A
