@@ -25,17 +25,21 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 시즌 성적표 글: 2026 시즌 우리 선수 6명과 비슷하게 만든 재료로 판정·한 줄 요약·이유·자랑거리·겨울 이동을 확인한다.
+ * 시즌 성적표 글: 2026 시즌 우리 선수 6명과 비슷하게 만든 재료로 판정·한 줄 요약·이유·시즌 wRC+·ERA+·겨울 이동을 확인한다.
  * (경기별 기록은 실제 기록이 아니라 합계가 맞게 지어낸 값이다.)
  */
 class SeasonReportsTest {
 
     private static final LocalDate OPENING = LocalDate.of(2026, 3, 25);
     private static final LocalDate LAST_DAY = LocalDate.of(2026, 9, 27);
+    /** 다 뛰었고(600타석) 타격은 리그 평균(wRC+ 100)인 제 몫 한 시즌 */
+    private static final Line FULL_SEASON_LINE = new Line(2026, 600, 0, 100.0, 2.0);
 
     @Test
     void leeJungHoo() {
-        // 143경기: 6월까지 76경기 304타수 96안타(.316), 7월부터 67경기 269타수 62안타(.230)
+        // 143경기: 6월까지 76경기 304타수 96안타(.316), 7월부터 67경기 269타수 62안타(.230). 모두 단타·볼넷 없음이라
+        // 표준 리그 평균 대비 wRC+ 78.3·26.6이고, 공식 시즌 wRC+ 101.8로 맞추는 보정 +47.8을 둘 다 더한다
+        // (메이저 달 막대와 같은 잣대)
         List<GameDay> games = new ArrayList<>();
         int[] firstHits = spread(96, 76);
         int[] secondHits = spread(62, 67);
@@ -61,9 +65,12 @@ class SeasonReportsTest {
         assertThat(report.tier()).isEqualTo(SeasonTier.SOLID);
         assertThat(report.label()).isEqualTo("제 몫 한 시즌");
         assertThat(report.headline()).isEqualTo("143경기 완주, 타격은 리그 평균");
-        assertThat(report.reason()).isEqualTo("6월까지 타율 .316 → 7월부터 .230");
+        assertThat(report.reason()).isEqualTo("6월까지 wRC+ 126 → 7월부터 74");
         assertThat(report.level()).isEqualTo(Level.MLB);
         assertThat(report.war()).isEqualTo(1.0);
+        // 시즌 wRC+는 공식 값(101.8) 반올림(SeasonRatesTest)
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(102, null, null);
         // 달별 기록: 3월 말(개막 뒤 6일)은 4월 칸이라 4~9월 여섯 칸, 모두 메이저(SeasonMonthsTest)
         assertThat(report.months()).extracting(SeasonReport.Month::month).containsExactly(4, 5, 6, 7, 8, 9);
         assertThat(report.months()).extracting(SeasonReport.Month::kind).containsOnly(SeasonReport.Month.Kind.MLB);
@@ -94,6 +101,10 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("트리플A에서 도루 36개");
         assertThat(report.reason()).isEqualTo("5월 밀워키에서 메이저 2경기 · 8월 말 부상으로 일찍 시즌 마감");
         assertThat(report.level()).isEqualTo(Level.MINORS);
+        // 숫자 칸이 트리플A 합계라 시즌 wRC+도 트리플A 합계로 잰다(메이저 4타석 공식 249.4가 아니다).
+        // 리그 평균을 넘기지 않아 표준값으로 잰 값: 330타수 86안타 38볼넷 → 77
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(77, null, "트리플A");
     }
 
     @Test
@@ -116,6 +127,7 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
         assertThat(report.reason()).isEqualTo("5월 말 트리플A로 · 9월 말 다시 메이저");
         assertThat(report.winterMoves()).isEmpty();
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(103, "트리플A");
     }
 
     @Test
@@ -148,6 +160,9 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("더블A 평균자책점 0.66, 트리플A 5.11");
         assertThat(report.reason()).isEqualTo("7월 미네소타에서 메이저 4경기");
         assertThat(report.war()).isEqualTo(-0.1);
+        // 더블A·트리플A 합계 50⅔이닝 22자책(3.91)을 리그 평균(여기서는 표준값 4.20)과 견준 ERA+. 단계가 섞여 '마이너'
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(null, 107, "마이너");
         assertThat(report.winterMoves()).containsExactly(
                 new SeasonReport.WinterMove(LocalDate.of(2026, 11, 3), "FA 선언"),
                 new SeasonReport.WinterMove(LocalDate.of(2026, 10, 6), "마이너 이관(아웃라이트)"));
@@ -177,6 +192,7 @@ class SeasonReportsTest {
         // 78경기·타율 .191은 숫자 칸에 있다. 트리플A를 오간 이야기를 제목으로 올리고 이유 줄에서는 뺀다
         assertThat(report.headline()).isEqualTo("메이저 첫 시즌, 트리플A 오가며 적응");
         assertThat(report.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(58, null);
     }
 
     @Test
@@ -200,6 +216,7 @@ class SeasonReportsTest {
         assertThat(report.headline()).isEqualTo("손가락 부상으로 두 번 빠진 시즌");
         assertThat(report.reason()).isEqualTo("3월 손가락 부상 · 7월 같은 곳 다시 이탈");
         assertThat(report.war()).isEqualTo(-1.2);
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(7, null);
     }
 
     @Test
@@ -398,6 +415,46 @@ class SeasonReportsTest {
     }
 
     @Test
+    void halfSeasonFlowIsToldInWrcPlusNotBattingAverage() {
+        // 두 반 모두 타율 .250이어도 앞 반에 홈런 14·볼넷 70이 있었다: 타율로는 이유가 없었지만 wRC+로는 큰 흐름이다
+        SeasonReport power = build(hitter(1, FULL_SEASON_LINE, halves(70, 14, 70, 70, 0, 0), List.of(), List.of(),
+                false));
+        assertThat(power.tier()).isEqualTo(SeasonTier.SOLID);
+        assertThat(power.reason()).isEqualTo("6월까지 wRC+ 143 → 7월부터 46");
+        for (String word : SeasonReports.FORBIDDEN_WORDS) {
+            assertThat(power.reason()).doesNotContain(word);
+        }
+
+        // 타율은 .300 → .239로 .061 떨어졌지만(예전 규칙이면 이유) 뒤 반에 홈런·볼넷이 늘어 wRC+는 92 → 107(차이 15)이라
+        // 흐름으로 쓰지 않는다
+        SeasonReport average = build(hitter(1, FULL_SEASON_LINE, halves(84, 0, 0, 67, 8, 30), List.of(), List.of(),
+                false));
+        assertThat(average.reason()).isNull();
+    }
+
+    @Test
+    void halfSeasonGapIsMeasuredOnTheShownNumbersWithFiftyAtBatsEachHalf() {
+        // 문턱(HALF_GAP_WRC 35)은 글에 보이는 두 숫자로 잰다: 118 → 83은 쓰고, 뒤 반 안타가 하나 더 있어 117 → 83이면
+        // 쓰지 않는다(이 재료의 타율 차이는 .047·.043이라 예전 규칙으로는 둘 다 이유가 아니었다)
+        SeasonReport gap35 = build(hitter(1, FULL_SEASON_LINE, halves(80, 6, 20, 67, 0, 27), List.of(), List.of(),
+                false));
+        SeasonReport gap34 = build(hitter(1, FULL_SEASON_LINE, halves(80, 6, 20, 68, 0, 27), List.of(), List.of(),
+                false));
+        assertThat(gap35.reason()).isEqualTo("6월까지 wRC+ 118 → 7월부터 83");
+        assertThat(gap34.reason()).isNull();
+
+        // 반마다 50타수는 있어야 한다: 대타로 45타수씩이면 차이가 커도 쓰지 않는다
+        List<GameDay> pinchHits = new ArrayList<>();
+        for (int i = 0; i < 45; i++) {
+            pinchHits.add(hitting(LocalDate.of(2026, 4, 1).plusDays(i), 1, 1, 0, 0, 0));
+            pinchHits.add(hitting(LocalDate.of(2026, 7, 1).plusDays(i), 1, 0, 0, 0, 0));
+        }
+        SeasonReport few = build(hitter(1, new Line(2026, 320, 0, 100.0, 1.0), pinchHits, List.of(), List.of(), false));
+        assertThat(few.tier()).isEqualTo(SeasonTier.SOLID);
+        assertThat(few.reason()).isNull();
+    }
+
+    @Test
     void generatedTextNeverUsesForbiddenWords() {
         List<SeasonReport> reports = new ArrayList<>();
         reports.add(sampleReport(new Line(2026, 650, 0, 145.0, 6.0)));
@@ -452,6 +509,30 @@ class SeasonReportsTest {
                 move("2026-08-01", "SC", "A placed B on the 10-day injured list. Left calf strain."),
                 move("2026-10-30", "REL", "A released B."),
                 new Move(LocalDate.of(2026, 11, 3), "DFA", "Declared Free Agency", "B elected free agency."));
+    }
+
+    /**
+     * 4월 1일부터 70경기(6월 안), 7월 1일부터 70경기. 한 경기 4타수이고, 반마다 안타·홈런·볼넷 합계를 고르게 나눈다
+     * (홈런은 안타가 있는 앞 경기부터 한 개씩). 경기 수 절반이 7월 1일이라 '6월까지 → 7월부터'로 나뉜다
+     */
+    private static List<GameDay> halves(int hits1, int homeRuns1, int walks1, int hits2, int homeRuns2, int walks2) {
+        List<GameDay> games = new ArrayList<>(half(LocalDate.of(2026, 4, 1), hits1, homeRuns1, walks1));
+        games.addAll(half(LocalDate.of(2026, 7, 1), hits2, homeRuns2, walks2));
+        return games;
+    }
+
+    private static List<GameDay> half(LocalDate from, int hits, int homeRuns, int walks) {
+        int[] hitsPerGame = spread(hits, 70);
+        int[] walksPerGame = spread(walks, 70);
+        int homeRunsLeft = homeRuns;
+        List<GameDay> games = new ArrayList<>();
+        for (int i = 0; i < 70; i++) {
+            int homeRun = homeRunsLeft > 0 && hitsPerGame[i] > 0 ? 1 : 0;
+            homeRunsLeft -= homeRun;
+            games.add(new GameDay(from.plusDays(i), null, "샌프란시스코", "콜로라도",
+                    batting(4, hitsPerGame[i], homeRun, 0, 0, walksPerGame[i]), null, false, null));
+        }
+        return games;
     }
 
     private static List<GameDay> streakThenOut(int streak) {
