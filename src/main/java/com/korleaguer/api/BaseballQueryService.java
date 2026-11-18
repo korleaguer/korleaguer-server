@@ -209,6 +209,11 @@ public class BaseballQueryService {
                 .toList();
     }
 
+    /** 선수 화면(player)이 404 없이 나오는지. 그 선수 줄이 있는지만 본다(HEAD /api/players/{id}) */
+    public boolean playerExists(long id) {
+        return players.existsById(id);
+    }
+
     @Cacheable(cacheNames = AppConfig.PLAYER_CACHE, key = "#id")
     public PlayerPageResponse player(long id) {
         // 계산을 시작한 시각이 응답의 generatedAt이다(홈과 같다). 응답째 캐시하므로 캐시에서 줄 때도 이 시각이 그대로 나가

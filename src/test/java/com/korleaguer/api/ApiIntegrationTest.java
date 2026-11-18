@@ -19,7 +19,9 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -448,6 +450,17 @@ class ApiIntegrationTest {
         mockMvc.perform(get("/api/players/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("player not found"));
+    }
+
+    @Test
+    void headAnswersOnlyWhetherThePlayerExists() throws Exception {
+        // 웹이 선수 화면을 열 때마다 먼저 묻는다. 본문 없이 상태만(있으면 200, 없으면 404)
+        mockMvc.perform(head("/api/players/1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+        mockMvc.perform(head("/api/players/999999"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(""));
     }
 
     @Test

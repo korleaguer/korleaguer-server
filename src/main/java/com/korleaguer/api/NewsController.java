@@ -1,8 +1,10 @@
 package com.korleaguer.api;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,5 +40,14 @@ public class NewsController {
     @GetMapping("/news/{id}")
     public NewsPageResponse news(@PathVariable long id) {
         return finder.find(id);
+    }
+
+    /**
+     * 기사 페이지가 있는지만 답한다(GET과 같은 기준으로 200·404, 본문 없음). 웹이 기사 화면을 열 때마다 먼저 묻는다.
+     * 이 처리가 없으면 Spring이 HEAD에도 위 GET을 불러 같은 기사 묶음·다른 기사까지 다 찾고 본문만 버린다
+     */
+    @RequestMapping(value = "/news/{id}", method = RequestMethod.HEAD)
+    public ResponseEntity<Void> newsExists(@PathVariable long id) {
+        return finder.exists(id) ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
     }
 }
