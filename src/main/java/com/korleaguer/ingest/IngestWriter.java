@@ -650,7 +650,10 @@ public class IngestWriter {
                 GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()));
     }
 
-    /** R → regular, F·D·L·W → postseason. 그 밖(시범경기·올스타 등)은 null(저장하지 않는다). */
+    /**
+     * R → regular, F·D·L·W → postseason. 그 밖(시범경기·올스타 등)은 null(저장하지 않는다).
+     * 경기 줄 응답의 경기 종류(SeasonType.of, 이슈 #190)가 이 값을 읽으므로 값을 바꾸면 그쪽도 함께 바꾼다(SeasonTypeTest).
+     */
     static String seasonType(String gameType) {
         if (gameType == null) {
             return null;

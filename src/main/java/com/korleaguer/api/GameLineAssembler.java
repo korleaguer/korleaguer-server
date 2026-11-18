@@ -9,6 +9,7 @@ import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameStatuses;
@@ -215,7 +216,8 @@ class GameLineAssembler {
                 summary,
                 played ? batting(appearance.getBatting()) : null,
                 played ? pitching(appearance.getPitching()) : null,
-                played ? appearance.getLineup() : null);
+                played ? appearance.getLineup() : null,
+                SeasonType.of(game.getSeasonType()));
     }
 
     static GameBatting batting(Batting b) {

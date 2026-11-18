@@ -2,6 +2,7 @@ package com.korleaguer.api;
 
 import com.korleaguer.domain.Lineup;
 import com.korleaguer.domain.Role;
+import com.korleaguer.domain.SeasonType;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -145,6 +146,7 @@ class FormFactsTest {
 
     private static GameLine line(boolean played, Lineup lineup) {
         return new GameLine(1, "선수", null, Role.HITTER, 1, OffsetDateTime.parse("2026-06-01T08:00:00+09:00"), "팀",
-                null, "상대", null, true, 1, 0, "W", "final", played, played ? "4타수 1안타" : "결장", null, null, lineup);
+                null, "상대", null, true, 1, 0, "W", "final", played, played ? "4타수 1안타" : "결장", null, null, lineup,
+                SeasonType.REGULAR);
     }
 }
