@@ -58,6 +58,8 @@ final class MinorRecords {
     /**
      * 여러 마이너 경기를 더한 기록의 단계 이름. 모두 한 단계면 그 단계(트리플A), 단계가 섞였으면 "마이너"
      * (더블A·트리플A를 더한 평균자책점에 '트리플A'를 붙이면 트리플A 기록으로 읽힌다, 이슈 #134).
+     * 단계를 모르는 경기(level null)도 한 단계로 센다: 트리플A + 모름이면 "마이너", 모두 모르면 levelKo(null)로 "마이너".
+     * 성적표 숫자 칸의 단계 이름(SeasonRates.levelKo, statLevelKo)도 같은 규칙이다(한쪽을 바꾸면 다른 쪽도 바꾼다).
      */
     static String levelKo(List<MinorGameLog> games) {
         List<String> levels = games.stream().map(MinorGameLog::getLevel).distinct().toList();

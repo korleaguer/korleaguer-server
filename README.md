@@ -160,10 +160,15 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 
 ### 시즌 성적표(홈의 `offseason.report`)
 - 비시즌 홈에만 붙는다. 명단 선수마다(국내 리그로 돌아간 선수 포함, 이번 시즌 기록이 없는 선수는 뺀다) 한 장:
-  `{playerId, tier, label, headline, reason, level, war, stories, winterMoves, news}`. 순서는 `tier`(`GOOD` → `SHORT_GOOD` → `SOLID` → `MINORS` → `SHORT` → `POOR`), 그 안에서 메이저 경기 많은 순.
+  `{playerId, tier, label, headline, reason, level, war, wrcPlus, eraPlus, statLevelKo, months, winterMoves, news, linkedTeams, saber}`. 순서는 `tier`(`GOOD` → `SHORT_GOOD` → `SOLID` → `MINORS` → `SHORT` → `POOR`), 그 안에서 메이저 경기 많은 순.
 - 판정(`SeasonVerdict`)은 메이저 타석(투수는 이닝·선발)과 wRC+(ERA-)·WAR로 한다. 2020년은 기준을 60/162로 줄인다. 지표를 아직 받지 못했으면 경기별 기록의 양만으로 판정한다.
 - 지표는 비시즌 따라잡기가 정규시즌이 끝난 뒤 하루 한 번 받는다(`player_season_metric`, 선수마다 `yearByYear` 1번 + `sabermetrics` 이번 시즌과 아직 없는 지난 시즌). 앞 3시즌까지 둔다.
-- `headline`·`reason`은 정해진 틀로 만든다(부상자 명단·트리플A 강등·콜업·짧은 메이저 출전 중 두 개까지. 다 뛴 타자는 전후반 타율 차이가 .050 이상이면 그것 하나). `stories`(연속 안타·최고 경기)는 `SHORT`·`POOR`면 늘 비어 있다. `level`은 카드가 앞세울 합계(`MINORS`면 마이너). `winterMoves`는 정규시즌 마지막 날 3일 뒤부터의 이동 기록, 최신순 세 개까지(그 사이 포스트시즌 명단 콜업 등은 `reason` 쪽 시즌 이야기). `news`는 정규시즌이 끝난 뒤 나온 그 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 늦은 순 12건까지, 이슈 #119로 모은 것).
+- `headline`·`reason`은 정해진 틀로 만든다(부상자 명단·트리플A 강등·콜업·짧은 메이저 출전 중 두 개까지. 다 뛴 타자는 전·후반 wRC+ 차이가 35 이상이면 `"6월까지 wRC+ 123 → 7월부터 78"` 하나. 두 반은 메이저 달 막대와 같은 잣대(MLB 리그 평균 대비, 공식 시즌 wRC+에 맞춤)이고 반마다 50타수는 있어야 한다. 문턱 35는 예전 타율 .050과 같은 무게다: 2026 MLB 300타석 이상 267명 중 이유로 쓰이는 비율이 27%(타율)와 31%(wRC+)). `level`은 카드가 앞세울 합계(`MINORS`면 마이너). `months`는 정규시즌 달마다 어디서 뛰었나와 타율·wRC+(투수는 평균자책점·ERA+, 그 단계 리그 평균 = 100). `linkedTeams`는 FA 선수의 행선지로 거론된 구단(포스팅 카드와 같은 규칙). `winterMoves`는 정규시즌 마지막 날 3일 뒤부터의 이동 기록, 최신순 세 개까지(그 사이 포스트시즌 명단 콜업 등은 `reason` 쪽 시즌 이야기). `news`는 정규시즌이 끝난 뒤 나온 그 선수 기사(지금 수집하는 언론사만, 같은 기사는 한 줄, 늦은 순 12건까지, 이슈 #119로 모은 것).
+- `wrcPlus`(타자)·`eraPlus`(투수)는 카드 숫자 칸과 같은 단계 합계의 시즌 값이다(리그 평균 = 100, 홈 목록 한 줄에 타율 대신 쓴다, 이슈 #179).
+  `level`이 `MLB`면 MLB 공식 시즌 wRC+ 반올림(ERA+는 공식 ERA-로 10000 ÷ ERA-, 공식 값을 아직 못 받았으면 경기별 기록을 MLB 리그 평균과 견준다).
+  `MINORS`면 그 시즌 마이너 경기 전부(홈 `minorHitters`·`minorPitchers`와 같은 경기, 재활 경기 포함)를 단계 리그 평균과 견주고, 여러 단계를 뛰었으면 리그 평균을 타석(투수는 아웃) 비중으로 섞는다. 메이저 경기 없이 마이너 경기만 있으면 `level`이 `MLB`여도 마이너로 잰다(웹 숫자 칸과 같다).
+  ERA+는 높을수록 잘한 것이고 300까지(무자책이면 300). 타자 50타석·투수 10이닝 미만이면 null(선수 화면 `saber`가 백분위를 숨기는 선과 같다). `statLevelKo`는 그 숫자가 마이너 합계일 때 단계 이름(`"트리플A"`, 섞였으면 `"마이너"`), 메이저거나 숫자가 없으면 null.
+- `saber`는 그 시즌 'MLB 안 위치'로, 선수 화면(`GET /api/players/{id}`)의 `saber`와 같은 값·모양이다(아래 절). 펼친 카드가 선수 화면에 가지 않고 백분위를 보인다(이슈 #179). 그 시즌 MLB 기록이 없거나 아직 받지 않았으면 null. 메이저 기록이라 마이너 시즌 선수는 `wrcPlus`(마이너 합계)와 단계가 다르다.
 - 성적표를 만들다 실패하면 그 선수만 빠지고, 전체가 실패하면 빈 목록이다(홈 응답은 그대로).
 
 ### MLB 안 위치와 지난 시즌 표(`GET /api/players/{id}`의 `saber`·`seasons`·`news`, 이슈 #133)
@@ -172,6 +177,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 타자 `{season, war, poolSize, plateAppearances, wrcPlus, batting, baseRunning, fielding, percentiles: {overall, batting, baseRunning, fielding}}`: 그 시즌 100타석 이상 MLB 타자와 견준다. `overall`은 타석당 WAR, `batting`은 wRC+, `baseRunning`·`fielding`은 타석당 득점(`fielding` = MLB `fielding` + `positional`, 포지션 난도 포함). 50타석 미만이면 `percentiles`는 null.
   - 투수 `{season, war, poolSize, inningsOuts, eraMinus, fipMinus, strikeoutRate, walkRate, percentiles: {overall, runPrevention, strikeouts, walks}}`: 30이닝 이상 MLB 투수와 견준다. `overall`은 아웃당 WAR, `runPrevention`은 ERA-(낮을수록 좋다), `strikeouts`는 K%, `walks`는 BB%(낮을수록 좋다). `strikeoutRate`·`walkRate`는 상대 타자 중 비율(%). 10이닝 미만이면 `percentiles`는 null.
   - 시즌 초에는 견줄 선수(100타석·30이닝 이상)가 아직 없어 위치 칸이 null일 수 있다.
+  - 비시즌 홈 성적표의 `offseason.report[].saber`도 같은 줄로 만든 같은 값이다(이슈 #179).
 - `seasons`(MLB 정규시즌 기록, 최신 시즌부터, 한 시즌 여러 팀이면 합친 한 줄): 타자 `{season, teamKo, games, plateAppearances, avg, homeRuns, ops, wrcPlus, war}`, 투수 `{season, teamKo, games, inningsOuts, era, strikeouts, eraMinus, war}`. `teamKo`는 뛴 순서로 `"탬파베이·애틀랜타"`. 지금 시즌 지표는 리그 전체 값, 지난 시즌 지표는 선수별 sabermetrics를 한 번 물은 값이다. 모르는 값은 null. KBO 기록은 없다.
 - `news`: 그 선수 기사(늦은 순, 같은 기사는 한 줄, 최대 10건). 성적표 `news`와 같은 모양·규칙(지금 수집하는 언론사만, 주인공이 아닌 기사 뺌)이고 기간 제한만 없다.
 - `games[].batting`에 타격 흐름 그래프용 `doubles`·`triples`·`hitByPitch`·`sacFlies`·`plateAppearances`·`strikeouts`(MLB가 주지 않았으면 null)가 있다.

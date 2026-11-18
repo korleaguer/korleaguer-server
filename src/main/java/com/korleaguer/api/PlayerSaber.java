@@ -7,6 +7,7 @@ import com.korleaguer.support.BaseballMath;
 /**
  * 선수 화면의 'MLB 안 위치'(GET /api/players/{id}의 saber, 이슈 #133). 지금 시즌 MLB 공식 Stats API sabermetrics 값과,
  * 같은 시즌 MLB 선수 중 이 선수의 위치(백분위)다. 타자면 Hitter, 투수면 Pitcher 모양이다. 계산 규칙은 ingest.LeaguePositions.
+ * 비시즌 홈 성적표(offseason.report[].saber, SeasonReportFinder)도 같은 값을 펼친 카드에 쓴다(이슈 #179).
  * <ul>
  *   <li>공통: season, war, poolSize(견준 MLB 선수 수: 타자 100타석·투수 30이닝 이상), percentiles</li>
  *   <li>percentiles: 값마다 1~99 정수(견준 선수 중 이 선수보다 값이 나쁜 비율, 높을수록 좋다).

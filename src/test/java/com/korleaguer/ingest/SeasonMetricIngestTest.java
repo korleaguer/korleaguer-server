@@ -136,13 +136,28 @@ class SeasonMetricIngestTest {
         assertThat(tierOf(report, id("고우석"))).isEqualTo(SeasonTier.MINORS);
         assertThat(tierOf(report, id("배지환"))).isEqualTo(SeasonTier.MINORS);
         assertThat(tierOf(report, id("김혜성"))).isEqualTo(SeasonTier.SHORT);
-        SeasonReport lee = report.stream().filter(r -> r.playerId() == id("이정후")).findFirst().orElseThrow();
+        SeasonReport lee = reportOf(report, "이정후");
         assertThat(lee.war()).isEqualTo(1.0);
         assertThat(lee.label()).isEqualTo("제 몫 한 시즌");
+
+        // 시즌 wRC+·ERA+(이슈 #179): 이정후는 공식 wRC+ 101.8 반올림. 배지환·고우석은 숫자 칸과 같은 트리플A 합계를
+        // 리그 평균(샘플은 팀 합계가 없어 표준값)과 견준다. 배지환 80타수 22안타 2홈런 5볼넷 → 91,
+        // 고우석 14이닝 2자책(1.29)은 표준 평균자책점 4.20 대비 327이라 상한 300
+        assertThat(lee).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(102, null, null);
+        assertThat(reportOf(report, "배지환")).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus,
+                SeasonReport::statLevelKo).containsExactly(91, null, "트리플A");
+        assertThat(reportOf(report, "고우석")).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus,
+                SeasonReport::statLevelKo).containsExactly(null, 300, "트리플A");
     }
 
     private long id(String nameKo) {
         return players.findByNameKo(nameKo).orElseThrow().getId();
+    }
+
+    private SeasonReport reportOf(List<SeasonReport> report, String nameKo) {
+        long playerId = id(nameKo);
+        return report.stream().filter(r -> r.playerId() == playerId).findFirst().orElseThrow();
     }
 
     private static SeasonTier tierOf(List<SeasonReport> report, long playerId) {

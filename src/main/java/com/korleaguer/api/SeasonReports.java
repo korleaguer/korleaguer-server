@@ -29,9 +29,13 @@ import java.util.stream.Stream;
  *       좋은·제 몫 시즌은 경기 대신 WAR / 투수 평균자책점·등판·이닝·탈삼진)에 나오는 숫자는 되풀이하지 않고(문구 점검 11-13,
  *       이슈 #147), 칸에 없는 도루·OPS·승·세이브만 숫자로 쓴다. 제목으로 올린 이유는 이유 줄에서 뺀다.</li>
  *   <li>이유(reason): 부상자 명단 등재, 트리플A 강등·콜업, 짧은 메이저 출전 중 두 개까지.
- *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 좋은 시즌·제 몫 한 시즌 타자는 전·후반 타율 차이가 크면
- *       그것 하나만 쓴다. 개막일(당일 포함)까지 오른 부상자 명단은 '개막 직전'이다. 없으면 null.</li>
+ *       부상이 가장 먼저고, 고른 뒤에는 날짜 순으로 잇는다. 좋은 시즌·제 몫 한 시즌 타자는 전·후반 wRC+ 차이가 크면
+ *       ("6월까지 wRC+ 123 → 7월부터 78") 그것 하나만 쓴다. 두 반의 wRC+는 메이저 달 막대(SeasonMonths)와 같은 잣대라
+ *       카드의 막대·시즌 숫자와 같이 읽힌다(타율로 흐름을 말하지 않는다, 이슈 #179). 개막일(당일 포함)까지 오른
+ *       부상자 명단은 '개막 직전'이다. 없으면 null.</li>
  *   <li>달별 기록(months): SeasonMonths. 판정과 상관없이 모든 선수에게 준다. wRC+·ERA+는 단계별 리그 평균으로 잰다.</li>
+ *   <li>시즌 wRC+·ERA+(wrcPlus·eraPlus·statLevelKo): SeasonRates. 숫자 칸과 같은 단계 합계(level이 MINORS면 마이너,
+ *       아니면 메이저 공식 값)를 달별 기록과 같은 잣대로 잰다. 홈 목록 한 줄에 타율 대신 쓴다(이슈 #179).</li>
  *   <li>겨울 이동: 정규시즌 마지막 날 SEASON_WRAP_DAYS(3일) 뒤의 이동 기록, 최신순 세 개까지.
  *       그 사이 이동(포스트시즌 명단 콜업 등)은 이유 쪽에서 시즌 이야기로 쓴다.</li>
  * </ul>
@@ -45,8 +49,15 @@ final class SeasonReports {
     static final int FULL_SEASON_GAMES = 140;
     static final int MAX_REASONS = 2;
     static final int MAX_WINTER_MOVES = 3;
-    /** 전·후반 타율이 이만큼 이상 다르면 이유로 쓴다 */
-    static final double HALF_GAP = 0.050;
+    /**
+     * 전·후반 wRC+(반올림한 두 값)가 이만큼 이상 다르면 이유로 쓴다. 예전 기준(타율 .050)과 같은 무게로 맞췄다:
+     * 2026 MLB 300타석 이상 타자 267명을 같은 규칙(경기 수 절반에 가까운 달 경계, 반마다 50타수)으로 나눠 보면 타율
+     * 차이 .050에 따라오는 wRC+ 차이가 35쯤이고(기울기 34.5, 비율 중앙값 36), 이유로 쓰이는 비율도 타율 .050이 27%,
+     * wRC+ 35가 31%로 비슷하다. 25로 낮추면 46%라 다 뛴 타자 절반 가까이가 같은 이유를 받는다
+     */
+    static final int HALF_GAP_WRC = 35;
+    /** 전·후반 비교에 반마다 있어야 하는 타수(예전 타율 비교와 같은 표본 조건) */
+    static final int HALF_MIN_AT_BATS = 50;
     /** 메이저 경기가 이보다 적은 마이너 시즌은 '메이저 n경기'를 이유로 쓴다 */
     static final int SHORT_STINT_GAMES = 10;
     /** 마이너 타자의 도루가 이만큼 이상이면 한 줄 요약에 쓴다 */
@@ -125,10 +136,12 @@ final class SeasonReports {
 
         Double war = mlb.war() == null ? null : Math.round(mlb.war() * 10) / 10.0;
         Headline headline = headline(in, tier, mlb, majors, minors, mixedMinors, war);
-        String reason = reason(in, tier, majors, minors, headline.used());
+        String reason = reason(in, tier, majors, minors, headline.used(), leagues);
+        // 숫자 칸과 같은 단계의 시즌 wRC+·ERA+(목록 한 줄에 쓴다, 이슈 #179)
+        SeasonRates.Rates rates = SeasonRates.of(in, tier == SeasonTier.MINORS, leagues);
         SeasonReport report = new SeasonReport(in.playerId(), tier, label, headline.text(), reason,
-                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, SeasonMonths.build(in, leagues),
-                winterMoves(in), List.of(), null);
+                tier == SeasonTier.MINORS ? Level.MINORS : Level.MLB, war, rates.wrcPlus(), rates.eraPlus(),
+                rates.statLevelKo(), SeasonMonths.build(in, leagues), winterMoves(in), List.of(), null, null);
         return new Built(report, majors.size());
     }
 
@@ -355,10 +368,12 @@ final class SeasonReports {
     private enum FactKind { INJURY, STINT, UP_DOWN, DOWN, UP, HALF }
 
     private static String reason(Input in, SeasonTier tier, List<GameDay> majors, List<GameDay> minors,
-                                 Set<FactKind> usedInHeadline) {
+                                 Set<FactKind> usedInHeadline, Map<String, LeagueEnvironments.Env> leagues) {
         if (in.role() == Role.HITTER && (tier == SeasonTier.GOOD || tier == SeasonTier.SOLID)) {
-            // 다 뛴 시즌은 전·후반 흐름이 가장 큰 이야기다(짧은 부상자 명단보다 먼저)
-            Fact half = halfFact(majors);
+            // 다 뛴 시즌은 전·후반 흐름이 가장 큰 이야기다(짧은 부상자 명단보다 먼저).
+            // 두 반은 메이저 달 막대와 같이 MLB 리그 평균과 견주고 공식 시즌 wRC+에 맞춰 옮긴다
+            LeagueEnvironments.Env mlb = SeasonMonths.league(leagues, LeagueEnvironments.MLB);
+            Fact half = halfFact(majors, mlb, SeasonMonths.scale(in, false, mlb).wrcShift());
             if (half != null) {
                 return half.text();
             }
@@ -482,8 +497,15 @@ final class SeasonReports {
         return inSeasonMoves(in).stream().filter(m -> isCode(m, "OPT", "OUT")).toList();
     }
 
-    /** 전·후반 타율 차이(.050 이상). 경기 수 절반에 가장 가까운 달 경계에서 나눈다. 반마다 50타수는 있어야 한다. */
-    private static Fact halfFact(List<GameDay> majors) {
+    /**
+     * 전·후반 wRC+ 차이(HALF_GAP_WRC 이상): "6월까지 wRC+ 123 → 7월부터 78". 경기 수 절반에 가장 가까운 달 경계에서
+     * 나눈다. 반마다 HALF_MIN_AT_BATS타수는 있어야 한다. 타율은 볼넷·장타를 빼고 봐서 흐름을 틀리게 말할 수 있다
+     * (반마다 타율 .250이어도 앞 반에 홈런·볼넷이 많으면 큰 흐름이고, 타율이 .060 떨어져도 wRC+는 오를 수 있다).
+     *
+     * @param mlb   MLB 리그 평균(LeagueEnvironments)
+     * @param shift 공식 시즌 wRC+에 맞추는 보정(SeasonMonths.scale, 메이저 달 막대와 같은 값)
+     */
+    private static Fact halfFact(List<GameDay> majors, LeagueEnvironments.Env mlb, double shift) {
         List<GameDay> games = majors.stream().filter(g -> g.batting() != null).toList();
         if (games.size() < 2) {
             return null;
@@ -507,17 +529,17 @@ final class SeasonReports {
         LocalDate boundary = split;
         List<GameDay> first = games.stream().filter(g -> g.date().isBefore(boundary)).toList();
         List<GameDay> second = games.stream().filter(g -> !g.date().isBefore(boundary)).toList();
-        if (atBats(first) < 50 || atBats(second) < 50) {
+        if (atBats(first) < HALF_MIN_AT_BATS || atBats(second) < HALF_MIN_AT_BATS) {
             return null;
         }
-        double before = (double) hits(first) / atBats(first);
-        double after = (double) hits(second) / atBats(second);
-        if (Math.abs(before - after) < HALF_GAP) {
+        // 보이는 두 숫자(반올림)로 견준다: 글에 나오는 차이가 문턱과 어긋나지 않게
+        Integer before = SeasonMonths.wrcPlus(first, mlb, shift);
+        Integer after = SeasonMonths.wrcPlus(second, mlb, shift);
+        if (before == null || after == null || Math.abs(before - after) < HALF_GAP_WRC) {
             return null;
         }
-        String text = boundary.minusMonths(1).getMonthValue() + "월까지 타율 " + avgText(BaseballMath.avg(hits(first),
-                atBats(first))) + " → " + boundary.getMonthValue() + "월부터 " + avgText(BaseballMath.avg(hits(second),
-                atBats(second)));
+        String text = boundary.minusMonths(1).getMonthValue() + "월까지 wRC+ " + before + " → "
+                + boundary.getMonthValue() + "월부터 " + after;
         return new Fact(boundary, 3, text, FactKind.HALF);
     }
 
