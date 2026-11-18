@@ -175,7 +175,9 @@ class MinorGameLinesTest {
     void everyTripleAAndDoubleATeamHasAKoreanName() {
         Map<String, Long> byLevel = TEAMS.teams().stream()
                 .collect(Collectors.groupingBy(MinorTeamProperties.Team::level, Collectors.counting()));
-        assertThat(byLevel).containsExactlyInAnyOrderEntriesOf(Map.of("AAA", 30L, "AA", 30L));
+        // 트리플A·더블A는 모두, 하위 단계는 운영 기록(11-19 이동 기록·마이너 경기 줄)에 나온 팀만(이슈 #191)
+        assertThat(byLevel).containsExactlyInAnyOrderEntriesOf(
+                Map.of("AAA", 30L, "AA", 30L, "A+", 2L, "A", 2L, "ROK", 4L));
         assertThat(TEAMS.teams()).extracting(MinorTeamProperties.Team::id).doesNotHaveDuplicates();
         assertThat(TEAMS.teams()).allSatisfy(team -> assertThat(team.nameKo()).isNotBlank());
 

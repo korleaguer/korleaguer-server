@@ -14,7 +14,7 @@ import java.util.Map;
 class MinorTeamNames {
 
     private final Map<Long, String> korean = new HashMap<>();
-    /** 팀 번호 → 단계 화면 이름(트리플A·더블A). yml에 단계를 적은 팀만 있다 */
+    /** 팀 번호 → 단계 화면 이름(트리플A·더블A·하이싱글A·싱글A·루키). yml에 단계를 적은 팀만 있다 */
     private final Map<Long, String> levels = new HashMap<>();
 
     MinorTeamNames(MinorTeamProperties properties) {
@@ -52,9 +52,10 @@ class MinorTeamNames {
 
     /**
      * 이동 기록(선수 화면 moves)의 마이너 팀 이름(이슈 #183). 경기 줄과 같은 이름(name)에 yml의 단계를 붙인다
-     * (예: "귀넷(트리플A)"). 경기 줄은 단계(levelKo)를 따로 보이지만 이동 기록은 팀 이름 한 칸뿐이라, 트리플A·더블A에
-     * 하나씩 있는 '콜럼버스'를 단계로 가른다. 이동 기록(MLB transactions)에는 영어 지명이 없어서 표에 없는 팀(루키 팀·국가대표 등)은
-     * 받은 영어 팀 이름 그대로다(이름을 지어내지 않는다).
+     * (예: "귀넷(트리플A)", 하위 단계 재활 팀도 "주피터(싱글A)"·"FCL 브레이브스(루키)", 이슈 #191). 경기 줄은 단계(levelKo)를
+     * 따로 보이지만 이동 기록은 팀 이름 한 칸뿐이라, 트리플A·더블A에 하나씩 있는 '콜럼버스'를 단계로 가른다. 이동 기록(MLB
+     * transactions)에는 영어 지명이 없어서 표에 없는 팀(운영 기록에 아직 나오지 않은 하위 단계 팀·국가대표 등)은 받은 영어 팀
+     * 이름 그대로다(이름을 지어내지 않는다. 보이면 yml에 더한다).
      *
      * @param teamId   MLB 팀 번호(player_move.from_team_id·to_team_id, 모르면 null)
      * @param fullName MLB가 준 영어 팀 이름

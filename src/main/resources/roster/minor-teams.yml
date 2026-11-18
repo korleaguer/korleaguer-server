@@ -1,15 +1,20 @@
-# 마이너리그 팀 한국어 이름(선수 화면 '경기 기록'의 마이너 경기 줄 이슈 #145, 이동 기록 팀 이름 이슈 #183).
-# 트리플A 30팀·더블A 30팀 모두.
+# 마이너리그 팀 한국어 이름(선수 화면 '경기 기록'의 마이너 경기 줄 이슈 #145, 이동 기록 팀 이름 이슈 #183·#191).
+# 트리플A 30팀·더블A 30팀은 모두, 하위 단계(하이싱글A·싱글A·루키)는 운영 기록(명단 선수의 이동 기록·마이너 경기 줄)에
+# 나온 팀만 있다(11-19, 이슈 #191).
 #   id: MLB 팀 번호(gameLog의 team.id·opponent.id, 이동 기록의 fromTeam.id·toTeam.id.
 #       웹은 https://www.mlbstatic.com/team-logos/{id}.svg로 로고를 그린다)
-#   name-ko: 화면에 쓰는 한국어 도시(지명) 이름. 한국 야구 기사에서 흔히 쓰는 표기를 따랐다
-#            (Scranton/Wilkes-Barre는 짧게 '스크랜턴'. 트리플A·더블A에 '콜럼버스'가 하나씩 있다: 경기 줄은 단계가 함께
-#            보이고, 이동 기록은 이름 뒤에 단계를 붙인다)
-#   level: 단계(AAA·AA). 이동 기록 팀 이름 뒤에 붙인다(귀넷(트리플A)). 모르는 약어면 앱이 뜰 때 실패한다
-#   name-en: 확인용(화면에 쓰지 않는다). MLB /api/v1/teams?sportIds=11,12&season=2026 기준(11-13)
-# 여기 없는 팀(하이싱글A·싱글A·루키, 새로 생기거나 옮긴 팀)은 경기 줄에서 MLB 일정이 준 영어 지명(franchiseName,
-# 예: Quad Cities)으로, 그것도 모르면 MLB 영어 팀 이름으로 보인다. 이동 기록에는 지명이 없어 영어 팀 이름(FCL Braves)
-# 그대로다. 같은 id를 두 번 적거나 name-ko를 비우면 앱이 뜰 때 실패한다.
+#   name-ko: 화면에 쓰는 한국어 도시(지명) 이름. 한국 야구 기사에서 흔히 쓰는 표기를 따랐고, 없으면 국립국어원 외래어
+#            표기법대로 적었다(Scranton/Wilkes-Barre는 짧게 '스크랜턴'. 트리플A·더블A에 '콜럼버스'가 하나씩 있다: 경기 줄은
+#            단계가 함께 보이고, 이동 기록은 이름 뒤에 단계를 붙인다. 루키 FCL 팀은 지명이 없어 MLB 지명 칸(franchiseName)처럼
+#            'FCL + 구단 별칭'이다)
+#   level: 단계(AAA·AA·A+·A·ROK). 이동 기록 팀 이름 뒤에 화면 이름으로 붙인다(귀넷(트리플A), 주피터(싱글A)). 모르는 약어면
+#          앱이 뜰 때 실패한다
+#   name-en: 확인용(화면에 쓰지 않는다). MLB /api/v1/teams?sportIds=11,12&season=2026 기준(11-13), 하위 단계는
+#            sportIds=13,14,16(11-19)
+# 여기 없는 팀(하위 단계 대부분, 새로 생기거나 옮긴 팀)은 경기 줄에서 MLB 일정이 준 영어 지명(franchiseName,
+# 예: Quad Cities)으로, 그것도 모르면 MLB 영어 팀 이름으로 보인다. 이동 기록에는 지명이 없어 영어 팀 이름(ACL Dodgers)
+# 그대로다. 그런 팀이 보이면 MLB /api/v1/teams/{id}로 단계·지명을 확인해 아래에 한 줄 더한다.
+# 같은 id를 두 번 적거나 name-ko를 비우면 앱이 뜰 때 실패한다.
 minor-league:
   teams:
     # 트리플A
@@ -74,3 +79,14 @@ minor-league:
     - { id: 440, level: AA, name-ko: 스프링필드, name-en: "Springfield Cardinals" }
     - { id: 260, level: AA, name-ko: 털사, name-en: "Tulsa Drillers" }
     - { id: 3898, level: AA, name-ko: 위치토, name-en: "Wichita Wind Surge" }
+    # 하이싱글A(운영 기록에 나온 팀만)
+    - { id: 554, level: "A+", name-ko: 벌로이트, name-en: "Beloit Sky Carp" }
+    - { id: 582, level: "A+", name-ko: 웨스트미시간, name-en: "West Michigan Whitecaps" }
+    # 싱글A(운영 기록에 나온 팀만)
+    - { id: 3390, level: A, name-ko: 브레이든턴, name-en: "Bradenton Marauders" }
+    - { id: 479, level: A, name-ko: 주피터, name-en: "Jupiter Hammerheads" }
+    # 루키 플로리다 컴플렉스 리그(운영 기록에 나온 팀만)
+    - { id: 464, level: ROK, name-ko: "FCL 브레이브스", name-en: "FCL Braves" }
+    - { id: 467, level: ROK, name-ko: "FCL 말린스", name-en: "FCL Marlins" }
+    - { id: 471, level: ROK, name-ko: "FCL 레드삭스", name-en: "FCL Red Sox" }
+    - { id: 474, level: ROK, name-ko: "FCL 트윈스", name-en: "FCL Twins" }
