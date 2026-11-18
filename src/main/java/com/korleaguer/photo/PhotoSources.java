@@ -16,17 +16,21 @@ import java.util.Optional;
  * 우리가 호스팅하는 사진의 이름과 원본 주소 목록. 여기에 없는 이름은 받지도 주지도 않는다(아무 주소나 대신 받아 주지 않게).
  * <ul>
  *   <li>mlb-{MLB 선수 번호}: 명단(baseball.yml)의 mlb-id로 만든 MLB 공식 사진(korleaguer.images.player-photo-template)</li>
- *   <li>kbo-{slug}: 포스팅 선수(posting.yml)의 photo-url(현 소속 KBO 구단 사진)</li>
+ *   <li>kbo-{slug}-{사진 시즌}: 포스팅 선수(posting.yml current)의 현 소속 KBO 구단 공식 사진(photo-url)을 흰 바탕 정사각형에
+ *       놓은 편집본(얼굴 크기·위치가 아래 posting-… 선배 사진과 같은 틀). KBO 사진 서버 원본(94×118)은 홈 76px 원에서
+ *       흐려서 같은 사진의 큰 판으로 만든다. 이름에 사진 시즌을 넣어, 사진을 바꾸면 주소도 바뀌게 한다
+ *       (사진을 하루 동안 저장해 두는 브라우저·중간 캐시에 옛 사진이 남지 않게)</li>
  *   <li>kbo-{KBO 선수 번호}-{시즌}: MLB 사진이 없는 지난 포스팅 선배의 포스팅 당시 KBO 공식 사진
  *       (korleaguer.images.kbo-photo-template)</li>
  *   <li>career-{KBO 선수 번호}-{시즌}: 명단 선수의 과거 소속팀(KBO) 시절 공식 사진(baseball.yml career-photos)을
  *       배경 없는 MLB 사진(mlb-…, headshot/silo)과 같은 틀(투명 바탕, 같은 얼굴 크기·위치)로 맞춘 편집본(PNG).
  *       선수 페이지에서 지금 MLB 사진과 넘겨 보므로 원 안 얼굴 크기·배경·선명도가 같아야 한다</li>
  *   <li>posting-{MLB 선수 번호}-{시즌}: 지난 포스팅 선배의 계약 구단 시절 MLB 공식 사진(posting.yml history의 photo-url)을
- *       배경을 지워 흰 바탕에 놓고 얼굴 크기를 포스팅 선수 KBO 사진에 맞춘 편집본</li>
+ *       배경을 지워 흰 바탕에 놓고 얼굴 크기·위치를 포스팅 선수 사진(노시환 KBO 공식 사진)과 같은 틀로 맞춘 편집본</li>
  * </ul>
- * 편집본(career-…, posting-…)은 원본에서 받지 않고 우리가 만든 파일(src/main/resources/photos/, tools/posting-photo)을
- * 그대로 준다. 편집본이 빠졌으면 서버가 뜨지 않는다(원본을 그대로 보이면 원 안 배경·크기가 제각각이라).
+ * 편집본(career-…, posting-…, 포스팅 선수 kbo-{slug}-{사진 시즌})은 원본에서 받지 않고 우리가 만든 파일
+ * (src/main/resources/photos/, tools/posting-photo)을 그대로 준다. 편집본이 빠졌으면 서버가 뜨지 않는다
+ * (원본을 그대로 보이면 원 안 배경·크기·선명도가 제각각이라).
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
  */
@@ -87,9 +91,13 @@ public class PhotoSources {
                             + past.nameKo(), "photo-url with tools/posting-photo cut"));
                 }
             }
+            // 포스팅 선수: 현 소속 KBO 구단 공식 사진의 편집본(선배 사진과 같은 흰 바탕 정사각형 틀).
+            // photo-url이 있으면 slug·photo-season도 있다(Postings가 yml을 검사하고 PostingCase 생성자가 막는다)
             for (PostingCase posting : postings.current()) {
-                if (posting.slug() != null && posting.photoUrl() != null) {
-                    all.putIfAbsent(kboKey(posting.slug()), posting.photoUrl());
+                if (posting.photoUrl() != null) {
+                    String key = kboKey(posting.slug(), posting.photoSeason());
+                    all.putIfAbsent(key, bundledFile(key, ".jpg", "roster/posting.yml posting.current "
+                            + posting.nameKo(), "photo-url with tools/posting-photo cut"));
                 }
             }
         }
@@ -111,9 +119,9 @@ public class PhotoSources {
         return mlbId == null ? null : path(mlbKey(mlbId));
     }
 
-    /** 포스팅 선수 사진의 우리 주소(/photos/kbo-si-hwan-roh). 사진이 없으면 null */
-    public String postingPath(String slug) {
-        return slug == null ? null : path(kboKey(slug));
+    /** 포스팅 선수 사진 편집본의 우리 주소(/photos/kbo-si-hwan-roh-2026). 사진을 껐거나 없으면 null */
+    public String postingPath(PostingCase posting) {
+        return posting.photoUrl() == null ? null : path(kboKey(posting.slug(), posting.photoSeason()));
     }
 
     /** 명단 선수의 과거 소속팀(KBO) 시절 사진 편집본의 우리 주소(/photos/career-67341-2023). 사진을 껐거나 목록에 없으면 null */
@@ -164,8 +172,8 @@ public class PhotoSources {
         return "kbo-" + kboId + "-" + season;
     }
 
-    static String kboKey(String slug) {
-        return "kbo-" + slug;
+    static String kboKey(String slug, int season) {
+        return "kbo-" + slug + "-" + season;
     }
 
     /** 우리가 만든 편집본(src/main/resources/photos/{이름}{확장자})의 원본 주소. 파일이 없으면 서버가 뜨지 않는다 */

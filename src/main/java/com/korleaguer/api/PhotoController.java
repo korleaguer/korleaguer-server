@@ -22,8 +22,11 @@ import java.util.regex.Pattern;
 @RestController
 public class PhotoController {
 
-    // mlb-808982(지금 MLB 사진), kbo-…(KBO 사진), posting-673490-2024(포스팅 선배 편집본: 계약 구단 시절 MLB 사진, 흰 바탕),
-    // career-67341-2023(선수 페이지 과거 소속팀 사진 편집본: MLB 사진과 같은 틀, 투명 바탕)
+    // mlb-808982(지금 MLB 사진), kbo-si-hwan-roh-2026(포스팅 선수 편집본: 현 소속 KBO 구단 공식 사진, 흰 바탕),
+    // kbo-77829-2019(MLB 사진이 없는 포스팅 선배의 그 시즌 KBO 사진),
+    // posting-673490-2024(포스팅 선배 편집본: 계약 구단 시절 MLB 사진, 흰 바탕),
+    // career-67341-2023(선수 페이지 과거 소속팀 사진 편집본: MLB 사진과 같은 틀, 투명 바탕).
+    // 웹(/photos/[key])도 같은 규칙이라 'kbo-' 뒤 40자를 넘는 이름은 쓰지 않는다(Postings가 slug를 35자로 막는다)
     private static final Pattern KEY = Pattern.compile(
             "mlb-\\d{1,10}|kbo-[a-z0-9-]{1,40}|posting-\\d{1,10}-\\d{4}|career-\\d{1,10}-\\d{4}");
     private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofDays(1)).cachePublic();

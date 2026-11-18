@@ -13,10 +13,18 @@ import java.time.temporal.ChronoUnit;
  * @param mlbId       MLB 선수 번호(photoUrl이 있을 때만)
  * @param photoSeason photoUrl 사진의 시즌(계약한 MLB 구단에서의 마지막 시즌, photoUrl이 있을 때만)
  * @param photoUrl    계약한 MLB 구단 시절 MLB 공식 사진 원본 주소(없으면 null). 화면에는 이 사진의 편집본
- *                    (src/main/resources/photos/posting-{mlbId}-{photoSeason}.jpg)을 보인다
+ *                    (src/main/resources/photos/posting-{mlbId}-{photoSeason}.jpg)을 보인다. 출처를 적은 사진만 호스팅해서
+ *                    사진을 보일지도 이 값으로 정한다
  */
 public record PastPosting(String nameKo, int season, LocalDate deadline, PostingResult result, String source,
                           Long kboId, Long mlbId, Integer photoSeason, String photoUrl) {
+
+    public PastPosting {
+        // 사진 이름 posting-{mlbId}-{photoSeason}을 만들 수 있어야 한다(yml 값은 Postings가 먼저 검사한다)
+        if (photoUrl != null && (mlbId == null || photoSeason == null)) {
+            throw new IllegalArgumentException(nameKo + ": photoUrl needs mlbId and photoSeason");
+        }
+    }
 
     /** 마감 며칠 전에 합의했는지(미국 날짜). 마감 당일 합의면 0, 결렬이면 null */
     public Integer daysBeforeDeadline() {

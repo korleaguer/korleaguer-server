@@ -35,7 +35,10 @@ import static org.mockito.Mockito.when;
 class PhotoStoreTest {
 
     private static final String MLB = "https://img.example.com/people/808982/headshot";
-    private static final String KBO = "https://img.example.kr/roh.webp";
+    /** 확인값(ETag·Last-Modified)을 주지 않는 사진 */
+    private static final String MLB_NO_VALIDATORS = "https://img.example.com/people/808975/headshot";
+    /** 그림 말고는 다 막는(robots.txt 403) 사진 서버의 KBO 시즌 사진 */
+    private static final String KBO = "https://img.example.kr/2023/67341.jpg";
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-11-11T01:00:00Z"));
     private final Map<String, Deque<HttpGetter.Reply>> replies = new HashMap<>();
@@ -72,9 +75,10 @@ class PhotoStoreTest {
 
     @Test
     void robotsForbiddenImageServerStillServesTheChosenPhoto() {
-        reply(KBO, 200, "roh", Map.of("content-type", "image/webp"));
+        reply(KBO, 200, "heroes", Map.of("content-type", "image/jpeg"));
 
-        assertThat(store(DataMode.MLB).load("kbo-si-hwan-roh")).isPresent();
+        assertThat(storeWithPostingSeasonPhoto("https://img.example.kr/{season}/{kboId}.jpg").load("kbo-67341-2023"))
+                .isPresent();
     }
 
     @Test
@@ -97,18 +101,18 @@ class PhotoStoreTest {
     void recheckAfterSevenDaysUsesConditionalHeadersAndKeepsTheCopyWhenUnchanged() {
         reply(MLB, 200, "face", Map.of("content-type", "image/webp", "etag", "\"v1\"",
                 "last-modified", "Wed, 11 Nov 2026 01:00:00 GMT"));
-        reply(KBO, 200, "roh", Map.of("content-type", "image/webp"));
+        reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
         assertThat(store.refresh()).isEqualTo(2);
         int before = requested.size();
-        Instant kboFetched = saved.get("kbo-si-hwan-roh").getFetchedAt();
+        Instant kimFetched = saved.get("mlb-808975").getFetchedAt();
 
         clock.advance(Duration.ofDays(3));
         assertThat(store.refresh()).isZero();
         assertThat(requested).hasSize(before); // 7일 전에는 묻지도 않는다
 
         reply(MLB, 304, "", Map.of());
-        reply(KBO, 200, "roh", Map.of("content-type", "image/webp")); // 확인값이 없는 서버: 받아도 같으면 다시 쓰지 않는다
+        reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp")); // 확인값이 없는 서버: 받아도 같으면 다시 쓰지 않는다
         clock.advance(Duration.ofDays(5));
         Instant askedFrom = clock.instant();
         assertThat(store.refresh()).isZero();
@@ -118,7 +122,7 @@ class PhotoStoreTest {
                 .containsEntry("If-None-Match", "\"v1\"")
                 .containsEntry("If-Modified-Since", "Wed, 11 Nov 2026 01:00:00 GMT");
         assertThat(saved.get("mlb-808982").getCheckedAt()).isAfterOrEqualTo(askedFrom); // 물어본 시각으로 바뀜
-        assertThat(saved.get("kbo-si-hwan-roh").getFetchedAt()).isEqualTo(kboFetched); // 같은 사진이라 다시 쓰지 않음
+        assertThat(saved.get("mlb-808975").getFetchedAt()).isEqualTo(kimFetched); // 같은 사진이라 다시 쓰지 않음
     }
 
     @Test
@@ -140,7 +144,7 @@ class PhotoStoreTest {
         String past = "https://kbo.example/2023/67341.jpg";
         reply("https://kbo.example/robots.txt", 404, "", Map.of());
         reply(past, 200, "heroes", Map.of("content-type", "image/jpeg"));
-        PhotoStore store = storeWithPostingSeasonPhoto();
+        PhotoStore store = storeWithPostingSeasonPhoto("https://kbo.example/{season}/{kboId}.jpg");
         assertThat(store.load("kbo-67341-2023")).isPresent();
         int before = requested.size();
 
@@ -153,7 +157,30 @@ class PhotoStoreTest {
         assertThat(new String(saved.get("kbo-67341-2023").getData(), StandardCharsets.UTF_8)).isEqualTo("heroes");
         assertThat(PhotoSources.seasonFixed("kbo-67341-2023")).isTrue();
         assertThat(PhotoSources.seasonFixed("mlb-808982")).isFalse();
-        assertThat(PhotoSources.seasonFixed("kbo-si-hwan-roh")).isFalse();
+        assertThat(PhotoSources.seasonFixed("kbo-si-hwan-roh-2026")).isFalse(); // 포스팅 선수 편집본(우리 파일)
+    }
+
+    @Test
+    void postingPlayerPhotoIsOurEditedFileUnderTheSeasonName() throws Exception {
+        String original = "https://img.example.kr/player/69737.png";
+        reply(original, 200, "naver", Map.of("content-type", "image/png"));
+        byte[] edited;
+        try (var in = getClass().getClassLoader().getResourceAsStream("photos/kbo-si-hwan-roh-2026.jpg")) {
+            edited = in.readAllBytes();
+        }
+
+        for (DataMode mode : List.of(DataMode.MLB, DataMode.SAMPLE)) { // 우리 파일이라 샘플 모드에서도 준다
+            PhotoStore store = storeWithPostingPlayer(original, mode);
+            Optional<Photo> photo = store.load("kbo-si-hwan-roh-2026");
+
+            assertThat(photo).map(Photo::getContentType).contains("image/jpeg");
+            assertThat(photo).map(Photo::getData).contains(edited);
+            // 옛 이름(KBO 사진 서버 원본 94×118을 받아 두던 kbo-si-hwan-roh)은 더 주지 않는다
+            assertThat(store.load("kbo-si-hwan-roh")).isEmpty();
+            assertThat(store.refresh()).isZero();
+        }
+        assertThat(requested).isEmpty(); // 원본(photo-url)은 출처 기록이라 받지 않는다
+        assertThat(saved).isEmpty(); // 앱에 들어 있는 파일이라 DB에 두지 않는다
     }
 
     @Test
@@ -220,11 +247,10 @@ class PhotoStoreTest {
             return queue.size() > 1 ? queue.poll() : queue.peek();
         };
         PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance, false);
-        PostingProperties.Current roh = new PostingProperties.Current("노시환", "si-hwan-roh", "한화 이글스", "3루수",
-                2000, List.of(), "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", null, KBO, null);
         PhotoSources sources = new PhotoSources(
-                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null))),
-                new Postings(new PostingProperties(List.of(roh), List.of())),
+                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null),
+                        new RosterProperties.Entry("김혜성", 808975L, null, null, null, null))),
+                new Postings(new PostingProperties(List.of(), List.of())),
                 new KorleaguerProperties(null, null, null, null,
                         new KorleaguerProperties.Images(true, "https://img.example.com/people/{mlbId}/headshot", null), null));
         return new PhotoStore(sources, repository, fetcher, mode, clock);
@@ -252,14 +278,24 @@ class PhotoStoreTest {
     }
 
     /** MLB 사진을 적지 않은 지난 포스팅 선배 한 명(이정후, 2023 포스팅)의 그 시즌 KBO 사진만 있는 사진 목록 */
-    private PhotoStore storeWithPostingSeasonPhoto() {
+    private PhotoStore storeWithPostingSeasonPhoto(String kboPhotoTemplate) {
         PostingProperties.Past lee = new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6,
                 113_000_000L, null, 67341L, null, null, null, null);
         PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
                 new Postings(new PostingProperties(List.of(), List.of(lee))),
                 new KorleaguerProperties(null, null, null, null,
-                        new KorleaguerProperties.Images(true, null, "https://kbo.example/{season}/{kboId}.jpg"), null));
+                        new KorleaguerProperties.Images(true, null, kboPhotoTemplate), null));
         return new PhotoStore(sources, repository, fetcher(), DataMode.MLB, clock);
+    }
+
+    /** 이번 겨울 포스팅 선수 한 명(노시환, 2026 KBO 공식 사진의 편집본)만 있는 사진 목록 */
+    private PhotoStore storeWithPostingPlayer(String photoUrl, DataMode mode) {
+        PostingProperties.Current roh = new PostingProperties.Current("노시환", "si-hwan-roh", "한화 이글스", "3루수",
+                2000, List.of(), "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", null, 2026, photoUrl, null);
+        PhotoSources sources = new PhotoSources(new RosterProperties(List.of()),
+                new Postings(new PostingProperties(List.of(roh), List.of())),
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
+        return new PhotoStore(sources, repository, fetcher(), mode, clock);
     }
 
     private PoliteFetcher fetcher() {

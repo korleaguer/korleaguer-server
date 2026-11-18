@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -194,6 +195,21 @@ class CacheWarmerTest {
         events.publishEvent(new CatchUpFinished());
 
         assertThat(queryService.player(1L)).isNotSameAs(player);
+    }
+
+    @Test
+    void playerPageKeepsTheTimeItWasMadeWhileCached() {
+        // 따라잡기 끝(startFresh)에서 START에 채워 둔 응답이다
+        assertThat(queryService.player(1L).generatedAt()).isEqualTo(START);
+
+        // 캐시에서 주는 동안은 시계가 가도 처음 계산한 시각 그대로다(화면 '기준 …'이 숫자를 계산한 때를 가리킨다)
+        clock.advance(Duration.ofSeconds(95).plusMillis(700));
+        assertThat(queryService.player(1L).generatedAt()).isEqualTo(START);
+
+        // 비우고 다시 만들면 그때 시각이고, 홈·내 선수처럼 초 단위로 자른다
+        responseCaches.clearAll("테스트");
+        assertThat(queryService.player(1L).generatedAt()).isEqualTo(START.plusSeconds(95));
+        assertThat(queryService.home().generatedAt()).isEqualTo(START.plusSeconds(95));
     }
 
     @Test

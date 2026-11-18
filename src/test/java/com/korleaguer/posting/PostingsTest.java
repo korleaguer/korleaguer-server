@@ -26,6 +26,11 @@ class PostingsTest {
         assertThat(roh.windowOpens()).isEqualTo(Instant.parse("2026-11-02T13:00:00Z"));
         // MLB Trade Rumors: 미국 중부 12/1 오후 4시 = 한국 12/2 오전 7시
         assertThat(roh.deadline()).isEqualTo(Instant.parse("2026-12-01T22:00:00Z"));
+        // 사진: KBO 2026 공식 등록 사진(KBO 사진 서버 판은 94×118)과 같은 사진의 네이버 스포츠 큰 판(210×262).
+        // 화면은 그 편집본(/photos/kbo-si-hwan-roh-2026)
+        assertThat(roh.slug()).isEqualTo("si-hwan-roh");
+        assertThat(roh.photoSeason()).isEqualTo(2026);
+        assertThat(roh.photoUrl()).isEqualTo("https://sports-phinf.pstatic.net/player/kbo/default/69737.png");
 
         assertThat(postings.history()).extracting(PastPosting::nameKo, PastPosting::daysBeforeDeadline)
                 .containsExactly(
@@ -64,6 +69,49 @@ class PostingsTest {
                 new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4, 1L, null, null,
                         null, 2024, "https://archive.example/kim.jpg", null)))))
                 .hasMessageContaining("posting.history 김하성: mlb-id is required when photo-url is set");
+        // 적었지만 연도가 아닌 값은 '필요하다'가 아니라 무엇이 틀렸는지 말한다
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(), List.of(
+                new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4, 1L, null, null,
+                        673490L, 24, "https://archive.example/kim.jpg", null)))))
+                .hasMessageContaining("posting.history 김하성: photo-season must be a year between 1990 and 2100: 24");
+    }
+
+    @Test
+    void recordsRefuseAPhotoTheyCannotName() {
+        // yml을 거치지 않고 만들어도(테스트·다른 코드) 사진 주소를 만들 값이 없으면 바로 막는다
+        assertThatThrownBy(() -> new PostingCase("노시환", "si-hwan-roh", "한화 이글스", "3루수", 2000, List.of(),
+                Instant.parse("2026-11-02T13:00:00Z"), Instant.parse("2026-12-01T22:00:00Z"), null, null,
+                "https://sports-phinf.pstatic.net/player/kbo/default/69737.png", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("photoUrl needs slug and photoSeason");
+        assertThatThrownBy(() -> new PastPosting("김하성", 2020, java.time.LocalDate.parse("2021-01-01"),
+                PostingResult.noDeal(), null, null, null, 2024, "https://archive.example/kim.jpg"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("photoUrl needs mlbId and photoSeason");
+        // 사진이 없으면 slug·시즌이 없어도 된다
+        assertThat(new PostingCase("노시환", null, "한화 이글스", "3루수", 2000, List.of(),
+                Instant.parse("2026-11-02T13:00:00Z"), Instant.parse("2026-12-01T22:00:00Z"), null, null, null, null)
+                .photoUrl()).isNull();
+    }
+
+    @Test
+    void currentPhotoNeedsASeasonAndASlugThatFitsThePhotoName() {
+        // 사진 이름 kbo-{slug}-{photo-season}: 시즌이 없으면 사진을 바꿔도 주소가 그대로라 하루 동안 옛 사진이 남는다
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto("si-hwan-roh", null)), List.of())))
+                .hasMessageContaining("posting.current 노시환: photo-season (year of the photo) is required when photo-url is set");
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto("si-hwan-roh", 26)), List.of())))
+                .hasMessageContaining("posting.current 노시환: photo-season must be a year between 1990 and 2100: 26");
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto(null, 2026)), List.of())))
+                .hasMessageContaining("posting.current 노시환: slug is required when photo-url is set");
+        // api·웹의 사진 이름 규칙('kbo-' 뒤 40자)에 '-2026'까지 들어가게 35자까지
+        String longest = "a".repeat(35);
+        assertThat(new Postings(new PostingProperties(List.of(withPhoto(longest, 2026)), List.of()))
+                .current().getFirst().slug()).isEqualTo(longest);
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto(longest + "a", 2026)), List.of())))
+                .hasMessageContaining("slug must start with a lowercase letter");
+        // 숫자로 시작하면 지난 선배의 시즌 사진 이름(kbo-{KBO 선수 번호}-{시즌})과 겹칠 수 있다
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto("69737", 2026)), List.of())))
+                .hasMessageContaining("slug must start with a lowercase letter");
     }
 
     @Test
@@ -161,8 +209,13 @@ class PostingsTest {
     private static PostingProperties.Current current(List<String> names, String opens, String deadline,
                                                      PostingProperties.Result result) {
         return new PostingProperties.Current("노시환", null, "한화 이글스", "3루수", 2000, names, opens, deadline, null,
-                null,
-                result);
+                null, null, result);
+    }
+
+    private static PostingProperties.Current withPhoto(String slug, Integer photoSeason) {
+        return new PostingProperties.Current("노시환", slug, "한화 이글스", "3루수", 2000, List.of(),
+                "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", null, photoSeason,
+                "https://sports-phinf.pstatic.net/player/kbo/default/69737.png", null);
     }
 
     private static PostingProperties load() throws IOException {
