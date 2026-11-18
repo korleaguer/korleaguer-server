@@ -65,17 +65,26 @@ public class Postings {
         PostingResult result = c.result() == null ? null : result(c.result(), who);
         String slug = blankToNull(c.slug());
         String photoUrl = blankToNull(c.photoUrl());
-        if (slug != null && !slug.matches("[a-z0-9-]{1,40}")) {
-            throw invalid(who, "slug must be lowercase letters, digits and '-': " + slug);
+        // 사진 이름 kbo-{slug}-{photo-season}이 사진 이름 규칙(api·웹 모두 'kbo-' 뒤 40자까지)에 들어가고,
+        // 지난 선배의 시즌 사진 이름(kbo-{KBO 선수 번호}-{시즌})과 겹치지 않게 영문 소문자로 시작하고 35자까지 받는다
+        if (slug != null && !slug.matches("[a-z][a-z0-9-]{0,34}")) {
+            throw invalid(who, "slug must start with a lowercase letter and use lowercase letters, digits and '-'"
+                    + " (35 at most): " + slug);
         }
-        if (photoUrl != null && slug == null) {
-            throw invalid(who, "slug is required when photo-url is set");
-        }
-        if (photoUrl != null && !photoUrl.startsWith("https://")) {
-            throw invalid(who, "photo-url must start with https://");
+        if (photoUrl != null) {
+            if (slug == null) {
+                throw invalid(who, "slug is required when photo-url is set");
+            }
+            if (!photoUrl.startsWith("https://")) {
+                throw invalid(who, "photo-url must start with https://");
+            }
+            // 사진 주소에 시즌을 넣어, 사진을 바꾸면 주소도 바뀌게 한다(하루 동안 저장해 둔 옛 사진이 남지 않게)
+            if (c.photoSeason() == null || c.photoSeason() < 1990 || c.photoSeason() > 2100) {
+                throw invalid(who, "photo-season (year of the photo) is required when photo-url is set");
+            }
         }
         return new PostingCase(c.nameKo().trim(), slug, c.kboTeam().trim(), c.positionKo().trim(), c.birthYear(), names,
-                opens, deadline, c.source(), photoUrl, result);
+                opens, deadline, c.source(), photoUrl == null ? null : c.photoSeason(), photoUrl, result);
     }
 
     private static PostingResult result(PostingProperties.Result r, String who) {

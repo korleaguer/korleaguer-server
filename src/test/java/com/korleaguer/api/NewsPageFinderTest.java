@@ -45,7 +45,7 @@ class NewsPageFinderTest {
     private final NewsArticleRepository news = mock(NewsArticleRepository.class);
     private final Postings postings = new Postings(new PostingProperties(List.of(
             new PostingProperties.Current("노시환", "si-hwan-roh", "한화 이글스", "3루수", 2000, List.of("Si-Hwan Roh"),
-                    "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", null, "https://example.kr/roh.png",
+                    "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", null, 2026, "https://example.kr/roh.png",
                     null)), List.of()));
     private final PhotoSources photos = new PhotoSources(new RosterProperties(List.of()), postings,
             new KorleaguerProperties(null, null, null, null,
@@ -65,7 +65,9 @@ class NewsPageFinderTest {
 
         assertThat(page.id()).isEqualTo(7L);
         assertThat(page.player()).isEqualTo("노시환");
-        assertThat(page.playerPhotoUrl()).isNotNull().isEqualTo(photos.postingPath("si-hwan-roh"));
+        // 홈 포스팅 카드와 같은 사진(현 소속 KBO 구단 공식 사진의 흰 바탕 편집본)
+        assertThat(page.playerPhotoUrl()).isEqualTo("/photos/kbo-si-hwan-roh-2026")
+                .isEqualTo(photos.postingPath(postings.current().getFirst()));
         assertThat(page.title()).isEqualTo("Roh Posted");
         assertThat(page.titleKo()).isEqualTo("노시환 포스팅 공시");
         assertThat(page.url()).isEqualTo("https://news.example/7");

@@ -10,7 +10,7 @@ import java.time.Instant;
 
 /**
  * 우리가 호스팅하는 선수 사진 한 장(PhotoStore). 원본에서 한 번 받아 두고, 원본이 바뀌었을 때만 본문을 바꾼다.
- * 기본키는 사진 이름(mlb-808982, kbo-si-hwan-roh)이다.
+ * 기본키는 사진 이름(mlb-808982, kbo-77829-2019)이다.
  */
 @Entity
 public class Photo {

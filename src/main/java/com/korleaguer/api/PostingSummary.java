@@ -17,7 +17,8 @@ public record PostingSummary(List<Player> players, List<Past> history) {
     /**
      * 포스팅 선수 한 명.
      *
-     * @param photoUrl      프로필 사진(현 소속 KBO 구단 공식 사진). 없거나 공식 사진을 껐으면 null
+     * @param photoUrl      프로필 사진: 현 소속 KBO 구단 공식 사진의 흰 바탕 정사각형 편집본(/photos/kbo-si-hwan-roh-2026,
+     *                      얼굴 크기·위치가 history 선배 사진과 같은 틀). 없거나 공식 사진을 껐으면 null
      * @param status        UPCOMING(협상 시작 전) · NEGOTIATING(협상 중) · SIGNED(계약) · NO_DEAL(결렬) ·
      *                      CLOSED(마감이 지났는데 결과를 아직 적지 않음)
      * @param windowOpensAt 30일 협상 시작 시각

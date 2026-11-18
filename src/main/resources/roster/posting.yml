@@ -7,9 +7,16 @@
 #   window-opens: 30일 협상 시작 시각(MLB가 구단들에 공시한 다음 날 오전 8시, 미국 동부)
 #   deadline: 협상 마감 시각(30일째 오후 5시, 미국 동부). 11월 첫 일요일부터는 표준시(-05:00)다.
 #   source: 공시·마감 시각의 근거 기사
-#   slug: 영문 짧은 이름(사진 주소에 쓴다, 예: si-hwan-roh). photo-url이 있으면 꼭 적는다
-#   photo-url: 프로필 사진 원본 주소(선택, KBO 공식 선수 등록 사진: KBO 사진 서버의 그 시즌 사진). 우리 서버가 한 번 받아 호스팅한다.
-#              없으면 화면이 구단 색 원에 이름 첫 글자를 보인다
+#   slug: 영문 짧은 이름(사진 주소에 쓴다, 예: si-hwan-roh). 영문 소문자로 시작하고 35자까지. photo-url이 있으면 꼭 적는다
+#   photo-season·photo-url: 프로필 사진(선택)의 시즌과 원본 주소(출처 기록). 현 소속 KBO 구단의 공식 선수 등록 사진(정면)이다.
+#           KBO 사진 서버 판(KBO_IMAGE/person/middle/{시즌}/{KBO 선수 번호}.jpg)은 94×118이라 홈 76px 원에서 흐리므로
+#           같은 사진의 큰 판(네이버 스포츠 이미지 서버 player/kbo/default/{KBO 선수 번호}.png, 210×262)을 적는다.
+#           큰 판은 선수의 가장 최근 등록 사진이라 KBO 사진 서버의 그 시즌 사진과 같은 사진인지 맞춰 본다(tools/posting-photo/README.md).
+#           화면에는 이 사진의 편집본을 보인다: 흰 바탕 256×256, 얼굴 크기·위치가 history 선배 사진과 같은 틀
+#           (src/main/resources/photos/kbo-{slug}-{photo-season}.jpg, 만드는 법은 tools/posting-photo/README.md).
+#           편집본이 없으면 서버가 뜨지 않는다. 우리 서버가 /photos/kbo-{slug}-{photo-season}으로 호스팅한다.
+#           주소에 시즌이 들어가 새 시즌 사진으로 바꾸면 주소도 바뀐다(사진을 하루 동안 저장해 두는 브라우저에 옛 사진이 남지 않게).
+#           권리는 KBO·구단에 있다. 사진이 없으면 화면이 이름 첫 글자 원을 보인다
 #   result: 결과가 나면 적는다. outcome은 SIGNED(계약) 또는 NO_DEAL(결렬).
 #           SIGNED면 mlb-team(약어, 예: SD), agreed-on(합의 보도 미국 날짜), years(보장 연수), guaranteed-usd(보장액)를 같이 적는다.
 #
@@ -44,9 +51,13 @@ posting:
       # 근거 기사: "30-day window ending at 4pm CT on December 1" (= 미국 동부 오후 5시, 한국 12월 2일 오전 7시)
       deadline: 2026-12-01T17:00:00-05:00
       source: https://www.mlbtraderumors.com/2026/11/kbos-hanwha-eagles-to-post-si-hwan-roh-for-mlb-teams.html
-      # KBO 공식 2026 선수 등록 사진(정면, 새 유니폼). KBO 사진 서버(robots.txt 없음)에서 우리 서버가 한 번 받아 호스팅한다.
-      # 주소 끝 숫자(69737)는 KBO 선수 번호, 2026은 시즌. 권리는 KBO·한화 이글스에 있다.
-      photo-url: https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/person/middle/2026/69737.jpg
+      # KBO 공식 선수 등록 사진(정면, 'E' 모자·흰 유니폼). KBO 사진 서버의 2025·2026 시즌 사진은 같은 촬영본이다.
+      # 그 서버 판(https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/person/middle/2026/69737.jpg)은 94×118이라
+      # 같은 사진의 네이버 스포츠 큰 판(210×262, 배경 없음)으로 편집본(photos/kbo-si-hwan-roh-2026.jpg)을 만들었다.
+      # 큰 판은 더 바짝 잘려 KBO 판 맨 아래 주황 표식이 빠졌을 뿐, 깃·얼굴 무늬가 같다(2026-11-18 얼굴 맞춰 대조).
+      # 주소 끝 숫자(69737)는 KBO 선수 번호. 두 사진 서버 모두 robots.txt가 없다. 권리는 KBO·한화 이글스에 있다.
+      photo-season: 2026
+      photo-url: https://sports-phinf.pstatic.net/player/kbo/default/69737.png
   history:
     - name-ko: 송성문
       kbo-id: 65357

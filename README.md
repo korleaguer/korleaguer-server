@@ -144,9 +144,11 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`), 마이너 팀 등은 MLB가 준 영어 이름 그대로(`St. Paul Saints`).
 
 ### 선수 사진 호스팅(`GET /api/photos/{이름}`, 표 `photo`)
-- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}`, 선수 페이지 과거 소속팀 사진은 `/photos/career-{KBO 선수 번호}-{시즌}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
-- 우리가 만든 편집본은 원본에서 받지 않고 앱에 든 파일(`src/main/resources/photos/`)을 그대로 준다: 포스팅 선배(`posting-…`, 흰 바탕 JPEG)와 과거 소속팀(`career-…`, MLB 배경 없는 사진과 같은 틀의 투명 PNG). 만드는 법은 `tools/posting-photo/README.md`.
-- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, 포스팅 선수는 `posting.yml`의 `photo-url`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
+- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}-{사진 시즌}`(예: `kbo-si-hwan-roh-2026`), 포스팅 선배는 `/photos/posting-{MLB 선수 번호}-{시즌}`(MLB 사진이 없으면 `/photos/kbo-{KBO 선수 번호}-{시즌}`), 선수 페이지 과거 소속팀 사진은 `/photos/career-{KBO 선수 번호}-{시즌}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
+- 우리가 만든 편집본은 원본에서 받지 않고 앱에 든 파일(`src/main/resources/photos/`)을 그대로 준다: 포스팅 선수(`kbo-{slug}-{사진 시즌}`)·포스팅 선배(`posting-…`, 둘 다 흰 바탕 256×256 JPEG, 얼굴 크기·위치가 같은 틀)와 과거 소속팀(`career-…`, MLB 배경 없는 사진과 같은 틀의 투명 PNG). 편집본이 없으면 공식 사진을 켠 서버는 뜨지 않는다. 만드는 법은 `tools/posting-photo/README.md`.
+  - 포스팅 선수 사진은 현 소속 KBO 구단 공식 등록 사진이다. KBO 사진 서버 판(94×118)은 홈 76px 원에서 흐려서(3배 화면에 필요한 228px의 41%) 같은 사진의 큰 판(네이버 스포츠 이미지 서버, 210×262)으로 만든다. `posting.yml`의 `photo-url`은 그 출처 기록이다.
+  - 사진 이름에 사진 시즌(`photo-season`)이 들어가, 새 시즌 사진으로 바꾸면 주소도 바뀐다. 사진을 하루 동안 저장해 두는 브라우저·중간 캐시에 옛 사진이 남지 않게 하려는 것이다(2026-11-18 노시환 사진을 `kbo-si-hwan-roh`에서 `kbo-si-hwan-roh-2026`으로 바꿨다).
+- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, MLB 사진이 없는 포스팅 선배는 KBO 사진 서버 `korleaguer.images.kbo-photo-template`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
 - 원본에 마지막으로 물어본 지 7일이 지나면 조건부 요청(If-None-Match·If-Modified-Since)으로 바뀌었는지만 묻는다. 304거나 본문(SHA-256)이 같으면 다시 쓰지 않는다. 원본 주소가 바뀌면 새로 받는다.
 - 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
 - 응답은 `ETag`(SHA-256)와 `Cache-Control: public, max-age=86400`. 같은 ETag로 물으면 304.

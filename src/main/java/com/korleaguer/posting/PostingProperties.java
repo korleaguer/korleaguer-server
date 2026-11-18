@@ -22,12 +22,13 @@ public record PostingProperties(List<Current> current, List<Past> history) {
      * @param windowOpens 협상 시작 시각(오프셋 포함 ISO, 예: 2026-11-02T08:00:00-05:00)
      * @param deadline    협상 마감 시각(같은 형식)
      * @param slug        영문 짧은 이름(주소에 쓴다, 예: si-hwan-roh). 사진이 있으면 꼭 적는다
-     * @param photoUrl    프로필 사진 원본 주소(선택, 현 소속 KBO 구단 사진). 우리 서버가 한 번 받아 호스팅한다
+     * @param photoSeason photo-url 사진의 시즌(KBO 공식 선수 등록 사진의 시즌). 사진 주소에 들어간다
+     * @param photoUrl    프로필 사진 원본 주소(선택, 현 소속 KBO 구단 공식 사진). 출처 기록이고, 화면에는 그 편집본을 보인다
      * @param result      결과가 났으면 적는다(없으면 null)
      */
     public record Current(String nameKo, String slug, String kboTeam, String positionKo, Integer birthYear,
                           List<String> searchNames, String windowOpens, String deadline, String source,
-                          String photoUrl, Result result) {
+                          Integer photoSeason, String photoUrl, Result result) {
 
         public Current {
             searchNames = searchNames == null ? List.of() : List.copyOf(searchNames);

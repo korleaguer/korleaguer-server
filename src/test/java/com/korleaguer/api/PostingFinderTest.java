@@ -508,7 +508,7 @@ class PostingFinderTest {
     void photoIsOurHostedPathAndFollowsTheOfficialPhotosSwitch() {
         Instant now = Instant.parse("2026-11-11T01:00:00Z");
 
-        assertThat(finder(roh(null)).find(now).players().getFirst().photoUrl()).isEqualTo("/photos/kbo-si-hwan-roh");
+        assertThat(finder(roh(null)).find(now).players().getFirst().photoUrl()).isEqualTo("/photos/kbo-si-hwan-roh-2026");
         assertThat(finder(roh(null), false).find(now).players().getFirst().photoUrl()).isNull();
     }
 
@@ -548,6 +548,6 @@ class PostingFinderTest {
 
     private static PostingProperties.Current roh(PostingProperties.Result result) {
         return new PostingProperties.Current("노시환", "si-hwan-roh", "한화 이글스", "3루수", 2000, List.of("Si-Hwan Roh"), OPENS,
-                DEADLINE, null, "https://example.kr/roh.png", result);
+                DEADLINE, null, 2026, "https://example.kr/roh.png", result);
     }
 }
