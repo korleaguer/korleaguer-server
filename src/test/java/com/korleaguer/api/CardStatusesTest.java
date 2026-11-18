@@ -144,14 +144,16 @@ class CardStatusesTest {
         List<PlayerMove> moves = newestFirst(
                 move(go, "2026-08-30", "OUT", "Minnesota Twins sent RHP Woo-Suk Go outright to St. Paul Saints.", Level.MINORS),
                 move(go, "2026-08-30", "DFA", "RHP Woo-Suk Go elected free agency.", Level.MINORS));
-        CardStatuses.LastGame last = new CardStatuses.LastGame(LocalDate.of(2026, 8, 27), "AAA");
+        // 마지막 경기: 미국 8월 27일 저녁(한국 8월 28일 아침) 트리플A
+        CardStatuses.LastGame last = new CardStatuses.LastGame(LocalDate.of(2026, 8, 27), LocalDate.of(2026, 8, 28), "AAA");
 
         CardStatuses.Resolved resolved = CardStatuses.resolve(go, moves, last, null, on(TODAY));
 
         assertThat(resolved.status().kind()).isEqualTo("FA");
         assertThat(resolved.status().since()).isEqualTo(LocalDate.of(2026, 8, 30));
         assertThat(resolved.status().days()).isEqualTo(27);
-        assertThat(resolved.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 8, 27));
+        // 마지막 경기 날짜는 한국 날짜(선수 화면 경기 달력과 같은 날, 이슈 #183)
+        assertThat(resolved.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 8, 28));
         assertThat(resolved.status().lastGameLevel()).isEqualTo("AAA");
     }
 
@@ -161,14 +163,31 @@ class CardStatusesTest {
         LocalDate today = LocalDate.of(2026, 10, 5);
 
         CardStatuses.Resolved over = CardStatuses.resolve(lee, List.of(),
-                new CardStatuses.LastGame(LocalDate.of(2026, 9, 27), "MLB"), null, afterSeason(today, false));
+                new CardStatuses.LastGame(LocalDate.of(2026, 9, 27), LocalDate.of(2026, 9, 28), "MLB"), null,
+                afterSeason(today, false));
         assertThat(over.status().kind()).isEqualTo("SEASON_OVER");
         assertThat(over.status().days()).isNull();
+        assertThat(over.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 9, 28));
 
         // 포스트시즌을 뛰는 선수(이틀 전 경기)는 평소대로 둔다
         CardStatuses.Resolved playoffs = CardStatuses.resolve(lee, List.of(),
-                new CardStatuses.LastGame(LocalDate.of(2026, 10, 3), "MLB"), null, afterSeason(today, false));
+                new CardStatuses.LastGame(LocalDate.of(2026, 10, 3), LocalDate.of(2026, 10, 4), "MLB"), null,
+                afterSeason(today, false));
         assertThat(playoffs.status()).isNull();
+    }
+
+    @Test
+    void seasonOverCountsDaysWithoutGamesInUsDates() {
+        // 며칠 경기가 없었는지는 오늘(미국 10월 5일)과 마지막 경기의 미국 날짜(10월 1일)로 센다: 3일 넘었다.
+        // 한국 날짜(10월 2일)로 세면 3일째라 시즌 끝이 아니게 된다(오늘과 날짜 기준이 섞인다)
+        Player lee = player(Level.MLB, null, false);
+        CardStatuses.LastGame last = new CardStatuses.LastGame(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), "MLB");
+
+        CardStatuses.Resolved over = CardStatuses.resolve(lee, List.of(), last, null,
+                afterSeason(LocalDate.of(2026, 10, 5), false));
+
+        assertThat(over.status().kind()).isEqualTo("SEASON_OVER");
+        assertThat(over.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 10, 2));
     }
 
     @Test
@@ -243,7 +262,7 @@ class CardStatusesTest {
         List<PlayerMove> moves = newestFirst(
                 move(kim, "2026-09-28", "CU", "Los Angeles Dodgers recalled SS Hyeseong Kim from Oklahoma City Comets.",
                         Level.MLB));
-        CardStatuses.LastGame last = new CardStatuses.LastGame(LocalDate.of(2026, 9, 21), "AAA");
+        CardStatuses.LastGame last = new CardStatuses.LastGame(LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 22), "AAA");
         LocalDate october2 = LocalDate.of(2026, 10, 2);
 
         CardStatuses.Resolved playing = CardStatuses.resolve(kim, moves, last, null, afterSeason(october2, true));

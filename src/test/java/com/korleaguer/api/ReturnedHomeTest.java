@@ -83,6 +83,9 @@ class ReturnedHomeTest {
                 .andExpect(jsonPath("$.players[0].status.kind").value("KBO"))
                 .andExpect(jsonPath("$.players[0].status.teamName").value("LG 트윈스"))
                 .andExpect(jsonPath("$.players[0].status.lastGameLevel").value("MLB"))
+                // 마지막 경기(미국 9/20 16:05, 한국 9/21 05:05)는 선수 화면 달력과 같은 한국 날짜다(이슈 #183).
+                // 국내 복귀 카드는 CardStatuses를 거치지 않는 따로 난 분기라 여기서 본다
+                .andExpect(jsonPath("$.players[0].status.lastGameDate").value("2026-09-21"))
                 .andExpect(jsonPath("$.players[0].basis").value("SEASON"))
                 // 명단에 돌아간 팀이 없는 선수는 평소대로(비시즌이라 시즌 끝)
                 .andExpect(jsonPath("$.players[1].player.returnedKo").value(nullValue()))

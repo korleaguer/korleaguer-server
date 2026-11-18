@@ -452,12 +452,7 @@ public class MyPlayersService {
 
     private CardStatuses.Resolved resolveStatus(Player player, List<Appearance> majorSeason,
                                                 List<MinorGameLog> minorSeason, CardStatuses.Today today) {
-        CardStatuses.LastGame lastMajor = majorSeason.isEmpty() ? null : new CardStatuses.LastGame(
-                LocalDate.ofInstant(majorSeason.getLast().getGame().getStartTimeUtc(), GameIngest.US_EASTERN), "MLB");
-        CardStatuses.LastGame lastMinor = minorSeason.isEmpty() ? null : new CardStatuses.LastGame(
-                minorSeason.getLast().getGameDate(), minorSeason.getLast().getLevel());
-        CardStatuses.LastGame lastGame = lastMajor == null ? lastMinor : lastMinor == null ? lastMajor
-                : lastMinor.date().isAfter(lastMajor.date()) ? lastMinor : lastMajor;
+        CardStatuses.LastGame lastGame = lastGame(majorSeason, minorSeason);
         // 마이너 팀 이름은 선수 정보의 지금 팀(마이너면)을 먼저 믿는다(새 팀으로 옮긴 뒤 아직 경기가 없을 수 있다).
         String teamName = player.getLevel() == Level.MINORS && player.getLevelTeamName() != null
                 ? player.getLevelTeamName()
@@ -469,11 +464,42 @@ public class MyPlayersService {
         String returnedKo = profiles.returnedKo(player);
         if (returnedKo != null) {
             return new CardStatuses.Resolved(new MyPlayersResponse.CardStatus("KBO", null, null, null, returnedKo,
-                    lastGame == null ? null : lastGame.date(), lastGame == null ? null : lastGame.level()),
+                    lastGame == null ? null : lastGame.kstDate(), lastGame == null ? null : lastGame.level()),
                     null, CardStatuses.Start.OTHER);
         }
         return CardStatuses.resolve(player, moves.findNewestFirst(player.getId()), lastGame,
                 new CardStatuses.MinorSpot(level, teamName), today);
+    }
+
+    /**
+     * 본인 마지막 경기: 메이저·마이너 중 늦게 시작한 경기(같은 시각이면 메이저). 경기가 없으면 null.
+     * 응답 lastGameDate는 그 경기 시작 시각의 한국 날짜다(이슈 #183). 선수 화면 경기 달력(웹은 startTimeKst의 날짜로 칸을
+     * 정한다)과 같은 경기가 같은 날짜가 되게, 시각도 달력과 같은 값을 쓴다: 메이저는 경기 시작 시각, 마이너는
+     * MinorRecords.startTimeKst(일정에서 받은 시작 시각).
+     * 시작 시각을 모르는 경기: 메이저는 없다(game.start_time_utc는 not null, MLB 일정의 시작 시각). 마이너 일정을 아직 받지
+     * 못한 경기(공식 날짜만 있음)는 달력처럼 공식 날짜 다음 날로 본다(MinorRecords.startTimeKst의 어림, 근거도 거기에).
+     * 미국 경기는 동부 시각 오전 11시(겨울 10시)부터 시작하면 한국 날짜로 다음 날이다. 운영 데이터(11-18, 명단 6명의 이번
+     * 시즌 메이저 출전 328경기와 마이너 266경기, 마이너도 모두 시작 시각을 받아 두었다)에서 한국 날짜가 미국 동부 날짜 다음
+     * 날이 아닌 경기는 없었다. 그래서 지금 보이는 마지막 경기 날짜는 모두 하루씩 늦어진다(예: 김하성 10월 6일 → 10월 7일).
+     * 시즌 끝 판단에 쓰는 미국 날짜(usDate)는 지금처럼 메이저는 시작 시각의 미국 동부 날짜, 마이너는 공식 날짜다.
+     *
+     * @param majorOldestFirst 이번 시즌 메이저 출전(오래된 경기부터)
+     * @param minorSeason      이번 시즌 마이너 경기
+     */
+    static CardStatuses.LastGame lastGame(List<Appearance> majorOldestFirst, List<MinorGameLog> minorSeason) {
+        Appearance major = majorOldestFirst.isEmpty() ? null : majorOldestFirst.getLast();
+        MinorGameLog minor = minorSeason.stream()
+                .max(Comparator.comparing(MinorRecords::startTimeKst).thenComparing(MinorGameLog::getGamePk))
+                .orElse(null);
+        Instant majorStart = major == null ? null : major.getGame().getStartTimeUtc();
+        if (minor != null && (majorStart == null || MinorRecords.startTimeKst(minor).toInstant().isAfter(majorStart))) {
+            return new CardStatuses.LastGame(minor.getGameDate(), MinorRecords.kstDate(minor), minor.getLevel());
+        }
+        if (majorStart != null) {
+            return new CardStatuses.LastGame(LocalDate.ofInstant(majorStart, GameIngest.US_EASTERN),
+                    KoreanTime.kstDate(majorStart), "MLB");
+        }
+        return null;
     }
 
     /** 이번 시즌 정규시즌 개막일·마지막 날(미국 날짜) */
@@ -538,7 +564,10 @@ public class MyPlayersService {
         return finals.subList(0, Math.min(FormFacts.RECENT_GAMES, finals.size())).reversed();
     }
 
-    /** 마이너 기간: 오늘까지 days일(한국 날짜), 그 안에 경기가 없으면 마지막 마이너 경기까지 days일. 경기가 없으면 null */
+    /**
+     * 마이너 기간: 오늘까지 days일(한국 날짜), 그 안에 경기가 없으면 마지막 마이너 경기까지 days일. 경기가 없으면 null.
+     * 경기의 한국 날짜는 선수 화면 달력과 같은 MinorRecords.kstDate다(이슈 #183)
+     */
     private record MinorWindow(LocalDate fromKst, LocalDate toKst, boolean fallback, List<MinorGameLog> games) {
     }
 
@@ -551,7 +580,8 @@ public class MyPlayersService {
         if (!recent.isEmpty()) {
             return new MinorWindow(from, today, false, recent);
         }
-        LocalDate end = MinorRecords.kstDate(season.getLast());
+        // 목록은 공식 날짜 순이라, 한국 날짜가 가장 늦은 경기를 따로 찾는다(시작 시각으로 정하므로 순서가 다를 수 있다)
+        LocalDate end = season.stream().map(MinorRecords::kstDate).max(Comparator.naturalOrder()).orElseThrow();
         return new MinorWindow(end.minusDays(days - 1), end, true, within(season, end.minusDays(days - 1), end));
     }
 
