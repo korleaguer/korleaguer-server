@@ -349,7 +349,7 @@ public class NewsListFinder {
         }
         Map<String, NewsListResponse.Subject> out = new LinkedHashMap<>();
         for (PostingCase posting : postings.current()) {
-            out.put(posting.nameKo(), new NewsListResponse.Subject(posting.nameKo(), photos.postingPath(posting.slug()), null,
+            out.put(posting.nameKo(), new NewsListResponse.Subject(posting.nameKo(), photos.postingPath(posting), null,
                     true, null));
         }
         List<RosterProperties.Entry> entries = roster.baseball() == null ? List.of() : roster.baseball();

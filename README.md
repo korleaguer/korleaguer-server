@@ -74,7 +74,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 |---|---|
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
-| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`). 없으면 404 |
+| `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`) + 만든 시각(`generatedAt`). 없으면 404 |
 | `GET /api/my?ids=1,2,5&days=7` | 내 선수: 고른 선수마다 기간 합계 + 시즌 타율·평균자책점 + 연속 기록 + 경기 기록(최신순) |
 | `GET /api/news?player=이정후&before=…` | 뉴스 탭 한 쪽: 선수 고르기 목록(`players`, 기사가 있는 선수만, 포스팅 선수 먼저·명단 순, 선수마다 가장 최근 기사 시각 `latestAt`) + 기사 20줄(늦은 순, 같은 기사는 한 줄·`alsoBy`, 누구 기사인지 `who`) + 다음 쪽 커서(`next`, `before`로 그대로 넘긴다). `player`가 없으면 전체, 모르는 선수면 빈 목록. `q`를 주면 제목(원제·한국어 제목)에 그 말이 있는 기사만(30자까지). 첫 쪽이면 최근 기사에 많이 나온 말 `topics`(`{word, count}`, 최대 6개, `q`가 있어도 `q`와 상관없이 센다. `count`는 그 말로 검색하면 나오는 줄 수). `q`가 있는 첫 쪽이면 그 검색의 줄 수 `queryCount`(끝까지 넘겨 본 줄 수, 같은 기사는 한 줄. `topics`의 `count`와 같은 셈이라 알약 'FA 21'을 눌러 연 검색도 21, 이슈 #183), 둘째 쪽부터나 `q`가 없으면 null. DB에서 제목에 그 글자가 든 기사(영문 말은 낱말로 거르기 전이라 'FA'면 fans·DFA도 든다)가 2,000건을 넘으면 둘 다 최근 2,000건으로 센 값이다. 커서 모양이 틀리면 400 |
 | `GET /api/news/{id}` | 관련 기사 한 건: 제목(영어 기사는 한국어 제목도)·대표 사진 주소·AI 요약·원문 주소 + 같은 글을 실은 다른 언론사(`alsoBy`, 낸 순, 선수를 고른 뉴스 탭 목록 한 줄과 같은 규칙, 없으면 빈 목록. 검색(`q`) 줄은 제목에 검색어가 있는 사본만 묶어 이보다 적을 수 있다) + 같은 선수의 다른 기사 5건. 없거나 뺀 언론사의 기사면 404 |
@@ -92,6 +92,8 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 "올해 주로 마이너"(`mainlyMinors`)는 같은 시즌 마이너(트리플A ~ 루키) 경기 수(`minorGames`, 타자는 타자로 나온 경기, 투수는 등판)가 메이저 정규시즌 경기 수(`games`)보다 많은 선수다. 지금 단계(`level`)가 아니라 시즌 경기 수로 정하므로, 시즌 중에 콜업돼 지금 메이저에 있어도 마이너에서 더 많이 뛰었으면 true다. 홈 시즌 성적에서는 맨 아래에 두고, 선수 페이지의 시즌 성적에도 같은 두 값이 있다. 마이너 경기 수를 아직 받지 않았으면 0이다.
 
 응답의 `dataMode`는 `"mlb"` / `"sample"`이고, `statsAvailable`은 늘 `true`다(화면 호환 때문에 남긴 필드).
+
+홈·선수 화면·내 선수·기록 응답의 `generatedAt`은 그 응답을 만든 시각(UTC, 초 단위, 예: `"2026-11-01T11:00:00Z"`)이다. 응답을 캐시하므로(아래 "캐시") 캐시에서 준 응답이면 처음 계산한 시각이다. 웹은 이 값을 '기준 …'으로 보인다(선수 화면은 시즌 성적 제목 옆, 이슈 #184).
 
 ```bash
 curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/ingest/players
@@ -142,9 +144,11 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 팀 이름: MLB 구단은 한글 짧은 이름(`미네소타`). 트리플A·더블A 60팀은 마이너 경기 줄과 같은 한국어 지명(`roster/minor-teams.yml`)에 단계를 붙인다(`세인트폴(트리플A)`, `콜럼버스(더블A)`. 두 단계에 '콜럼버스'가 하나씩 있다, 이슈 #183). 이동 기록에 있는 MLB 팀 번호로 찾는다. 그 밖의 팀(루키 팀·국가대표 등)은 MLB가 준 영어 이름 그대로(`FCL Braves`). 경기 줄의 팀 이름(`세인트폴`)에는 단계를 붙이지 않는다(단계 칸이 따로 있다).
 
 ### 선수 사진 호스팅(`GET /api/photos/{이름}`, 표 `photo`)
-- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}`, 선수 페이지 과거 소속팀 사진은 `/photos/career-{KBO 선수 번호}-{시즌}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
-- 우리가 만든 편집본은 원본에서 받지 않고 앱에 든 파일(`src/main/resources/photos/`)을 그대로 준다: 포스팅 선배(`posting-…`, 흰 바탕 JPEG)와 과거 소속팀(`career-…`, MLB 배경 없는 사진과 같은 틀의 투명 PNG). 만드는 법은 `tools/posting-photo/README.md`.
-- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, 포스팅 선수는 `posting.yml`의 `photo-url`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
+- 응답의 `photoUrl`은 우리 주소다: `/photos/mlb-{MLB 선수 번호}`, 포스팅 선수는 `/photos/kbo-{slug}-{사진 시즌}`(예: `kbo-si-hwan-roh-2026`), 포스팅 선배는 `/photos/posting-{MLB 선수 번호}-{시즌}`(MLB 사진이 없으면 `/photos/kbo-{KBO 선수 번호}-{시즌}`), 선수 페이지 과거 소속팀 사진은 `/photos/career-{KBO 선수 번호}-{시즌}`. 웹이 `/photos/…`를 이 엔드포인트로 넘긴다(api는 바깥에 열려 있지 않다).
+- 우리가 만든 편집본은 원본에서 받지 않고 앱에 든 파일(`src/main/resources/photos/`)을 그대로 준다: 포스팅 선수(`kbo-{slug}-{사진 시즌}`)·포스팅 선배(`posting-…`, 둘 다 흰 바탕 256×256 JPEG, 얼굴 크기·위치가 같은 틀)와 과거 소속팀(`career-…`, MLB 배경 없는 사진과 같은 틀의 투명 PNG). 편집본이 없으면 공식 사진을 켠 서버는 뜨지 않는다. 만드는 법은 `tools/posting-photo/README.md`.
+  - 포스팅 선수 사진은 현 소속 KBO 구단 공식 등록 사진이다. KBO 사진 서버 판(94×118)은 홈 76px 원에서 흐려서(3배 화면에 필요한 228px의 41%) 같은 사진의 큰 판(네이버 스포츠 이미지 서버, 210×262)으로 만든다. `posting.yml`의 `photo-url`은 그 출처 기록이다.
+  - 사진 이름에 사진 시즌(`photo-season`)이 들어가, 새 시즌 사진으로 바꾸면 주소도 바뀐다. 사진을 하루 동안 저장해 두는 브라우저·중간 캐시에 옛 사진이 남지 않게 하려는 것이다(2026-11-18 노시환 사진을 `kbo-si-hwan-roh`에서 `kbo-si-hwan-roh-2026`으로 바꿨다).
+- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, MLB 사진이 없는 포스팅 선배는 KBO 사진 서버 `korleaguer.images.kbo-photo-template`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
 - 원본에 마지막으로 물어본 지 7일이 지나면 조건부 요청(If-None-Match·If-Modified-Since)으로 바뀌었는지만 묻는다. 304거나 본문(SHA-256)이 같으면 다시 쓰지 않는다. 원본 주소가 바뀌면 새로 받는다.
 - 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
 - 응답은 `ETag`(SHA-256)와 `Cache-Control: public, max-age=86400`. 같은 ETag로 물으면 304.

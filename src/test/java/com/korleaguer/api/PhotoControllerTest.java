@@ -88,9 +88,27 @@ class PhotoControllerTest {
     }
 
     @Test
+    void editedPhotoOfThePostingPlayerIsServedUnderTheSeasonName() throws Exception {
+        // posting.yml 노시환: KBO 2026 공식 사진의 큰 판으로 만든 흰 바탕 256×256 편집본. 샘플 모드에서도 준다
+        byte[] edited;
+        try (var in = getClass().getClassLoader().getResourceAsStream("photos/kbo-si-hwan-roh-2026.jpg")) {
+            edited = in.readAllBytes();
+        }
+
+        mockMvc.perform(get("/api/photos/kbo-si-hwan-roh-2026"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/jpeg"))
+                .andExpect(header().exists("ETag"))
+                .andExpect(header().string("Cache-Control", "max-age=86400, public"))
+                .andExpect(content().bytes(edited));
+        // 옛 이름(94×118 KBO 원본)은 목록에서 빠졌다. 하루 동안 저장해 둔 옛 사진이 새 주소에 섞이지 않게 이름을 바꿨다
+        mockMvc.perform(get("/api/photos/kbo-si-hwan-roh")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void unknownOrOddNamesAreNotFound() throws Exception {
         mockMvc.perform(get("/api/photos/mlb-1")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/photos/..%2Fsecret")).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/photos/kbo-si-hwan-roh")).andExpect(status().isNotFound()); // 샘플 모드라 받지 않는다
+        mockMvc.perform(get("/api/photos/kbo-si-hwan-roh-2025")).andExpect(status().isNotFound());
     }
 }

@@ -126,7 +126,7 @@ public class NewsPageFinder {
         return postings.current().stream()
                 .filter(p -> p.nameKo().equals(player))
                 .findFirst()
-                .map(p -> photos.postingPath(p.slug()))
+                .map(photos::postingPath)
                 .orElse(null);
     }
 }

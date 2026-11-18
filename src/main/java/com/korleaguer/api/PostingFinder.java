@@ -141,7 +141,7 @@ public class PostingFinder {
                 .map(g -> PostingSummary.Headline.of(g))
                 .toList();
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
-                photos.postingPath(p.slug()), status,
+                photos.postingPath(p), status,
                 p.windowOpens(), p.deadline(), daysLeft, elapsedRatio(p, now), deal(p.result()), headlines,
                 linkedTeams.count(p.nameKo(), now, this::kept, null));
     }

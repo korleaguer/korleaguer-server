@@ -1,4 +1,4 @@
-// MLB 도전 카드 선배 사진 편집본 만들기(macOS Vision). 쓰는 법은 같은 폴더 README.md.
+// MLB 도전 카드 포스팅 선수·선배 사진 편집본 만들기(macOS Vision). 쓰는 법은 같은 폴더 README.md.
 //
 //   cut <원본 사진> <출력.jpg>   배경을 지워 흰 바탕에 놓고, 얼굴 크기·위치를 기준(노시환 KBO 공식 사진)에 맞춘
 //                                256×256 정사각형 JPEG로 저장한다
@@ -12,8 +12,9 @@ import ImageIO
 import UniformTypeIdentifiers
 import Vision
 
-/// 기준: 노시환 KBO 2026 공식 사진(/photos/kbo-si-hwan-roh, 94×118, 흰 배경)을 위쪽 정사각형으로 볼 때
+/// 기준: 노시환 KBO 2026 공식 사진(KBO 사진 서버 판 middle/2026/69737.jpg, 94×118, 흰 배경)을 위쪽 정사각형으로 볼 때
 /// 얼굴(Vision 얼굴 사각형) 높이는 폭의 49.25%, 얼굴 중심은 위에서 57.47%. 가로는 가운데(50%)에 둔다.
+/// 화면의 노시환 사진(/photos/kbo-si-hwan-roh-2026)도 같은 사진의 큰 판을 이 값으로 맞춘 편집본이다.
 let faceCenterX: CGFloat = 0.5
 let faceCenterY: CGFloat = 0.5747
 let faceHeight: CGFloat = 0.4925
