@@ -68,7 +68,8 @@ class MyPlayersFormSummaryTest {
 
     @Test
     void minorLeaguerCardUsesMinorGames() throws Exception {
-        // 마이너 경기는 한국 날짜로 다음 날이라, 최근 7일(9/21 ~ 9/27)에는 9월 20일(미국) 등판 하나만 든다.
+        // 마이너 경기는 미국 저녁 경기(샘플 일정 19:05 동부)라 한국 날짜로 다음 날이다. 최근 7일(9/21 ~ 9/27)에는
+        // 9월 20일(미국) 등판 하나만 든다. 시작 시각은 선수 화면 마이너 경기 줄과 같은 일정 시각이다(이슈 #183).
         mockMvc.perform(get("/api/my").param("ids", "5").param("days", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players[0].status.kind").value("MINORS"))
@@ -82,7 +83,7 @@ class MyPlayersFormSummaryTest {
                 .andExpect(jsonPath("$.players[0].pitching.era").value(0.0))
                 .andExpect(jsonPath("$.players[0].games.length()").value(1))
                 .andExpect(jsonPath("$.players[0].games[0].teamKo").value("St. Paul Saints"))
-                .andExpect(jsonPath("$.players[0].games[0].startTimeKst").value("2026-09-21T08:00:00+09:00"))
+                .andExpect(jsonPath("$.players[0].games[0].startTimeKst").value("2026-09-21T08:05:00+09:00"))
                 .andExpect(jsonPath("$.players[0].games[0].played").value(true))
                 .andExpect(jsonPath("$.players[0].fact.tone").value("HOT"))
                 .andExpect(jsonPath("$.players[0].fact.text").value("트리플A 최근 5번 등판 중 4번 무실점"));

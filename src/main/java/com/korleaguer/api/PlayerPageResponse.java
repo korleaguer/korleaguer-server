@@ -10,7 +10,8 @@ import java.util.List;
  * GET /api/players/{id}. 타자면 pitching이, 투수면 hitting이 null이다.
  * minorHitting·minorPitching은 같은 시즌 마이너 경기 기록을 더한 것(홈 minorHitters·minorPitchers와 같은 계산)이고,
  * 마이너 경기가 없으면 null이다. 메이저 기록(hitting·pitching)과 따로 보여 줘야 작은 표본이 시즌 전체처럼 보이지 않는다.
- * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록).
+ * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록). 팀 이름은 MLB 구단이면 한글
+ * 이름, 트리플A·더블A 팀이면 한국어 지명과 단계다(Move, 이슈 #183).
  * 이슈 #133에서 더한 칸(옛 화면은 무시해도 된다):
  * <ul>
  *   <li>saber: 지금 시즌 MLB 안 위치(PlayerSaber, 타자·투수 모양이 다르다). 아직 받지 않았거나 그 시즌 MLB 기록이 없으면 null</li>
@@ -85,8 +86,9 @@ public record PlayerPageResponse(
 
     /**
      * 이동 기록 한 줄. labelKo는 서버가 typeCode(와 설명 글)로 만든 짧은 한국어 이름이다(예: "메이저 콜업").
-     * fromTeam·toTeam은 MLB 구단이면 한글 이름(예: "미네소타"), 마이너 팀 등은 MLB가 준 영어 이름 그대로이고 없으면 null.
-     * toLevel은 옮겨 간 팀의 단계(MLB / MINORS), 모르면 null이다.
+     * fromTeam·toTeam은 MLB 구단이면 한글 이름(예: "미네소타"), 트리플A·더블A 팀(roster/minor-teams.yml)이면 경기 줄과
+     * 같은 한국어 지명에 단계를 붙인 이름(예: "귀넷(트리플A)", "콜럼버스(더블A)", 이슈 #183), 그 밖의 팀(루키 팀·국가대표 등)은
+     * MLB가 준 영어 이름 그대로이고 없으면 null. toLevel은 옮겨 간 팀의 단계(MLB / MINORS), 모르면 null이다.
      */
     public record Move(
             LocalDate date,

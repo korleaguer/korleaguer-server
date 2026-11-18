@@ -16,7 +16,7 @@ public record MinorTeamProperties(List<Team> teams) {
      * 팀 한 곳.
      *
      * @param id     MLB 팀 번호
-     * @param level  단계 약어(AAA·AA, 확인용)
+     * @param level  단계 약어(AAA·AA). 이동 기록 팀 이름 뒤에 붙인다(예: "귀넷(트리플A)", MinorTeamNames.moveName)
      * @param nameKo 화면에 쓰는 한국어 도시(지명) 이름(예: "오클라호마시티")
      * @param nameEn MLB 팀 이름(확인용)
      */

@@ -43,8 +43,16 @@ final class CardStatuses {
     private CardStatuses() {
     }
 
-    /** 마지막 경기(미국 날짜와 단계: MLB 또는 마이너 약어) */
-    record LastGame(LocalDate date, String level) {
+    /**
+     * 마지막 경기. 날짜를 둘 다 둔다(이슈 #183).
+     *
+     * @param usDate  미국 날짜(메이저는 시작 시각의 미국 동부 날짜, 마이너는 공식 날짜). 시즌 끝 판단처럼 오늘(미국 날짜)과
+     *                견줄 때 쓴다: 그 판단의 다른 재료(정규시즌 마지막 날, 이동 기록 날짜)가 모두 미국 날짜다
+     * @param kstDate 시작 시각의 한국 날짜. 응답 lastGameDate로 나간다. 선수 화면 경기 달력이 그 경기를 놓는 날과 같다
+     *                (MyPlayersService.lastGame)
+     * @param level   MLB 또는 마이너 약어(AAA 등)
+     */
+    record LastGame(LocalDate usDate, LocalDate kstDate, String level) {
     }
 
     /** 지금 마이너 팀(마지막 마이너 경기의 단계 약어와 팀 이름) */
@@ -79,7 +87,7 @@ final class CardStatuses {
 
     /**
      * @param allMovesNewestFirst 이동 기록(최신부터)
-     * @param lastGame            본인 마지막 경기(메이저·마이너 중 늦은 것, 없으면 null)
+     * @param lastGame            본인 마지막 경기(메이저·마이너 중 늦게 시작한 것, 없으면 null)
      * @param minor               지금 마이너 팀(마이너 경기가 없으면 null)
      */
     static Resolved resolve(Player player, List<PlayerMove> allMovesNewestFirst, LastGame lastGame, MinorSpot minor,
@@ -99,8 +107,9 @@ final class CardStatuses {
             return new Resolved(status("FA", since, usToday, null, null, lastGame), null, Start.OTHER);
         }
         // 포스트시즌 명단에 든 선수는 본인 경기가 며칠 없어도(팀이 쉬는 날·첫 출전 전) 시즌 끝이 아니다.
+        // 며칠 경기가 없었는지는 오늘(미국 날짜)과 견주므로 마지막 경기도 미국 날짜로 센다(보이는 날짜는 한국 날짜다).
         if (today.seasonEnded() && !today.teamPlaying() && (lastGame == null
-                || lastGame.date().isBefore(usToday.minusDays(SEASON_OVER_AFTER_DAYS)))) {
+                || lastGame.usDate().isBefore(usToday.minusDays(SEASON_OVER_AFTER_DAYS)))) {
             return new Resolved(status("SEASON_OVER", null, usToday, null, null, lastGame), null, Start.OTHER);
         }
 
@@ -299,11 +308,15 @@ final class CardStatuses {
         return (int) ChronoUnit.DAYS.between(since, usToday) + 1;
     }
 
+    /**
+     * 배지 한 개. days는 since(이동 기록 날짜, 미국 날짜)부터 오늘(미국 날짜)까지라 미국 날짜끼리 센다. 마지막 경기 날짜는
+     * 시작 시각의 한국 날짜로 내보낸다(선수 화면 경기 달력과 같은 날, 이슈 #183)
+     */
     private static MyPlayersResponse.CardStatus status(String kind, LocalDate since, LocalDate usToday, String level,
                                                        String teamName, LastGame lastGame) {
         Integer days = since == null || since.isAfter(usToday) ? null : daysSince(since, usToday);
         return new MyPlayersResponse.CardStatus(kind, since, days, level, teamName,
-                lastGame == null ? null : lastGame.date(), lastGame == null ? null : lastGame.level());
+                lastGame == null ? null : lastGame.kstDate(), lastGame == null ? null : lastGame.level());
     }
 
     private static String code(PlayerMove move) {
