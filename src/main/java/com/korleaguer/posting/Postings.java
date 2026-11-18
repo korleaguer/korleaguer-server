@@ -79,12 +79,20 @@ public class Postings {
                 throw invalid(who, "photo-url must start with https://");
             }
             // 사진 주소에 시즌을 넣어, 사진을 바꾸면 주소도 바뀌게 한다(하루 동안 저장해 둔 옛 사진이 남지 않게)
-            if (c.photoSeason() == null || c.photoSeason() < 1990 || c.photoSeason() > 2100) {
-                throw invalid(who, "photo-season (year of the photo) is required when photo-url is set");
-            }
+            requirePhotoSeason(c.photoSeason(), who);
         }
         return new PostingCase(c.nameKo().trim(), slug, c.kboTeam().trim(), c.positionKo().trim(), c.birthYear(), names,
                 opens, deadline, c.source(), photoUrl == null ? null : c.photoSeason(), photoUrl, result);
+    }
+
+    /** 사진 시즌: photo-url이 있으면 꼭 적어야 하고, 연도여야 한다(빈 값과 잘못 적은 값을 다른 말로 알린다) */
+    private static void requirePhotoSeason(Integer season, String who) {
+        if (season == null) {
+            throw invalid(who, "photo-season (year of the photo) is required when photo-url is set");
+        }
+        if (season < 1990 || season > 2100) {
+            throw invalid(who, "photo-season must be a year between 1990 and 2100: " + season);
+        }
     }
 
     private static PostingResult result(PostingProperties.Result r, String who) {
@@ -120,9 +128,7 @@ public class Postings {
             if (p.mlbId() == null || p.mlbId() < 1) {
                 throw invalid(who, "mlb-id is required when photo-url is set");
             }
-            if (p.photoSeason() == null || p.photoSeason() < 1990 || p.photoSeason() > 2100) {
-                throw invalid(who, "photo-season (year of the photo) is required when photo-url is set");
-            }
+            requirePhotoSeason(p.photoSeason(), who);
         }
         return new PastPosting(p.nameKo().trim(), p.season(), deadline, result, p.source(), p.kboId(),
                 photoUrl == null ? null : p.mlbId(), photoUrl == null ? null : p.photoSeason(), photoUrl);

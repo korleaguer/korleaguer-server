@@ -92,7 +92,7 @@ public class PhotoSources {
                 }
             }
             // 포스팅 선수: 현 소속 KBO 구단 공식 사진의 편집본(선배 사진과 같은 흰 바탕 정사각형 틀).
-            // photo-url이 있으면 slug·photo-season도 있다(Postings가 검사한다)
+            // photo-url이 있으면 slug·photo-season도 있다(Postings가 yml을 검사하고 PostingCase 생성자가 막는다)
             for (PostingCase posting : postings.current()) {
                 if (posting.photoUrl() != null) {
                     String key = kboKey(posting.slug(), posting.photoSeason());
