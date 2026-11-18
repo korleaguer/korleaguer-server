@@ -19,6 +19,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.support.KoreanTime;
@@ -68,8 +69,8 @@ public class MyPlayersService {
 
     private static final int MAX_IDS = 20;
     private static final Set<Integer> ALLOWED_DAYS = Set.of(7, 14, 30);
-    private static final String REGULAR = "regular";
-    private static final List<String> STREAK_SEASON_TYPES = List.of(REGULAR, "postseason");
+    private static final String REGULAR = SeasonType.REGULAR.stored();
+    private static final List<String> STREAK_SEASON_TYPES = List.of(REGULAR, SeasonType.POSTSEASON.stored());
 
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
