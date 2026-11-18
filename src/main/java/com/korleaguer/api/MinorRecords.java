@@ -26,8 +26,9 @@ import java.util.function.Function;
 
 /**
  * '내 선수' 카드에 쓰는 마이너 기록 계산과, 메이저 출전·마이너 경기를 소식 계산용 숫자(GameStat)로 바꾸기(이슈 #33).
- * 마이너 경기는 시작 시각을 모르고 공식 날짜(미국 날짜)만 있어서, 한국 날짜로는 다음 날로 본다
- * (미국 저녁 경기는 한국 다음 날 아침에 끝난다).
+ * 마이너 경기의 한국 시각·날짜는 어디서나 startTimeKst 하나로 정한다(선수 화면 경기 줄·달력, 내 선수 카드의 기간·경기 줄,
+ * 마지막 경기 날짜, 이슈 #183): 일정에서 받은 시작 시각, 아직 받지 못했으면 공식 날짜(미국 날짜) 다음 날 08:00
+ * (미국 저녁 경기는 한국 다음 날 아침이다).
  */
 final class MinorRecords {
 
@@ -40,6 +41,11 @@ final class MinorRecords {
     // 승패가 아직 나지 않은 상태(경기 전·연기·취소·경기 중·지연·중단). 이때는 경기별 기록의 승패도 쓰지 않는다
     private static final Set<String> UNDECIDED = Set.of(GameStatuses.SCHEDULED, GameStatuses.POSTPONED,
             GameStatuses.CANCELED, GameStatuses.IN_PROGRESS, GameStatuses.DELAYED, GameStatuses.SUSPENDED);
+    // 마이너 경기 줄의 순서(최신 경기부터): 공식 날짜, 같은 날(더블헤더)이면 시작 시각, 그다음 경기 번호
+    private static final Comparator<MinorGameLog> NEWEST_FIRST = Comparator.comparing(MinorGameLog::getGameDate)
+            .thenComparing(MinorRecords::startTimeKst)
+            .thenComparing(MinorGameLog::getGamePk)
+            .reversed();
 
     private MinorRecords() {
     }
@@ -60,9 +66,13 @@ final class MinorRecords {
         return levels.size() == 1 ? levelKo(levels.getFirst()) : "마이너";
     }
 
-    /** 마이너 경기의 한국 날짜(공식 날짜 다음 날) */
+    /**
+     * 마이너 경기의 한국 날짜: startTimeKst의 날짜(일정에서 받은 시작 시각, 못 받았으면 공식 날짜 다음 날). 예전에는 늘 공식
+     * 날짜 다음 날로 셌는데, 선수 화면 달력은 받은 시작 시각으로 칸을 정해서 미국 오전 경기(동부 11시 전 시작)는 같은 경기가
+     * 다른 날에 놓일 수 있었다(이슈 #183)
+     */
     static LocalDate kstDate(MinorGameLog game) {
-        return game.getGameDate().plusDays(1);
+        return startTimeKst(game).toLocalDate();
     }
 
     /** 메이저 출전 한 번 → 소식 계산용 숫자. 날짜는 경기 시작의 미국 날짜다. */
@@ -107,14 +117,15 @@ final class MinorRecords {
     }
 
     /**
-     * 기간의 마이너 경기 한 줄 기록(최신순). 팀·상대는 마이너 팀 이름(영어), 점수는 몰라서 null이고 결과(W/L)만 있다.
+     * 기간의 마이너 경기 한 줄 기록(최신순, 선수 화면 마이너 경기 줄과 같은 순서). 시작 시각은 선수 화면 마이너 경기 줄과 같은
+     * startTimeKst다(같은 경기가 같은 날·시각, 이슈 #183). 팀·상대는 마이너 팀 이름(영어), 점수는 null이고 결과(W/L)만 있다.
      */
     static List<GameLine> lines(Player player, String photoUrl, List<MinorGameLog> period) {
         Role role = player.role();
         return period.stream()
-                .sorted(Comparator.comparing(MinorGameLog::getGameDate).thenComparing(MinorGameLog::getGamePk).reversed())
+                .sorted(NEWEST_FIRST)
                 .map(game -> new GameLine(player.getId(), player.getNameKo(), photoUrl, role, game.getGamePk(),
-                        OffsetDateTime.of(kstDate(game), ASSUMED_KST_TIME, KST), game.getTeamName(), null,
+                        startTimeKst(game), game.getTeamName(), null,
                         game.getOpponentName(), null, Boolean.TRUE.equals(game.getHome()), null, null,
                         game.getWin() == null ? null : game.getWin() ? "W" : "L", "final", true,
                         GameSummary.played(role, game.getBatting(), game.getPitching()),
@@ -125,10 +136,7 @@ final class MinorRecords {
     /** 선수 화면의 마이너 경기 줄(MinorGameLine). 받은 경기를 모두, 최신 경기부터 */
     static List<MinorGameLine> gameLines(Role role, List<MinorGameLog> season, MinorTeamNames names) {
         return season.stream()
-                .sorted(Comparator.comparing(MinorGameLog::getGameDate)
-                        .thenComparing(MinorRecords::startTimeKst)
-                        .thenComparing(MinorGameLog::getGamePk)
-                        .reversed())
+                .sorted(NEWEST_FIRST)
                 .map(game -> gameLine(role, game, names))
                 .toList();
     }
@@ -149,11 +157,18 @@ final class MinorRecords {
                 GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()));
     }
 
-    /** 시작 시각(한국 시각). 일정을 받지 못했으면 공식 날짜 다음 날 08:00으로 어림한다(lines()와 같다) */
+    /**
+     * 시작 시각(한국 시각). 선수 화면 마이너 경기 줄, 내 선수 카드의 마이너 경기 줄(lines)·기간(kstDate)·마지막 경기 날짜가
+     * 모두 이 값을 쓴다(같은 경기는 어디서나 같은 날, 이슈 #183).
+     * 일정을 아직 받지 못했으면(시작 시각 없이 공식 날짜만 있다) 공식 날짜 다음 날 08:00으로 어림한다. 마이너 경기는 거의
+     * 미국 저녁 경기라 한국 다음 날 아침이다: 운영(11-18) 이번 시즌 266경기는 모두 일정을 받았고 모두 한국 날짜가 공식
+     * 날짜 다음 날이었다. 어림이 틀려도 달력과 카드가 이 값 하나를 쓰므로 서로 어긋나지 않고, 일정은 다음 수집 때 다시 물어
+     * 받으면 실제 시각으로 바뀐다(IngestWriter.saveMinorGameLog). kstDate를 부르면 서로 부르게 되므로 공식 날짜에서 바로 센다
+     */
     static OffsetDateTime startTimeKst(MinorGameLog game) {
         MinorGameSchedule schedule = game.getSchedule();
         return schedule != null && schedule.startTimeUtc() != null ? KoreanTime.toKst(schedule.startTimeUtc())
-                : OffsetDateTime.of(kstDate(game), ASSUMED_KST_TIME, KST);
+                : OffsetDateTime.of(game.getGameDate().plusDays(1), ASSUMED_KST_TIME, KST);
     }
 
     /**

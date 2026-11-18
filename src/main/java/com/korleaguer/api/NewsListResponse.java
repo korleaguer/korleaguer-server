@@ -13,9 +13,12 @@ import java.util.List;
  * @param query   이 쪽을 거른 검색어(앞뒤 공백을 뗀 것). 없으면 null
  * @param topics  지금 범위(전체·선수)의 최근 기사에 많이 나온 말(뉴스 탭 맨 위 알약 줄, 이슈 #158·#165). 첫 쪽에만(검색어가
  *                있어도 검색어와 상관없이 센다), 아니면 빈 목록. 선수를 고르면 그 선수의 지금 구단 이름은 뺀다
+ * @param queryCount 이 검색으로 나오는 줄 수(끝까지 넘겨 본 줄 수, 같은 기사는 한 줄, 이슈 #183). 알약 숫자(Topic.count)와
+ *                   같은 셈이라 알약 'FA 21'을 눌러 연 검색(q=FA)도 21이다. query가 있는 첫 쪽에만 있고, 검색어가 없거나
+ *                   둘째 쪽부터는 null(웹은 첫 쪽 값을 그대로 둔다)
  */
 public record NewsListResponse(List<Subject> players, String player, List<Item> items, String next, String query,
-                               List<Topic> topics) {
+                               List<Topic> topics, Integer queryCount) {
 
     public NewsListResponse {
         players = List.copyOf(players);
@@ -24,14 +27,15 @@ public record NewsListResponse(List<Subject> players, String player, List<Item> 
     }
 
     NewsListResponse(List<Subject> players, String player, List<Item> items, String next) {
-        this(players, player, items, next, null, List.of());
+        this(players, player, items, next, null, List.of(), null);
     }
 
     /**
      * 많이 나온 말 하나.
      *
      * @param word  검색어로 그대로 쓰는 말(예: "FA", "다저스")
-     * @param count 이 말로 검색하면 나오는 줄 수(지금 범위의 기사 전체, 같은 기사는 한 줄). 말은 최근 기사에서 고른다(이슈 #167)
+     * @param count 이 말로 검색하면 나오는 줄 수(지금 범위의 기사 전체, 같은 기사는 한 줄). 말은 최근 기사에서 고른다(이슈 #167).
+     *              그 검색 첫 쪽의 queryCount와 같은 셈이다
      */
     public record Topic(String word, int count) {
     }

@@ -372,7 +372,60 @@ class NewsListApiTest {
         assertThat(first.get("topics").get(0).get("word").asString()).isEqualTo("FA");
         // 숫자는 알약을 눌렀을 때 나오는 줄 수(최근 3건만 세면 3이었다)
         assertThat(first.get("topics").get(0).get("count").asInt()).isEqualTo(8);
-        assertThat(titles(page("김하성", null, "FA"))).hasSize(8);
+        JsonNode searched = page("김하성", null, "FA");
+        assertThat(titles(searched)).hasSize(8);
+        // 알약을 눌러 연 검색의 줄 수도 같은 8(이슈 #183)
+        assertThat(queryCount(searched)).isEqualTo(8);
+    }
+
+    @Test
+    void queryCountIsTheNumberOfSearchRowsOnTheFirstPageOnly() throws Exception {
+        // FA 기사 25건(앞 2건은 다른 언론사도 같은 제목으로 실어 사본이 있다: 줄은 그대로 25), 다른 기사 25건
+        for (int i = 0; i < 25; i++) {
+            save("이정후", "이정후 FA 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i)));
+            save("이정후", "이정후 다른 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i + 5)));
+        }
+        save("이정후", "이정후 FA 소식 0", "스포츠조선", T0.plusSeconds(60));
+        save("이정후", "이정후 FA 소식 1", "스포츠조선", T0.minus(Duration.ofMinutes(9)));
+
+        JsonNode first = page(null, null, "FA");
+        assertThat(first.get("items").size()).isEqualTo(NewsListFinder.PAGE);
+        assertThat(queryCount(first)).isEqualTo(25);
+        JsonNode second = page(null, first.get("next").asString(), "FA");
+        // 끝까지 넘겨 본 줄 수와 같다
+        assertThat(titles(first).size() + titles(second).size()).isEqualTo(25);
+        assertThat(second.hasNonNull("next")).isFalse();
+        // 둘째 쪽에는 없다(웹은 첫 쪽 값을 그대로 둔다)
+        assertThat(second.has("queryCount")).isTrue();
+        assertThat(queryCount(second)).isNull();
+        // 검색어가 없으면 없다
+        assertThat(queryCount(page(null, null, null))).isNull();
+        assertThat(queryCount(page(null, null, "  "))).isNull();
+    }
+
+    @Test
+    void queryCountInAPlayerScopeCountsThatPlayersRowsLikeThePill() throws Exception {
+        for (int i = 0; i < 4; i++) {
+            save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minusSeconds(60L * i));
+        }
+        save("김하성", "김하성 FA 시장 0", "스포츠조선", T0.plusSeconds(30)); // 같은 기사: 한 줄
+        save("김하성", "김하성 겨울 훈련", "마이데일리", T0.minusSeconds(300)); // 검색어 없음
+        for (int i = 0; i < 3; i++) {
+            save("이정후", "이정후 FA 이야기 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
+        }
+
+        // 선수를 고르면 그 선수 기사만 센다
+        JsonNode kim = page("김하성", null, "FA");
+        assertThat(titles(kim)).hasSize(4);
+        assertThat(queryCount(kim)).isEqualTo(4).isEqualTo(topicCount(page("김하성", null, null), "FA"));
+        // 전체 보기는 두 선수 기사 모두. 알약을 누른 채로 받은 첫 쪽의 알약 숫자와도 같다(같은 셈)
+        JsonNode all = page(null, null, "FA");
+        assertThat(titles(all)).hasSize(7);
+        assertThat(queryCount(all)).isEqualTo(7).isEqualTo(topicCount(all, "FA"));
+        // 대소문자는 가리지 않는다(검색과 같다)
+        assertThat(queryCount(page(null, null, "fa"))).isEqualTo(7);
+        // 알약에 없는 말도 센다
+        assertThat(queryCount(page("김하성", null, "훈련"))).isEqualTo(1);
     }
 
     @Test
@@ -508,6 +561,22 @@ class NewsListApiTest {
         List<String> out = new ArrayList<>();
         page.get("items").forEach(item -> out.add(item.get("title").asString()));
         return out;
+    }
+
+    /** 검색 줄 수(queryCount). null이면 null */
+    private static Integer queryCount(JsonNode page) {
+        JsonNode count = page.get("queryCount");
+        return count == null || count.isNull() ? null : count.asInt();
+    }
+
+    /** 알약 줄에서 그 말의 숫자. 없으면 null */
+    private static Integer topicCount(JsonNode page, String word) {
+        for (JsonNode topic : page.get("topics")) {
+            if (topic.get("word").asString().equals(word)) {
+                return topic.get("count").asInt();
+            }
+        }
+        return null;
     }
 
     private NewsArticle save(String subject, String title, String publisher, Instant publishedAt) {

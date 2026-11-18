@@ -124,13 +124,19 @@ public class NewsListFinder {
         Set<String> postingOnly = new HashSet<>();
         chips.stream().filter(NewsListResponse.Subject::posting).forEach(s -> postingOnly.add(s.nameKo()));
         Page page = page(scope, postingOnly, cursor, q);
+        boolean top = cursor.equals(Cursor.TOP);
+        // 알약 숫자와 검색 줄 수는 같은 셈(searchRows)이다. 한 요청 안에서 같은 말은 한 번만 센다: 알약을 눌러 연 첫 쪽은
+        // 그 말을 알약 숫자로 이미 셌으니 다시 읽지 않고, 두 숫자가 어긋날 틈도 없다
+        Map<String, Integer> counted = new HashMap<>();
         // 많이 나온 말은 첫 쪽에만(뉴스 탭 맨 위 알약 줄). 검색어가 있어도 준다: 알약을 눌러 거른 채로도 줄이 그대로 보여야
         // 한다(이슈 #165). 그래서 검색어와 상관없이, 이 쪽을 만들며 읽은 기사와 별개로 범위의 최근 기사만 센다
-        List<NewsListResponse.Topic> topics = cursor.equals(Cursor.TOP)
+        List<NewsListResponse.Topic> topics = top
                 ? withSearchCounts(NewsTopics.count(recentGroups(scope, postingOnly), ownTeamWords(wanted, all)),
-                        scope, postingOnly)
+                        scope, postingOnly, counted)
                 : List.of();
-        return new NewsListResponse(chips, wanted, page.items(), page.next(), q, topics);
+        // 검색 줄 수도 첫 쪽에만(이슈 #183). 웹은 둘째 쪽부터 첫 쪽 값을 그대로 쓴다
+        Integer queryCount = top && q != null ? searchRows(scope, postingOnly, q, counted) : null;
+        return new NewsListResponse(chips, wanted, page.items(), page.next(), q, topics, queryCount);
     }
 
     /**
@@ -156,17 +162,32 @@ public class NewsListFinder {
      * 25줄이 나오는 식으로 어긋난다). 순서는 보이는 숫자 순(같으면 최근 순)
      */
     private List<NewsListResponse.Topic> withSearchCounts(List<NewsListResponse.Topic> recent, List<String> scope,
-                                                          Set<String> postingOnly) {
+                                                          Set<String> postingOnly, Map<String, Integer> counted) {
         return recent.stream()
-                .map(t -> new NewsListResponse.Topic(t.word(),
-                        SameArticles.group(matching(scope, postingOnly, t.word())).size()))
+                .map(t -> new NewsListResponse.Topic(t.word(), searchRows(scope, postingOnly, t.word(), counted)))
                 .sorted(Comparator.comparingInt(NewsListResponse.Topic::count).reversed())
                 .toList();
     }
 
     /**
+     * 이 말로 검색하면 나오는 줄 수: 검색 결과를 끝까지 넘겨 본 줄 수(같은 기사는 한 줄)다. 알약 숫자(withSearchCounts)와 검색
+     * 줄 수(queryCount)를 이 하나로 세서, 알약 'FA 21'을 눌러 연 검색(q=FA)도 21이다(이슈 #183). counted는 한 요청 안에서 센
+     * 값(소문자 말 → 줄 수)이다. 검색은 대소문자를 가리지 않으므로(likePattern·NewsTopics.mentions) 'FA'와 'fa'는 같은 값이다.
+     * <p>
+     * matching이 읽는 MAX_ROWS 상한에 걸리면(범위에서 DB가 제목에 이 글자가 든다고 고른 기사가 MAX_ROWS건보다 많으면. 영문 말은
+     * 낱말 단위로 거르기 전이라 'FA'면 fans·DFA 같은 제목도 상한 숫자에 든다) 최근 MAX_ROWS건만
+     * 묶어 센 값이 된다. 쪽 넘기기는 쪽마다 커서에서 다시 읽어 끝까지 가므로, 그때는 끝까지 넘겨 본 줄 수보다 적다(읽은 끝에
+     * 걸친 묶음은 사본을 이어 주던 기사가 빠져 두 줄로 셀 수도 있다). 알약과 검색 줄 수는 그래도 같은 값이다.
+     * 운영은 아직 멀었다: 11-18 뉴스 탭 전체(검색어 없음)가 123줄(사본까지 135건)이다.
+     */
+    private int searchRows(List<String> scope, Set<String> postingOnly, String word, Map<String, Integer> counted) {
+        return counted.computeIfAbsent(word.toLowerCase(Locale.ROOT),
+                key -> SameArticles.group(matching(scope, postingOnly, word)).size());
+    }
+
+    /**
      * 범위에서 검색어가 제목에 있는 기사 모두(목록과 같은 규칙으로 거른 것, 최대 MAX_ROWS건을 읽는다). 검색 결과를 끝까지
-     * 넘겨 본 것과 같은 기사들이다
+     * 넘겨 본 것과 같은 기사들이다(상한에 걸리면 최근 MAX_ROWS건까지, searchRows)
      */
     private List<NewsArticle> matching(List<String> scope, Set<String> postingOnly, String q) {
         String pattern = likePattern(q);
