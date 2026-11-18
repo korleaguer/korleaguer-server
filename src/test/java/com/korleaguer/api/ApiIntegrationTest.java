@@ -479,6 +479,10 @@ class ApiIntegrationTest {
     void corsAllowsLocalWebOnly() throws Exception {
         mockMvc.perform(get("/api/players").header("Origin", "http://localhost:3000"))
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+        // 같은 주소의 HEAD(있는지만 묻기)도 GET처럼 연다. 막으면 개발 중 브라우저에서 부른 HEAD가 403이 된다
+        mockMvc.perform(head("/api/players/1").header("Origin", "http://localhost:3000"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
         mockMvc.perform(get("/api/players").header("Origin", "http://evil.example"))
                 .andExpect(status().isForbidden());
     }
