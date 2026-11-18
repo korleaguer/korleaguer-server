@@ -34,7 +34,7 @@ import static com.korleaguer.ingest.GameIngest.US_EASTERN;
 /**
  * 선수 × 경기 한 줄(GameLine)을 조립한다.
  * <ul>
- *   <li>선수 기록이 있는 경기: played=true</li>
+ *   <li>선수 기록이 있는 정규시즌·포스트시즌 경기: played=true(결장 줄과 같은 경기 종류만이라 seasonType이 늘 있다)</li>
  *   <li>기록이 없는 정규시즌·포스트시즌 경기: 아래 "뛴 기간" 안에서만 played=false 줄을 만든다(시범경기는 뺀다).
  *     <ul>
  *       <li>선수 기록을 받은 상태: 그 팀에서 처음 기록을 남긴 경기부터 마지막 기록을 남긴 경기까지.
@@ -50,7 +50,8 @@ import static com.korleaguer.ingest.GameIngest.US_EASTERN;
 @Component
 class GameLineAssembler {
 
-    private static final Set<String> COUNTED_SEASON_TYPES = Set.of("regular", "postseason");
+    private static final Set<String> COUNTED_SEASON_TYPES =
+            Set.of(SeasonType.REGULAR.stored(), SeasonType.POSTSEASON.stored());
 
     private final GameRepository games;
     private final AppearanceRepository appearances;
@@ -73,7 +74,10 @@ class GameLineAssembler {
             return List.of();
         }
         List<Long> playerIds = members.stream().map(m -> m.player().getId()).toList();
-        List<Appearance> played = appearances.findWithGameBetween(playerIds, from, to);
+        // 뛴 경기 줄도 결장 줄(teamGames)과 같은 경기 종류만 만든다. 종류를 모르는 경기는 줄이 없다(응답 seasonType이 비지 않게)
+        List<Appearance> played = appearances.findWithGameBetween(playerIds, from, to).stream()
+                .filter(appearance -> counted(appearance.getGame()))
+                .toList();
         // 뛴 기간(결장 줄을 붙일 팀)은 이 기간이 속한 시즌 기록으로 정한다. 부르는 쪽이 정한 기간과 시즌이 어긋나지 않는다.
         int season = currentSeason.seasonAt(to.minusMillis(1));
         Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady, season);
@@ -84,7 +88,7 @@ class GameLineAssembler {
                 .distinct()
                 .toList();
         List<Game> teamGames = teamIds.isEmpty() ? List.of() : games.findTeamGamesBetween(teamIds, from, to).stream()
-                .filter(game -> COUNTED_SEASON_TYPES.contains(game.getSeasonType()))
+                .filter(GameLineAssembler::counted)
                 .toList();
 
         List<GameLine> lines = new ArrayList<>();
@@ -123,10 +127,19 @@ class GameLineAssembler {
         Map<Long, Appearance> mine = appearances.findWithGameBetween(List.of(player.getId()), from, to).stream()
                 .collect(Collectors.toMap(a -> a.getGame().getGamePk(), a -> a, (a, b) -> a));
         return games.findTeamGamesBetween(List.of(team.getMlbTeamId()), from, to).stream()
-                .filter(game -> COUNTED_SEASON_TYPES.contains(game.getSeasonType()))
+                .filter(GameLineAssembler::counted)
                 .map(game -> line(player, team, game, mine.get(game.getGamePk()), true))
                 .sorted(Comparator.comparing(GameLine::startTimeKst).reversed())
                 .toList();
+    }
+
+    /**
+     * 줄을 만드는 경기 종류(정규시즌·포스트시즌)인지. 종류가 비었거나(game.season_type은 null을 허용한다) 모르는 값이면 false다
+     * (Set.of는 null을 물으면 예외라 먼저 거른다)
+     */
+    private static boolean counted(Game game) {
+        String seasonType = game.getSeasonType();
+        return seasonType != null && COUNTED_SEASON_TYPES.contains(seasonType);
     }
 
     /** 선수마다 그 시즌 마이너로 내려가 있던 기간. 이동 기록은 그해 1월 1일부터 본다(봄 캠프 중 옵션도 들어간다) */

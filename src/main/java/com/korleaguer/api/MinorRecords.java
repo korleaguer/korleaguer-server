@@ -47,8 +47,8 @@ final class MinorRecords {
             .thenComparing(MinorRecords::startTimeKst)
             .thenComparing(MinorGameLog::getGamePk)
             .reversed();
-    // 마이너 경기 줄의 경기 종류(이슈 #190). 마이너 경기 기록은 gameType을 묻지 않고 받아 MLB가 정규시즌만 준다
-    // (MlbClient.getMinorGameLog. 11-19 운영 6명 2025·2026 시즌 모두 R뿐, 김혜성 2026 트리플A 포스트시즌 3경기는 오지 않음)
+    // 마이너 경기 줄의 경기 종류(이슈 #190). 마이너 경기 기록은 받을 때 정규시즌(gameType R) 줄만 남겨 저장하므로
+    // (MlbMinorGameLog.isRegularSeason) 저장된 마이너 경기는 모두 정규시즌이다
     private static final SeasonType MINOR_SEASON_TYPE = SeasonType.REGULAR;
 
     private MinorRecords() {
