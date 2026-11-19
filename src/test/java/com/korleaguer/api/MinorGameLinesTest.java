@@ -33,7 +33,7 @@ class MinorGameLinesTest {
     private static final MinorTeamNames NAMES = new MinorTeamNames(TEAMS);
     private static final long OKLAHOMA_CITY = 238L;
     private static final long ALBUQUERQUE = 342L;
-    private static final long QUAD_CITIES = 565L; // 하이싱글A: 표에 없다
+    private static final long DSL_LAD_BAUTISTA = 611L; // 루키 도미니칸 서머 리그: 표에 없다
     private static final Batting TWO_HITS = new Batting(4, 1, 2, 1, 0, 1, 3, 1, 1, 0, 0, 0, 5, 6);
     private static final Pitching RELIEF_WIN = new Pitching(4, 1, 1, 0, 1, 3, 0, 22, 1, 0, 0);
 
@@ -120,9 +120,9 @@ class MinorGameLinesTest {
     void koreanCityNameThenEnglishPlaceThenEnglishName() {
         MinorGameLog known = game(1, LocalDate.of(2026, 9, 20));
         MinorGameLog placeOnly = game(2, LocalDate.of(2026, 5, 2));
-        placeOnly.updateTeamIds(QUAD_CITIES, 999_999L);
+        placeOnly.updateTeamIds(DSL_LAD_BAUTISTA, 999_999L);
         placeOnly.updateSchedule(new MinorGameSchedule(Instant.parse("2026-05-02T23:05:00Z"), "final", 1, 2,
-                "Quad Cities", null));
+                "DSL LAD Bautista", null));
 
         List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(known, placeOnly), NAMES);
 
@@ -130,7 +130,7 @@ class MinorGameLinesTest {
         assertThat(lines.get(0).teamKo()).isEqualTo("오클라호마시티");
         assertThat(lines.get(0).opponentId()).isEqualTo(ALBUQUERQUE);
         assertThat(lines.get(0).opponentKo()).isEqualTo("앨버커키");
-        assertThat(lines.get(1).teamKo()).isEqualTo("Quad Cities");        // 표에 없는 팀: 영어 지명
+        assertThat(lines.get(1).teamKo()).isEqualTo("DSL LAD Bautista");   // 표에 없는 팀: 영어 지명
         assertThat(lines.get(1).opponentKo()).isEqualTo("Albuquerque Isotopes"); // 지명도 모르면 영어 팀 이름
     }
 
@@ -172,10 +172,13 @@ class MinorGameLinesTest {
     }
 
     @Test
-    void everyTripleAAndDoubleATeamHasAKoreanName() {
+    void teamListHasEveryTripleAAndDoubleATeam() {
         Map<String, Long> byLevel = TEAMS.teams().stream()
                 .collect(Collectors.groupingBy(MinorTeamProperties.Team::level, Collectors.counting()));
-        assertThat(byLevel).containsExactlyInAnyOrderEntriesOf(Map.of("AAA", 30L, "AA", 30L));
+        // 트리플A·더블A는 30팀 모두라 수를 지킨다. 하위 단계는 새 팀이 보이면 더해 가므로(yml 머리 설명·README) 수는 정하지
+        // 않고 아는 단계 약어인지만 본다(이슈 #191 리뷰)
+        assertThat(byLevel).containsEntry("AAA", 30L).containsEntry("AA", 30L);
+        assertThat(byLevel.keySet()).allSatisfy(level -> assertThat(MinorRecords.LEVEL_KO).containsKey(level));
         assertThat(TEAMS.teams()).extracting(MinorTeamProperties.Team::id).doesNotHaveDuplicates();
         assertThat(TEAMS.teams()).allSatisfy(team -> assertThat(team.nameKo()).isNotBlank());
 
@@ -187,6 +190,43 @@ class MinorGameLinesTest {
         assertThat(NAMES.name(106L, null, null)).isEqualTo("이리");
         assertThat(NAMES.name(1960L, null, null)).isEqualTo("세인트폴");
         assertThat(NAMES.name(556L, null, null)).isEqualTo("내슈빌");
+    }
+
+    @Test
+    void realLowerLevelGamesAreKoreanOnBothSides() {
+        // 명단 6명의 2024~2026 하위 단계 경기 23경기(MLB 마이너 gameLog, 11-19)의 우리 팀·상대 팀. 하위 단계는 리그 단위로
+        // 넣어서 두 팀 모두 한국어다(우리 팀만 넣으면 '주피터 vs Fort Myers'처럼 한 줄에 섞인다, 이슈 #191 리뷰)
+        long[][] games = {
+                {464, 474}, {464, 471},             // 김하성 2026 FCL 브레이브스 vs FCL 트윈스·FCL 레드삭스
+                {3390, 566}, {3390, 587}, {3390, 424}, // 배지환 2024·2025 브레이든턴 vs 클리어워터·탬파·더니든
+                {467, 1370},                         // 고우석 2025 FCL 말린스 vs FCL 카디널스
+                {479, 509}, {479, 507}, {479, 450},  // 고우석 2025 주피터 vs 포트마이어스·세인트루시·데이토나
+                {554, 499}, {554, 584},              // 고우석 2025 벌로이트 vs 랜싱·포트웨인
+                {582, 499}, {582, 456}, {582, 584}}; // 고우석 2025 웨스트미시간 vs 랜싱·그레이트레이크스·포트웨인
+        for (long[] game : games) {
+            assertThat(NAMES.name(game[0], null, null)).as("team %d", game[0]).isNotNull();
+            assertThat(NAMES.name(game[1], null, null)).as("opponent %d", game[1]).isNotNull();
+        }
+        assertThat(NAMES.name(509L, "Fort Myers", "Fort Myers Mighty Mussels")).isEqualTo("포트마이어스");
+        assertThat(NAMES.name(1370L, "FCL Cardinals", "FCL Cardinals")).isEqualTo("FCL 카디널스");
+        assertThat(NAMES.moveName(456L, "Great Lakes Loons")).isEqualTo("그레이트레이크스(하이싱글A)");
+    }
+
+    @Test
+    void rehabTeamsOfMajorLeaguersAreInTheList() {
+        // 지금(11-19) 메이저에 있는 명단 선수 구단의 하위 단계 팀(재활 경기를 하는 곳). 아직 기록에 안 나온 리그지만 미리 리그째
+        // 넣어 두어 재활 경기가 생겨도 표를 고치지 않는다(이슈 #191 리뷰): 이정후 샌프란시스코, 김혜성 다저스, 송성문 샌디에이고
+        assertThat(NAMES.moveName(408L, "ACL Giants")).isEqualTo("ACL 자이언츠(루키)");
+        assertThat(NAMES.moveName(476L, "San Jose Giants")).isEqualTo("새너제이(싱글A)");
+        assertThat(NAMES.moveName(461L, "Eugene Emeralds")).isEqualTo("유진(하이싱글A)");
+        assertThat(NAMES.moveName(5427L, "ACL Dodgers")).isEqualTo("ACL 다저스(루키)");
+        assertThat(NAMES.moveName(6482L, "Ontario Tower Buzzers")).isEqualTo("온타리오(싱글A)");
+        assertThat(NAMES.moveName(456L, "Great Lakes Loons")).isEqualTo("그레이트레이크스(하이싱글A)");
+        assertThat(NAMES.moveName(410L, "ACL Padres")).isEqualTo("ACL 파드리스(루키)");
+        assertThat(NAMES.moveName(103L, "Lake Elsinore Storm")).isEqualTo("레이크엘시노어(싱글A)");
+        assertThat(NAMES.moveName(584L, "Fort Wayne TinCaps")).isEqualTo("포트웨인(하이싱글A)");
+        // 경기 줄의 상대도 같은 리그 팀이라 한국어다(예: 새너제이 vs 스톡턴)
+        assertThat(NAMES.name(524L, "Stockton", "Stockton Ports")).isEqualTo("스톡턴");
     }
 
     @Test
