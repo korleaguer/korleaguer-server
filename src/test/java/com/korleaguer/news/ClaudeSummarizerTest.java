@@ -30,7 +30,35 @@ class ClaudeSummarizerTest {
 
     @Test
     void theVersionNamesTheModelAndThePromptEdition() {
-        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v4");
+        assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v5");
+    }
+
+    @Test
+    void ratioStatsAreWrittenAsZeroPointThreeDigits() {
+        assertThat(ClaudeSummarizer.ratioStats("타율 .116, OPS .359, 장타율 .140"))
+                .isEqualTo("타율 0.116, OPS 0.359, 장타율 0.140");
+        assertThat(ClaudeSummarizer.ratioStats("타율 2할7푼6리, 1할1푼6리, 2할5푼")).isEqualTo("타율 0.276, 0.116, 0.250");
+        // 이미 맞는 값, 1 이상, 평균자책점, 비율이 아닌 말은 그대로
+        assertThat(ClaudeSummarizer.ratioStats("타율 0.283, OPS 1.012, 평균자책점 3.12, 3할대, 3할 타자, 1.5.123"))
+                .isEqualTo("타율 0.283, OPS 1.012, 평균자책점 3.12, 3할대, 3할 타자, 1.5.123");
+    }
+
+    @Test
+    void tidyAppliesRatioStatsToTitleAndSummary() {
+        assertThat(ClaudeSummarizer.tidy("제목: 김하성 타율 .116\n김하성은 타율 1할1푼6리, OPS .359를 기록했다.", false, 3, "김하성"))
+                .contains(new Summarizer.Summary("김하성 타율 0.116", "김하성은 타율 0.116, OPS 0.359를 기록했다."));
+    }
+
+    @Test
+    void theInstructionFixesOneSpellingForRatioStats() {
+        // 타율·출루율·장타율·OPS는 '0.276' 꼴 하나로(이슈 #200). 규칙 문구를 지우거나 판을 안 올리는 실수를 막는다
+        assertThat(ClaudeSummarizer.PROMPT_VERSION).isEqualTo("v5");
+        assertThat(ClaudeSummarizer.SYSTEM)
+                .contains("타율·출루율·장타율·OPS")
+                .contains("'0.276'")
+                .contains("'.276'(점으로 시작)이나 '2할7푼6리'로 쓰여 있어도 '0.276'으로 바꿔 옮긴다")
+                .contains("'OPS .359' → 'OPS 0.359'")
+                .contains("평균자책점('3.12')");
     }
 
     @Test
@@ -88,13 +116,14 @@ class ClaudeSummarizerTest {
                         + ClaudeSummarizer.MAX_SENTENCES + "|" + ClaudeSummarizer.ENGLISH_LENGTH_FACTOR + "|"
                         + ClaudeSummarizer.EFFORT + "|" + ClaudeSummarizer.MAX_TOKENS + "|" + ClaudeSummarizer.LENGTH_SLACK,
                 // 본문 손질(영어 'last <달>'에 연도 붙이기)도 요약을 바꾼다
+                ClaudeSummarizer.ratioStats("타율 .116, OPS .359, 2할7푼6리, 1할1푼6리, 2할5푼, 0.283, 3할대, 1.012, v1.123"),
                 ClaudeSummarizer.absoluteMonths("signed last February 14th, this past March, last November, at last May",
                         java.time.LocalDate.of(2026, 11, 2)));
         String print = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(inputs.getBytes(java.nio.charset.StandardCharsets.UTF_8))).substring(0, 16);
         assertThat(ClaudeSummarizer.PROMPT_VERSION + " " + print)
                 .as("지시문·요청 틀·분량 규칙을 바꿨으면 ClaudeSummarizer.PROMPT_VERSION을 올리고 이 지문을 고친다")
-                .isEqualTo("v4 886605563400827a");
+                .isEqualTo("v5 fc4fb505e2e6943a");
     }
 
     @Test
