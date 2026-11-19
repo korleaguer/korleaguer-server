@@ -19,13 +19,16 @@ public class BaseballController {
     private final MyPlayersService myPlayers;
     private final OnDemandSeason onDemandSeason;
     private final GameDetailService gameDetails;
+    private final PlayerTimelineService timelines;
 
     public BaseballController(BaseballQueryService queryService, MyPlayersService myPlayers,
-                              OnDemandSeason onDemandSeason, GameDetailService gameDetails) {
+                              OnDemandSeason onDemandSeason, GameDetailService gameDetails,
+                              PlayerTimelineService timelines) {
         this.queryService = queryService;
         this.myPlayers = myPlayers;
         this.onDemandSeason = onDemandSeason;
         this.gameDetails = gameDetails;
+        this.timelines = timelines;
     }
 
     @GetMapping("/home")
@@ -36,6 +39,16 @@ public class BaseballController {
     @GetMapping("/players")
     public List<PlayerSummary> players() {
         return queryService.players();
+    }
+
+    /**
+     * 선수별 시즌 이동 연표(웹 선수 탭): 등록 선수 전원의 띠 구간·이동·시즌 숫자를 한 번에 준다. season이 없으면 홈과 같은
+     * 지금 시즌이고, 숫자가 아니면 400이다. 없는 시즌은 기록이 빈 채로 200이다. DB만 읽는다(MLB를 부르지 않는다).
+     * 경로의 {id}보다 이 글자 그대로의 경로가 먼저 잡힌다
+     */
+    @GetMapping("/players/timeline")
+    public PlayerTimelineResponse timeline(@RequestParam(required = false) Integer season) {
+        return timelines.timeline(timelines.resolveSeason(season));
     }
 
     /** 그 선수의 이번 시즌을 아직 받지 않았으면 먼저 짧게 받아 본다(OnDemandSeason). 그 밖에는 DB만 읽는다. */

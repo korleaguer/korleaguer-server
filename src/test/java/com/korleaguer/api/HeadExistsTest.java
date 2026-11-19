@@ -25,7 +25,8 @@ class HeadExistsTest {
     private final OnDemandSeason onDemandSeason = mock(OnDemandSeason.class);
     private final NewsPageFinder newsPages = mock(NewsPageFinder.class);
     private final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(
-            new BaseballController(queries, mock(MyPlayersService.class), onDemandSeason, mock(GameDetailService.class)),
+            new BaseballController(queries, mock(MyPlayersService.class), onDemandSeason, mock(GameDetailService.class),
+                    mock(PlayerTimelineService.class)),
             new NewsController(newsPages, mock(NewsListFinder.class))).build();
 
     @Test
