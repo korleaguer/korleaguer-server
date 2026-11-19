@@ -39,6 +39,7 @@ import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.PlayerSeasonRepository;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
 import com.korleaguer.support.BaseballMath;
@@ -413,7 +414,7 @@ public class IngestWriter {
     public SeasonSaveResult saveSeason(int season, List<MlbScheduleGame> schedule, List<PlayerLogs> logs, Instant now) {
         List<Long> savedGames = saveGames(schedule, now);
         for (Game game : games.findAllById(savedGames)) {
-            if ("regular".equals(game.getSeasonType())) {
+            if (SeasonType.of(game.getSeasonType()) == SeasonType.REGULAR) {
                 game.settleIfDue(now);
             }
         }
@@ -551,7 +552,8 @@ public class IngestWriter {
     }
 
     private Game saveGame(MlbScheduleGame source, Instant now) {
-        String seasonType = seasonType(source.gameType());
+        // 정규시즌·포스트시즌만 저장한다(시범경기·올스타 등은 종류가 null이라 건너뛴다)
+        SeasonType seasonType = SeasonType.fromGameType(source.gameType());
         MlbScheduleGame.Teams sides = source.teams();
         if (source.gamePk() == null || seasonType == null || source.gameDate() == null || sides == null
                 || !hasTeam(sides.home()) || !hasTeam(sides.away())) {
@@ -568,7 +570,7 @@ public class IngestWriter {
         }
         MlbScheduleGame.Status status = source.status();
         Game game = games.findById(source.gamePk()).orElseGet(() -> new Game(source.gamePk()));
-        game.update(season, seasonType, start, saveTeam(sides.home().team()), saveTeam(sides.away().team()),
+        game.update(season, seasonType.stored(), start, saveTeam(sides.home().team()), saveTeam(sides.away().team()),
                 sides.home().score(), sides.away().score(),
                 status == null ? "unknown"
                         : GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()),
@@ -648,18 +650,6 @@ public class IngestWriter {
         MlbScheduleGame.Status status = game.status();
         return status != null && GameStatuses.POSTPONED.equals(
                 GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()));
-    }
-
-    /** R → regular, F·D·L·W → postseason. 그 밖(시범경기·올스타 등)은 null(저장하지 않는다). */
-    static String seasonType(String gameType) {
-        if (gameType == null) {
-            return null;
-        }
-        return switch (gameType) {
-            case "R" -> "regular";
-            case "F", "D", "L", "W" -> "postseason";
-            default -> null;
-        };
     }
 
     private static Map<Long, MlbGameLogSplit> byGamePk(List<MlbGameLogSplit> splits) {

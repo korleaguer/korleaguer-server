@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.SeasonType;
+
 import java.time.OffsetDateTime;
 
 /**
@@ -15,6 +17,8 @@ import java.time.OffsetDateTime;
  *   <li>teamScore·opponentScore: 점수. 경기 전이거나 아직 모르면 null</li>
  *   <li>result: 끝난 경기의 W·L·T. 점수를 모르면 경기별 기록의 승패(W·L), 끝나지 않았거나 모르면 null</li>
  *   <li>summary: 메이저 줄과 같은 규칙의 한 줄 기록(GameSummary, 선수 주 역할 기준). batting·pitching도 GameLine과 같은 모양이다</li>
+ *   <li>seasonType: 경기 종류(이슈 #190, GameLine.seasonType과 같은 칸). 마이너 경기 기록은 정규시즌 줄만 남겨 저장해서
+ *       (MlbMinorGameLog.isRegularSeason, 마이너 포스트시즌은 저장하지 않는다) 늘 REGULAR다</li>
  * </ul>
  */
 public record MinorGameLine(
@@ -32,5 +36,6 @@ public record MinorGameLine(
         String result,
         String summary,
         GameBatting batting,
-        GamePitching pitching) {
+        GamePitching pitching,
+        SeasonType seasonType) {
 }

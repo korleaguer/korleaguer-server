@@ -7,6 +7,7 @@ import com.korleaguer.domain.MinorGameSchedule;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Role;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameStatuses;
@@ -46,6 +47,9 @@ final class MinorRecords {
             .thenComparing(MinorRecords::startTimeKst)
             .thenComparing(MinorGameLog::getGamePk)
             .reversed();
+    // 마이너 경기 줄의 경기 종류(이슈 #190). 마이너 경기 기록은 받을 때 정규시즌(gameType R) 줄만 남겨 저장하므로
+    // (MlbMinorGameLog.isRegularSeason) 저장된 마이너 경기는 모두 정규시즌이다
+    private static final SeasonType MINOR_SEASON_TYPE = SeasonType.REGULAR;
 
     private MinorRecords() {
     }
@@ -129,7 +133,8 @@ final class MinorRecords {
                         game.getOpponentName(), null, Boolean.TRUE.equals(game.getHome()), null, null,
                         game.getWin() == null ? null : game.getWin() ? "W" : "L", "final", true,
                         GameSummary.played(role, game.getBatting(), game.getPitching()),
-                        GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()), null))
+                        GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()), null,
+                        MINOR_SEASON_TYPE))
                 .toList();
     }
 
@@ -154,7 +159,8 @@ final class MinorRecords {
                         game.getOpponentName()),
                 game.getHome(), teamScore, opponentScore, result(game, schedule, teamScore, opponentScore),
                 GameSummary.played(role, game.getBatting(), game.getPitching()),
-                GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()));
+                GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()),
+                MINOR_SEASON_TYPE);
     }
 
     /**

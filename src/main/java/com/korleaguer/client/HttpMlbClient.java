@@ -95,6 +95,8 @@ public class HttpMlbClient implements MlbClient {
 
     @Override
     public MlbMinorGameLog getMinorGameLog(long personId, int season) {
+        // gameType을 묻지 않으면 정규시즌(R)만 온다. 다른 종류가 와도 MlbMinorGameLog가 정규시즌 줄만 남긴다
+        // (마이너 경기 줄의 경기 종류가 늘 REGULAR, 이슈 #190). 마이너 포스트시즌까지 보이려면 저장·경기 줄·시즌 합계를 함께 바꾼다
         MlbResponses.GameLogGroups body = get("people/" + personId + "/stats gameLog minors",
                 uri -> uri.path("/api/v1/people/{id}/stats")
                         .queryParam("stats", "gameLog")

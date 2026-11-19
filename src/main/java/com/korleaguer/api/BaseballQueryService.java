@@ -19,6 +19,7 @@ import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.Role;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.BatsThrows;
 import com.korleaguer.support.BirthDates;
@@ -55,7 +56,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class BaseballQueryService {
 
-    private static final List<String> REGULAR_SEASON = List.of("regular");
+    private static final List<String> REGULAR_SEASON = List.of(SeasonType.REGULAR.stored());
     /** 선수 화면에 붙이는 그 선수 기사 수 */
     static final int PLAYER_NEWS = 10;
 
@@ -194,7 +195,7 @@ public class BaseballQueryService {
                 .filter(Objects::nonNull)
                 .map(Team::getMlbTeamId)
                 .distinct()
-                .mapToLong(teamId -> games.countFinalRegularGames(teamId, season))
+                .mapToLong(teamId -> games.countFinalGames(teamId, season, SeasonType.REGULAR.stored()))
                 .max()
                 .orElse(0);
     }
