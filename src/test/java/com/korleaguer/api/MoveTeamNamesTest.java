@@ -13,8 +13,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 선수 화면 이동 기록(moves)의 팀 이름(이슈 #183·#191). MLB 구단은 한글 이름, 마이너 팀 이름표(roster/minor-teams.yml:
- * 트리플A·더블A 모두와 운영 기록에 나온 하위 단계 팀)에 있는 팀은 마이너 경기 줄과 같은 한국어 지명에 단계를 붙인다.
- * 표에 없는 팀은 MLB가 준 영어 이름 그대로다.
+ * 미국의 마이너 팀 모두)에 있는 팀은 마이너 경기 줄과 같은 한국어 지명에 단계를 붙인다.
+ * 표에 없는 팀(도미니칸 서머 리그·국가대표 등)은 MLB가 준 영어 이름 그대로다.
  * 이동 기록은 실제 기록의 모양이다(김하성 2026 재활 경기 배정: 운영 /players/3, 고우석 2025: transactions-808970.json).
  */
 class MoveTeamNamesTest {
@@ -67,16 +67,16 @@ class MoveTeamNamesTest {
 
     @Test
     void teamsNotInTheListKeepTheEnglishName() {
-        // 운영 기록에 아직 나오지 않은 하위 단계 팀(하이싱글A Quad Cities)·국가대표(Korea)는 표에 없다.
+        // 이름표에 넣지 않은 루키 도미니칸 서머 리그 팀(DSL Marlins)·국가대표(Korea)는 표에 없다.
         // 이름을 지어내지 않고 MLB가 준 이름 그대로
         List<PlayerPageResponse.Move> moves = BaseballQueryService.fanMoves(List.of(
                 move("2025-05-08", "ASG",
-                        "Pensacola Blue Wahoos sent RHP Woo-Suk Go on a rehab assignment to Quad Cities River Bandits.",
-                        4124L, "Pensacola Blue Wahoos", 565L, "Quad Cities River Bandits", Level.MINORS),
+                        "Pensacola Blue Wahoos sent RHP Woo-Suk Go on a rehab assignment to DSL Marlins.",
+                        4124L, "Pensacola Blue Wahoos", 619L, "DSL Marlins", Level.MINORS),
                 move("2025-02-05", "ASG", "RHP Woo-Suk Go assigned to Korea.", null, null, 1171L, "Korea", null)),
                 NAMES);
 
-        assertThat(moves).extracting(PlayerPageResponse.Move::toTeam).containsExactly("Quad Cities River Bandits", "Korea");
+        assertThat(moves).extracting(PlayerPageResponse.Move::toTeam).containsExactly("DSL Marlins", "Korea");
         // 보낸 쪽이 표에 있는 더블A 팀이면 그쪽은 한국어 지명과 단계, 팀이 없는 줄은 null 그대로
         assertThat(moves).extracting(PlayerPageResponse.Move::fromTeam).containsExactly("펜서콜라(더블A)", null);
     }
@@ -101,7 +101,8 @@ class MoveTeamNamesTest {
     @Test
     void rookieGameLinesAreKoreanOnBothSides() {
         // 김하성 2026 루키 재활 경기(운영 minorGames): FCL 브레이브스 vs FCL 트윈스·FCL 레드삭스. 우리 팀만 한국어가 되고
-        // 상대가 영어로 남아 한 줄에 섞이지 않게 상대 팀도 이름표에 있다. MLB 일정의 지명(franchiseName)이 'FCL Braves'다
+        // 상대가 영어로 남아 한 줄에 섞이지 않게 리그(플로리다 컴플렉스 리그) 팀이 모두 이름표에 있다.
+        // MLB 일정의 지명(franchiseName)이 'FCL Braves'다
         assertThat(NAMES.name(464L, "FCL Braves", "FCL Braves")).isEqualTo("FCL 브레이브스");
         assertThat(NAMES.name(474L, "FCL Twins", "FCL Twins")).isEqualTo("FCL 트윈스");
         assertThat(NAMES.name(471L, "FCL Red Sox", "FCL Red Sox")).isEqualTo("FCL 레드삭스");

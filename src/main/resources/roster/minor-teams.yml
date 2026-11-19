@@ -1,19 +1,24 @@
 # 마이너리그 팀 한국어 이름(선수 화면 '경기 기록'의 마이너 경기 줄 이슈 #145, 이동 기록 팀 이름 이슈 #183·#191).
-# 트리플A 30팀·더블A 30팀은 모두, 하위 단계(하이싱글A·싱글A·루키)는 운영 기록(명단 선수의 이동 기록·마이너 경기 줄)에
-# 나온 팀만 있다(11-19, 이슈 #191).
+# 미국의 마이너 팀은 모두 있다(150팀): 트리플A·더블A·하이싱글A·싱글A 각 30팀과 루키 컴플렉스 리그(애리조나·플로리다) 30팀.
+# 메이저 선수의 재활 경기는 이 팀들에서 한다. 하위 단계도 리그째 모두 넣은 까닭(이슈 #191 리뷰, 11-19): 정규시즌 경기는 같은
+# 리그 팀끼리라 한 팀만 넣으면 경기 줄 한 줄('주피터 vs Fort Myers')에 한국어·영어가 섞이고, 아직 기록에 안 나온 리그(지금
+# 메이저에 있는 이정후·김혜성·송성문 구단의 애리조나 컴플렉스·캘리포니아·노스웨스트 리그 팀 등)도 미리 있어야 재활 경기가
+# 생길 때마다 사람이 표를 고치지 않는다. 루키 도미니칸 서머 리그(도미니카공화국 51팀)는 넣지 않았다: 명단 선수가 뛸 일이
+# 드물고(명단 6명의 2024~2026 마이너 540경기 중 0경기), 구단마다 두 팀씩인 이름(DSL LAD Bautista 등)이 해마다 바뀐다.
 #   id: MLB 팀 번호(gameLog의 team.id·opponent.id, 이동 기록의 fromTeam.id·toTeam.id.
 #       웹은 https://www.mlbstatic.com/team-logos/{id}.svg로 로고를 그린다)
 #   name-ko: 화면에 쓰는 한국어 도시(지명) 이름. 한국 야구 기사에서 흔히 쓰는 표기를 따랐고, 없으면 국립국어원 외래어
 #            표기법대로 적었다(Scranton/Wilkes-Barre는 짧게 '스크랜턴'. 트리플A·더블A에 '콜럼버스'가 하나씩 있다: 경기 줄은
-#            단계가 함께 보이고, 이동 기록은 이름 뒤에 단계를 붙인다. 루키 FCL 팀은 지명이 없어 MLB 지명 칸(franchiseName)처럼
-#            'FCL + 구단 별칭'이다)
+#            단계가 함께 보이고, 이동 기록은 이름 뒤에 단계를 붙인다. 지명이 도시 이름이 아닌 팀은 MLB 지명 칸(franchiseName)을
+#            옮겼다: 허브시티(Hub City), 힐시티(Hill City). 루키 컴플렉스 리그 팀은 지명이 없어 'ACL·FCL + 구단 별칭'이다)
 #   level: 단계(AAA·AA·A+·A·ROK). 이동 기록 팀 이름 뒤에 화면 이름으로 붙인다(귀넷(트리플A), 주피터(싱글A)). 모르는 약어면
 #          앱이 뜰 때 실패한다
 #   name-en: 확인용(화면에 쓰지 않는다). MLB /api/v1/teams?sportIds=11,12&season=2026 기준(11-13), 하위 단계는
 #            sportIds=13,14,16(11-19)
-# 여기 없는 팀(하위 단계 대부분, 새로 생기거나 옮긴 팀)은 경기 줄에서 MLB 일정이 준 영어 지명(franchiseName,
-# 예: Quad Cities)으로, 그것도 모르면 MLB 영어 팀 이름으로 보인다. 이동 기록에는 지명이 없어 영어 팀 이름(ACL Dodgers)
-# 그대로다. 그런 팀이 보이면 MLB /api/v1/teams/{id}로 단계·지명을 확인해 아래에 한 줄 더한다.
+# 여기 없는 팀(도미니칸 서머 리그, 새로 생기거나 옮긴 팀)은 경기 줄에서 MLB 일정이 준 영어 지명(franchiseName)으로, 그것도
+# 모르면 MLB 영어 팀 이름으로 보인다. 이동 기록에는 지명이 없어 영어 팀 이름 그대로다. 그런 팀이 보이면 MLB
+# /api/v1/teams/{id}로 단계(sport)·지명(franchiseName)·리그(league)를 확인해 아래에 한 줄 더한다. 표에 없던 리그의 팀이면 그
+# 리그 팀을 모두(/api/v1/teams?sportIds=…&season=… 에서 같은 league.id) 더한다(한 팀만 넣으면 경기 줄 한 줄에 섞인다).
 # 같은 id를 두 번 적거나 name-ko를 비우면 앱이 뜰 때 실패한다.
 minor-league:
   teams:
@@ -79,14 +84,101 @@ minor-league:
     - { id: 440, level: AA, name-ko: 스프링필드, name-en: "Springfield Cardinals" }
     - { id: 260, level: AA, name-ko: 털사, name-en: "Tulsa Drillers" }
     - { id: 3898, level: AA, name-ko: 위치토, name-en: "Wichita Wind Surge" }
-    # 하이싱글A(운영 기록에 나온 팀만)
+    # 하이싱글A 미드웨스트 리그(league 118, 12팀 모두)
     - { id: 554, level: "A+", name-ko: 벌로이트, name-en: "Beloit Sky Carp" }
+    - { id: 492, level: "A+", name-ko: 시더래피즈, name-en: "Cedar Rapids Kernels" }
+    - { id: 459, level: "A+", name-ko: 데이턴, name-en: "Dayton Dragons" }
+    - { id: 584, level: "A+", name-ko: 포트웨인, name-en: "Fort Wayne TinCaps" }
+    - { id: 456, level: "A+", name-ko: 그레이트레이크스, name-en: "Great Lakes Loons" }
+    - { id: 437, level: "A+", name-ko: 레이크카운티, name-en: "Lake County Captains" }
+    - { id: 499, level: "A+", name-ko: 랜싱, name-en: "Lansing Lugnuts" }
+    - { id: 443, level: "A+", name-ko: 피오리아, name-en: "Peoria Chiefs" }
+    - { id: 565, level: "A+", name-ko: 쿼드시티스, name-en: "Quad Cities River Bandits" }
+    - { id: 550, level: "A+", name-ko: 사우스벤드, name-en: "South Bend Cubs" }
     - { id: 582, level: "A+", name-ko: 웨스트미시간, name-en: "West Michigan Whitecaps" }
-    # 싱글A(운영 기록에 나온 팀만)
+    - { id: 572, level: "A+", name-ko: 위스콘신, name-en: "Wisconsin Timber Rattlers" }
+    # 하이싱글A 노스웨스트 리그(league 126, 6팀 모두)
+    - { id: 461, level: "A+", name-ko: 유진, name-en: "Eugene Emeralds" }
+    - { id: 403, level: "A+", name-ko: 에버렛, name-en: "Everett AquaSox" }
+    - { id: 419, level: "A+", name-ko: 힐즈버러, name-en: "Hillsboro Hops" }
+    - { id: 486, level: "A+", name-ko: 스포캔, name-en: "Spokane Indians" }
+    - { id: 460, level: "A+", name-ko: 트라이시티, name-en: "Tri-City Dust Devils" }
+    - { id: 435, level: "A+", name-ko: 밴쿠버, name-en: "Vancouver Canadians" }
+    # 하이싱글A 사우스애틀랜틱 리그(league 116, 12팀 모두)
+    - { id: 573, level: "A+", name-ko: 애슈빌, name-en: "Asheville Tourists" }
+    - { id: 2498, level: "A+", name-ko: 볼링그린, name-en: "Bowling Green Hot Rods" }
+    - { id: 453, level: "A+", name-ko: 브루클린, name-en: "Brooklyn Cyclones" }
+    - { id: 493, level: "A+", name-ko: 프레더릭, name-en: "Frederick Keys" }
+    - { id: 477, level: "A+", name-ko: 그린즈버러, name-en: "Greensboro Grasshoppers" }
+    - { id: 428, level: "A+", name-ko: 그린빌, name-en: "Greenville Drive" }
+    - { id: 6324, level: "A+", name-ko: 허브시티, name-en: "Hub City Spartanburgers" }
+    - { id: 537, level: "A+", name-ko: 허드슨밸리, name-en: "Hudson Valley Renegades" }
+    - { id: 427, level: "A+", name-ko: 저지쇼어, name-en: "Jersey Shore BlueClaws" }
+    - { id: 432, level: "A+", name-ko: 롬, name-en: "Rome Emperors" }
+    - { id: 426, level: "A+", name-ko: 윌밍턴, name-en: "Wilmington Blue Rocks" }
+    - { id: 580, level: "A+", name-ko: 윈스턴세일럼, name-en: "Winston-Salem Dash" }
+    # 싱글A 캘리포니아 리그(league 110, 8팀 모두)
+    - { id: 259, level: A, name-ko: 프레즈노, name-en: "Fresno Grizzlies" }
+    - { id: 401, level: A, name-ko: 인랜드엠파이어, name-en: "Inland Empire 66ers" }
+    - { id: 103, level: A, name-ko: 레이크엘시노어, name-en: "Lake Elsinore Storm" }
+    - { id: 6482, level: A, name-ko: 온타리오, name-en: "Ontario Tower Buzzers" }
+    - { id: 526, level: A, name-ko: 랜초쿠카몽가, name-en: "Rancho Cucamonga Quakes" }
+    - { id: 476, level: A, name-ko: 새너제이, name-en: "San Jose Giants" }
+    - { id: 524, level: A, name-ko: 스톡턴, name-en: "Stockton Ports" }
+    - { id: 516, level: A, name-ko: 바이세일리아, name-en: "Visalia Rawhide" }
+    # 싱글A 캐롤라이나 리그(league 122, 12팀 모두)
+    - { id: 478, level: A, name-ko: 오거스타, name-en: "Augusta GreenJackets" }
+    - { id: 233, level: A, name-ko: 찰스턴, name-en: "Charleston RiverDogs" }
+    - { id: 3705, level: A, name-ko: 컬럼비아, name-en: "Columbia Fireflies" }
+    - { id: 548, level: A, name-ko: 델마바, name-en: "Delmarva Shorebirds" }
+    - { id: 3712, level: A, name-ko: 페이엣빌, name-en: "Fayetteville Woodpeckers" }
+    - { id: 436, level: A, name-ko: 프레더릭스버그, name-en: "Fredericksburg Nationals" }
+    - { id: 448, level: A, name-ko: 히코리, name-en: "Hickory Crawdads" }
+    - { id: 481, level: A, name-ko: 힐시티, name-en: "Hill City Howlers" }
+    - { id: 487, level: A, name-ko: 캐나폴리스, name-en: "Kannapolis Cannon Ballers" }
+    - { id: 521, level: A, name-ko: 머틀비치, name-en: "Myrtle Beach Pelicans" }
+    - { id: 414, level: A, name-ko: 세일럼, name-en: "Salem RidgeYaks" }
+    - { id: 249, level: A, name-ko: 윌슨, name-en: "Wilson Warbirds" }
+    # 싱글A 플로리다 스테이트 리그(league 123, 10팀 모두)
     - { id: 3390, level: A, name-ko: 브레이든턴, name-en: "Bradenton Marauders" }
+    - { id: 566, level: A, name-ko: 클리어워터, name-en: "Clearwater Threshers" }
+    - { id: 450, level: A, name-ko: 데이토나, name-en: "Daytona Tortugas" }
+    - { id: 424, level: A, name-ko: 더니든, name-en: "Dunedin Blue Jays" }
+    - { id: 509, level: A, name-ko: 포트마이어스, name-en: "Fort Myers Mighty Mussels" }
     - { id: 479, level: A, name-ko: 주피터, name-en: "Jupiter Hammerheads" }
-    # 루키 플로리다 컴플렉스 리그(운영 기록에 나온 팀만)
+    - { id: 570, level: A, name-ko: 레이클랜드, name-en: "Lakeland Flying Tigers" }
+    - { id: 279, level: A, name-ko: 팜비치, name-en: "Palm Beach Cardinals" }
+    - { id: 507, level: A, name-ko: 세인트루시, name-en: "St. Lucie Mets" }
+    - { id: 587, level: A, name-ko: 탬파, name-en: "Tampa Tarpons" }
+    # 루키 애리조나 컴플렉스 리그(league 121, 15팀 모두)
+    - { id: 404, level: ROK, name-ko: "ACL 에인절스", name-en: "ACL Angels" }
+    - { id: 5426, level: ROK, name-ko: "ACL 애슬레틱스", name-en: "ACL Athletics" }
+    - { id: 406, level: ROK, name-ko: "ACL 브루어스", name-en: "ACL Brewers" }
+    - { id: 407, level: ROK, name-ko: "ACL 컵스", name-en: "ACL Cubs" }
+    - { id: 1991, level: ROK, name-ko: "ACL 다이아몬드백스", name-en: "ACL D-backs" }
+    - { id: 5427, level: ROK, name-ko: "ACL 다저스", name-en: "ACL Dodgers" }
+    - { id: 408, level: ROK, name-ko: "ACL 자이언츠", name-en: "ACL Giants" }
+    - { id: 5374, level: ROK, name-ko: "ACL 가디언스", name-en: "ACL Guardians" }
+    - { id: 409, level: ROK, name-ko: "ACL 매리너스", name-en: "ACL Mariners" }
+    - { id: 410, level: ROK, name-ko: "ACL 파드리스", name-en: "ACL Padres" }
+    - { id: 411, level: ROK, name-ko: "ACL 레인저스", name-en: "ACL Rangers" }
+    - { id: 3430, level: ROK, name-ko: "ACL 레즈", name-en: "ACL Reds" }
+    - { id: 1994, level: ROK, name-ko: "ACL 로키스", name-en: "ACL Rockies" }
+    - { id: 412, level: ROK, name-ko: "ACL 로열스", name-en: "ACL Royals" }
+    - { id: 1997, level: ROK, name-ko: "ACL 화이트삭스", name-en: "ACL White Sox" }
+    # 루키 플로리다 컴플렉스 리그(league 124, 15팀 모두)
+    - { id: 1998, level: ROK, name-ko: "FCL 애스트로스", name-en: "FCL Astros" }
+    - { id: 1390, level: ROK, name-ko: "FCL 블루제이스", name-en: "FCL Blue Jays" }
     - { id: 464, level: ROK, name-ko: "FCL 브레이브스", name-en: "FCL Braves" }
+    - { id: 1370, level: ROK, name-ko: "FCL 카디널스", name-en: "FCL Cardinals" }
     - { id: 467, level: ROK, name-ko: "FCL 말린스", name-en: "FCL Marlins" }
+    - { id: 468, level: ROK, name-ko: "FCL 메츠", name-en: "FCL Mets" }
+    - { id: 466, level: ROK, name-ko: "FCL 내셔널스", name-en: "FCL Nationals" }
+    - { id: 599, level: ROK, name-ko: "FCL 오리올스", name-en: "FCL Orioles" }
+    - { id: 469, level: ROK, name-ko: "FCL 필리스", name-en: "FCL Phillies" }
+    - { id: 470, level: ROK, name-ko: "FCL 파이리츠", name-en: "FCL Pirates" }
+    - { id: 2003, level: ROK, name-ko: "FCL 레이스", name-en: "FCL Rays" }
     - { id: 471, level: ROK, name-ko: "FCL 레드삭스", name-en: "FCL Red Sox" }
+    - { id: 473, level: ROK, name-ko: "FCL 타이거스", name-en: "FCL Tigers" }
     - { id: 474, level: ROK, name-ko: "FCL 트윈스", name-en: "FCL Twins" }
+    - { id: 475, level: ROK, name-ko: "FCL 양키스", name-en: "FCL Yankees" }
