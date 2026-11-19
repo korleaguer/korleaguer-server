@@ -52,12 +52,14 @@ public class PhotoSources {
     public static final int VERSION_LENGTH = 8;
 
     private final Map<String, String> sources;
+    private final boolean officialPhotos;
     /** 사진 이름 → 저장된 본문의 sha256. 우리 파일은 뜰 때 읽고, 받은 사진은 PhotoStore가 알려 준다 */
     private final Map<String, String> hashes = new ConcurrentHashMap<>();
 
     public PhotoSources(RosterProperties roster, Postings postings, KorleaguerProperties properties) {
         Map<String, String> all = new LinkedHashMap<>();
         KorleaguerProperties.Images images = properties.images();
+        this.officialPhotos = images != null && images.officialPhotos();
         if (images != null && images.officialPhotos()) {
             String template = images.playerPhotoTemplate();
             if (template != null && !template.isBlank()) {
@@ -115,6 +117,14 @@ public class PhotoSources {
                 hashes.put(key, PhotoStore.sha256(readResource(source.substring(BUNDLED.length()))));
             }
         });
+    }
+
+    /**
+     * 목록이 정상인가: 공식 사진을 켰고(official-photos) 목록이 비지 않았다. 끄면 목록이 비는 게 정상이고,
+     * 켰는데 비었으면 설정이 잘못된 것이라 어느 쪽이든 이 목록으로 저장본을 정리하면 안 된다
+     */
+    public boolean listUsable() {
+        return officialPhotos && !sources.isEmpty();
     }
 
     /** 저장된 사진의 본문 해시를 알려 준다(PhotoStore가 받거나 저장본을 확인할 때마다). 주소의 ?v=가 이 값을 따른다 */

@@ -1,5 +1,6 @@
 package com.korleaguer.photo;
 
+import com.korleaguer.support.PhotoFiles;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.posting.PostingCase;
@@ -29,7 +30,7 @@ class PhotoSourcesTest {
         PhotoSources sources = sources(postings, true);
         PostingCase roh = postings.current().getFirst();
 
-        assertThat(sources.postingPath(roh)).matches("/photos/kbo-si-hwan-roh-2026\\?v=[0-9a-f]{8}"); // 우리 파일의 해시 앞 8자
+        assertThat(sources.postingPath(roh)).isEqualTo("/photos/kbo-si-hwan-roh-2026?v=" + PhotoFiles.version("kbo-si-hwan-roh-2026.jpg"));
         assertThat(sources.source("kbo-si-hwan-roh-2026")).contains("classpath:photos/kbo-si-hwan-roh-2026.jpg");
         // 옛 이름(KBO 사진 서버 원본)은 목록에 없다: 하루 동안 저장해 둔 옛 사진이 새 사진 자리에 남지 않게 이름을 바꿨다
         assertThat(sources.source("kbo-si-hwan-roh")).isEmpty();

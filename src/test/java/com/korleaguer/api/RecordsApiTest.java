@@ -57,7 +57,7 @@ class RecordsApiTest {
                 .andExpect(jsonPath("$.categories[0].leaders[1].value").value(336))
                 .andExpect(jsonPath("$.categories[0].leaders[1].rank").value(2))
                 .andExpect(jsonPath("$.categories[0].leaders[1].active").value(true))
-                .andExpect(jsonPath("$.categories[0].leaders[1].photoUrl").value("/photos/mlb-808982"))
+                .andExpect(jsonPath("$.categories[0].leaders[1].photoUrl").value(org.hamcrest.Matchers.matchesPattern("/photos/mlb-808982(\\?v=[0-9a-f]+)?")))
                 // 고우석은 국내 리그로 돌아가(명단 returned-ko) 현역이 아니다. 투수라 승·탈삼진 쪽에만 나온다
                 .andExpect(jsonPath("$.categories[?(@.key == 'strikeouts')].leaders[0].nameKo").value("고우석"))
                 .andExpect(jsonPath("$.categories[?(@.key == 'strikeouts')].leaders[0].active").value(false))

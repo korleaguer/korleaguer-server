@@ -275,6 +275,34 @@ class PhotoStoreTest {
     }
 
     @Test
+    void unlistedRowsAreKeptWhenTheSwitchIsOnButTheListCameOutEmpty() {
+        Photo row = new Photo("mlb-808982");
+        row.replace(MLB, "image/webp", new byte[]{1}, "abcdef0123456789", null, null, clock.instant());
+        saved.put("mlb-808982", row);
+        PhotoSources empty = new PhotoSources(new RosterProperties(List.of()),
+                new Postings(new PostingProperties(List.of(), List.of())),
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
+
+        assertThat(empty.listUsable()).isFalse(); // 켰는데 0개: 비정상
+        new PhotoStore(empty, repository, fetcher(), DataMode.MLB, clock).refresh();
+
+        assertThat(saved).containsKey("mlb-808982");
+    }
+
+    @Test
+    void storedHashesGiveTheAddressAVersionFromTheStart() {
+        Photo row = new Photo("mlb-808982");
+        row.replace(MLB, "image/webp", new byte[]{1}, "abcdef0123456789", null, null, clock.instant());
+        when(repository.findAllHashes()).thenReturn(List.<Object[]>of(new Object[]{"mlb-808982", "abcdef0123456789"}));
+        PhotoStore store = store(DataMode.MLB);
+
+        store.rememberStoredHashes();
+
+        assertThat(lastSources.mlbPath(808982L)).isEqualTo("/photos/mlb-808982?v=abcdef01");
+        assertThat(lastSources.mlbPath(808975L)).isEqualTo("/photos/mlb-808975"); // 저장본이 없으면 버전 없음
+    }
+
+    @Test
     void notAnImageIsIgnored() {
         reply(MLB, 200, "<html>blocked</html>", Map.of("content-type", "text/html"));
 

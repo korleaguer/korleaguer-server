@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.support.PhotoFiles;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -255,7 +256,7 @@ class ApiIntegrationTest {
                 // 과거 소속팀(KBO) 시절 공식 사진: 명단의 kbo-id·career-photos, MLB 사진과 같은 틀의 편집본(우리가 호스팅)
                 .andExpect(jsonPath("$.player.careerPhotos[0].teamKo").value("키움 히어로즈"))
                 .andExpect(jsonPath("$.player.careerPhotos[0].years").value("2017–2023"))
-                .andExpect(jsonPath("$.player.careerPhotos[0].photoUrl").value("/photos/career-67341-2023?v=f3ab82c0"))
+                .andExpect(jsonPath("$.player.careerPhotos[0].photoUrl").value("/photos/career-67341-2023?v=" + PhotoFiles.version("career-67341-2023.png")))
                 .andExpect(jsonPath("$.player.jersey").value("51"))
                 .andExpect(jsonPath("$.player.birthDate").value("1998-08-20"))
                 .andExpect(jsonPath("$.player.age").value(28))
