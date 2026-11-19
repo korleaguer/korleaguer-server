@@ -250,7 +250,7 @@ public final class GameDetails {
                 .max(Comparator.comparingInt(MlbGameContent.Cut::width))
                 .map(MlbGameContent.Cut::src)
                 .orElse(null);
-        return new GameHighlight(item.headline(), seconds(item.duration()), mp4, hls, image);
+        return new GameHighlight(item.headline(), null, seconds(item.duration()), mp4, hls, image);
     }
 
     /** "00:00:30" → 30. 모양이 다르면 null */

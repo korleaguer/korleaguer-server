@@ -2,8 +2,10 @@ package com.korleaguer.config;
 
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.korleaguer.news.ClaudeDestinationTagger;
+import com.korleaguer.news.ClaudeHighlightTitleTranslator;
 import com.korleaguer.news.ClaudeSummarizer;
 import com.korleaguer.news.DestinationTagger;
+import com.korleaguer.news.HighlightTitleTranslator;
 import com.korleaguer.news.HttpGetter;
 import com.korleaguer.news.JdkHttpGetter;
 import com.korleaguer.news.NewsProperties;
@@ -50,6 +52,28 @@ public class NewsConfig {
         }
         // 요약기와 같은 이유로 오래 기다리지 않는다(30분마다 도는 수집 스레드)
         return new ClaudeDestinationTagger(AnthropicOkHttpClient.builder()
+                .apiKey(apiKey.trim())
+                .timeout(Duration.ofSeconds(30))
+                .maxRetries(1)
+                .build(), model);
+    }
+
+    /**
+     * 하이라이트 영상 제목 번역기(이슈 #199). 요약기와 같은 키·모델을 쓰고, 키가 없으면 끈다.
+     * 경기 상세를 연 사람의 요청과 상관없이 뒤 스레드에서 도는 일이라 30초만 기다리고 한 번만 다시 해 본다.
+     */
+    @Bean
+    public HighlightTitleTranslator highlightTitleTranslator(@Value("${ANTHROPIC_API_KEY:}") String apiKey,
+                                                             @Value("${korleaguer.news.summary-model:claude-haiku-5-5}") String model) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return HighlightTitleTranslator.OFF;
+        }
+        if (!ClaudeHighlightTitleTranslator.fitsRecord(model)) {
+            LoggerFactory.getLogger(NewsConfig.class).error(
+                    "news: korleaguer.news.summary-model '{}' is too long to record, highlight title translation is off", model);
+            return HighlightTitleTranslator.OFF;
+        }
+        return new ClaudeHighlightTitleTranslator(AnthropicOkHttpClient.builder()
                 .apiKey(apiKey.trim())
                 .timeout(Duration.ofSeconds(30))
                 .maxRetries(1)
