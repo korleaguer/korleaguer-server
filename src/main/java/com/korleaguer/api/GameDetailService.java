@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -65,11 +66,12 @@ public class GameDetailService {
     private final SavantClips savant;
     private final JsonMapper json;
     private final Clock clock;
+    private final HighlightTitles highlightTitles;
     private final boolean videos;
 
     public GameDetailService(PlayerRepository players, GameRepository games, MinorGameLogRepository minorGames,
                              PlayerGameDetailRepository details, PlayClipRepository clips, MlbClient mlb,
-                             SavantClips savant, JsonMapper json, Clock clock,
+                             SavantClips savant, JsonMapper json, Clock clock, HighlightTitles highlightTitles,
                              @Value("${korleaguer.videos.enabled:true}") boolean videos) {
         this.players = players;
         this.games = games;
@@ -80,10 +82,15 @@ public class GameDetailService {
         this.savant = savant;
         this.json = json;
         this.clock = clock;
+        this.highlightTitles = highlightTitles;
         this.videos = videos;
     }
 
     public GameDetailResponse detail(long playerId, long gamePk) {
+        return withKoreanTitles(load(playerId, gamePk), playerId);
+    }
+
+    private GameDetailResponse load(long playerId, long gamePk) {
         Player player = players.findById(playerId).orElseThrow(() -> new PlayerNotFoundException(playerId));
         Role role = player.role();
         GameFacts facts = facts(playerId, gamePk);
@@ -115,6 +122,23 @@ public class GameDetailService {
             log.warn("game detail {} for player {}: MLB failed ({})", gamePk, playerId, e.getMessage());
             return savedResponse.orElse(GameDetailResponse.unavailable(playerId, gamePk, role.name()));
         }
+    }
+
+    /**
+     * 하이라이트에 한국어 제목을 붙인다(이슈 #199). 저장된 상세 JSON에는 넣지 않고 응답마다 번역 표(highlight_title)에서
+     * 붙이므로, 이미 굳은 상세에도 번역이 생기면 바로 보인다. 없는 제목은 뒤에서 옮기고 이번 응답에서는 null이다
+     */
+    private GameDetailResponse withKoreanTitles(GameDetailResponse response, long playerId) {
+        Player player = players.findById(playerId).orElse(null);
+        if (response.highlights().isEmpty() || player == null || player.getNameEn() == null) {
+            return response;
+        }
+        Map<String, String> korean = highlightTitles.koreanOf(
+                response.highlights().stream().map(GameDetailResponse.GameHighlight::title).toList(), player.getNameKo(), player.getNameEn());
+        List<GameDetailResponse.GameHighlight> highlights = response.highlights().stream()
+                .map(h -> h.withTitleKo(korean.get(h.title()))).toList();
+        return new GameDetailResponse(response.playerId(), response.gamePk(), response.role(), response.available(),
+                response.clips(), response.plays(), highlights);
     }
 
     /**

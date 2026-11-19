@@ -65,11 +65,17 @@ public record GameDetailResponse(
      * MLB 하이라이트 영상 하나(MLB 서버의 주소 그대로, 우리는 저장하지 않는다).
      *
      * @param title       영어 제목("Jung Hoo Lee's solo home run (10)")
+     * @param titleKo     한국어 제목("솔로 홈런 (시즌 10호)", 선수 이름은 뺀다). 아직 못 옮겼거나 AI가 꺼져 있으면 null(이슈 #199)
      * @param durationSec 길이(초). 모르면 null
      * @param mp4Url      mp4 주소. 없으면 null
      * @param hlsUrl      HLS(.m3u8) 주소. 없으면 null
      * @param imageUrl    대표 사진(960x540, 없으면 640x360). 없으면 null
      */
-    public record GameHighlight(String title, Integer durationSec, String mp4Url, String hlsUrl, String imageUrl) {
+    public record GameHighlight(String title, String titleKo, Integer durationSec, String mp4Url, String hlsUrl,
+                                String imageUrl) {
+
+        public GameHighlight withTitleKo(String titleKo) {
+            return new GameHighlight(title, titleKo, durationSec, mp4Url, hlsUrl, imageUrl);
+        }
     }
 }
