@@ -5,6 +5,8 @@ import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.client.SampleMlbClient;
+import com.korleaguer.domain.HighlightTitle;
+import com.korleaguer.domain.HighlightTitleRepository;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +59,9 @@ class GameDetailApiTest {
     @Autowired
     private PlayerGameDetailRepository details;
 
+    @Autowired
+    private HighlightTitleRepository highlightTitles;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     @Test
@@ -81,6 +86,32 @@ class GameDetailApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.plays", hasSize(4)));
         assertThat(fakes.mlbCalls.get() - before).isEqualTo(2);
+    }
+
+    @Test
+    void highlightKoreanTitleComesFromTheTitleTableAndShowsOnTheAlreadySavedDetail() throws Exception {
+        String title = "Jung Hoo Lee's solo home run (10)";
+        mockMvc.perform(get("/api/players/1/games/1001"))
+                .andExpect(jsonPath("$.highlights[0].title").value(title))
+                .andExpect(jsonPath("$.highlights[0].titleKo").doesNotExist());
+        int before = fakes.mlbCalls.get();
+
+        // 번역이 나중에 생겨도 이미 굳은 상세(DB)에 바로 붙는다. MLB는 다시 부르지 않는다
+        HighlightTitle row = new HighlightTitle(title);
+        row.translated("솔로 홈런 (시즌 10호)", "test/t1", Instant.parse("2026-11-01T11:00:00Z"));
+        highlightTitles.save(row);
+        try {
+            mockMvc.perform(get("/api/players/1/games/1001"))
+                    .andExpect(jsonPath("$.highlights[0].titleKo").value("솔로 홈런 (시즌 10호)"));
+            assertThat(fakes.mlbCalls.get()).isEqualTo(before);
+            // 저장된 상세 JSON에는 한국어 제목을 넣지 않는다
+            assertThat(details.findByPlayerIdAndGamePk(1, 1001).orElseThrow().getPayload())
+                    .doesNotContain("솔로 홈런");
+        } finally {
+            highlightTitles.delete(row);
+            // 다른 시험이 이 경기를 처음 여는 것으로 보게 되돌린다
+            details.findByPlayerIdAndGamePk(1, 1001).ifPresent(details::delete);
+        }
     }
 
     @Test
