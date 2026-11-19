@@ -124,6 +124,23 @@ else
   echo "주의: live-restore가 꺼져 있습니다(${daemon_json}과 'journalctl -u docker'를 확인하세요)" >&2
 fi
 
+# 보안 자동 업데이트: Ubuntu 보안 저장소의 패키지만 매일 받아 깐다(apt-daily-upgrade.timer, 새벽 6시 무렵).
+# 허용 출처(50unattended-upgrades)에 Docker 저장소는 없어서 Docker는 건드리지 않는다(배포 잠금을 잡고 손으로 올린다, README).
+# 재부팅은 하지 않는다. 커널 업데이트로 /var/run/reboot-required가 생기면 사람이 재부팅한다.
+# 10periodic·20auto-upgrades가 꺼 두었어도 이 파일이 이름순으로 나중에 읽혀 덮어쓴다.
+auto_upgrades=/etc/apt/apt.conf.d/99korleaguer-auto-upgrades
+say "보안 자동 업데이트(${auto_upgrades})"
+dpkg -s unattended-upgrades > /dev/null 2>&1 || { apt-get update && apt-get install -y unattended-upgrades; }
+cat > "$auto_upgrades" << 'APT'
+// korleaguer-server deploy/server-setup.sh가 쓴다. 바꾸려면 그 스크립트를 고친다.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+Unattended-Upgrade::Automatic-Reboot "false";
+APT
+chmod 644 "$auto_upgrades"
+echo "켜짐: Ubuntu 보안 업데이트만 매일, 자동 재부팅 없음"
+
 # 2) 배포 계정
 if ! id "$DEPLOY_USER" > /dev/null 2>&1; then
   say "배포 계정 ${DEPLOY_USER} 만들기"

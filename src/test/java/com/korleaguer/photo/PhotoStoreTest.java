@@ -28,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,6 +47,7 @@ class PhotoStoreTest {
     private final List<Map<String, String>> sentHeaders = new ArrayList<>();
     private final PhotoRepository repository = mock(PhotoRepository.class);
     private final Map<String, Photo> saved = new HashMap<>();
+    private PhotoSources lastSources;
 
     @BeforeEach
     void setUp() {
@@ -55,6 +57,11 @@ class PhotoStoreTest {
             saved.put(photo.getPhotoKey(), photo);
             return photo;
         });
+        when(repository.findAllKeys()).thenAnswer(inv -> new ArrayList<>(saved.keySet()));
+        doAnswer(inv -> {
+            inv.<Iterable<String>>getArgument(0).forEach(saved::remove);
+            return null;
+        }).when(repository).deleteAllById(any());
         reply("https://img.example.com/robots.txt", 404, "", Map.of());
         reply("https://img.example.kr/robots.txt", 403, "", Map.of()); // 그림 말고는 다 막는 사진 서버
     }
@@ -229,6 +236,73 @@ class PhotoStoreTest {
     }
 
     @Test
+    void pathGetsAContentVersionOnceThePhotoIsStoredAndChangesWhenTheContentChanges() {
+        reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
+        PhotoStore store = store(DataMode.MLB);
+        assertThat(lastSources.mlbPath(808982L)).isEqualTo("/photos/mlb-808982"); // 아직 받지 못했다: 버전 없음
+
+        store.load("mlb-808982");
+        String first = lastSources.mlbPath(808982L);
+        assertThat(first).isEqualTo("/photos/mlb-808982?v=" + PhotoStore.sha256("face".getBytes(StandardCharsets.UTF_8)).substring(0, 8));
+
+        clock.advance(Duration.ofDays(8));
+        reply(MLB, 200, "face2", Map.of("content-type", "image/webp"));
+        assertThat(store.refresh()).isEqualTo(1);
+        assertThat(lastSources.mlbPath(808982L)).isNotEqualTo(first).contains("?v=");
+    }
+
+    @Test
+    void refreshRemovesRowsNotInTheListButKeepsEverythingWhenTheListIsEmpty() {
+        reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
+        reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp"));
+        PhotoStore store = store(DataMode.MLB);
+        store.refresh();
+        Photo old = new Photo("kbo-si-hwan-roh");
+        old.replace("https://img.example.kr/old.png", "image/png", new byte[]{1}, "ff00ff00ff", null, null, clock.instant());
+        saved.put("kbo-si-hwan-roh", old);
+
+        store.refresh();
+
+        assertThat(saved).containsOnlyKeys("mlb-808982", "mlb-808975"); // 목록에서 빠진 옛 이름 행만 지운다
+
+        // 공식 사진을 끄면 목록이 비므로 아무것도 지우지 않고, 다시 켜도 받은 사진을 또 받지 않는다
+        PhotoStore off = storeWithOfficialPhotos(false);
+        assertThat(off.refresh()).isZero();
+        assertThat(saved).containsOnlyKeys("mlb-808982", "mlb-808975");
+        int asked = requested.size();
+        assertThat(store(DataMode.MLB).refresh()).isZero();
+        assertThat(requested).hasSize(asked);
+    }
+
+    @Test
+    void unlistedRowsAreKeptWhenTheSwitchIsOnButTheListCameOutEmpty() {
+        Photo row = new Photo("mlb-808982");
+        row.replace(MLB, "image/webp", new byte[]{1}, "abcdef0123456789", null, null, clock.instant());
+        saved.put("mlb-808982", row);
+        PhotoSources empty = new PhotoSources(new RosterProperties(List.of()),
+                new Postings(new PostingProperties(List.of(), List.of())),
+                new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
+
+        assertThat(empty.listUsable()).isFalse(); // 켰는데 0개: 비정상
+        new PhotoStore(empty, repository, fetcher(), DataMode.MLB, clock).refresh();
+
+        assertThat(saved).containsKey("mlb-808982");
+    }
+
+    @Test
+    void storedHashesGiveTheAddressAVersionFromTheStart() {
+        Photo row = new Photo("mlb-808982");
+        row.replace(MLB, "image/webp", new byte[]{1}, "abcdef0123456789", null, null, clock.instant());
+        when(repository.findAllHashes()).thenReturn(List.<Object[]>of(new Object[]{"mlb-808982", "abcdef0123456789"}));
+        PhotoStore store = store(DataMode.MLB);
+
+        store.rememberStoredHashes();
+
+        assertThat(lastSources.mlbPath(808982L)).isEqualTo("/photos/mlb-808982?v=abcdef01");
+        assertThat(lastSources.mlbPath(808975L)).isEqualTo("/photos/mlb-808975"); // 저장본이 없으면 버전 없음
+    }
+
+    @Test
     void notAnImageIsIgnored() {
         reply(MLB, 200, "<html>blocked</html>", Map.of("content-type", "text/html"));
 
@@ -253,7 +327,17 @@ class PhotoStoreTest {
                 new Postings(new PostingProperties(List.of(), List.of())),
                 new KorleaguerProperties(null, null, null, null,
                         new KorleaguerProperties.Images(true, "https://img.example.com/people/{mlbId}/headshot", null), null));
+        lastSources = sources;
         return new PhotoStore(sources, repository, fetcher, mode, clock);
+    }
+
+    private PhotoStore storeWithOfficialPhotos(boolean on) {
+        PhotoSources sources = new PhotoSources(
+                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null))),
+                new Postings(new PostingProperties(List.of(), List.of())),
+                new KorleaguerProperties(null, null, null, null,
+                        new KorleaguerProperties.Images(on, "https://img.example.com/people/{mlbId}/headshot", null), null));
+        return new PhotoStore(sources, repository, fetcher(), DataMode.MLB, clock);
     }
 
     /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
