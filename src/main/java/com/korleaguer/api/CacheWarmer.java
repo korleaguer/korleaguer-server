@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.config.ResponseCachesCleared;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
  *   <li>홈(GET /api/home)</li>
  *   <li>선수 페이지 전부(GET /api/players/{id}). 컨트롤러의 시즌 바로 받기(OnDemandSeason)는 거치지 않는다(MLB를 부르지 않는다).</li>
  *   <li>내 선수 카드: 명단 전원 × 7·14·30일(MyPlayersService.card). 어떤 '내 선수' 조합이든 이 카드를 모아 바로 답한다.</li>
+ *   <li>선수 이동 연표(GET /api/players/timeline) 지금 시즌.</li>
  *   <li>비시즌 홈의 선수 카드(GET /api/my, 명단 전원·7일). 웹(OffseasonPlayers)이 부르는 ids 순서·days와 같아야 캐시가 맞는다.</li>
  * </ul>
  * 언제 채우나:
@@ -60,6 +62,8 @@ public class CacheWarmer {
     private final BaseballQueryService queryService;
     private final MyPlayersService myPlayers;
     private final RecordsService records;
+    private final PlayerTimelineService timelines;
+    private final CurrentSeason currentSeason;
     private final ResponseCaches responseCaches;
     private final Postings postings;
     private final ExecutorService executor;
@@ -73,12 +77,14 @@ public class CacheWarmer {
     private String seenPostingKey;
 
     public CacheWarmer(BaseballQueryService queryService, MyPlayersService myPlayers, RecordsService records,
-                       ResponseCaches responseCaches,
+                       PlayerTimelineService timelines, CurrentSeason currentSeason, ResponseCaches responseCaches,
                        Postings postings, @Qualifier("ingestExecutor") ExecutorService executor, Clock clock,
                        KorleaguerProperties properties) {
         this.queryService = queryService;
         this.myPlayers = myPlayers;
         this.records = records;
+        this.timelines = timelines;
+        this.currentSeason = currentSeason;
         this.responseCaches = responseCaches;
         this.postings = postings;
         this.executor = executor;
@@ -218,6 +224,14 @@ public class CacheWarmer {
             filled++;
         } catch (RuntimeException e) {
             log.warn("cache warm: records failed", e);
+        }
+
+        // 선수 탭의 이동 연표(이슈 #203): 지금 시즌. 다른 시즌은 처음 부를 때 만든다
+        try {
+            timelines.timeline(currentSeason.current());
+            filled++;
+        } catch (RuntimeException e) {
+            log.warn("cache warm: player timeline failed", e);
         }
 
         log.info("cache warm: {} responses ready in {} ms", filled, (System.nanoTime() - started) / 1_000_000);
