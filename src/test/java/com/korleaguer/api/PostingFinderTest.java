@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.support.PhotoFiles;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.DestinationMention;
@@ -137,7 +138,7 @@ class PostingFinderTest {
                 new PostingSummary.Past("나성범", 2020, LocalDate.parse("2021-01-09"), null, null, null),
                 new PostingSummary.Past("김하성", 2020, LocalDate.parse("2021-01-01"), 4,
                         new PostingSummary.Deal(135L, "샌디에이고", LocalDate.parse("2020-12-28"), 4, 28_000_000L, null),
-                        "/photos/posting-673490-2024"));
+                        "/photos/posting-673490-2024?v=" + PhotoFiles.version("posting-673490-2024.jpg")));
     }
 
     @Test
@@ -147,7 +148,7 @@ class PostingFinderTest {
         // KBO 선수 번호가 있는 선배만, 포스팅된 겨울(season) 시즌 사진. 공식 사진을 끄면 모두 null
         // 계약 구단 MLB 사진(의 편집본)이 있으면 그것(김하성 2024 샌디에이고), 없으면 포스팅 시즌 KBO 사진(이정후 2023). 끄면 모두 null
         assertThat(finder(roh(null)).find(now).history()).extracting(PostingSummary.Past::photoUrl)
-                .containsExactly("/photos/kbo-67341-2023", null, "/photos/posting-673490-2024");
+                .containsExactly("/photos/kbo-67341-2023", null, "/photos/posting-673490-2024?v=" + PhotoFiles.version("posting-673490-2024.jpg"));
         assertThat(finder(roh(null), false).find(now).history()).extracting(PostingSummary.Past::photoUrl)
                 .containsExactly(null, null, null);
     }
@@ -508,7 +509,7 @@ class PostingFinderTest {
     void photoIsOurHostedPathAndFollowsTheOfficialPhotosSwitch() {
         Instant now = Instant.parse("2026-11-11T01:00:00Z");
 
-        assertThat(finder(roh(null)).find(now).players().getFirst().photoUrl()).isEqualTo("/photos/kbo-si-hwan-roh-2026");
+        assertThat(finder(roh(null)).find(now).players().getFirst().photoUrl()).isEqualTo("/photos/kbo-si-hwan-roh-2026?v=" + PhotoFiles.version("kbo-si-hwan-roh-2026.jpg"));
         assertThat(finder(roh(null), false).find(now).players().getFirst().photoUrl()).isNull();
     }
 

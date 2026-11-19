@@ -4,6 +4,7 @@ import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.Photo;
 import com.korleaguer.domain.PhotoRepository;
 import com.korleaguer.news.PoliteFetcher;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,7 +21,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       바뀌었는지만 묻는다. 304거나, 200이어도 본문(SHA-256)이 같으면 다시 쓰지 않는다.
  *       시즌이 정해진 사진(PhotoSources.seasonFixed)은 다시 묻지 않는다.</li>
  *   <li>원본 주소가 바뀌면(명단·포스팅 파일 수정) 새로 받는다.</li>
+ *   <li>주기 작업은 지금 목록에 없는 이름의 행(사진 이름을 바꾸고 남은 옛 행)을 지운다. 목록이 정상일 때만(공식 사진을 켰고 목록이
+ *       비지 않았을 때) 지운다. 끄면 목록이 통째로 비므로 지우지 않는다(다시 켰을 때 받은 사진을 또 받지 않게).</li>
  *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).</li>
  *   <li>샘플 모드는 네트워크를 쓰지 않는다(저장본이 없으면 사진 없음).</li>
  *   <li>우리가 만든 사진(원본 주소 classpath:…, 포스팅 선수·포스팅 선배·과거 소속팀 편집본)은 받지 않고 그 파일을
@@ -78,14 +84,28 @@ public class PhotoStore {
         }
         Optional<Photo> stored = photos.findById(key);
         if (stored.isPresent() && stored.get().getSourceUrl().equals(source.get())) {
+            sources.remember(key, stored.get().getSha256());
             return stored;
         }
         synchronized (lock) {
             Optional<Photo> again = photos.findById(key);
             if (again.isPresent() && again.get().getSourceUrl().equals(source.get())) {
+                sources.remember(key, again.get().getSha256());
                 return again;
             }
             return download(key, source.get(), again.orElse(null), clock.instant()).or(() -> again);
+        }
+    }
+
+    /** 서버가 뜰 때 저장된 사진의 해시를 읽어 둔다(주소의 ?v=가 처음부터 붙게). 못 읽어도 주기 작업·요청 때 채워진다 */
+    @PostConstruct
+    void rememberStoredHashes() {
+        try {
+            for (Object[] row : photos.findAllHashes()) {
+                sources.remember((String) row[0], (String) row[1]);
+            }
+        } catch (RuntimeException e) {
+            log.warn("photos: could not read stored hashes at startup", e);
         }
     }
 
@@ -106,18 +126,35 @@ public class PhotoStore {
                     if (download(entry.getKey(), entry.getValue(), stored.orElse(null), now).isPresent()) {
                         changed++;
                     }
-                } else if (!PhotoSources.seasonFixed(entry.getKey())
-                        && !now.isBefore(stored.get().getCheckedAt().plus(RECHECK_AFTER))) {
-                    if (recheck(stored.get(), now)) {
+                } else {
+                    sources.remember(entry.getKey(), stored.get().getSha256());
+                    if (!PhotoSources.seasonFixed(entry.getKey())
+                            && !now.isBefore(stored.get().getCheckedAt().plus(RECHECK_AFTER))
+                            && recheck(stored.get(), now)) {
                         changed++;
                     }
                 }
             }
+            removeUnlisted();
         }
         if (changed > 0) {
             log.info("photos: {} photo(s) fetched or updated", changed);
         }
         return changed;
+    }
+
+    /** 지금 목록에 없는 이름의 행을 지운다. 목록이 비었으면(공식 사진을 껐으면) 아무것도 지우지 않는다 */
+    private void removeUnlisted() {
+        if (!sources.listUsable()) {
+            return; // 끄면 목록이 비는 게 정상, 켰는데 비었으면 설정 문제: 어느 쪽이든 받아 둔 사진을 지우지 않는다
+        }
+        Map<String, String> listed = sources.all();
+        List<String> unlisted = new ArrayList<>(new HashSet<>(photos.findAllKeys()));
+        unlisted.removeIf(listed::containsKey);
+        if (!unlisted.isEmpty()) {
+            photos.deleteAllById(unlisted);
+            log.info("photos: removed {} unlisted photo row(s): {}", unlisted.size(), unlisted);
+        }
     }
 
     /** 원본에서 받는다(조건 없이). 같은 사진이면 확인 시각만 바꾼다. */
@@ -168,11 +205,14 @@ public class PhotoStore {
             photo.replace(source, mediaType(fetched.contentType()), fetched.body(), sha, fetched.etag(),
                     fetched.lastModified(), now);
         }
+        Photo result;
         try {
-            return photos.save(photo);
+            result = photos.save(photo);
         } catch (DataIntegrityViolationException e) {
-            return photos.findById(key).orElse(photo);
+            result = photos.findById(key).orElse(photo);
         }
+        sources.remember(key, result.getSha256());
+        return result;
     }
 
     /**

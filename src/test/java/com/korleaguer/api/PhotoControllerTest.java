@@ -35,7 +35,7 @@ class PhotoControllerTest {
         Photo photo = new Photo("mlb-808982");
         photo.replace("https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:silo:current.png/"
                         + "w_360,q_auto:best,f_auto/v1/people/808982/headshot/silo/current", "image/webp",
-                "face".getBytes(StandardCharsets.UTF_8), "abc123", null, null, Instant.parse("2026-11-11T00:00:00Z"));
+                "face".getBytes(StandardCharsets.UTF_8), "abc12345def", null, null, Instant.parse("2026-11-11T00:00:00Z"));
         photos.save(photo);
     }
 
@@ -44,14 +44,31 @@ class PhotoControllerTest {
         mockMvc.perform(get("/api/photos/mlb-808982"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/webp"))
-                .andExpect(header().string("ETag", "\"abc123\""))
+                .andExpect(header().string("ETag", "\"abc12345def\""))
                 .andExpect(header().string("Cache-Control", "max-age=86400, public"))
                 .andExpect(content().bytes("face".getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
+    void requestWithTheCurrentVersionIsCachedForeverAsImmutable() throws Exception {
+        mockMvc.perform(get("/api/photos/mlb-808982").param("v", "abc12345"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
+        mockMvc.perform(get("/api/photos/mlb-808982").param("v", "abc12345").header("If-None-Match", "\"abc12345def\""))
+                .andExpect(status().isNotModified())
+                .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
+    }
+
+    @Test
+    void oldAddressWithoutVersionOrWithAStaleVersionKeepsTheDayLongCache() throws Exception {
+        mockMvc.perform(get("/api/photos/mlb-808982").param("v", "00000000"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "max-age=86400, public"));
+    }
+
+    @Test
     void sameEtagIsNotModified() throws Exception {
-        mockMvc.perform(get("/api/photos/mlb-808982").header("If-None-Match", "\"abc123\""))
+        mockMvc.perform(get("/api/photos/mlb-808982").header("If-None-Match", "\"abc12345def\""))
                 .andExpect(status().isNotModified());
     }
 
