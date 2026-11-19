@@ -74,4 +74,8 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
             group by a.player.id
             """)
     List<PlayerLastStart> findLastStartTimes(Collection<Long> playerIds, Instant now);
+
+    /** 경기 기록이 있는 시즌(연도) */
+    @Query("select distinct g.season from Appearance a join a.game g")
+    List<Integer> findSeasons();
 }

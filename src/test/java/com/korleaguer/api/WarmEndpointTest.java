@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.posting.PostingProperties;
@@ -45,7 +46,7 @@ class WarmEndpointTest {
         KorleaguerProperties properties = new KorleaguerProperties(2026, null,
                 new KorleaguerProperties.Ingest(true, null, null), null, null, null);
         CacheWarmer warmer = new CacheWarmer(mock(BaseballQueryService.class), mock(MyPlayersService.class),
-                mock(RecordsService.class),
+                mock(RecordsService.class), mock(PlayerTimelineService.class), mock(CurrentSeason.class),
                 mock(ResponseCaches.class), new Postings(new PostingProperties(List.of(), List.of())),
                 Executors.newVirtualThreadPerTaskExecutor(), Clock.systemUTC(), properties);
         WarmEndpoint endpoint = new WarmEndpoint(warmer);

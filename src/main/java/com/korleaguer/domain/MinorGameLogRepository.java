@@ -25,4 +25,8 @@ public interface MinorGameLogRepository extends JpaRepository<MinorGameLog, Long
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from MinorGameLog g where g.player.id = :playerId and g.season = :season")
     int deleteSeason(long playerId, int season);
+
+    /** 마이너 경기 기록이 있는 시즌(연도) */
+    @Query("select distinct g.season from MinorGameLog g")
+    List<Integer> findSeasons();
 }

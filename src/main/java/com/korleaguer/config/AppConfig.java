@@ -35,6 +35,8 @@ public class AppConfig {
     public static final String CARD_CACHE = "card";
     /** 한국인 메이저리거 역대 기록(GET /api/records, 이슈 #177). 응답이 하나뿐이다 */
     public static final String RECORDS_CACHE = "records";
+    /** 선수 이동 연표(GET /api/players/timeline). 시즌마다 따로 둔다 */
+    public static final String TIMELINE_CACHE = "timeline";
 
     // 테스트에서 시각을 고정할 수 있게 Clock을 빈으로 둔다.
     @Bean

@@ -156,12 +156,50 @@ public class SeasonReportFinder {
         return new SeasonRecords(majors, minors, metricRows, openingDay, lastRegularDay);
     }
 
-    private List<SeasonReport> reports(List<RosterMember> roster, int season, SeasonRecords records) {
-        // 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 메모리에 둔다)
+    /** 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 메모리에 둔다) */
+    private Map<String, LeagueEnvironments.Env> environments(SeasonRecords records, int season) {
         Set<String> levels = new HashSet<>();
         levels.add(LeagueEnvironments.MLB);
         records.minors().values().forEach(games -> games.forEach(g -> levels.add(g.level())));
-        Map<String, LeagueEnvironments.Env> environments = leagues.of(season, levels);
+        return leagues.of(season, levels);
+    }
+
+    /**
+     * 이동 연표(PlayerTimelineService)가 선수별 시즌 숫자를 같은 계산으로 내는 재료: 선수별 성적표 입력(기록이 하나도
+     * 없는 선수는 빠진다)과 리그 평균. 기사·'MLB 안 위치'는 읽지 않는다. 재료를 못 읽으면 빈 값이다
+     */
+    record TimelineMaterials(Map<Long, SeasonReports.Input> inputs, Map<String, LeagueEnvironments.Env> environments) {
+        static final TimelineMaterials NONE = new TimelineMaterials(Map.of(), Map.of());
+    }
+
+    TimelineMaterials timelineMaterials(List<Player> players, int season) {
+        if (players.isEmpty()) {
+            return TimelineMaterials.NONE;
+        }
+        List<Long> ids = players.stream().map(Player::getId).toList();
+        SeasonRecords records = reads.read("timeline records", () -> records(ids, season), null);
+        if (records == null) {
+            return TimelineMaterials.NONE;
+        }
+        Map<Long, SeasonReports.Input> inputs = new HashMap<>();
+        for (Player player : players) {
+            try {
+                SeasonReports.Input input = input(player, season, records.openingDay(), records.lastRegularDay(),
+                        records.majors().getOrDefault(player.getId(), List.of()),
+                        records.minors().getOrDefault(player.getId(), List.of()),
+                        records.metricRows().getOrDefault(player.getId(), List.of()));
+                if (input != null) {
+                    inputs.put(player.getId(), input);
+                }
+            } catch (RuntimeException e) {
+                log.warn("timeline material for {} failed, left out: {}", player.getNameKo(), e.toString());
+            }
+        }
+        return new TimelineMaterials(inputs, environments(records, season));
+    }
+
+    private List<SeasonReport> reports(List<RosterMember> roster, int season, SeasonRecords records) {
+        Map<String, LeagueEnvironments.Env> environments = environments(records, season);
 
         List<SeasonReports.Built> built = new ArrayList<>();
         for (RosterMember member : roster) {
