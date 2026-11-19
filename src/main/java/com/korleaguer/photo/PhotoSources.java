@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 우리가 호스팅하는 사진의 이름과 원본 주소 목록. 여기에 없는 이름은 받지도 주지도 않는다(아무 주소나 대신 받아 주지 않게).
@@ -33,6 +34,8 @@ import java.util.Optional;
  * (원본을 그대로 보이면 원 안 배경·크기·선명도가 제각각이라).
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
+ * 사진 주소 뒤에는 저장된 내용 해시(sha256) 앞 8자를 ?v=로 붙인다(/photos/mlb-808982?v=1a2b3c4d). 같은 이름의 사진 내용이
+ * 바뀌면 주소가 바뀌어, 버전이 붙은 요청은 오래 저장해 둬도 옛 사진이 남지 않는다. 아직 받지 못한 사진은 버전 없이 나간다.
  */
 @Component
 public class PhotoSources {
@@ -45,7 +48,12 @@ public class PhotoSources {
     private static final String KBO_ID_PLACEHOLDER = "{kboId}";
     private static final String SEASON_PLACEHOLDER = "{season}";
 
+    /** 주소에 붙이는 내용 버전(해시 앞 글자 수) */
+    public static final int VERSION_LENGTH = 8;
+
     private final Map<String, String> sources;
+    /** 사진 이름 → 저장된 본문의 sha256. 우리 파일은 뜰 때 읽고, 받은 사진은 PhotoStore가 알려 준다 */
+    private final Map<String, String> hashes = new ConcurrentHashMap<>();
 
     public PhotoSources(RosterProperties roster, Postings postings, KorleaguerProperties properties) {
         Map<String, String> all = new LinkedHashMap<>();
@@ -102,6 +110,35 @@ public class PhotoSources {
             }
         }
         this.sources = Collections.unmodifiableMap(all);
+        all.forEach((key, source) -> {
+            if (bundled(source)) {
+                hashes.put(key, PhotoStore.sha256(readResource(source.substring(BUNDLED.length()))));
+            }
+        });
+    }
+
+    /** 저장된 사진의 본문 해시를 알려 준다(PhotoStore가 받거나 저장본을 확인할 때마다). 주소의 ?v=가 이 값을 따른다 */
+    void remember(String key, String sha256) {
+        if (sources.containsKey(key) && sha256 != null) {
+            hashes.put(key, sha256);
+        }
+    }
+
+    /** 이 사진 내용의 버전(sha256 앞 8자). 아직 본문을 모르면 빈 값 */
+    public Optional<String> version(String key) {
+        String sha = hashes.get(key);
+        return sha == null ? Optional.empty() : Optional.of(sha.substring(0, VERSION_LENGTH));
+    }
+
+    private static byte[] readResource(String resource) {
+        try (java.io.InputStream in = PhotoSources.class.getClassLoader().getResourceAsStream(resource)) {
+            if (in == null) {
+                throw new IllegalStateException("bundled photo is missing: " + resource);
+            }
+            return in.readAllBytes();
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("cannot read bundled photo " + resource, e);
+        }
     }
 
     /** 이 이름의 원본 주소. 목록에 없으면 빈 값 */
@@ -153,7 +190,10 @@ public class PhotoSources {
     }
 
     private String path(String key) {
-        return sources.containsKey(key) ? WEB_PATH + key : null;
+        if (!sources.containsKey(key)) {
+            return null;
+        }
+        return version(key).map(v -> WEB_PATH + key + "?v=" + v).orElse(WEB_PATH + key);
     }
 
     static String mlbKey(Long mlbId) {

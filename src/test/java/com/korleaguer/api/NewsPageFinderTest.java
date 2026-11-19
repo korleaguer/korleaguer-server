@@ -67,7 +67,7 @@ class NewsPageFinderTest {
         assertThat(page.id()).isEqualTo(7L);
         assertThat(page.player()).isEqualTo("노시환");
         // 홈 포스팅 카드와 같은 사진(현 소속 KBO 구단 공식 사진의 흰 바탕 편집본)
-        assertThat(page.playerPhotoUrl()).isEqualTo("/photos/kbo-si-hwan-roh-2026")
+        assertThat(page.playerPhotoUrl()).isEqualTo("/photos/kbo-si-hwan-roh-2026?v=d042c672")
                 .isEqualTo(photos.postingPath(postings.current().getFirst()));
         assertThat(page.title()).isEqualTo("Roh Posted");
         assertThat(page.titleKo()).isEqualTo("노시환 포스팅 공시");
