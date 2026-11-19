@@ -18,7 +18,7 @@
 
 	# 접근 기록: 방문 수·재방문·앱 비율을 세려고 남긴다(집계는 tools/access-report.py). 보관 90일(roll_keep_for).
 	# - 파일은 호스트의 /srv/korleaguer/logs/access.log(compose가 /var/log/caddy로 마운트). 10MiB마다 새로 굴리고 옛것은 gzip.
-	# - 개인정보: IP는 IPv4 /24·IPv6 /48까지만 남기고 쿠키·Authorization 등은 지운다. User-Agent·Next-Router-Prefetch·Referer는 센다고 남긴다.
+	# - 개인정보: IP는 IPv4 /24·IPv6 /48까지만 남기고 쿠키·Authorization 등은 지운다. User-Agent·Next-Router-Prefetch는 센다고 남긴다(Referer는 외부 주소·검색어가 들어 있어 지운다).
 	# - 정적 파일(js·css·이미지·글꼴)과 /healthz는 기록하지 않는다(세는 데 필요 없고 기록이 커진다).
 	@no_log path /_next/static/* /_next/image* /healthz
 	@no_log_ext path_regexp \.(?:js|css|map|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf)$
@@ -49,6 +49,13 @@
 			request>headers>Proxy-Authorization delete
 			request>headers>X-Forwarded-For delete
 			request>headers>X-Real-Ip delete
+			request>headers>X-Client-Ip delete
+			request>headers>True-Client-Ip delete
+			request>headers>Cf-Connecting-Ip delete
+			request>headers>X-Forwarded-Host delete
+			request>headers>Via delete
+			request>headers>Referer delete
+			request>headers>Origin delete
 			request>headers>Forwarded delete
 			request>headers>Accept delete
 			request>headers>Accept-Encoding delete

@@ -42,8 +42,8 @@ from datetime import datetime, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))
 BOT = re.compile(
-    r"bot|crawl|spider|slurp|curl/|wget|python|httpx|aiohttp|go-http|java/|okhttp|axios|node-fetch|headless|lighthouse"
-    r"|preview|facebookexternalhit|monitor|uptime|pingdom|scan|feedfetcher|bingpreview|ahrefs|semrush",
+    r"bot\b|bot/|crawl|spider|slurp|curl/|wget|python-|httpx|aiohttp|go-http|java/|axios|node-fetch|headless|lighthouse"
+    r"|facebookexternalhit|uptime|pingdom|feedfetcher|bingpreview|ahrefs|semrush",
     re.IGNORECASE,
 )
 NOT_PAGE = re.compile(r"^/(?:_next/|api/|healthz|robots\.txt|sitemap.*\.xml|favicon|apple-touch-icon|manifest)")
