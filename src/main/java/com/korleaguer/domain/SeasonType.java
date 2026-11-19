@@ -3,8 +3,8 @@ package com.korleaguer.domain;
 /**
  * 경기 종류: 정규시즌(REGULAR)·포스트시즌(POSTSEASON). 경기 줄 응답(GameLine·MinorGameLine의 seasonType)에 이 이름 그대로 나간다.
  * 경기 종류에 관한 대응표는 모두 여기 한 곳에 둔다: MLB gameType → 종류(fromGameType, 수집), 종류 → DB game.season_type에
- * 저장하는 값(stored, regular·postseason), 저장한 값 → 종류(of, 응답). 저장 값을 쓰는 곳(수집·화면용 조회)도 글자를 따로 적지
- * 않고 stored()로 얻는다. JPQL 글 안의 값만 상수를 쓸 수 없어 글자로 적었다(GameRepository.countFinalRegularGames).
+ * 저장하는 값(stored, regular·postseason), 저장한 값 → 종류(of, 응답). 저장 값을 쓰는 곳(수집·화면용 조회, JPQL 조회의
+ * 인자)도 글자를 따로 적지 않고 stored()로 얻는다.
  */
 public enum SeasonType {
     REGULAR("regular"),

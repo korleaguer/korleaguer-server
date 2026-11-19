@@ -194,7 +194,7 @@ public class BaseballQueryService {
                 .filter(Objects::nonNull)
                 .map(Team::getMlbTeamId)
                 .distinct()
-                .mapToLong(teamId -> games.countFinalRegularGames(teamId, season))
+                .mapToLong(teamId -> games.countFinalGames(teamId, season, SeasonType.REGULAR.stored()))
                 .max()
                 .orElse(0);
     }

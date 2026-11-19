@@ -50,16 +50,13 @@ public interface GameRepository extends JpaRepository<Game, Long> {
             """)
     List<Game> findTeamSeasonGames(Collection<Long> teamIds, int season, String seasonType);
 
-    /**
-     * 한 팀이 한 시즌에 치른(끝난) 정규시즌 경기 수. 'regular'는 SeasonType.REGULAR.stored()와 같은 값이다(JPQL 글 안이라
-     * 상수를 쓸 수 없다. 저장 값을 바꾸면 여기도 바꾼다).
-     */
+    /** 한 팀이 한 시즌에 치른(끝난) seasonType 경기 수(seasonType은 SeasonType.stored(), 예: 정규시즌 regular) */
     @Query("""
             select count(g) from Game g
             where (g.homeTeam.mlbTeamId = :teamId or g.awayTeam.mlbTeamId = :teamId)
-              and g.season = :season and g.seasonType = 'regular' and g.statusState = 'final'
+              and g.season = :season and g.seasonType = :seasonType and g.statusState = 'final'
             """)
-    long countFinalRegularGames(long teamId, int season);
+    long countFinalGames(long teamId, int season, String seasonType);
 
     /** 끝났지만 아직 굳지 않은(settled가 아닌) 경기 */
     @Query("""
