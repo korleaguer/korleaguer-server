@@ -204,6 +204,23 @@ cd /srv/korleaguer
 docker compose exec api sh -c 'curl -s -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" http://localhost:8080/admin/ingest/players'
 ```
 
+## 접근 기록(방문 수 세기)
+
+Caddy가 밖에서 오는 요청(웹 페이지 요청)을 JSON 한 줄씩 `/srv/korleaguer/logs/access.log`(컨테이너 안 `/var/log/caddy`)에 남긴다. 2026-11-19부터. 설정은 `Caddyfile`의 `log` 블록이다.
+
+- **개인정보:** IP는 IPv4 /24(`1.2.3.0`)·IPv6 /48까지만 남긴다(`remote_ip`·`client_ip`). 원래 IP·포트·쿠키·Authorization·`X-Forwarded-For`·`Accept*`·`Sec-*`·응답 머리글은 지운다. 남기는 것은 시각, 마스킹한 IP, 방법·주소(쿼리 포함)·호스트, `User-Agent`·`Next-Router-Prefetch`·`Referer`, 상태·크기·걸린 시간이다. 저장소가 공개이므로 기록 파일·실제 IP는 커밋하지 않는다.
+- **정적 파일 제외:** `/_next/static/*`, `/_next/image*`, `/healthz`, js·css·이미지·글꼴 확장자는 기록하지 않는다.
+- **굴리기·보관:** 10MiB가 되면 새 파일로 굴리고 옛것은 gzip(`access-<시각>.log.gz`). 90일(`roll_keep_for 2160h`)이 지난 굴려진 파일과 60개를 넘은 것은 지운다. 파일 하나는 굴러야만 지워지므로 하루 요청이 적으면 현재 파일에 90일보다 오래된 줄이 남을 수 있다.
+- **세기:** 서버에서 `sudo python3 - --date 2026-11-19 < tools/access-report/access-report.py`(스크립트를 표준입력으로 넘긴다). 경로별 방문 수, 순방문자(마스킹 IP+User-Agent 해시), 앱 비율(`KORLeaguerApp`), 봇·미리 받기 제외 수를 표로 낸다. 자세한 옵션은 스크립트 맨 위 설명.
+- **한계:** 순방문자는 쿠키 없이 센 추정이다(같은 /24 안의 같은 기종은 한 명으로, 와이파이↔데이터를 오가는 사람은 두 명으로 센다). Next가 이미 미리 받아 둔 화면으로 이동하면 요청이 따로 없어 그 방문은 빠질 수 있다.
+- **처음 켜기·바꾼 뒤 반영:** 아래 "서버 설정 파일이 바뀌면"과 같다. `logs/` 폴더가 있어야 하므로(`server-setup.sh`가 만든다) 그것만 반영할 때는 deploy 폴더를 서버로 복사한 뒤
+  ```bash
+  sudo install -d -m 755 -o deploy -g deploy /srv/korleaguer/logs
+  sudo install -m 640 -o deploy -g deploy compose.yaml Caddyfile /srv/korleaguer/
+  sudo -u deploy bash -c 'cd /srv/korleaguer && docker compose up -d caddy && docker compose restart caddy'
+  ```
+  `compose.yaml`이 바뀌어 caddy가 새로 만들어지고 몇 초 끊긴다(인증서는 볼륨에 남는다).
+
 ## 알아 둘 것
 
 - **DB 구조를 바꾸는 배포:** 새 API가 Flyway로 DB를 바꾸는 동안 옛 API도 잠깐 같이 돈다. 그래서 바뀐 구조가 옛 코드에서도 돌아가게 한다(열·표 추가는 먼저, 지우기는 다음 배포에서).
