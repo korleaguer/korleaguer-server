@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -237,6 +238,24 @@ class NewsPageFinderTest {
 
         assertThatThrownBy(() -> finder.find(1L)).isInstanceOf(NewsNotFoundException.class);
         assertThatThrownBy(() -> finder.find(2L)).isInstanceOf(NewsNotFoundException.class);
+    }
+
+    @Test
+    void existsReadsOnlyTheArticleItself() {
+        // HEAD /api/news/{id}: find와 같은 기준(없는 번호·뺀 언론사면 없음)으로 기사 한 줄만 읽는다. 웹이 기사 화면을 열 때마다
+        // 부르므로 같은 기사 묶음(findPublishedBetween)·다른 기사(findLatest)는 찾지 않는다
+        when(news.findById(1L)).thenReturn(Optional.of(article(1L, "노시환", "노시환 MLB 소식", "마이데일리", "2026-11-10T03:00:00Z")));
+        when(news.findById(2L)).thenReturn(Optional.of(article(2L, "노시환", "노시환 MLB 소식", "뉴시스", "2026-11-10T03:00:00Z")));
+        when(news.findById(3L)).thenReturn(Optional.empty());
+
+        assertThat(finder.exists(1L)).isTrue();
+        assertThat(finder.exists(2L)).isFalse(); // 뺀 언론사
+        assertThat(finder.exists(3L)).isFalse(); // 없는 번호
+
+        verify(news).findById(1L);
+        verify(news).findById(2L);
+        verify(news).findById(3L);
+        verifyNoMoreInteractions(news);
     }
 
     @Test

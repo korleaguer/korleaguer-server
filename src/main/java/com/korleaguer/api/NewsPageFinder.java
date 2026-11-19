@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,9 +49,7 @@ public class NewsPageFinder {
 
     /** 없는 번호이거나 뺀 언론사의 기사면 NewsNotFoundException(404) */
     public NewsPageResponse find(long id) {
-        NewsArticle article = news.findById(id)
-                .filter(a -> publishers.contains(a.getPublisher()))
-                .orElseThrow(NewsNotFoundException::new);
+        NewsArticle article = shown(id).orElseThrow(NewsNotFoundException::new);
         // 포스팅 선수(아직 KBO 선수)면 이름만 나온 KBO 기사는 '다른 기사'에도 같은 기사 언론사에도 넣지 않는다(홈·뉴스 탭 목록과 같은 기준)
         boolean posting = postings.current().stream().anyMatch(p -> p.nameKo().equals(article.getSubject()));
         SameArticles.Group same = sameAs(article, posting);
@@ -70,6 +69,19 @@ public class NewsPageFinder {
                 article.getTitle(), article.getTitleKo(), article.getUrl(), article.getPublisher(),
                 article.getPublishedAt(), article.getImageUrl(), article.getSummary(), article.getLeadText(), more,
                 same.alsoBy(article));
+    }
+
+    /**
+     * find가 404 없이 기사를 줄지만 본다(HEAD /api/news/{id}). 기사 한 줄만 읽고 같은 기사 묶음·다른 기사는 찾지 않는다.
+     * 있는지만 묻는 쿼리를 따로 두지 않는다: 한 줄이 1KB 안팎(칼럼이 모두 varchar)이라 읽는 양이 거의 같고, find와 기준이 하나로 남는다
+     */
+    public boolean exists(long id) {
+        return shown(id).isPresent();
+    }
+
+    /** 이 번호의 기사. 없거나 뺀 언론사의 기사면 빈 값 */
+    private Optional<NewsArticle> shown(long id) {
+        return news.findById(id).filter(a -> publishers.contains(a.getPublisher()));
     }
 
     /**

@@ -44,7 +44,7 @@ x-api: &api
 
 services:
   caddy:
-    image: caddy:2.10
+    image: caddy:2.11
     container_name: ${COMPOSE_PROJECT_NAME:-korleaguer}-caddy
     logging: *logging
     restart: unless-stopped

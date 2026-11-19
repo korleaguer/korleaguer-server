@@ -15,12 +15,14 @@ import java.time.Instant;
 
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * GET /api/news/{id}: 기사 한 건(JSON 모양). 같은 글을 실은 다른 언론사(alsoBy)는 뉴스 탭 목록 한 줄과 같다.
- * 없는 번호·뺀 언론사는 404, 숫자가 아니면 400
+ * 없는 번호·뺀 언론사는 404, 숫자가 아니면 400. HEAD는 같은 기준의 상태만 준다
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -136,6 +138,22 @@ class NewsApiTest {
                 .andExpect(jsonPath("$.error").value("news not found"));
         mockMvc.perform(get("/api/news/999999")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/news/abc")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void headAnswersOnlyWhetherTheArticleIsShown() throws Exception {
+        // 웹이 기사 화면을 열 때마다 먼저 묻는다. GET과 같은 기준(없는 번호·뺀 언론사는 404)으로 본문 없이 상태만
+        Instant at = Instant.parse("2026-11-10T03:00:00Z");
+        NewsArticle shown = save("노시환", "노시환 MLB 소식", "마이데일리", at);
+        NewsArticle dropped = save("노시환", "노시환 MLB 소식", "없는 언론사", at);
+
+        mockMvc.perform(head("/api/news/" + shown.getId()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+        mockMvc.perform(head("/api/news/" + dropped.getId())).andExpect(status().isNotFound());
+        mockMvc.perform(head("/api/news/999999")).andExpect(status().isNotFound());
+        // 숫자가 아닌 id는 GET처럼 400(404 아님). 웹 proxy는 이런 주소를 api에 묻지 않고 바로 404를 준다(lib/ids)
+        mockMvc.perform(head("/api/news/abc")).andExpect(status().isBadRequest());
     }
 
     private NewsArticle save(String subject, String title, String publisher, Instant publishedAt) {

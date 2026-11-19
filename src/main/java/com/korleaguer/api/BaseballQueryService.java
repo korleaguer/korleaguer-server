@@ -43,6 +43,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -209,12 +210,25 @@ public class BaseballQueryService {
                 .toList();
     }
 
+    /** 선수 화면(player)이 404 없이 나오는지(HEAD /api/players/{id}). 선수 줄 하나만 읽고 화면 계산은 하지 않는다 */
+    public boolean playerExists(long id) {
+        return shownPlayer(id).isPresent();
+    }
+
+    /**
+     * 선수 화면에 내는 선수. 없으면 빈 값(GET·HEAD 모두 404). player와 playerExists가 함께 써서 둘의 404 기준이 어긋나지 않는다.
+     * 숨길 선수 같은 조건을 더하면 여기에 더한다
+     */
+    private Optional<Player> shownPlayer(long id) {
+        return players.findById(id);
+    }
+
     @Cacheable(cacheNames = AppConfig.PLAYER_CACHE, key = "#id")
     public PlayerPageResponse player(long id) {
         // 계산을 시작한 시각이 응답의 generatedAt이다(홈과 같다). 응답째 캐시하므로 캐시에서 줄 때도 이 시각이 그대로 나가
         // 화면의 '기준 …'이 실제로 숫자를 계산한 때를 가리킨다
         Instant now = clock.instant();
-        Player player = players.findById(id).orElseThrow(() -> new PlayerNotFoundException(id));
+        Player player = shownPlayer(id).orElseThrow(() -> new PlayerNotFoundException(id));
         RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
         Team team = member.team();
         int season = currentSeason.current();

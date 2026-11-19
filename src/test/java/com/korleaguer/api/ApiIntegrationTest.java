@@ -19,7 +19,9 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -451,6 +453,19 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void headAnswersOnlyWhetherThePlayerExists() throws Exception {
+        // 웹이 선수 화면을 열 때마다 먼저 묻는다. 본문 없이 상태만(있으면 200, 없으면 404)
+        mockMvc.perform(head("/api/players/1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+        mockMvc.perform(head("/api/players/999999"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(""));
+        // 숫자가 아닌 id는 GET처럼 400(404 아님). 웹 proxy는 이런 주소를 api에 묻지 않고 바로 404를 준다(lib/ids)
+        mockMvc.perform(head("/api/players/abc")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     void adminNeedsToken() throws Exception {
         mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26"))
                 .andExpect(status().isForbidden());
@@ -465,6 +480,10 @@ class ApiIntegrationTest {
     @Test
     void corsAllowsLocalWebOnly() throws Exception {
         mockMvc.perform(get("/api/players").header("Origin", "http://localhost:3000"))
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+        // 같은 주소의 HEAD(있는지만 묻기)도 GET처럼 연다. 막으면 개발 중 브라우저에서 부른 HEAD가 403이 된다
+        mockMvc.perform(head("/api/players/1").header("Origin", "http://localhost:3000"))
+                .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
         mockMvc.perform(get("/api/players").header("Origin", "http://evil.example"))
                 .andExpect(status().isForbidden());
