@@ -18,6 +18,7 @@ import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.news.NewsProperties;
@@ -64,7 +65,7 @@ import java.util.stream.Stream;
 public class SeasonReportFinder {
 
     private static final Logger log = LoggerFactory.getLogger(SeasonReportFinder.class);
-    private static final List<String> REGULAR_SEASON = List.of("regular");
+    private static final List<String> REGULAR_SEASON = List.of(SeasonType.REGULAR.stored());
     /** 선수마다 붙이는 '이번 겨울' 기사 수(화면은 앞 두 건 + 'n건 더 보기') */
     static final int NEWS = 12;
 

@@ -14,6 +14,7 @@ import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.support.MlbTeams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,7 +127,7 @@ public class GameIngest {
         IngestWriter.SeasonSaveResult saved = writer.saveSeason(season, schedule, logs, now);
 
         // 포스트시즌 기록은 gameLog에 없으므로 끝난 포스트시즌 경기만 박스스코어로 받는다.
-        int boxscores = boxscores(games.findTeamSeasonGames(teamIds, season, "postseason").stream()
+        int boxscores = boxscores(games.findTeamSeasonGames(teamIds, season, SeasonType.POSTSEASON.stored()).stream()
                 .filter(g -> g.needsBoxscore(now))
                 .toList(), now);
 

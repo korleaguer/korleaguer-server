@@ -12,6 +12,7 @@ import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonMetric;
+import com.korleaguer.domain.SeasonType;
 import com.korleaguer.ingest.KoreanMlbProperties;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.cache.annotation.Cacheable;
@@ -36,7 +37,7 @@ import java.util.Map;
 @Service
 public class RecordsService {
 
-    private static final List<String> REGULAR = List.of("regular");
+    private static final List<String> REGULAR = List.of(SeasonType.REGULAR.stored());
 
     private final PlayerRepository players;
     private final KoreanMlbSeasonRepository seasons;
