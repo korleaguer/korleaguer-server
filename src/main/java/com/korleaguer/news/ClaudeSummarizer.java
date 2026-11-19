@@ -39,10 +39,11 @@ public final class ClaudeSummarizer implements Summarizer {
      * 옛 판으로 만든 요약은 차례로 다시 요약한다(NewsEnricher). v1: 2~3문장 130자 안팎(11-11),
      * v2: 본문 분량에 맞춘 최대 3~7문장, 기사 날짜, 숫자·날짜·계약 금액·선수 규칙(11-12, 이슈 #103 "쓸 내용이 많은데
      * 지나치게 줄이지 말라"), v3: 영어 본문의 'last February'에 연도를 붙여 보냄(11-12, 이슈 #105 '지난해 2월' 오역),
-     * v4: 3~4문장, 적힌 수에 맞춰 쓰기(11-12, 이슈 #111 "전체적인 길이가 너무 길어졌어").
+     * v4: 3~4문장, 적힌 수에 맞춰 쓰기(11-12, 이슈 #111 "전체적인 길이가 너무 길어졌어"),
+     * v5: 타율·출루율·장타율·OPS 같은 비율 기록을 '0.276' 꼴 하나로(11-19, 이슈 #200 '0.276'·'.276'·'2할7푼6리'가 섞임).
      * 바꾸면 ClaudeSummarizerTest의 지문도 새 값으로 고친다(판을 올리는 것을 잊지 않게)
      */
-    static final String PROMPT_VERSION = "v4";
+    static final String PROMPT_VERSION = "v5";
     /** summary_model 칸 길이(V12 마이그레이션 varchar(50)) */
     static final int MAX_VERSION = 50;
     static final int MAX_SUMMARY = 1200;
@@ -68,6 +69,7 @@ public final class ClaudeSummarizer implements Summarizer {
             - 문장 수는 '요약 분량'에 적힌 수에 맞춘다. 그보다 많이 쓰지 않고, 그보다 적게 쓰지도 않는다. 수를 채우려고 같은 사실을 되풀이하지 않고 기사의 다른 사실을 쓴다.
             - 같은 사실을 다른 말로 다시 쓰거나 기사에 없는 말을 보태지 않는다.
             - 숫자는 원문의 값을 그대로 옮긴다. 두 숫자를 섞거나 계산해 새 숫자를 만들지 않는다.
+            - 타율·출루율·장타율·OPS 같은 비율 기록은 제목과 요약 모두 '0.276'꼴로 쓴다. 기사에 '.276'(점으로 시작)이나 '2할7푼6리'로 쓰여 있어도 '0.276'으로 바꿔 옮긴다. 점으로 시작하는 수는 반드시 앞에 0을 붙인다('OPS .359' → 'OPS 0.359', '타율 .116' → '타율 0.116'). 1 이상이면 '1.012'. 평균자책점('3.12')처럼 원래 0을 넘는 기록은 쓰인 대로 둔다.
             - 날짜·연도는 기사에 쓰인 대로 쓴다. '올해'·'올 시즌'처럼 쓰였으면 연도로 바꾸지 않는다. 영어 기사의 상대 날짜('last February', 'this season')는 '기사 날짜'를 기준으로 옮긴다(2026년 11월 기사의 'last February'는 '지난 2월').
             - 계약 금액은 기사가 쓴 대로 총액·연봉·연평균을 구분한다. 기사에 '연봉'·'연평균'·'연간'·'연 ○○'·'per year'·'annual'·'AAV' 같은 말이 없으면 총액이다('4년 100억 원'은 총액이다).
             - 한 문장은 80자 안쪽으로 짧게 끊는다.
@@ -205,6 +207,20 @@ public final class ClaudeSummarizer implements Summarizer {
         return out.toString();
     }
 
+    /** 점으로 시작하는 비율 기록('.276', 앞뒤에 숫자·점이 없는 것) */
+    private static final Pattern BARE_RATIO = Pattern.compile("(?<![\\d.])\\.(\\d{3})(?!\\d)");
+    /** '2할7푼6리'·'2할5푼'(푼이 있는 것만. '3할 타자'·'1할대'는 비율 기록이 아니라 건드리지 않는다) */
+    private static final Pattern HALPUNRI = Pattern.compile("(\\d)할\\s*(\\d)푼(?:\\s*(\\d)리)?");
+
+    /**
+     * 비율 기록을 '0.276' 꼴 하나로 맞춘다('.276'→'0.276', '2할7푼6리'→'0.276'). 지시문에 규칙을 적어도 모델이 기사의
+     * '.116'을 그대로 옮기는 일이 있어서(운영 기사 시험에서 같은 기사가 두 번 모두) 지시문과 함께 코드로도 맞춘다(이슈 #200)
+     */
+    static String ratioStats(String text) {
+        String bare = BARE_RATIO.matcher(text).replaceAll("0.$1");
+        return HALPUNRI.matcher(bare).replaceAll(m -> "0." + m.group(1) + m.group(2) + (m.group(3) == null ? "0" : m.group(3)));
+    }
+
     /**
      * 답을 제목 줄과 요약으로 나누고 빈 줄·머리 기호를 정리한다. 답이 길이 제한에서 잘렸으면(truncated) 끝나지 않은
      * 마지막 줄을 버린다. 첫 줄이 '제목:'이 아니면 제목 없이 모두 요약으로 본다. 요약이 남지 않으면 empty.
@@ -214,7 +230,7 @@ public final class ClaudeSummarizer implements Summarizer {
      * 나오는 첫 문장을 마지막 자리에 둔다(다른 선수가 주인공인 기사도 이 선수의 기사 페이지에 뜬다).
      */
     static Optional<Summary> tidy(String text, boolean truncated, int most, String player) {
-        List<String> lines = Arrays.stream(text.split("\\R"))
+        List<String> lines = Arrays.stream(ratioStats(text).split("\\R"))
                 .map(String::strip)
                 .filter(line -> !line.isEmpty())
                 .collect(Collectors.toList());
