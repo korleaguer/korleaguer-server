@@ -53,8 +53,9 @@ class PlayerTimelineApiTest {
         String body = mockMvc.perform(get("/api/players/timeline"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.season").value(2026))
-                .andExpect(jsonPath("$.seasons[0]").value(2025))
-                .andExpect(jsonPath("$.seasons[1]").value(2026))
+                // 경기 기록이 있는 해만(샘플은 2026). 이동 기록만 있는 해(2025)는 넣지 않는다
+                .andExpect(jsonPath("$.seasons.length()").value(1))
+                .andExpect(jsonPath("$.seasons[0]").value(2026))
                 .andExpect(jsonPath("$.from").value("2026-03-01"))
                 .andExpect(jsonPath("$.to").value("2026-11-01"))
                 .andExpect(jsonPath("$.today").value("2026-11-01"))

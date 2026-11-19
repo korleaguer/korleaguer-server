@@ -117,12 +117,14 @@ public class PlayerTimelineService {
         return new PlayerTimelineResponse(season, seasons(), from, to, today, inSeason, result);
     }
 
-    /** 이동·경기 기록이 있는 시즌(오름차순, 지금 시즌까지) */
+    /**
+     * 경기 기록(메이저·마이너)이 있는 시즌(오름차순, 지금 시즌까지). 이동 기록만 있는 해(운영 2025)는 넣지 않는다: 경기 없이
+     * 첫 이동만으로 시작 상태를 정하면 콜업 전 구간이 메이저로 칠해지는 것처럼 띠가 틀린다
+     */
     private List<Integer> seasons() {
         TreeSet<Integer> all = new TreeSet<>();
         all.addAll(appearances.findSeasons());
         all.addAll(minorGameLogs.findSeasons());
-        all.addAll(moves.findYears());
         int current = currentSeason.current();
         return all.stream().filter(season -> season <= current).toList();
     }

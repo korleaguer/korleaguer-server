@@ -10,7 +10,7 @@ import java.util.List;
  * 이동 목록을 그린다. 선수 화면(GET /api/players/{id}) 여러 개를 받지 않고 한 번에 준다. 만드는 규칙은 PlayerTimelines.
  *
  * @param season   시즌(요청한 값, 없으면 홈과 같은 지금 시즌)
- * @param seasons  이동·경기 기록이 있는 시즌(오름차순). 웹의 연도 고르기용
+ * @param seasons  경기 기록이 있는 시즌(오름차순). 웹의 연도 고르기용
  * @param from     띠 시작(그 시즌 3월 1일)
  * @param to       띠 끝: 오늘(한국 날짜)과 다음 해 2월 말일 중 이른 날(지난 시즌이면 다음 해 2월 말일)
  * @param today    오늘(한국 날짜)

@@ -24,8 +24,4 @@ public interface PlayerMoveRepository extends JpaRepository<PlayerMove, Long> {
             order by m.moveDate asc, m.mlbTransactionId asc
             """)
     List<PlayerMove> findSinceOldestFirst(Collection<Long> playerIds, LocalDate since);
-
-    /** 이동 기록이 있는 해(연도) */
-    @Query("select distinct year(m.moveDate) from PlayerMove m where m.moveDate is not null")
-    List<Integer> findYears();
 }
