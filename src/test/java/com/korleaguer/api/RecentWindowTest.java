@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,6 +43,10 @@ class RecentWindowTest {
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.recent.isFallback").value(false))
                 .andExpect(jsonPath("$.recent.dateKst").value("2026-09-27"))
-                .andExpect(jsonPath("$.recent.lines", hasSize(6)));
+                .andExpect(jsonPath("$.recent.lines", hasSize(6)))
+                // 화제 문구는 줄마다 최대 하나, 없는 줄은 빠진다(필드는 늘 배열)
+                .andExpect(jsonPath("$.recent.buzz").isArray())
+                .andExpect(jsonPath("$.recent.buzz[*].text", hasItem("올 시즌 첫 홈런")))
+                .andExpect(jsonPath("$.recent.buzz[?(@.playerId==2)]").isEmpty());
     }
 }
