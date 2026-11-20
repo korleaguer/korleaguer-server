@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -29,6 +30,9 @@ import java.util.stream.Collectors;
 class GameBuzzFinder {
 
     private static final List<String> REGULAR = List.of(SeasonType.REGULAR.stored());
+    /** 활약 배지가 있는 기록(웹 Highlights의 stat 이름과 같다) */
+    private static final Set<String> BADGE_STATS = Set.of("homeRuns", "hits", "rbi", "stolenBases", "wins", "saves",
+            "strikeouts");
 
     private final AppearanceRepository appearances;
     private final KoreanMlbSeasonRepository mlbSeasons;
@@ -55,7 +59,9 @@ class GameBuzzFinder {
         int season = currentSeason.seasonAt(candidates.getFirst().startTimeKst().toInstant());
         Map<Long, List<Appearance>> seasonGames = appearances
                 .findSeason(candidates.stream().map(GameLine::playerId).distinct().toList(), season, REGULAR).stream()
-                .sorted(Comparator.comparing((Appearance a) -> a.getGame().getStartTimeUtc()))
+                // 시작 시각이 같으면 경기 번호로 순서를 고정한다(재개 경기·같은 시각 경기에서 '지금 경기까지' 자르기가 흔들리지 않게)
+                .sorted(Comparator.comparing((Appearance a) -> a.getGame().getStartTimeUtc())
+                        .thenComparing(a -> a.getGame().getGamePk()))
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
         List<RecordsResponse.Passed> passed = records.records().passed();
 
@@ -77,7 +83,13 @@ class GameBuzzFinder {
                 .filter(p -> p.playerId() != null && p.playerId() == line.playerId()
                         && p.dateKst().equals(line.startTimeKst().toLocalDate()))
                 .findFirst()
-                .map(p -> new GameBuzz(line.playerId(), line.gameId(), GameBuzz.PASSED, p.category(), passedText(p)));
+                .map(p -> new GameBuzz(line.playerId(), line.gameId(), GameBuzz.PASSED, badgeStat(p.category()),
+                        passedText(p)));
+    }
+
+    /** 웹이 같은 뜻의 활약 배지를 뺄 때 쓰는 이름만 낸다(경기 수 같은 배지 없는 기록은 null, GameBuzz.stat 문서와 같다) */
+    private static String badgeStat(String category) {
+        return BADGE_STATS.contains(category) ? category : null;
     }
 
     /** 예: "한국인 통산 홈런 이대호(14개) 넘음" */
@@ -85,6 +97,7 @@ class GameBuzzFinder {
         String unit = switch (p.category()) {
             case "games" -> "경기";
             case "wins" -> "승";
+            case "saves" -> "세이브";
             default -> "개";
         };
         return "한국인 통산 " + p.label() + " " + p.passedNameKo() + "(" + p.passedValue() + unit + ") 넘음";

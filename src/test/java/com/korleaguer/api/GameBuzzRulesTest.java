@@ -171,5 +171,8 @@ class GameBuzzRulesTest {
         RecordsResponse.Passed games = new RecordsResponse.Passed(4L, 1, "송성문", null, "games", "경기", "경기",
                 java.time.LocalDate.of(2026, 9, 13), "박효준", 68);
         assertThat(GameBuzzFinder.passedText(games)).isEqualTo("한국인 통산 경기 박효준(68경기) 넘음");
+        RecordsResponse.Passed saves = new RecordsResponse.Passed(5L, 2, "고우석", null, "saves", "세이브", "세이브",
+                java.time.LocalDate.of(2026, 8, 1), "오승환", 42);
+        assertThat(GameBuzzFinder.passedText(saves)).isEqualTo("한국인 통산 세이브 오승환(42세이브) 넘음");
     }
 }
