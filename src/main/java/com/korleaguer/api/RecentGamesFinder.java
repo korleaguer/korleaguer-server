@@ -24,10 +24,12 @@ class RecentGamesFinder {
 
     private final GameLineAssembler assembler;
     private final LastGameDay lastGameDay;
+    private final GameBuzzFinder buzz;
 
-    RecentGamesFinder(GameLineAssembler assembler, LastGameDay lastGameDay) {
+    RecentGamesFinder(GameLineAssembler assembler, LastGameDay lastGameDay, GameBuzzFinder buzz) {
         this.assembler = assembler;
         this.lastGameDay = lastGameDay;
+        this.buzz = buzz;
     }
 
     RecentGames find(List<RosterMember> roster, Instant now, boolean statsReady) {
@@ -38,17 +40,18 @@ class RecentGamesFinder {
                     .max(Comparator.naturalOrder())
                     .map(OffsetDateTime::toLocalDate)
                     .orElseThrow();
-            return new RecentGames(false, latest, last24h);
+            return new RecentGames(false, latest, last24h, buzz.find(roster, last24h));
         }
 
         Optional<LocalDate> lastDay = lastGameDay.find(roster, now);
         if (lastDay.isEmpty()) {
-            return new RecentGames(true, null, List.of());
+            return new RecentGames(true, null, List.of(), List.of());
         }
         LocalDate day = lastDay.get();
         List<GameLine> lines = assembler.lines(roster, KoreanTime.startOfKstDay(day),
                 KoreanTime.startOfKstDay(day.plusDays(1)), statsReady);
-        return new RecentGames(true, day, latestPerPlayer(lines));
+        List<GameLine> latest = latestPerPlayer(lines);
+        return new RecentGames(true, day, latest, buzz.find(roster, latest));
     }
 
     // lines는 선수 순, 같은 선수는 최신 경기부터 정렬돼 있다. 선수마다 첫 줄만 남긴다.
