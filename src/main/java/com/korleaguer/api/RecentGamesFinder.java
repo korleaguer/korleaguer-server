@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.Player;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
 
@@ -40,7 +41,7 @@ class RecentGamesFinder {
                     .max(Comparator.naturalOrder())
                     .map(OffsetDateTime::toLocalDate)
                     .orElseThrow();
-            return new RecentGames(false, latest, last24h, buzz.find(roster, last24h));
+            return new RecentGames(false, latest, last24h, buzz.find(players(roster), last24h));
         }
 
         Optional<LocalDate> lastDay = lastGameDay.find(roster, now);
@@ -51,7 +52,11 @@ class RecentGamesFinder {
         List<GameLine> lines = assembler.lines(roster, KoreanTime.startOfKstDay(day),
                 KoreanTime.startOfKstDay(day.plusDays(1)), statsReady);
         List<GameLine> latest = latestPerPlayer(lines);
-        return new RecentGames(true, day, latest, buzz.find(roster, latest));
+        return new RecentGames(true, day, latest, buzz.find(players(roster), latest));
+    }
+
+    private static List<Player> players(List<RosterMember> roster) {
+        return roster.stream().map(RosterMember::player).toList();
     }
 
     // lines는 선수 순, 같은 선수는 최신 경기부터 정렬돼 있다. 선수마다 첫 줄만 남긴다.

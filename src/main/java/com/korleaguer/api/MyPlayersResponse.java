@@ -11,6 +11,8 @@ import java.util.List;
  * 맨 위 fromKst·toKst는 오늘까지 days일이고, isFallback은 마지막으로 뛴 날까지 당긴 기간을 보이는 카드(basis LAST_PLAYED,
  * 또는 마지막 재활 경기까지 당긴 REHAB)가 한 장이라도 있으면 true다.
  * players는 요청한 순서이고, 없는 id는 빠진다.
+ * buzz는 players 줄(games) 중 화제 문구가 붙은 메이저 정규시즌 경기들이다(GameBuzz, 홈 recent.buzz와 같은 규칙, 이슈 #209).
+ * 선수 id·경기 id로 줄과 짝지으며 없는 줄은 빠진다. 마이너·포스트시즌 줄에는 없다.
  */
 public record MyPlayersResponse(
         String dataMode,
@@ -22,7 +24,13 @@ public record MyPlayersResponse(
         LocalDate toKst,
         // 이름이 is로 시작하는 boolean은 JSON 이름이 바뀔 수 있어 직접 적어 둔다.
         @JsonProperty("isFallback") boolean isFallback,
-        List<MyPlayer> players) {
+        List<MyPlayer> players,
+        List<GameBuzz> buzz) {
+
+    public MyPlayersResponse {
+        // 응답 계약: buzz는 늘 배열이다(없으면 빈 배열)
+        buzz = buzz == null ? List.of() : buzz;
+    }
 
     /**
      * 선수 한 명. 타자면 pitching이, 투수면 hitting이 null이다.
