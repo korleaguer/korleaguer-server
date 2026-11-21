@@ -86,6 +86,7 @@ public class MyPlayersService {
     private final SeasonDatesRepository seasonDates;
     private final Clock clock;
     private final CacheManager cacheManager;
+    private final LeagueEnvironments leagues;
     private final GameBuzzFinder buzz;
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
@@ -93,7 +94,7 @@ public class MyPlayersService {
                             BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
                             CurrentSeason currentSeason, PlayerMoveRepository moves,
                             MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates, Clock clock,
-                            CacheManager cacheManager, GameBuzzFinder buzz) {
+                            CacheManager cacheManager, LeagueEnvironments leagues, GameBuzzFinder buzz) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -108,6 +109,7 @@ public class MyPlayersService {
         this.seasonDates = seasonDates;
         this.clock = clock;
         this.cacheManager = cacheManager;
+        this.leagues = leagues;
         this.buzz = buzz;
     }
 
@@ -374,8 +376,11 @@ public class MyPlayersService {
                 .toList();
         Integer streak = pitcher ? SeasonStats.scorelessStreak(seasonAppearances)
                 : SeasonStats.hitStreak(seasonAppearances);
-        MyPlayersResponse.PeriodHitting hitting = pitcher ? null : hitting(member, period, regular);
-        MyPlayersResponse.PeriodPitching pitching = pitcher ? pitching(member, period, regular) : null;
+        // 기간 wRC+·ERA+의 기준은 카드 기간이 속한 시즌의 메이저 리그 평균이다(마이너·재활 기록은 MinorRecords가 따로 만들고 값이 없다)
+        LeagueEnvironments.Env league = leagues.get(currentSeason.seasonAt(range.to().minusMillis(1)),
+                LeagueEnvironments.MLB);
+        MyPlayersResponse.PeriodHitting hitting = pitcher ? null : hitting(member, period, regular, league);
+        MyPlayersResponse.PeriodPitching pitching = pitcher ? pitching(member, period, regular, league) : null;
         List<FormFacts.GameStat> majorStats = card.majorSeason().stream().map(MinorRecords::stat).toList();
         List<FormFacts.GameStat> minorStats = card.minorSeason().stream().map(MinorRecords::stat).toList();
         String kind = card.kind();
@@ -624,21 +629,22 @@ public class MyPlayersService {
     }
 
     private static MyPlayersResponse.PeriodHitting hitting(RosterMember member, List<Appearance> period,
-                                                           List<Appearance> regular) {
+                                                           List<Appearance> regular, LeagueEnvironments.Env league) {
         // 기간 합계에는 마이너 경기 수를 쓰지 않는다(0).
         HitterSeason total = SeasonStats.hitter(member.player(), null, member.team(), period, 0);
         HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodHitting(total.games(), total.atBats(), total.hits(), total.homeRuns(),
-                total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg());
+                total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg(),
+                PeriodRates.wrcPlus(period, league));
     }
 
     private static MyPlayersResponse.PeriodPitching pitching(RosterMember member, List<Appearance> period,
-                                                             List<Appearance> regular) {
+                                                             List<Appearance> regular, LeagueEnvironments.Env league) {
         PitcherSeason total = SeasonStats.pitcher(member.player(), null, member.team(), period, 0);
         PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodPitching(total.games(), total.outs(), total.inningsText(),
                 SeasonStats.earnedRuns(period), total.era(), total.strikeouts(), total.wins(), total.losses(),
-                total.saves(), seasonTotal.era());
+                total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league));
     }
 
     private static Map<Long, List<Appearance>> byPlayer(List<Appearance> list) {
