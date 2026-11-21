@@ -27,6 +27,11 @@ public record MyPlayersResponse(
         List<MyPlayer> players,
         List<GameBuzz> buzz) {
 
+    public MyPlayersResponse {
+        // 응답 계약: buzz는 늘 배열이다(없으면 빈 배열)
+        buzz = buzz == null ? List.of() : buzz;
+    }
+
     /**
      * 선수 한 명. 타자면 pitching이, 투수면 hitting이 null이다.
      * 선수 기록을 받지 못한 상태(statsAvailable=false)면 hitting·pitching·streak 모두 null이다.
