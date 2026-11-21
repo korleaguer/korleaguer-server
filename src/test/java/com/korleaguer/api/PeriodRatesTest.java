@@ -68,6 +68,30 @@ class PeriodRatesTest {
         assertThat(PeriodRates.eraPlusFromMinus(null)).isNull();
     }
 
+    @Test
+    void singleLevelIsNullWhenMixed() {
+        assertThat(PeriodRates.singleLevel(List.of(game("AAA"), game("AAA")))).isEqualTo("AAA");
+        assertThat(PeriodRates.singleLevel(List.of(game("AA"), game("AAA")))).isNull();
+        assertThat(PeriodRates.singleLevel(List.of(game(null)))).isNull();
+    }
+
+    private static com.korleaguer.domain.MinorGameLog game(String level) {
+        var game = new com.korleaguer.domain.MinorGameLog(new Player("선수"), 2026, 1L);
+        game.updateGame(java.time.LocalDate.of(2026, 6, 1), level, "T", "O", true, true);
+        return game;
+    }
+
+    @Test
+    void minorLinesAreMeasuredAgainstTheirOwnLevel() {
+        // 같은 기록이라도 타자 친화 리그(wOBA .338)에서는 메이저(.314)보다 낮게 나온다
+        Batting line = new Batting(4, 1, 2, 1, 0, 0, 1, 1, 0, 0, 0, 0, 5, 3);
+        Double inMajors = PeriodRates.wrcPlusOf(List.of(line), LEAGUE);
+        Double inTripleA = PeriodRates.wrcPlusOf(List.of(line), new LeagueEnvironments.Env(0.338, 0.13, 4.8));
+        assertThat(inTripleA).isLessThan(inMajors);
+        assertThat(PeriodRates.wrcPlusOf(List.of(line), null)).isNull();
+        assertThat(PeriodRates.eraPlusOf(List.of(), null)).isNull();
+    }
+
     private static Appearance batted(Batting batting) {
         Appearance appearance = new Appearance(new Player("타자"), new Game(1L));
         appearance.update(null, batting, null);

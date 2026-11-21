@@ -24,7 +24,15 @@ final class PeriodRates {
 
     /** 기간 타자 wRC+(소수 첫째 자리). 타격 기록이 없거나 세부 칸이 모자라거나 타석이 없으면 null */
     static Double wrcPlus(List<Appearance> period, LeagueEnvironments.Env league) {
-        List<Batting> batted = period.stream().map(Appearance::getBatting).filter(Objects::nonNull).toList();
+        return wrcPlusOf(period.stream().map(Appearance::getBatting).toList(), league);
+    }
+
+    /** 경기별 타격 줄(마이너 경기 포함)로 낸 기간 wRC+. 규칙은 wrcPlus와 같다 */
+    static Double wrcPlusOf(List<Batting> lines, LeagueEnvironments.Env league) {
+        if (league == null) {
+            return null;
+        }
+        List<Batting> batted = lines.stream().filter(Objects::nonNull).toList();
         List<Batting> full = batted.stream().filter(b -> b.doubles() != null && b.triples() != null).toList();
         if (full.isEmpty() || full.size() < batted.size() * MIN_DETAILED_SHARE) {
             return null;
@@ -40,7 +48,15 @@ final class PeriodRates {
 
     /** 기간 투수 ERA+(소수 첫째 자리). 아웃을 아는 경기가 없으면 null, 무자책이면 상한 */
     static Double eraPlus(List<Appearance> period, LeagueEnvironments.Env league) {
-        List<Pitching> known = period.stream().map(Appearance::getPitching)
+        return eraPlusOf(period.stream().map(Appearance::getPitching).toList(), league);
+    }
+
+    /** 경기별 투구 줄(마이너 경기 포함)로 낸 기간 ERA+. 규칙은 eraPlus와 같다 */
+    static Double eraPlusOf(List<Pitching> lines, LeagueEnvironments.Env league) {
+        if (league == null) {
+            return null;
+        }
+        List<Pitching> known = lines.stream()
                 .filter(p -> p != null && p.pitchingOuts() != null).toList();
         int outs = known.stream().mapToInt(Pitching::pitchingOuts).sum();
         int earnedRuns = known.stream().mapToInt(p -> orZero(p.earnedRuns())).sum();
@@ -68,5 +84,11 @@ final class PeriodRates {
 
     private static int orZero(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    /** 마이너 경기들이 모두 한 단계면 그 약어, 섞였거나 단계를 모르면 null (여러 단계를 한 평균에 견주지 않는다) */
+    static String singleLevel(List<com.korleaguer.domain.MinorGameLog> games) {
+        List<String> levels = games.stream().map(com.korleaguer.domain.MinorGameLog::getLevel).distinct().toList();
+        return levels.size() == 1 ? levels.getFirst() : null;
     }
 }

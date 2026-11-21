@@ -139,8 +139,9 @@ public record MyPlayersResponse(
 
     /**
      * 기간 타격 합계. avg는 타수가 0이면 null, seasonAvg는 선수 페이지와 같은 정규시즌 타율이다.
-     * wrcPlus는 기간 wRC+(그 시즌 메이저 리그 평균 = 100, 0~300, 구장 보정 없음). 메이저 기록일 때만 있고(마이너·재활은 null),
-     * 타석이 없거나 경기별 세부 칸이 모자라도 null이다.
+     * wrcPlus는 기간 wRC+(plusLevel 단계의 그 시즌 리그 평균 = 100, 0~300, 구장 보정 없음). 메이저는 plusLevel이 MLB,
+     * 마이너·재활은 그 단계 약어(트리플A면 AAA)다. 기간이 한 단계가 아니거나 그 단계 평균을 모르거나, 타석이 없거나
+     * 경기별 세부 칸이 모자라면 null이다(plusLevel도 null).
      */
     public record PeriodHitting(
             int games,
@@ -152,14 +153,15 @@ public record MyPlayersResponse(
             int stolenBases,
             Double avg,
             Double seasonAvg,
-            Double wrcPlus) {
+            Double wrcPlus,
+            String plusLevel) {
     }
 
     /**
      * 기간 투구 합계. outs·earnedRuns·era는 아웃 수를 아는 경기만 센다(아웃이 0이면 era는 null).
      * seasonEra는 선수 페이지와 같은 정규시즌 평균자책점이다.
-     * eraPlus는 기간 ERA+(그 시즌 메이저 리그 평균 = 100, 높을수록 잘함, 300까지, 무자책이면 300). 메이저 기록일 때만 있고
-     * (마이너·재활은 null), 아웃을 아는 경기가 없으면 null이다.
+     * eraPlus는 기간 ERA+(plusLevel 단계의 그 시즌 리그 평균 = 100, 높을수록 잘함, 300까지, 무자책이면 300). plusLevel은
+     * PeriodHitting과 같다. 아웃을 아는 경기가 없거나 단계가 한 단계가 아니면 null이다.
      */
     public record PeriodPitching(
             int games,
@@ -172,6 +174,7 @@ public record MyPlayersResponse(
             int losses,
             int saves,
             Double seasonEra,
-            Double eraPlus) {
+            Double eraPlus,
+            String plusLevel) {
     }
 }

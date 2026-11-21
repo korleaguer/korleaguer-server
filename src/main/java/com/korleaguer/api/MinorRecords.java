@@ -97,28 +97,36 @@ final class MinorRecords {
     }
 
     /** 기간 타격 합계(마이너). seasonAvg는 그 시즌 마이너 전체 타율이다. */
-    static MyPlayersResponse.PeriodHitting hitting(List<MinorGameLog> period, List<MinorGameLog> season) {
+    static MyPlayersResponse.PeriodHitting hitting(List<MinorGameLog> period, List<MinorGameLog> season,
+                                                   java.util.function.Function<String, LeagueEnvironments.Env> leagues) {
         List<Batting> lines = battings(period);
         List<Batting> all = battings(season);
         int atBats = sum(lines, Batting::atBats);
         int hits = sum(lines, Batting::hits);
+        // 기간 wRC+는 그 단계 리그 평균과 견준다(한 단계일 때만, 아니면 null)
+        String level = PeriodRates.singleLevel(period);
+        Double wrc = level == null ? null : PeriodRates.wrcPlusOf(lines, leagues.apply(level));
         return new MyPlayersResponse.PeriodHitting(lines.size(), atBats, hits, sum(lines, Batting::homeRuns),
                 sum(lines, Batting::rbi), sum(lines, Batting::walks), sum(lines, Batting::stolenBases),
                 BaseballMath.avg(hits, atBats), BaseballMath.avg(sum(all, Batting::hits), sum(all, Batting::atBats)),
-                null);
+                wrc, wrc == null ? null : level);
     }
 
     /** 기간 투구 합계(마이너). 평균자책점은 아웃 수를 아는 경기만 센다. seasonEra는 그 시즌 마이너 전체다. */
-    static MyPlayersResponse.PeriodPitching pitching(List<MinorGameLog> period, List<MinorGameLog> season) {
+    static MyPlayersResponse.PeriodPitching pitching(List<MinorGameLog> period, List<MinorGameLog> season,
+                                                     java.util.function.Function<String, LeagueEnvironments.Env> leagues) {
         List<Pitching> lines = pitchings(period);
         List<Pitching> known = lines.stream().filter(p -> p.pitchingOuts() != null).toList();
         List<Pitching> allKnown = pitchings(season).stream().filter(p -> p.pitchingOuts() != null).toList();
         int outs = sumP(known, Pitching::pitchingOuts);
         int earnedRuns = sumP(known, Pitching::earnedRuns);
+        String level = PeriodRates.singleLevel(period);
+        Double eraPlus = level == null ? null : PeriodRates.eraPlusOf(lines, leagues.apply(level));
         return new MyPlayersResponse.PeriodPitching(lines.size(), outs, BaseballMath.inningsText(outs), earnedRuns,
                 BaseballMath.era(earnedRuns, outs), sumP(lines, Pitching::pitcherStrikeouts), sumP(lines, Pitching::wins),
                 sumP(lines, Pitching::losses), sumP(lines, Pitching::saves),
-                BaseballMath.era(sumP(allKnown, Pitching::earnedRuns), sumP(allKnown, Pitching::pitchingOuts)), null);
+                BaseballMath.era(sumP(allKnown, Pitching::earnedRuns), sumP(allKnown, Pitching::pitchingOuts)),
+                eraPlus, eraPlus == null ? null : level);
     }
 
     /**
@@ -218,12 +226,12 @@ final class MinorRecords {
         List<String> levels = season.stream().map(MinorGameLog::getLevel).filter(Objects::nonNull).distinct().toList();
         String level = levels.size() == 1 ? levels.getFirst() : "MINORS";
         if (player.role() == Role.PITCHER) {
-            MyPlayersResponse.PeriodPitching p = pitching(season, season);
+            MyPlayersResponse.PeriodPitching p = pitching(season, season, l -> null);
             int holds = season.stream().map(MinorGameLog::getHolds).filter(Objects::nonNull).mapToInt(Integer::intValue).sum();
             return new MyPlayersResponse.Totals(level, p.games(), 0, 0, 0, null, p.outs(), p.inningsText(), p.era(),
                     p.strikeouts(), p.saves(), holds);
         }
-        MyPlayersResponse.PeriodHitting h = hitting(season, season);
+        MyPlayersResponse.PeriodHitting h = hitting(season, season, l -> null);
         return new MyPlayersResponse.Totals(level, h.games(), h.atBats(), h.hits(), h.homeRuns(), h.avg(), 0, null,
                 null, 0, 0, 0);
     }

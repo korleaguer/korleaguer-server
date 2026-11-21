@@ -421,8 +421,8 @@ public class MyPlayersService {
             MyPlayersResponse.Basis basis = window.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED
                     : MyPlayersResponse.Basis.RECENT;
             return new MyPlayersResponse.MyPlayer(summary, window.fromKst(), window.toKst(), window.fallback(),
-                    pitcher ? null : MinorRecords.hitting(window.games(), minor),
-                    pitcher ? MinorRecords.pitching(window.games(), minor) : null, streak,
+                    pitcher ? null : MinorRecords.hitting(window.games(), minor, minorLeague(window.games())),
+                    pitcher ? MinorRecords.pitching(window.games(), minor, minorLeague(window.games())) : null, streak,
                     MinorRecords.lines(player, profiles.photoUrl(player), window.games()), status, null, fact, basis,
                     window.games().getLast().getLevel(), null);
         }
@@ -442,8 +442,8 @@ public class MyPlayersService {
             // 재활 경기는 단계도 몸 상태도 달라 시즌 기록과 견주지 않는다(시즌 비교 값 없음).
             // 한 줄 소식도 없다: 다치기 전 메이저 소식('9경기 연속 무안타')을 재활 숫자 옆에 두면 지금 일처럼 읽힌다.
             return new MyPlayersResponse.MyPlayer(summary, rehab.fromKst(), rehab.toKst(), rehab.fallback(),
-                    pitcher ? null : MinorRecords.hitting(rehab.games(), List.of()),
-                    pitcher ? MinorRecords.pitching(rehab.games(), List.of()) : null, streak,
+                    pitcher ? null : MinorRecords.hitting(rehab.games(), List.of(), minorLeague(rehab.games())),
+                    pitcher ? MinorRecords.pitching(rehab.games(), List.of(), minorLeague(rehab.games())) : null, streak,
                     MinorRecords.lines(player, profiles.photoUrl(player), rehab.games()), withTeam, null, null,
                     MyPlayersResponse.Basis.REHAB, last.getLevel(), null);
         }
@@ -628,6 +628,23 @@ public class MyPlayersService {
         return sorted;
     }
 
+    /** 마이너 기간의 단계 약어 → 그 시즌 그 단계 리그 평균(모르는 단계는 null). 시즌은 기간 경기의 공식 날짜 연도다 */
+    private java.util.function.Function<String, LeagueEnvironments.Env> minorLeague(List<MinorGameLog> games) {
+        int season = games.getLast().getGameDate().getYear();
+        // 평균을 못 받아 표준값(메이저 기준)으로 떨어진 단계는 견주지 않는다(지어내지 않는다)
+        return level -> {
+            if (!LeagueEnvironments.SPORT_IDS.containsKey(level)) {
+                return null;
+            }
+            LeagueEnvironments.Env env = leagues.get(season, level);
+            return env == LeagueEnvironments.STANDARD ? null : env;
+        };
+    }
+
+    private static String plusLevel(Double value) {
+        return value == null ? null : LeagueEnvironments.MLB;
+    }
+
     private static MyPlayersResponse.PeriodHitting hitting(RosterMember member, List<Appearance> period,
                                                            List<Appearance> regular, LeagueEnvironments.Env league) {
         // 기간 합계에는 마이너 경기 수를 쓰지 않는다(0).
@@ -635,7 +652,7 @@ public class MyPlayersService {
         HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodHitting(total.games(), total.atBats(), total.hits(), total.homeRuns(),
                 total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg(),
-                PeriodRates.wrcPlus(period, league));
+                PeriodRates.wrcPlus(period, league), plusLevel(PeriodRates.wrcPlus(period, league)));
     }
 
     private static MyPlayersResponse.PeriodPitching pitching(RosterMember member, List<Appearance> period,
@@ -644,7 +661,7 @@ public class MyPlayersService {
         PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodPitching(total.games(), total.outs(), total.inningsText(),
                 SeasonStats.earnedRuns(period), total.era(), total.strikeouts(), total.wins(), total.losses(),
-                total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league));
+                total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league), plusLevel(PeriodRates.eraPlus(period, league)));
     }
 
     private static Map<Long, List<Appearance>> byPlayer(List<Appearance> list) {
