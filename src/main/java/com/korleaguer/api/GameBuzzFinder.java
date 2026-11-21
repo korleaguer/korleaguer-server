@@ -14,7 +14,9 @@ import com.korleaguer.domain.SeasonType;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,22 +49,17 @@ class GameBuzzFinder {
         this.currentSeason = currentSeason;
     }
 
-    List<GameBuzz> find(List<RosterMember> roster, List<GameLine> lines) {
+    List<GameBuzz> find(Collection<Player> roster, List<GameLine> lines) {
         List<GameLine> candidates = lines.stream()
                 .filter(line -> line.played() && line.seasonType() == SeasonType.REGULAR)
                 .toList();
         if (candidates.isEmpty()) {
             return List.of();
         }
-        Map<Long, Player> players = roster.stream().map(RosterMember::player)
-                .collect(Collectors.toMap(Player::getId, p -> p, (a, b) -> a));
-        int season = currentSeason.seasonAt(candidates.getFirst().startTimeKst().toInstant());
-        Map<Long, List<Appearance>> seasonGames = appearances
-                .findSeason(candidates.stream().map(GameLine::playerId).distinct().toList(), season, REGULAR).stream()
-                // 시작 시각이 같으면 경기 번호로 순서를 고정한다(재개 경기·같은 시각 경기에서 '지금 경기까지' 자르기가 흔들리지 않게)
-                .sorted(Comparator.comparing((Appearance a) -> a.getGame().getStartTimeUtc())
-                        .thenComparing(a -> a.getGame().getGamePk()))
-                .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
+        Map<Long, Player> players = roster.stream().collect(Collectors.toMap(Player::getId, p -> p, (a, b) -> a));
+        List<Long> playerIds = candidates.stream().map(GameLine::playerId).distinct().toList();
+        // 줄마다 그 경기가 속한 시즌 기록을 쓴다(시즌 경계 근처 기간에 두 시즌 줄이 섞여도 어긋나지 않게)
+        Map<Integer, Map<Long, List<Appearance>>> bySeason = new HashMap<>();
         List<RecordsResponse.Passed> passed = records.records().passed();
 
         List<GameBuzz> result = new ArrayList<>();
@@ -71,8 +68,20 @@ class GameBuzzFinder {
             if (player == null) {
                 continue;
             }
-            passed(line, passed).or(() -> fromSeason(line, player, season, seasonGames))
-                    .ifPresent(result::add);
+            int season = currentSeason.seasonAt(line.startTimeKst().toInstant());
+            Map<Long, List<Appearance>> seasonGames = bySeason.computeIfAbsent(season, s -> appearances
+                    .findSeason(playerIds, s, REGULAR).stream()
+                    // 시작 시각이 같으면 경기 번호로 순서를 고정한다(재개 경기·같은 시각 경기에서 '지금 경기까지' 자르기가 흔들리지 않게)
+                    .sorted(Comparator.comparing((Appearance a) -> a.getGame().getStartTimeUtc())
+                            .thenComparing(a -> a.getGame().getGamePk()))
+                    .collect(Collectors.groupingBy(a -> a.getPlayer().getId())));
+            // 메이저 정규시즌 출전 기록이 있는 경기만 본다(내 선수 응답에는 마이너 경기 줄도 섞인다)
+            boolean major = seasonGames.getOrDefault(line.playerId(), List.of()).stream()
+                    .anyMatch(a -> a.getGame().getGamePk() == line.gameId());
+            if (!major) {
+                continue;
+            }
+            passed(line, passed).or(() -> fromSeason(line, player, season, seasonGames)).ifPresent(result::add);
         }
         return List.copyOf(result);
     }

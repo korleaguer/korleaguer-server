@@ -86,13 +86,14 @@ public class MyPlayersService {
     private final SeasonDatesRepository seasonDates;
     private final Clock clock;
     private final CacheManager cacheManager;
+    private final GameBuzzFinder buzz;
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
                             AppearanceRepository appearances, GameRepository games, GameLineAssembler gameLines,
                             BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
                             CurrentSeason currentSeason, PlayerMoveRepository moves,
                             MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates, Clock clock,
-                            CacheManager cacheManager) {
+                            CacheManager cacheManager, GameBuzzFinder buzz) {
         this.players = players;
         this.affiliations = affiliations;
         this.appearances = appearances;
@@ -107,6 +108,7 @@ public class MyPlayersService {
         this.seasonDates = seasonDates;
         this.clock = clock;
         this.cacheManager = cacheManager;
+        this.buzz = buzz;
     }
 
     /**
@@ -133,7 +135,15 @@ public class MyPlayersService {
         boolean anyFallback = result.stream().anyMatch(p -> p.basis() == MyPlayersResponse.Basis.LAST_PLAYED
                 || (p.basis() == MyPlayersResponse.Basis.REHAB && p.isFallback()));
         return new MyPlayersResponse(dataMode.value(), queryService.statsAvailable(), currentSeason.current(),
-                now.truncatedTo(ChronoUnit.SECONDS), days, today.minusDays(days - 1), today, anyFallback, result);
+                now.truncatedTo(ChronoUnit.SECONDS), days, today.minusDays(days - 1), today, anyFallback, result,
+                buzz(result));
+    }
+
+    /** 카드 줄(games) 중 화제 문구가 붙는 경기. 마이너 경기 줄·포스트시즌 줄은 GameBuzzFinder가 걸러낸다 */
+    private List<GameBuzz> buzz(List<MyPlayersResponse.MyPlayer> cards) {
+        List<GameLine> lines = cards.stream().flatMap(card -> card.games().stream()).toList();
+        List<Long> ids = cards.stream().map(card -> card.player().id()).distinct().toList();
+        return buzz.find(players.findAllById(ids), lines);
     }
 
     /**

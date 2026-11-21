@@ -54,6 +54,15 @@ class MyPlayersInSeasonTest {
     }
 
     @Test
+    void buzzComesWithCardGames() throws Exception {
+        // 이정후 1003: 올 시즌 첫 홈런. 같은 규칙이라 홈 recent.buzz와 같은 문구다(결장 줄 김혜성에는 없다)
+        mockMvc.perform(get("/api/my").param("ids", "1,2").param("days", "14"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.buzz[?(@.playerId==1 && @.gameId==1003)].text").value(contains("올 시즌 첫 홈런")))
+                .andExpect(jsonPath("$.buzz[?(@.playerId==2 && @.gameId==2003)]").isEmpty());
+    }
+
+    @Test
     void absenceLineHasNoNumbers() throws Exception {
         // 김혜성: 2001 3타수 무안타, 2002 4타수 3안타, 2003 결장
         // 시즌 중에는 구단이 경기하는데 본인이 빠져도 기간을 당기지 않고 결장 줄을 그대로 보인다.
