@@ -29,7 +29,7 @@ public sealed interface PlayerSaber permits PlayerSaber.Hitter, PlayerSaber.Pitc
                     : new PitcherPercentiles(row.getPctOverall(), row.getPctRunPrevention(), row.getPctStrikeouts(),
                     row.getPctWalks());
             return new Pitcher(row.getSeason(), round(row.getWar(), 2), poolSize(row), row.getInningsOuts(),
-                    round(row.getEraMinus(), 1), round(row.getFipMinus(), 1), round(row.getStrikeoutRate(), 1),
+                    round(row.getEraMinus(), 1), PeriodRates.eraPlusFromMinus(row.getEraMinus()), round(row.getFipMinus(), 1), round(row.getStrikeoutRate(), 1),
                     round(row.getWalkRate(), 1), percentiles);
         }
         HitterPercentiles percentiles = row.getPctOverall() == null && row.getPctBatting() == null
@@ -61,8 +61,11 @@ public sealed interface PlayerSaber permits PlayerSaber.Hitter, PlayerSaber.Pitc
     record HitterPercentiles(Integer overall, Integer batting, Integer baseRunning, Integer fielding) {
     }
 
-    /** 투수. inningsOuts는 이닝을 아웃 수로(50⅔이닝 = 152), strikeoutRate·walkRate는 상대 타자 중 비율(%, 0~100)이다. */
-    record Pitcher(int season, Double war, int poolSize, Integer inningsOuts, Double eraMinus, Double fipMinus,
+    /**
+     * 투수. eraPlus는 ERA-를 뒤집은 ERA+(10000 ÷ ERA-, 100 = 리그 평균, 높을수록 잘함, 300까지)다. ERA-는 그대로 둔다.
+     * inningsOuts는 이닝을 아웃 수로(50⅔이닝 = 152), strikeoutRate·walkRate는 상대 타자 중 비율(%, 0~100)이다.
+     */
+    record Pitcher(int season, Double war, int poolSize, Integer inningsOuts, Double eraMinus, Double eraPlus, Double fipMinus,
                    Double strikeoutRate, Double walkRate, PitcherPercentiles percentiles) implements PlayerSaber {
     }
 

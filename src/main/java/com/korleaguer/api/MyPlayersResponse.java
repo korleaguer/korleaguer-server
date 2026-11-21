@@ -137,7 +137,11 @@ public record MyPlayersResponse(
             int holds) {
     }
 
-    /** 기간 타격 합계. avg는 타수가 0이면 null, seasonAvg는 선수 페이지와 같은 정규시즌 타율이다. */
+    /**
+     * 기간 타격 합계. avg는 타수가 0이면 null, seasonAvg는 선수 페이지와 같은 정규시즌 타율이다.
+     * wrcPlus는 기간 wRC+(그 시즌 메이저 리그 평균 = 100, 0~300, 구장 보정 없음). 메이저 기록일 때만 있고(마이너·재활은 null),
+     * 타석이 없거나 경기별 세부 칸이 모자라도 null이다.
+     */
     public record PeriodHitting(
             int games,
             int atBats,
@@ -147,12 +151,15 @@ public record MyPlayersResponse(
             int walks,
             int stolenBases,
             Double avg,
-            Double seasonAvg) {
+            Double seasonAvg,
+            Double wrcPlus) {
     }
 
     /**
      * 기간 투구 합계. outs·earnedRuns·era는 아웃 수를 아는 경기만 센다(아웃이 0이면 era는 null).
      * seasonEra는 선수 페이지와 같은 정규시즌 평균자책점이다.
+     * eraPlus는 기간 ERA+(그 시즌 메이저 리그 평균 = 100, 높을수록 잘함, 300까지, 무자책이면 300). 메이저 기록일 때만 있고
+     * (마이너·재활은 null), 아웃을 아는 경기가 없으면 null이다.
      */
     public record PeriodPitching(
             int games,
@@ -164,6 +171,7 @@ public record MyPlayersResponse(
             int wins,
             int losses,
             int saves,
-            Double seasonEra) {
+            Double seasonEra,
+            Double eraPlus) {
     }
 }
