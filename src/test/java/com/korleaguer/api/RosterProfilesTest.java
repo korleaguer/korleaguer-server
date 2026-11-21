@@ -3,6 +3,7 @@ package com.korleaguer.api;
 import com.korleaguer.support.PhotoFiles;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingProperties;
@@ -21,9 +22,10 @@ class RosterProfilesTest {
 
     private final RosterProperties roster = new RosterProperties(List.of(
             new RosterProperties.Entry("이정후", 808982L, "넥센·키움 히어로즈 (2017–2023)", null, 67341L,
-                    List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023))),
-            new RosterProperties.Entry("김하성", null, null, null, null, null),
-            new RosterProperties.Entry("고우석", 808970L, "LG 트윈스 (2017–2023)", "LG 트윈스", null, null)));
+                    List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023)), null),
+            new RosterProperties.Entry("김하성", null, null, null, null, null, null),
+            new RosterProperties.Entry("고우석", 808970L, "LG 트윈스 (2017–2023)", "LG 트윈스", null, null, null),
+            new RosterProperties.Entry("옛 유니폼", 1L, null, null, null, null, " min ")));
 
     @Test
     void returnedTeamComesFromTheRosterOnly() {
@@ -32,6 +34,20 @@ class RosterProfilesTest {
         assertThat(profiles.returnedKo(new Player("고우석"))).isEqualTo("LG 트윈스");
         assertThat(profiles.returnedKo(new Player("이정후"))).isNull();
         assertThat(profiles.returnedKo(new Player("모르는 선수"))).isNull();
+    }
+
+    @Test
+    void photoTeamIsTheRosterValueOrElseTheFallbackTeam() {
+        RosterProfiles profiles = profiles(true, TEMPLATE);
+        Team lad = new Team(119L);
+        lad.update("LAD", "Los Angeles Dodgers");
+
+        // 명단에 적은 값이 우선(공백·소문자는 정리), 없으면 지금 소속 팀
+        assertThat(profiles.photoTeamAbbr(new Player("옛 유니폼"), lad)).isEqualTo("MIN");
+        assertThat(profiles.photoTeamAbbr(new Player("이정후"), lad)).isEqualTo("LAD");
+        // 사진이 없으면(MLB 선수 번호 없음, 사진 끔) 팀도 없다
+        assertThat(profiles.photoTeamAbbr(new Player("김하성"), lad)).isNull();
+        assertThat(profiles(false, TEMPLATE).photoTeamAbbr(new Player("이정후"), lad)).isNull();
     }
 
     @Test
@@ -58,7 +74,7 @@ class RosterProfilesTest {
     @Test
     void missingEditedPastTeamPhotoStopsTheServerFromStarting() {
         RosterProperties withNewPhoto = new RosterProperties(List.of(new RosterProperties.Entry("새 선수", 1L, null, null,
-                1L, List.of(new RosterProperties.CareerPhoto("한화 이글스", "2019–2025", 2025)))));
+                1L, List.of(new RosterProperties.CareerPhoto("한화 이글스", "2019–2025", 2025)), null)));
         Postings none = new Postings(new PostingProperties(List.of(), List.of()));
 
         assertThatThrownBy(() -> new PhotoSources(withNewPhoto, none, new KorleaguerProperties(2026, null, null, null,

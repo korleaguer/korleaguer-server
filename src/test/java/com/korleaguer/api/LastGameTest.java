@@ -83,7 +83,7 @@ class LastGameTest {
         MinorGameLog unknown = minor(2, "2026-08-04", null); // 일정을 아직 받지 못했다
         List<MinorGameLog> games = List.of(unknown, morning);
 
-        List<GameLine> card = MinorRecords.lines(withId, null, games);
+        List<GameLine> card = MinorRecords.lines(withId, null, null, games);
         List<MinorGameLine> calendar = MinorRecords.gameLines(withId.role(), games,
                 new MinorTeamNames(new MinorTeamProperties(List.of())));
 

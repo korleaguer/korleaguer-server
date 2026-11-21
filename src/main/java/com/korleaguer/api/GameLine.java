@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 /**
  * 선수 × 경기 한 줄. summary는 api가 만든 한국어 문장이다.
  * played=false면 summary에 이유(결장, 경기 전, 기록 없음 등)가 들어간다. 점수는 경기 전이면 null이다.
- * photoUrl은 선수 공식 사진 주소, opponentAbbr은 상대 팀 약어(웹의 상대 팀 로고용)이며 없으면 null이다.
+ * photoUrl은 선수 공식 사진 주소, photoTeamAbbr은 그 사진 속 유니폼 팀 약어(웹 사진 원 바탕색, 사진이 없으면 null)이며 teamAbbr(그 경기 팀)과 다를 수 있다, opponentAbbr은 상대 팀 약어(웹의 상대 팀 로고용)이며 없으면 null이다.
  * batting·pitching은 그 경기 숫자(그래프용)로, 뛴 경기에 그 기록이 있을 때만 나오고 아니면 null이다.
  * lineup은 선발(STARTER)·교체(SUB)다. 뛰지 않았거나 아직 모르면 null이다.
  * seasonType(이슈 #190)은 그 경기가 정규시즌(REGULAR)인지 포스트시즌(POSTSEASON)인지다. 뛴 경기·결장 줄 모두 그 경기의 종류
@@ -38,5 +38,6 @@ public record GameLine(
         GameBatting batting,
         GamePitching pitching,
         Lineup lineup,
-        SeasonType seasonType) {
+        SeasonType seasonType,
+        String photoTeamAbbr) {
 }

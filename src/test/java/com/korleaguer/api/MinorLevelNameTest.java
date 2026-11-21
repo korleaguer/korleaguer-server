@@ -41,7 +41,7 @@ class MinorLevelNameTest {
     @Test
     void homeMinorRowUsesTheCombinedName() {
         ReflectionTestUtils.setField(GO, "id", 5L);
-        HitterSeason row = SeasonStats.minorHitter(GO, null, List.of(game(1, "AA"), game(2, "AAA")));
+        HitterSeason row = SeasonStats.minorHitter(GO, null, null, List.of(game(1, "AA"), game(2, "AAA")));
 
         assertThat(row.levelKo()).isEqualTo("마이너");
         assertThat(row.teamKo()).isEqualTo("Team 2"); // 팀은 그대로 마지막 경기의 팀

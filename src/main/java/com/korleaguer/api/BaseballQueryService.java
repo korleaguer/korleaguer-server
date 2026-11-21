@@ -130,7 +130,7 @@ public class BaseballQueryService {
             // 그 안에서 타율(투수는 평균자책점) 순
             hitters = roster.stream()
                     .filter(m -> m.player().role() == Role.HITTER)
-                    .map(m -> SeasonStats.hitter(m.player(), profiles.photoUrl(m.player()), m.team(),
+                    .map(m -> SeasonStats.hitter(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()), m.team(),
                             seasonOf(byPlayer, m.player()), hittingGames(minors.get(m.player().getId()))))
                     .sorted(Comparator.comparing(HitterSeason::mainlyMinors)
                             .thenComparing((HitterSeason h) -> !ranking.qualifies(h))
@@ -138,7 +138,7 @@ public class BaseballQueryService {
                     .toList();
             pitchers = roster.stream()
                     .filter(m -> m.player().role() == Role.PITCHER)
-                    .map(m -> SeasonStats.pitcher(m.player(), profiles.photoUrl(m.player()), m.team(),
+                    .map(m -> SeasonStats.pitcher(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()), m.team(),
                             seasonOf(byPlayer, m.player()), pitchingGames(minors.get(m.player().getId()))))
                     .sorted(Comparator.comparing(PitcherSeason::mainlyMinors)
                             .thenComparing((PitcherSeason p) -> !ranking.qualifies(p))
@@ -150,13 +150,13 @@ public class BaseballQueryService {
                     .collect(Collectors.groupingBy(g -> g.getPlayer().getId()));
             minorHitters = roster.stream()
                     .filter(m -> m.player().role() == Role.HITTER && minorLogs.containsKey(m.player().getId()))
-                    .map(m -> SeasonStats.minorHitter(m.player(), profiles.photoUrl(m.player()),
+                    .map(m -> SeasonStats.minorHitter(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()),
                             minorLogs.get(m.player().getId())))
                     .sorted(Comparator.comparingInt(HitterSeason::games).reversed())
                     .toList();
             minorPitchers = roster.stream()
                     .filter(m -> m.player().role() == Role.PITCHER && minorLogs.containsKey(m.player().getId()))
-                    .map(m -> SeasonStats.minorPitcher(m.player(), profiles.photoUrl(m.player()),
+                    .map(m -> SeasonStats.minorPitcher(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()),
                             minorLogs.get(m.player().getId())))
                     .sorted(Comparator.comparingInt(PitcherSeason::games).reversed())
                     .toList();
@@ -207,7 +207,7 @@ public class BaseballQueryService {
         LocalDate today = KoreanTime.kstDate(clock.instant());
         return players.findAll(Sort.by("id")).stream()
                 .map(p -> PlayerSummary.of(p, profiles.photoUrl(p), teamByPlayer.get(p.getId()), today,
-                        profiles.returnedKo(p)))
+                        profiles.returnedKo(p), profiles.photoTeamAbbr(p, teamByPlayer.get(p.getId()))))
                 .toList();
     }
 
@@ -246,12 +246,13 @@ public class BaseballQueryService {
             // 마이너 시즌 성적: 홈의 마이너 줄과 같은 계산(경기별 기록을 더함). 마이너 경기가 없으면 null
             List<MinorGameLog> minorLogs = minorGameLogs.findSeason(List.of(player.getId()), season);
             String photoUrl = profiles.photoUrl(player);
+            String photoTeam = profiles.photoTeamAbbr(player, team);
             if (player.role() == Role.PITCHER) {
-                pitching = SeasonStats.pitcher(player, photoUrl, team, mine, pitchingGames(minor));
-                if (!minorLogs.isEmpty()) minorPitching = SeasonStats.minorPitcher(player, photoUrl, minorLogs);
+                pitching = SeasonStats.pitcher(player, photoUrl, photoTeam, team, mine, pitchingGames(minor));
+                if (!minorLogs.isEmpty()) minorPitching = SeasonStats.minorPitcher(player, photoUrl, photoTeam, minorLogs);
             } else {
-                hitting = SeasonStats.hitter(player, photoUrl, team, mine, hittingGames(minor));
-                if (!minorLogs.isEmpty()) minorHitting = SeasonStats.minorHitter(player, photoUrl, minorLogs);
+                hitting = SeasonStats.hitter(player, photoUrl, photoTeam, team, mine, hittingGames(minor));
+                if (!minorLogs.isEmpty()) minorHitting = SeasonStats.minorHitter(player, photoUrl, photoTeam, minorLogs);
             }
             // 마이너 경기 줄(이슈 #145): 웹이 메이저 경기 줄과 날짜순으로 섞어 보인다
             minorGames = MinorRecords.gameLines(player.role(), minorLogs, minorTeamNames);
@@ -272,7 +273,7 @@ public class BaseballQueryService {
                 BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
                 BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
                 player.getLevel(), player.getLevelTeamName(), player.isFreeAgent(), profiles.returnedKo(player),
-                profiles.careerPhotos(player));
+                profiles.careerPhotos(player), profiles.photoTeamAbbr(player, team));
         // MLB 안 위치·시즌별 기록(LeaguePositionRefresher가 하루 한 번 받아 둔 것)과 이 선수 기사(이슈 #133)
         PlayerSeasonMetric.Group group = PlayerSeasonMetric.Group.of(player.role());
         PlayerSaber saber = PlayerSaber.of(leaguePositions.find(player.getId(), season, group).orElse(null));
