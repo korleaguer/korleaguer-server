@@ -9,6 +9,9 @@
 #                  그 시즌 KBO 공식 선수 등록 사진을 MLB 배경 없는 사진과 같은 틀로 맞춘 편집본
 #                  (src/main/resources/photos/career-{kbo-id}-{season}.png)을 우리 서버가 준다(권리는 KBO·구단).
 #                  새로 적으면 편집본도 만든다(tools/posting-photo/README.md). 편집본이 없으면 서버가 뜨지 않는다.
+#   photo-team: 지금 MLB 사진(mlb-…) 속 유니폼 팀 약어(선택, 예: MIN). 웹이 사진 원 바탕을 이 팀 색으로 칠한다(11-22).
+#               없으면 지금(마지막) 소속 팀이다. 트레이드·복귀 직후 MLB 사진이 아직 옛 팀 유니폼일 때만 적고,
+#               MLB가 사진을 새 팀으로 바꾸면 지운다(11-22 확인: 6명 모두 지금 소속과 같아 적은 값 없음).
 # career-ko는 손으로 적은 값이라 공개 전에 다시 확인한다.
 roster:
   baseball:

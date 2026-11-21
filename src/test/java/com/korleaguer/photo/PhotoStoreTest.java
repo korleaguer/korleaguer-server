@@ -322,8 +322,8 @@ class PhotoStoreTest {
         };
         PoliteFetcher fetcher = new PoliteFetcher(http, List.of("korleaguer", "ClaudeBot"), clock, clock::advance, false);
         PhotoSources sources = new PhotoSources(
-                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null),
-                        new RosterProperties.Entry("김혜성", 808975L, null, null, null, null))),
+                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null, null),
+                        new RosterProperties.Entry("김혜성", 808975L, null, null, null, null, null))),
                 new Postings(new PostingProperties(List.of(), List.of())),
                 new KorleaguerProperties(null, null, null, null,
                         new KorleaguerProperties.Images(true, "https://img.example.com/people/{mlbId}/headshot", null), null));
@@ -333,7 +333,7 @@ class PhotoStoreTest {
 
     private PhotoStore storeWithOfficialPhotos(boolean on) {
         PhotoSources sources = new PhotoSources(
-                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null))),
+                new RosterProperties(List.of(new RosterProperties.Entry("이정후", 808982L, null, null, null, null, null))),
                 new Postings(new PostingProperties(List.of(), List.of())),
                 new KorleaguerProperties(null, null, null, null,
                         new KorleaguerProperties.Images(on, "https://img.example.com/people/{mlbId}/headshot", null), null));
@@ -353,7 +353,7 @@ class PhotoStoreTest {
     /** 명단 선수 한 명(이정후)의 과거 소속팀(키움, 2023) 사진 편집본만 있는 사진 목록 */
     private PhotoStore storeWithCareerPhoto(DataMode mode) {
         RosterProperties.Entry lee = new RosterProperties.Entry("이정후", 808982L, null, null, 67341L,
-                List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023)));
+                List.of(new RosterProperties.CareerPhoto("키움 히어로즈", "2017–2023", 2023)), null);
         PhotoSources sources = new PhotoSources(new RosterProperties(List.of(lee)),
                 new Postings(new PostingProperties(List.of(), List.of())),
                 new KorleaguerProperties(null, null, null, null,

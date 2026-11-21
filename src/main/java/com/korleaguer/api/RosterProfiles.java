@@ -1,6 +1,7 @@
 package com.korleaguer.api;
 
 import com.korleaguer.domain.Player;
+import com.korleaguer.domain.Team;
 import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.photo.PhotoSources;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,21 @@ class RosterProfiles {
      */
     String photoUrl(Player player) {
         return photos.mlbPath(mlbId(player));
+    }
+
+    /**
+     * 사진 속 유니폼 팀 약어(MLB 사진 원 바탕색에 쓴다). 명단에 photo-team을 적었으면 그 값, 없으면 fallback 팀(지금·마지막 소속)이다.
+     * 사진이 없으면(공식 사진을 껐거나 MLB 선수 번호가 없음) null이다.
+     */
+    String photoTeamAbbr(Player player, Team fallback) {
+        if (photoUrl(player) == null) {
+            return null;
+        }
+        RosterProperties.Entry entry = byNameKo.get(player.getNameKo());
+        if (entry != null && entry.photoTeam() != null) {
+            return entry.photoTeam();
+        }
+        return TeamLabels.abbreviation(fallback);
     }
 
     /** MLB 선수 번호만 있으면 나온다(사진 설정과 무관). */

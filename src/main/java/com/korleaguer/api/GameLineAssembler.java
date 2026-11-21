@@ -230,7 +230,8 @@ class GameLineAssembler {
                 played ? batting(appearance.getBatting()) : null,
                 played ? pitching(appearance.getPitching()) : null,
                 played ? appearance.getLineup() : null,
-                SeasonType.of(game.getSeasonType()));
+                SeasonType.of(game.getSeasonType()),
+                profiles.photoTeamAbbr(player, team));
     }
 
     static GameBatting batting(Batting b) {
