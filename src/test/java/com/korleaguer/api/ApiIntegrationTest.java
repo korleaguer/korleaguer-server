@@ -391,6 +391,7 @@ class ApiIntegrationTest {
         mockMvc.perform(get("/api/players/5"))
                 .andExpect(jsonPath("$.saber.inningsOuts").value(12))
                 .andExpect(jsonPath("$.saber.eraMinus").value(216.1))
+                .andExpect(jsonPath("$.saber.eraPlus").value(46.3))
                 .andExpect(jsonPath("$.saber.fipMinus").value(209.7))
                 .andExpect(jsonPath("$.saber.strikeoutRate").value(22.7))
                 .andExpect(jsonPath("$.saber.walkRate").value(9.1))

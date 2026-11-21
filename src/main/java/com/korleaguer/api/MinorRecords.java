@@ -104,7 +104,8 @@ final class MinorRecords {
         int hits = sum(lines, Batting::hits);
         return new MyPlayersResponse.PeriodHitting(lines.size(), atBats, hits, sum(lines, Batting::homeRuns),
                 sum(lines, Batting::rbi), sum(lines, Batting::walks), sum(lines, Batting::stolenBases),
-                BaseballMath.avg(hits, atBats), BaseballMath.avg(sum(all, Batting::hits), sum(all, Batting::atBats)));
+                BaseballMath.avg(hits, atBats), BaseballMath.avg(sum(all, Batting::hits), sum(all, Batting::atBats)),
+                null);
     }
 
     /** 기간 투구 합계(마이너). 평균자책점은 아웃 수를 아는 경기만 센다. seasonEra는 그 시즌 마이너 전체다. */
@@ -117,7 +118,7 @@ final class MinorRecords {
         return new MyPlayersResponse.PeriodPitching(lines.size(), outs, BaseballMath.inningsText(outs), earnedRuns,
                 BaseballMath.era(earnedRuns, outs), sumP(lines, Pitching::pitcherStrikeouts), sumP(lines, Pitching::wins),
                 sumP(lines, Pitching::losses), sumP(lines, Pitching::saves),
-                BaseballMath.era(sumP(allKnown, Pitching::earnedRuns), sumP(allKnown, Pitching::pitchingOuts)));
+                BaseballMath.era(sumP(allKnown, Pitching::earnedRuns), sumP(allKnown, Pitching::pitchingOuts)), null);
     }
 
     /**
