@@ -125,7 +125,7 @@ final class MinorRecords {
      * 기간의 마이너 경기 한 줄 기록(최신순, 선수 화면 마이너 경기 줄과 같은 순서). 시작 시각은 선수 화면 마이너 경기 줄과 같은
      * startTimeKst다(같은 경기가 같은 날·시각, 이슈 #183). 팀·상대는 마이너 팀 이름(영어), 점수는 null이고 결과(W/L)만 있다.
      */
-    static List<GameLine> lines(Player player, String photoUrl, List<MinorGameLog> period) {
+    static List<GameLine> lines(Player player, String photoUrl, String photoTeamAbbr, List<MinorGameLog> period) {
         Role role = player.role();
         return period.stream()
                 .sorted(NEWEST_FIRST)
@@ -135,7 +135,7 @@ final class MinorRecords {
                         game.getWin() == null ? null : game.getWin() ? "W" : "L", "final", true,
                         GameSummary.played(role, game.getBatting(), game.getPitching()),
                         GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()), null,
-                        MINOR_SEASON_TYPE))
+                        MINOR_SEASON_TYPE, photoTeamAbbr))
                 .toList();
     }
 
@@ -201,11 +201,11 @@ final class MinorRecords {
             return null;
         }
         if (player.role() == Role.PITCHER) {
-            PitcherSeason p = SeasonStats.pitcher(player, null, null, regular, 0);
+            PitcherSeason p = SeasonStats.pitcher(player, null, null, null, regular, 0);
             return new MyPlayersResponse.Totals("MLB", p.games(), 0, 0, 0, null, p.outs(), p.inningsText(), p.era(),
                     p.strikeouts(), p.saves(), 0);
         }
-        HitterSeason h = SeasonStats.hitter(player, null, null, regular, 0);
+        HitterSeason h = SeasonStats.hitter(player, null, null, null, regular, 0);
         return new MyPlayersResponse.Totals("MLB", h.games(), h.atBats(), h.hits(), h.homeRuns(), h.avg(), 0, null,
                 null, 0, 0, 0);
     }

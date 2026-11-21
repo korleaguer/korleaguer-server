@@ -14,12 +14,15 @@ public record RosterProperties(List<Entry> baseball) {
      * returnedKo는 국내 리그로 돌아간 팀(예: "LG 트윈스")이다. 있으면 MLB 기록상 FA여도 상태가 'KBO 복귀'다(MLB 데이터에는
      * KBO 계약이 없어 사람이 적는다). 이제 해외파가 아니므로 다음 시즌이 시작되면 명단에서 뺀다.
      * kboId는 KBO 선수 번호(과거 소속팀 사진 주소에 쓴다), careerPhotos는 과거 소속팀 시절 사진(없으면 빈 목록)이다.
+     * photoTeam은 지금 MLB 사진 속 유니폼 팀 약어(예: "MIN")다. 트레이드·복귀 직후 MLB 사진이 아직 옛 팀일 때만 사람이 적고,
+     * 없으면 지금(마지막) 소속 팀이다. 웹이 사진 원 바탕을 이 팀 색으로 칠한다.
      */
     public record Entry(String nameKo, Long mlbId, String careerKo, String returnedKo, Long kboId,
-                        List<CareerPhoto> careerPhotos) {
+                        List<CareerPhoto> careerPhotos, String photoTeam) {
 
         public Entry {
             careerPhotos = careerPhotos == null ? List.of() : List.copyOf(careerPhotos);
+            photoTeam = photoTeam == null || photoTeam.isBlank() ? null : photoTeam.trim().toUpperCase(java.util.Locale.ROOT);
         }
     }
 

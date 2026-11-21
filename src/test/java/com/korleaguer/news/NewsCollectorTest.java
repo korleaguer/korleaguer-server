@@ -223,8 +223,8 @@ class NewsCollectorTest {
     void rosterPlayersAreWatchedByKoreanAndMlbNamesEvenOutsideThePostingWindow() {
         clock.set(Instant.parse("2026-10-20T01:00:00Z")); // 노시환 협상 기간 밖
         roster = new RosterProperties(List.of(
-                new RosterProperties.Entry("김혜성", 808975L, null, null, null, List.of()),
-                new RosterProperties.Entry("고우석", 808970L, null, "LG 트윈스", null, List.of())));
+                new RosterProperties.Entry("김혜성", 808975L, null, null, null, List.of(), null),
+                new RosterProperties.Entry("고우석", 808970L, null, "LG 트윈스", null, List.of(), null)));
         Player kim = mock(Player.class);
         when(kim.getNameKo()).thenReturn("김혜성");
         when(kim.getNameEn()).thenReturn("Hyeseong Kim");
@@ -246,7 +246,7 @@ class NewsCollectorTest {
 
     @Test
     void aPostingPlayerKeepsThePostingWindowWhenAlsoOnTheRoster() {
-        roster = new RosterProperties(List.of(new RosterProperties.Entry("노시환", null, null, null, null, List.of())));
+        roster = new RosterProperties(List.of(new RosterProperties.Entry("노시환", null, null, null, null, List.of(), null)));
 
         List<NewsCollector.Subject> subjects = collector(source("뉴시스", NEWS + "/rss.xml")).subjects(NOV_11);
 
@@ -256,7 +256,7 @@ class NewsCollectorTest {
 
     @Test
     void aPostingPlayerKboArticleIsLeftOutButARosterPlayersIsNot() {
-        roster = new RosterProperties(List.of(new RosterProperties.Entry("김하성", 673490L, null, null, null, List.of())));
+        roster = new RosterProperties(List.of(new RosterProperties.Entry("김하성", 673490L, null, null, null, List.of(), null)));
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of());
         http.on(NEWS + "/rss.xml", ok(rss(
                 item("KIA가 필요한 FA는 원태인…노시환급 초대형계약?", NEWS + "/view/1", "Wed, 11 Nov 2026 09:00:00 +0900"),

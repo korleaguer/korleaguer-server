@@ -17,6 +17,8 @@ import java.time.LocalDate;
  * freeAgent는 MLB 이동 기록상 FA인지다(마지막 'FA 선언' 뒤에 새 팀 기록이 없음). true면 level·levelTeam은 null이고,
  * teamKo·teamAbbr은 마지막 소속 팀이다.
  * returnedKo는 국내 리그로 돌아간 팀(명단에 사람이 적은 값, 예: "LG 트윈스")이고, 해외에서 뛰고 있으면 null이다.
+ * photoTeamAbbr은 photoUrl 사진 속 유니폼 팀 약어다(웹 사진 원 바탕색). 트레이드·복귀 직후에는 teamAbbr과 다를 수 있고,
+ * 사진이 없으면 null이다(RosterProfiles.photoTeamAbbr).
  */
 public record PlayerSummary(
         long id,
@@ -33,16 +35,18 @@ public record PlayerSummary(
         Level level,
         String levelTeam,
         boolean freeAgent,
-        String returnedKo) {
+        String returnedKo,
+        String photoTeamAbbr) {
 
     /**
      * team은 지금 소속(소속이 끝났으면 마지막 소속, 없으면 null), todayKst는 나이를 셀 한국 날짜,
      * returnedKo는 국내 리그로 돌아간 팀(RosterProfiles)이다.
      */
-    static PlayerSummary of(Player p, String photoUrl, Team team, LocalDate todayKst, String returnedKo) {
+    static PlayerSummary of(Player p, String photoUrl, Team team, LocalDate todayKst, String returnedKo,
+                            String photoTeamAbbr) {
         return new PlayerSummary(p.getId(), p.getNameKo(), photoUrl, p.getNameEn(), p.role(),
                 p.getPosition(), PositionNames.korean(p.getPosition()), TeamLabels.korean(team),
                 TeamLabels.abbreviation(team), BirthDates.age(p.getBirthDate(), p.getAge(), todayKst),
-                p.getJersey(), p.getLevel(), p.getLevelTeamName(), p.isFreeAgent(), returnedKo);
+                p.getJersey(), p.getLevel(), p.getLevelTeamName(), p.isFreeAgent(), returnedKo, photoTeamAbbr);
     }
 }

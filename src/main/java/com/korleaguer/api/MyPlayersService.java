@@ -365,7 +365,7 @@ public class MyPlayersService {
         Period range = card.range();
         MyPlayersResponse.CardStatus status = card.resolved().status();
         PlayerSummary summary = PlayerSummary.of(player, profiles.photoUrl(player), member.team(), today,
-                profiles.returnedKo(player));
+                profiles.returnedKo(player), profiles.photoTeamAbbr(player, member.team()));
         if (!statsAvailable) {
             return new MyPlayersResponse.MyPlayer(summary, range.fromKst(), range.toKst(), range.fallback(),
                     null, null, null, lines, status, null, null, MyPlayersResponse.Basis.NONE, null, null);
@@ -423,7 +423,7 @@ public class MyPlayersService {
             return new MyPlayersResponse.MyPlayer(summary, window.fromKst(), window.toKst(), window.fallback(),
                     pitcher ? null : MinorRecords.hitting(window.games(), minor),
                     pitcher ? MinorRecords.pitching(window.games(), minor) : null, streak,
-                    MinorRecords.lines(player, profiles.photoUrl(player), window.games()), status, null, fact, basis,
+                    MinorRecords.lines(player, profiles.photoUrl(player), profiles.photoTeamAbbr(player, member.team()), window.games()), status, null, fact, basis,
                     window.games().getLast().getLevel(), null);
         }
 
@@ -444,7 +444,7 @@ public class MyPlayersService {
             return new MyPlayersResponse.MyPlayer(summary, rehab.fromKst(), rehab.toKst(), rehab.fallback(),
                     pitcher ? null : MinorRecords.hitting(rehab.games(), List.of()),
                     pitcher ? MinorRecords.pitching(rehab.games(), List.of()) : null, streak,
-                    MinorRecords.lines(player, profiles.photoUrl(player), rehab.games()), withTeam, null, null,
+                    MinorRecords.lines(player, profiles.photoUrl(player), profiles.photoTeamAbbr(player, member.team()), rehab.games()), withTeam, null, null,
                     MyPlayersResponse.Basis.REHAB, last.getLevel(), null);
         }
         MyPlayersResponse.Basis basis = injured
@@ -631,8 +631,8 @@ public class MyPlayersService {
     private static MyPlayersResponse.PeriodHitting hitting(RosterMember member, List<Appearance> period,
                                                            List<Appearance> regular, LeagueEnvironments.Env league) {
         // 기간 합계에는 마이너 경기 수를 쓰지 않는다(0).
-        HitterSeason total = SeasonStats.hitter(member.player(), null, member.team(), period, 0);
-        HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, member.team(), regular, 0);
+        HitterSeason total = SeasonStats.hitter(member.player(), null, null, member.team(), period, 0);
+        HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodHitting(total.games(), total.atBats(), total.hits(), total.homeRuns(),
                 total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg(),
                 PeriodRates.wrcPlus(period, league));
@@ -640,8 +640,8 @@ public class MyPlayersService {
 
     private static MyPlayersResponse.PeriodPitching pitching(RosterMember member, List<Appearance> period,
                                                              List<Appearance> regular, LeagueEnvironments.Env league) {
-        PitcherSeason total = SeasonStats.pitcher(member.player(), null, member.team(), period, 0);
-        PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, member.team(), regular, 0);
+        PitcherSeason total = SeasonStats.pitcher(member.player(), null, null, member.team(), period, 0);
+        PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodPitching(total.games(), total.outs(), total.inningsText(),
                 SeasonStats.earnedRuns(period), total.era(), total.strikeouts(), total.wins(), total.losses(),
                 total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league));
