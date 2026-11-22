@@ -21,16 +21,19 @@ public class BaseballController {
     private final GameDetailService gameDetails;
     private final PlayerTimelineService timelines;
     private final SameGamesService sameGames;
+    private final CompareService compare;
 
     public BaseballController(BaseballQueryService queryService, MyPlayersService myPlayers,
                               OnDemandSeason onDemandSeason, GameDetailService gameDetails,
-                              PlayerTimelineService timelines, SameGamesService sameGames) {
+                              PlayerTimelineService timelines, SameGamesService sameGames,
+                              CompareService compare) {
         this.queryService = queryService;
         this.myPlayers = myPlayers;
         this.onDemandSeason = onDemandSeason;
         this.gameDetails = gameDetails;
         this.timelines = timelines;
         this.sameGames = sameGames;
+        this.compare = compare;
     }
 
     @GetMapping("/home")
@@ -76,6 +79,15 @@ public class BaseballController {
     @GetMapping("/players/{id}/same-games")
     public SameGamesResponse sameGames(@PathVariable long id) {
         return sameGames.find(id);
+    }
+
+    /**
+     * 두 선수 비교에 쓸 타자 시즌 성적 묶음(이슈 #221): 이 선수(me)와 견줄 수 있는 다른 우리 타자들(others)의 그 시즌 메이저 성적과
+     * wRC+. 투수거나 메이저 타석이 없으면 me가 null, 없는 선수면 404. DB만 읽는다
+     */
+    @GetMapping("/players/{id}/compare")
+    public CompareResponse compare(@PathVariable long id) {
+        return compare.find(id);
     }
 
     /**
