@@ -133,6 +133,11 @@ class GameLineAssembler {
                 .toList();
     }
 
+    /** 뛴 기록 하나를 그 선수의 경기 줄로(같은 경기 맞대결, SameGamesService). 팀은 그 경기에서 뛴 팀이다 */
+    GameLine playedLine(Appearance appearance) {
+        return line(appearance.getPlayer(), appearance.getTeam(), appearance.getGame(), appearance, true);
+    }
+
     /**
      * 줄을 만드는 경기 종류(정규시즌·포스트시즌)인지. 종류가 비었거나(game.season_type은 null을 허용한다) 모르는 값이면 false다
      * (Set.of는 null을 물으면 예외라 먼저 거른다)
