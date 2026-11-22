@@ -20,15 +20,17 @@ public class BaseballController {
     private final OnDemandSeason onDemandSeason;
     private final GameDetailService gameDetails;
     private final PlayerTimelineService timelines;
+    private final SameGamesService sameGames;
 
     public BaseballController(BaseballQueryService queryService, MyPlayersService myPlayers,
                               OnDemandSeason onDemandSeason, GameDetailService gameDetails,
-                              PlayerTimelineService timelines) {
+                              PlayerTimelineService timelines, SameGamesService sameGames) {
         this.queryService = queryService;
         this.myPlayers = myPlayers;
         this.onDemandSeason = onDemandSeason;
         this.gameDetails = gameDetails;
         this.timelines = timelines;
+        this.sameGames = sameGames;
     }
 
     @GetMapping("/home")
@@ -65,6 +67,15 @@ public class BaseballController {
     @RequestMapping(value = "/players/{id}", method = RequestMethod.HEAD)
     public ResponseEntity<Void> playerExists(@PathVariable long id) {
         return queryService.playerExists(id) ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
+
+    /**
+     * 같은 경기에 나온 우리 선수(이슈 #217): 그 시즌 메이저 경기 중 이 선수와 다른 우리 선수가 모두 뛴 경기를 상대 선수별로
+     * 묶어 준다(경기 수·이 선수 팀 전적·경기마다 두 사람 한 줄). 없으면 빈 목록, 없는 선수면 404. DB만 읽는다
+     */
+    @GetMapping("/players/{id}/same-games")
+    public SameGamesResponse sameGames(@PathVariable long id) {
+        return sameGames.find(id);
     }
 
     /**

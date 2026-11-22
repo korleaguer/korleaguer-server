@@ -39,6 +39,22 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
     List<Appearance> findSeason(Collection<Long> playerIds, int season, Collection<String> seasonTypes);
 
     /**
+     * 한 선수가 그 시즌 seasonTypes 경기에 남긴 기록과, 같은 경기에 다른 선수가 남긴 기록(같은 경기 맞대결, 이슈 #217).
+     * 기록은 우리 선수 것만 저장하므로 한 경기에 줄이 둘 이상이면 우리 선수가 같이 나온 경기다
+     */
+    @Query("""
+            select a from Appearance a
+            join fetch a.player
+            join fetch a.game g
+            join fetch g.homeTeam
+            join fetch g.awayTeam
+            join fetch a.team
+            where g.season = :season and g.seasonType in :seasonTypes
+              and g in (select m.game from Appearance m where m.player.id = :playerId)
+            """)
+    List<Appearance> findSeasonInGamesOf(long playerId, int season, Collection<String> seasonTypes);
+
+    /**
      * 선발·교체를 아직 모르는 기록이 있는 굳은(settled) 경기 중, 박스스코어로 채워 보지 않은 경기(최근 경기부터).
      * 지난 경기를 뒤에서 천천히 채울 때 쓴다. 굳기 전 경기는 경기 갱신·재확인에서 박스스코어를 받을 때 채운다.
      * 채워 본 경기라도 그 뒤 시즌 백필로 새 기록이 생기면 다시 채워 보지 않은 경기가 된다(IngestWriter.saveGameLog).
