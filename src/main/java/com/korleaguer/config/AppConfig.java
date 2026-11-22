@@ -37,6 +37,8 @@ public class AppConfig {
     public static final String RECORDS_CACHE = "records";
     /** 선수 이동 연표(GET /api/players/timeline). 시즌마다 따로 둔다 */
     public static final String TIMELINE_CACHE = "timeline";
+    /** 같은 경기에 나온 우리 선수(GET /api/players/{id}/same-games, 이슈 #217). 선수마다 따로 둔다 */
+    public static final String SAME_GAMES_CACHE = "sameGames";
 
     // 테스트에서 시각을 고정할 수 있게 Clock을 빈으로 둔다.
     @Bean
