@@ -91,4 +91,10 @@ final class PeriodRates {
         List<String> levels = games.stream().map(com.korleaguer.domain.MinorGameLog::getLevel).distinct().toList();
         return levels.size() == 1 ? levels.getFirst() : null;
     }
+
+    /** 마이너 경기들이 아는 단계 둘 이상에 걸쳐 있는가(단계를 모르는 경기는 세지 않는다). 이때 singleLevel은 늘 null이다 */
+    static boolean mixedLevels(List<com.korleaguer.domain.MinorGameLog> games) {
+        return games.stream().map(com.korleaguer.domain.MinorGameLog::getLevel)
+                .filter(java.util.Objects::nonNull).distinct().count() > 1;
+    }
 }
