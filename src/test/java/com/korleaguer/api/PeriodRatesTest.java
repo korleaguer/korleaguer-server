@@ -75,6 +75,15 @@ class PeriodRatesTest {
         assertThat(PeriodRates.singleLevel(List.of(game(null)))).isNull();
     }
 
+    @Test
+    void mixedLevelsOnlyWhenTwoKnownLevels() {
+        assertThat(PeriodRates.mixedLevels(List.of(game("AAA"), game("AAA")))).isFalse();
+        assertThat(PeriodRates.mixedLevels(List.of(game("ROK"), game("AA"), game("AAA")))).isTrue();
+        // 단계를 모르는 경기는 '오갔다'의 근거가 아니다
+        assertThat(PeriodRates.mixedLevels(List.of(game("AAA"), game(null)))).isFalse();
+        assertThat(PeriodRates.mixedLevels(List.of())).isFalse();
+    }
+
     private static com.korleaguer.domain.MinorGameLog game(String level) {
         var game = new com.korleaguer.domain.MinorGameLog(new Player("선수"), 2026, 1L);
         game.updateGame(java.time.LocalDate.of(2026, 6, 1), level, "T", "O", true, true);

@@ -652,7 +652,7 @@ public class MyPlayersService {
         HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodHitting(total.games(), total.atBats(), total.hits(), total.homeRuns(),
                 total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg(),
-                PeriodRates.wrcPlus(period, league), plusLevel(PeriodRates.wrcPlus(period, league)));
+                PeriodRates.wrcPlus(period, league), plusLevel(PeriodRates.wrcPlus(period, league)), false);
     }
 
     private static MyPlayersResponse.PeriodPitching pitching(RosterMember member, List<Appearance> period,
@@ -661,7 +661,7 @@ public class MyPlayersService {
         PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodPitching(total.games(), total.outs(), total.inningsText(),
                 SeasonStats.earnedRuns(period), total.era(), total.strikeouts(), total.wins(), total.losses(),
-                total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league), plusLevel(PeriodRates.eraPlus(period, league)));
+                total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league), plusLevel(PeriodRates.eraPlus(period, league)), false);
     }
 
     private static Map<Long, List<Appearance>> byPlayer(List<Appearance> list) {
