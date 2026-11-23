@@ -8,6 +8,8 @@ import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.HighlightTitle;
 import com.korleaguer.domain.HighlightTitleRepository;
 import com.korleaguer.domain.PlayerGameDetailRepository;
+import com.korleaguer.ingest.GameDetailIngest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,7 +31,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -39,6 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 경기 상세 API. 샘플 데이터(경기 1001…)에 가짜 MLB 타석 기록(이정후 2026-09-18 실제 응답)을 붙여 본다.
+ * 상세는 수집이 미리 받아 두고(GameDetailIngest), API는 DB만 읽는다(이슈 #229). API 요청으로는 MLB를 한 번도 부르지 않는다.
  * 시계는 2026-11-01(샘플 경기는 9월에 끝남 → 하루 넘게 지나 받으므로 굳힌다).
  */
 @SpringBootTest(properties =
@@ -47,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class GameDetailApiTest {
 
-    /** 실패하는 경기(MLB 오류) */
+    /** 실패하는 경기(MLB 오류). 수집이 받지 못해 상세가 없다 */
     static final long BROKEN_GAME = 1002;
 
     @Autowired
@@ -57,6 +59,9 @@ class GameDetailApiTest {
     private Fakes fakes;
 
     @Autowired
+    private GameDetailIngest gameDetailIngest;
+
+    @Autowired
     private PlayerGameDetailRepository details;
 
     @Autowired
@@ -64,28 +69,32 @@ class GameDetailApiTest {
 
     private final JsonMapper json = JsonMapper.builder().build();
 
+    /** 수집이 남은 상세를 모두 받아 둔다(앱 시작 때 따라잡기는 한 번에 10경기까지만 받는다) */
+    @BeforeEach
+    void ingestDetails() {
+        gameDetailIngest.fill(1000);
+    }
+
     @Test
-    void hitterDetailIsFetchedOnceThenReadFromTheDb() throws Exception {
-        int before = fakes.mlbCalls.get();
+    void savedDetailIsReadWithoutCallingMlb() throws Exception {
+        int before = fakes.mlbCalls();
 
-        mockMvc.perform(get("/api/players/1/games/1001"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.available").value(true))
-                .andExpect(jsonPath("$.clips").value(true))
-                .andExpect(jsonPath("$.role").value("HITTER"))
-                .andExpect(jsonPath("$.plays", hasSize(4)))
-                .andExpect(jsonPath("$.plays[0].resultKo").value("홈런"))
-                .andExpect(jsonPath("$.plays[0].exitKmh").value(157))
-                .andExpect(jsonPath("$.highlights", hasSize(1)))
-                .andExpect(jsonPath("$.highlights[0].durationSec").value(30));
-        // 타석별 기록 + 영상 목록
-        assertThat(fakes.mlbCalls.get() - before).isEqualTo(2);
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(get("/api/players/1/games/1001"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.playerId").value(1))
+                    .andExpect(jsonPath("$.gamePk").value(1001))
+                    .andExpect(jsonPath("$.available").value(true))
+                    .andExpect(jsonPath("$.clips").value(true))
+                    .andExpect(jsonPath("$.role").value("HITTER"))
+                    .andExpect(jsonPath("$.plays", hasSize(4)))
+                    .andExpect(jsonPath("$.plays[0].resultKo").value("홈런"))
+                    .andExpect(jsonPath("$.plays[0].exitKmh").value(157))
+                    .andExpect(jsonPath("$.highlights", hasSize(1)))
+                    .andExpect(jsonPath("$.highlights[0].durationSec").value(30));
+        }
+        assertThat(fakes.mlbCalls()).isEqualTo(before);
         assertThat(details.findByPlayerIdAndGamePk(1, 1001)).hasValueSatisfying(d -> assertThat(d.isComplete()).isTrue());
-
-        mockMvc.perform(get("/api/players/1/games/1001"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.plays", hasSize(4)));
-        assertThat(fakes.mlbCalls.get() - before).isEqualTo(2);
     }
 
     @Test
@@ -94,23 +103,21 @@ class GameDetailApiTest {
         mockMvc.perform(get("/api/players/1/games/1001"))
                 .andExpect(jsonPath("$.highlights[0].title").value(title))
                 .andExpect(jsonPath("$.highlights[0].titleKo").doesNotExist());
-        int before = fakes.mlbCalls.get();
+        int before = fakes.mlbCalls();
 
-        // 번역이 나중에 생겨도 이미 굳은 상세(DB)에 바로 붙는다. MLB는 다시 부르지 않는다
+        // 번역이 나중에 생겨도 이미 굳은 상세(DB)에 바로 붙는다. MLB는 부르지 않는다
         HighlightTitle row = new HighlightTitle(title);
         row.translated("솔로 홈런 (시즌 10호)", "test/t1", Instant.parse("2026-11-01T11:00:00Z"));
         highlightTitles.save(row);
         try {
             mockMvc.perform(get("/api/players/1/games/1001"))
                     .andExpect(jsonPath("$.highlights[0].titleKo").value("솔로 홈런 (시즌 10호)"));
-            assertThat(fakes.mlbCalls.get()).isEqualTo(before);
+            assertThat(fakes.mlbCalls()).isEqualTo(before);
             // 저장된 상세 JSON에는 한국어 제목을 넣지 않는다
             assertThat(details.findByPlayerIdAndGamePk(1, 1001).orElseThrow().getPayload())
                     .doesNotContain("솔로 홈런");
         } finally {
             highlightTitles.delete(row);
-            // 다른 시험이 이 경기를 처음 여는 것으로 보게 되돌린다
-            details.findByPlayerIdAndGamePk(1, 1001).ifPresent(details::delete);
         }
     }
 
@@ -137,29 +144,57 @@ class GameDetailApiTest {
     @Test
     void minorGameHasPlaysButNoVideos() throws Exception {
         long minorGame = firstMinorGame(5);
-        int before = fakes.mlbCalls.get();
+        int before = fakes.mlbCalls();
 
         mockMvc.perform(get("/api/players/5/games/" + minorGame))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.available").value(true))
                 .andExpect(jsonPath("$.role").value("PITCHER"))
                 .andExpect(jsonPath("$.clips").value(false))
                 .andExpect(jsonPath("$.highlights", hasSize(0)));
-        // 마이너는 영상 목록을 묻지 않는다(타석별 기록만)
-        assertThat(fakes.mlbCalls.get() - before).isEqualTo(1);
+        assertThat(fakes.mlbCalls()).isEqualTo(before);
+        // 수집은 마이너 경기의 영상 목록을 묻지 않았다(타석별 기록만 한 번)
+        assertThat(fakes.playByPlayAsked).containsOnlyOnce(minorGame);
+        assertThat(fakes.contentAsked).doesNotContain(minorGame);
     }
 
     @Test
-    void notThePlayersGameIs404() throws Exception {
+    void unknownGameOrPlayerIs404() throws Exception {
         mockMvc.perform(get("/api/players/1/games/999999")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/players/999/games/1001")).andExpect(status().isNotFound());
     }
 
     @Test
-    void mlbFailureIsUnavailableAndNotKept() throws Exception {
+    void knownGameWithoutThatPlayersRecordIsUnavailable() throws Exception {
+        // 2001은 김혜성·송성문 경기다(둘의 상세는 저장돼 있다). 이정후(1)는 그 경기에 기록이 없다
+        assertThat(details.findByPlayerIdAndGamePk(2, 2001)).isPresent();
+        int before = fakes.mlbCalls();
+
+        mockMvc.perform(get("/api/players/1/games/2001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.playerId").value(1))
+                .andExpect(jsonPath("$.gamePk").value(2001))
+                .andExpect(jsonPath("$.role").value("HITTER"))
+                .andExpect(jsonPath("$.available").value(false))
+                .andExpect(jsonPath("$.clips").value(false))
+                .andExpect(jsonPath("$.plays", hasSize(0)))
+                .andExpect(jsonPath("$.highlights", hasSize(0)));
+        // 다른 선수의 마이너 경기도 그 선수 것이 아니면 모르는 경기다
+        mockMvc.perform(get("/api/players/1/games/" + firstMinorGame(5))).andExpect(status().isNotFound());
+        assertThat(fakes.mlbCalls()).isEqualTo(before);
+    }
+
+    @Test
+    void detailNotIngestedYetIsUnavailableAndTheApiDoesNotFetchIt() throws Exception {
+        // 수집이 받지 못한 경기(MLB 오류)는 저장된 것이 없다. API는 그 자리에서 받지 않고 '아직 없음'으로 답한다
+        assertThat(details.findByPlayerIdAndGamePk(1, BROKEN_GAME)).isEmpty();
+        int before = fakes.mlbCalls();
+
         mockMvc.perform(get("/api/players/1/games/" + BROKEN_GAME))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value(false))
                 .andExpect(jsonPath("$.plays", hasSize(0)));
+        assertThat(fakes.mlbCalls()).isEqualTo(before);
         assertThat(details.findByPlayerIdAndGamePk(1, BROKEN_GAME)).isEmpty();
     }
 
@@ -174,8 +209,13 @@ class GameDetailApiTest {
     /** 가짜 MLB(샘플 + 타석별 기록·영상 목록)와 가짜 Savant. 부른 수를 센다 */
     static class Fakes {
         static final String CLIP = "https://sporty-clips.mlb.com/test.mp4";
-        final AtomicInteger mlbCalls = new AtomicInteger();
+        final List<Long> playByPlayAsked = new ArrayList<>();
+        final List<Long> contentAsked = new ArrayList<>();
         final List<String> savantAsked = new ArrayList<>();
+
+        int mlbCalls() {
+            return playByPlayAsked.size() + contentAsked.size();
+        }
     }
 
     @TestConfiguration
@@ -200,7 +240,7 @@ class GameDetailApiTest {
             return new SampleMlbClient(jsonMapper) {
                 @Override
                 public MlbPlayByPlay getPlayByPlay(long gamePk) {
-                    fakes.mlbCalls.incrementAndGet();
+                    fakes.playByPlayAsked.add(gamePk);
                     if (gamePk == BROKEN_GAME) {
                         throw new MlbApiException("MLB request failed: test", null);
                     }
@@ -209,7 +249,7 @@ class GameDetailApiTest {
 
                 @Override
                 public MlbGameContent getGameContent(long gamePk) {
-                    fakes.mlbCalls.incrementAndGet();
+                    fakes.contentAsked.add(gamePk);
                     return read("content-823898.json", MlbGameContent.class);
                 }
             };

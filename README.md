@@ -57,7 +57,15 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
   - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
 - **MLB 안 위치·시즌별 기록(하루 한 번, 시즌 중·비시즌 모두):** 리그 전체 `stats?stats=season|sabermetrics&group=hitting|pitching&season=Y&sportIds=1&playerPool=ALL&limit=2000` 묶음마다 2번(우리 선수에 투수가 없으면 타격만), `people/{id}/stats?stats=yearByYear` 선수마다 1번, 지난 시즌 지표 `people/{id}/stats?stats=sabermetrics&season=Y`는 선수·시즌마다 처음 한 번만. 아래 "MLB 안 위치와 지난 시즌 표".
 - **한국인 메이저리거 역대 기록(이슈 #177):** `people/{id}/stats?stats=yearByYear` 선수마다 1번. 명단 선수는 하루 한 번, 명단 밖 선수(`roster/korean-mlb.yml`, 은퇴·국내 복귀 24명)는 저장한 줄이 없을 때 서버가 켜져 있는 동안 한 번. 아래 "한국인 메이저리거 역대 기록".
+- **경기 상세(타석별 기록·하이라이트, 이슈 #229):** 우리 선수가 뛴 경기만 수집이 미리 받아 `player_game_detail`에 둔다(`ingest.GameDetailIngest`). 화면용 API는 저장된 것만 읽는다.
+  - 대상: 메이저는 기록(`appearance`)이 있는 (선수, 경기), 마이너는 `minor_game_log` 줄이 있는 (선수, 경기).
+  - 요청: 경기당 `game/{gamePk}/playByPlay` 1번, 메이저 경기면 `game/{gamePk}/content`(영상 목록) 1번 더. 같은 경기에 우리 선수가 둘이어도 한 번만 받는다.
+  - 받는 때: 박스스코어를 받는 메이저 경기(진행 중이면 수집 때마다, 끝난 뒤 한 번, 재확인 때)에서 같이 받고, 빠졌거나 굳힐 때가 된 끝난 경기는 따라잡기마다 최근 경기부터 10경기까지(요청 많아야 20번) 채운다.
+  - 끝난 경기를 시작 하루 뒤에 받았으면 굳힌다(`complete`, 하이라이트가 다 올라온 뒤). 시작 시각을 모르는 끝난 경기는 바로 굳힌다. 굳은 상세는 다시 받지 않는다. 
+  - 실패한 경기는 건너뛰고 다음 수집 때 다시 받는다. 샘플 모드에는 타석별 기록이 없어 상세가 생기지 않는다.
+  - 양: 진행 중인 경기는 수집 때마다(12분) 2번씩 더 받는다(3시간 경기면 약 30번). 끝난 뒤에는 경기마다 보통 2~4번(끝난 직후와 하루 뒤, 각각 1~2번). 2026 시즌 우리 선수 경기는 메이저 304개·마이너 266건이다(`ARCHITECTURE.md` §3). 처음 배포하면 지난 경기를 12분마다 10경기씩 채운다.
 - **경기 갱신(시즌 중):** 우리 선수 팀들의 오늘·어제(미국 동부 날짜) 일정을 받고(1번), 진행 중인 경기와 다시 확인할 때가 된 끝난 경기만 `game/{gamePk}/boxscore`로 받는다.
+  - 박스스코어를 받은 경기에 우리 선수 기록이 있으면 경기 상세도 같이 받는다(아래 '경기 상세').
   - 한국 시간 01:00~16:00(미국 경기 시간대)에는 12분마다, 그 밖에는 1시간마다(정각 근처 실행만).
   - 서버가 멈췄거나 MLB가 막아(403/429) 며칠 갱신을 못 했으면, 결과를 못 받은 경기(시작했는데 끝남·연기·취소가 아님)나 마지막으로 끝난 경기가 있는 날부터 오늘까지를 한 번에 받는다(일정 요청은 그대로 1번, 최대 14일 전까지). 그보다 오래 멈췄으면 `/admin/ingest/season`으로 시즌을 다시 받는다.
   - 끝난 경기는 끝난 직후 한 번, 그 뒤 하루(UTC 날짜)에 한 번 다시 받는다. 시작한 지 3일이 지나면 `settled`로 두고 다시 받지 않는다(기록 정정 대비).
@@ -75,6 +83,8 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`) + 만든 시각(`generatedAt`). 없으면 404 |
+| `GET /api/players/{id}/games/{gamePk}` | 경기 상세(그 선수의 타석별 기록 `plays`, 그 선수가 나온 MLB 하이라이트 `highlights`). 수집이 미리 받아 둔 것만 읽고 요청 중에 MLB를 부르지 않는다. 아직 못 받았거나, 우리 메이저 일정에 있는 경기인데 그 선수 기록이 없으면(진행 중인데 아직 안 나옴) 200에 `available: false`(빈 목록). 우리가 모르는 경기(메이저 일정에도 그 선수 마이너 기록에도 없음)나 없는 선수면 404. 진행 중 경기는 수집 주기(12분)로 갱신된다 |
+| `GET /api/players/{id}/games/{gamePk}/clips/{playId}` | 그 경기 상세에 나온 공 하나의 영상 주소(`mp4Url`, Baseball Savant). 저장된 상세에 있는 공 번호만 묻고 한 번 받으면 저장한다. 없으면 404 |
 | `GET /api/players/{id}/same-games` | 같은 경기에 나온 우리 선수: 그 시즌 메이저 경기(정규시즌·포스트시즌) 중 이 선수와 다른 우리 선수가 모두 기록을 남긴 경기를 상대 선수별로 묶음(`pairs`: 상대 `other`, 경기 수 `games`, 이 선수 팀 전적 `wins`·`losses`, 그 팀 이름 `teamKo`, 경기마다 두 사람 줄 `meetings[{mine, other}]`, 오래된 경기부터). 많이 만난 순. 없으면 빈 목록, 없는 선수면 404. 마이너 경기는 넣지 않는다 |
 | `GET /api/players/{id}/compare` | 두 선수 비교에 쓸 타자 시즌 성적 묶음: 이 선수 `me`와 견줄 수 있는 다른 우리 타자 `others`(그 시즌 메이저 타석이 하나라도 있는 타자, 타석 많은 순). 줄마다 선수 요약 `player`(`/api/players`와 같은 모양), 메이저 정규시즌 `games`·`plateAppearances`·`avg`·`homeRuns`·`rbi`·`stolenBases`·`ops`(홈 시즌 기록과 같은 계산), `wrcPlus`(선수 페이지 `saber`와 같은 MLB 공식 시즌 값, 없으면 null). 투수거나 메이저 타석이 없으면 `me`가 null이고 `others`는 빈 목록, 없는 선수면 404 |
 | `HEAD /api/players/{id}`, `HEAD /api/news/{id}` | 있는지만: 있으면 200, 없으면 404(GET과 같은 기준, 본문 없음). 웹이 선수·기사 화면을 열 때마다 먼저 물어 없는 주소에 HTTP 404를 준다(korleaguer-web `src/proxy.ts`). GET의 화면 계산은 하지 않는다 |

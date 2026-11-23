@@ -49,6 +49,8 @@ import java.util.stream.Stream;
  *       따라잡기는 보통 어제·오늘을, 갱신이 며칠 밀렸으면 밀린 날부터 오늘까지(최대 14일 전) 받는다.</li>
  *   <li>끝난 경기 재확인: 끝난 뒤 3일 동안 하루 한 번 박스스코어로 다시 받고, 그 뒤에는 settled로 두어 다시 받지 않는다.</li>
  *   <li>선발·교체: 박스스코어를 받는 경기는 그때 같이 채우고, 지난 경기는 fillLineups로 조금씩 채운다.</li>
+ *   <li>경기 상세(타석별 기록·하이라이트): 박스스코어를 받는 경기는 그때 같이 받는다(GameDetailIngest.refresh).
+ *       지난 경기는 GameDetailIngest.fill이 조금씩 채운다.</li>
  *   <li>앞 일정 보기(비시즌): 하루 한 번 앞으로 7일 일정만 받아 저장한다(포스트시즌 경기가 잡혔는지 보려고).</li>
  * </ul>
  * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 건만 건너뛴다.
@@ -71,19 +73,21 @@ public class GameIngest {
     private final AffiliationRepository affiliations;
     private final GameRepository games;
     private final AppearanceRepository appearances;
+    private final GameDetailIngest gameDetails;
     private final Clock clock;
     // 앞 일정을 마지막으로 받은 날(UTC 날짜). 앱이 떠 있는 동안만 기억한다.
     private volatile LocalDate lookedAheadOn;
 
     public GameIngest(MlbClient client, IngestWriter writer, PlayerRepository players,
                       AffiliationRepository affiliations, GameRepository games, AppearanceRepository appearances,
-                      Clock clock) {
+                      GameDetailIngest gameDetails, Clock clock) {
         this.client = client;
         this.writer = writer;
         this.players = players;
         this.affiliations = affiliations;
         this.games = games;
         this.appearances = appearances;
+        this.gameDetails = gameDetails;
         this.clock = clock;
     }
 
@@ -127,14 +131,17 @@ public class GameIngest {
         IngestWriter.SeasonSaveResult saved = writer.saveSeason(season, schedule, logs, now);
 
         // 포스트시즌 기록은 gameLog에 없으므로 끝난 포스트시즌 경기만 박스스코어로 받는다.
-        int boxscores = boxscores(games.findTeamSeasonGames(teamIds, season, SeasonType.POSTSEASON.stored()).stream()
+        Fetched fetched = boxscores(games.findTeamSeasonGames(teamIds, season, SeasonType.POSTSEASON.stored()).stream()
                 .filter(g -> g.needsBoxscore(now))
                 .toList(), now);
 
         StringBuilder message = new StringBuilder("시즌 ").append(season).append(" ").append(logs.size()).append("명")
                 .append("(경기 ").append(saved.savedGames()).append("개, 선수 기록 ").append(saved.savedLines()).append("개");
-        if (boxscores > 0) {
-            message.append(", 포스트시즌 박스스코어 ").append(boxscores).append("개");
+        if (fetched.boxscores() > 0) {
+            message.append(", 포스트시즌 박스스코어 ").append(fetched.boxscores()).append("개");
+        }
+        if (fetched.details() > 0) {
+            message.append(", 경기 상세 ").append(fetched.details()).append("개");
         }
         if (saved.skippedLines() > 0) {
             message.append(", 건너뛴 기록 ").append(saved.skippedLines()).append("개");
@@ -200,8 +207,9 @@ public class GameIngest {
         }
         Predicate<Game> due = forceFinals ? g -> g.isFinal() || g.needsBoxscore(now) : g -> g.needsBoxscore(now);
         List<Game> targets = games.findAllById(gamePks).stream().filter(due).toList();
-        int boxscores = boxscores(targets, now);
-        return "경기 " + gamePks.size() + "개" + (boxscores > 0 ? ", 박스스코어 " + boxscores + "개" : "");
+        Fetched fetched = boxscores(targets, now);
+        return "경기 " + gamePks.size() + "개" + (fetched.boxscores() > 0 ? ", 박스스코어 " + fetched.boxscores() + "개" : "")
+                + fetched.detailsText();
     }
 
     /**
@@ -238,8 +246,8 @@ public class GameIngest {
     public String recheckFinals() {
         Instant now = clock.instant();
         List<Game> due = games.findUnsettledFinals().stream().filter(g -> g.needsBoxscore(now)).toList();
-        int boxscores = boxscores(due, now);
-        return boxscores == 0 ? "" : "끝난 경기 재확인 " + boxscores + "개";
+        Fetched fetched = boxscores(due, now);
+        return fetched.boxscores() == 0 ? "" : "끝난 경기 재확인 " + fetched.boxscores() + "개" + fetched.detailsText();
     }
 
     /**
@@ -285,13 +293,15 @@ public class GameIngest {
         return LocalDate.ofInstant(instant, US_EASTERN);
     }
 
-    // 경기마다 박스스코어 한 번. 실패한 경기는 건너뛰고 다음에 다시 받는다.
-    private int boxscores(Collection<Game> targets, Instant now) {
+    // 경기마다 박스스코어 한 번, 그리고 그 경기에 뛴 우리 선수의 상세(playByPlay 1번 + content 1번, 굳은 상세뿐이면 0번).
+    // 실패한 경기는 건너뛰고 다음에 다시 받는다. 상세만 실패하면 박스스코어는 저장된 채로 두고 상세는 다음 수집·fill이 받는다.
+    private Fetched boxscores(Collection<Game> targets, Instant now) {
         if (targets.isEmpty()) {
-            return 0;
+            return new Fetched(0, 0);
         }
         Map<Long, Long> ours = ourPlayers();
         int fetched = 0;
+        int details = 0;
         for (Game game : targets) {
             MlbBoxscore box;
             try {
@@ -304,8 +314,23 @@ public class GameIngest {
             }
             writer.saveBoxscore(game.getGamePk(), box, ours, now);
             fetched++;
+            try {
+                details += gameDetails.refresh(game, now);
+            } catch (MlbBlockedException e) {
+                throw e;
+            } catch (MlbApiException e) {
+                log.warn("[mlb] game detail {} failed, will retry next ingest ({})", game.getGamePk(), e.getMessage());
+            }
         }
-        return fetched;
+        return new Fetched(fetched, details);
+    }
+
+    /** 받은 박스스코어 수(경기)와 같이 받은 경기 상세 수(선수) */
+    private record Fetched(int boxscores, int details) {
+
+        String detailsText() {
+            return details > 0 ? ", 경기 상세 " + details + "개" : "";
+        }
     }
 
     // 우리 선수의 MLB 번호 → 선수 id

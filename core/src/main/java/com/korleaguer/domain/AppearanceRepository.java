@@ -91,6 +91,33 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
             """)
     List<PlayerLastStart> findLastStartTimes(Collection<Long> playerIds, Instant now);
 
+    /** 선수가 그 메이저 경기에 기록을 남겼는지(경기 상세가 그 선수의 경기인지 볼 때) */
+    boolean existsByPlayer_IdAndGame_GamePk(Long playerId, Long gamePk);
+
+    /** 한 경기에 기록을 남긴 우리 선수들(경기 상세를 받을 선수) */
+    @Query("""
+            select a from Appearance a
+            join fetch a.player
+            where a.game.gamePk = :gamePk
+            """)
+    List<Appearance> findWithPlayerByGame(long gamePk);
+
+    /**
+     * 끝난 경기의 기록 중 굳은(complete) 경기 상세가 아직 없는 것(최근 경기부터). 지난 경기 상세를 뒤에서 조금씩 채울 때 쓴다.
+     * 아직 굳힐 때가 안 된 상세(받은 지 하루가 안 된 경기)도 섞여 나오므로 부르는 쪽이 가른다(ingest.GameDetailIngest).
+     * 다 채운 뒤에는 최근 하루 안팎 경기만 나온다.
+     */
+    @Query("""
+            select a from Appearance a
+            join fetch a.player p
+            join fetch a.game g
+            where g.statusState = 'final' and p.mlbId is not null
+              and not exists (select d.id from PlayerGameDetail d
+                              where d.playerId = p.id and d.gamePk = g.gamePk and d.complete = true)
+            order by g.startTimeUtc desc
+            """)
+    List<Appearance> findFinalsWithoutCompleteDetail();
+
     /** 경기 기록이 있는 시즌(연도) */
     @Query("select distinct g.season from Appearance a join a.game g")
     List<Integer> findSeasons();

@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * 수집 진입점. MLB 공식 Stats API는 여기(수집기)서만 부르고, 화면용 API는 DB만 읽는다.
+ * 수집 진입점. MLB 공식 Stats API는 여기(수집기)서만 부르고, 화면용 API는 DB만 읽는다(경기 상세도 수집이 미리 받는다).
  * - 실행마다 ingest_log에 한 줄을 남긴다(requestsUsed = MLB 요청 수). 끝나면 응답에 나오는 데이터를 실제로 바꿨을 때만
  *   홈·선수·내 선수 응답 캐시를 비운다(ResponseCaches. 같은 내용을 다시 받았으면 그대로 둔다).
  *   스케줄 실행(SCHEDULED)이 MLB를 한 번도 부르지 않았으면 줄을 남기지 않는다.
@@ -42,6 +42,8 @@ public class IngestService {
     private static final int SEASON_MARGIN_DAYS = 3;
     /** 따라잡기 한 번에 선발·교체를 채우는 지난 경기 수(1초에 1회라 약 20초) */
     private static final int LINEUP_GAMES_PER_RUN = 20;
+    /** 따라잡기 한 번에 경기 상세(타석별 기록·하이라이트)를 채우는 지난 경기 수(경기당 요청 1~2번이라 많아야 20번, 약 20초) */
+    static final int DETAIL_GAMES_PER_RUN = 10;
 
     private final MlbClient client;
     private final IngestWriter writer;
@@ -51,6 +53,7 @@ public class IngestService {
     private final LeaguePositionRefresher leaguePositionRefresher;
     private final KoreanRecordsRefresher koreanRecordsRefresher;
     private final GameIngest gameIngest;
+    private final GameDetailIngest gameDetailIngest;
     private final PlayerRepository players;
     private final PlayerSeasonRepository seasons;
     private final IngestLogRepository ingestLogs;
@@ -63,7 +66,7 @@ public class IngestService {
     public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher,
                          SeasonDatesRefresher seasonDatesRefresher, SeasonMetricRefresher seasonMetricRefresher,
                          LeaguePositionRefresher leaguePositionRefresher, KoreanRecordsRefresher koreanRecordsRefresher,
-                         GameIngest gameIngest, PlayerRepository players,
+                         GameIngest gameIngest, GameDetailIngest gameDetailIngest, PlayerRepository players,
                          PlayerSeasonRepository seasons, IngestLogRepository ingestLogs, RosterProperties roster,
                          CurrentSeason currentSeason, ResponseCaches responseCaches, Clock clock) {
         this.client = client;
@@ -74,6 +77,7 @@ public class IngestService {
         this.leaguePositionRefresher = leaguePositionRefresher;
         this.koreanRecordsRefresher = koreanRecordsRefresher;
         this.gameIngest = gameIngest;
+        this.gameDetailIngest = gameDetailIngest;
         this.players = players;
         this.seasons = seasons;
         this.ingestLogs = ingestLogs;
@@ -114,6 +118,7 @@ public class IngestService {
      *   <li>이번 시즌을 아직 안 받은 선수의 시즌 백필(개막일이 지나 시즌이 바뀌면 새 시즌을 받는다)</li>
      *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
+     *   <li>경기 상세가 없거나 굳힐 때가 된 끝난 경기(메이저·마이너)를 최근 것부터 조금씩(DETAIL_GAMES_PER_RUN) 받기</li>
      *   <li>오늘 아직 안 받은 선수의 MLB 안 위치·시즌별 기록(하루 한 번, LeaguePositionRefresher. lookAhead 단계보다도 뒤)</li>
      *   <li>한국인 메이저리거 역대 기록의 시즌별 개수 기록(명단 선수는 하루 한 번, 명단 밖 선수는 처음 한 번, KoreanRecordsRefresher)</li>
      * </ol>
@@ -141,6 +146,7 @@ public class IngestService {
                 steps.add(gameIngest::recheckFinals);
             }
             steps.add(() -> gameIngest.fillLineups(LINEUP_GAMES_PER_RUN));
+            steps.add(() -> gameDetailIngest.fill(DETAIL_GAMES_PER_RUN));
             if (lookAhead) {
                 steps.add(gameIngest::lookAhead);
                 steps.add(seasonMetricRefresher::refresh);

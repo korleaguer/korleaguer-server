@@ -53,7 +53,7 @@ member(앞으로) ─▶ api, core
 
 밖(MLB, 언론사, AI)은 수집이 미리 부르고, 화면용 API는 DB에 있는 것만 읽는다. 받기 전이면 "아직 없음"으로 답한다.
 
-- **수집이 미리 받는 것**: 경기·선수 기록, 기사, 사진, 그리고 경기 상세(타석별 기록·하이라이트), 하이라이트 제목 번역, 리그 평균. 뒤의 셋은 지금 요청 중에 받고 있어 옮길 대상이다(§7).
+- **수집이 미리 받는 것**: 경기·선수 기록, 기사, 사진, 그리고 경기 상세(타석별 기록·하이라이트), 하이라이트 제목 번역, 리그 평균. 경기 상세는 수집이 받는다(#229). 뒤의 둘은 지금 요청 중에 받고 있어 옮길 대상이다(§7).
 - **요청 중에 밖을 불러도 되는 예외는 둘뿐이다.** `api`는 그 일을 하는 인터페이스 하나만 안다('문 하나').
   - 공 하나 영상 주소(`SavantClips`): 공마다 한 번씩이라 미리 받으면 하루 수백 번이고 대부분 보지 않는다. 저장된 경기 상세에 나온 공 번호만 묻는다.
   - 선수 시즌 처음 받기(`OnDemandSeason`): 스케줄이 먼저 받으므로 평소에는 타지 않는 안전망이다. 8초까지만 기다린다.
@@ -148,7 +148,8 @@ member(앞으로) ─▶ api, core
 
 먼저 할 일(동작이 바뀌므로 구조 이동과 섞지 않는다):
 
-- 경기 상세와 하이라이트 제목 번역을 수집이 받게 옮기기. 화면용 API의 경기 상세는 DB만 읽는다. 진행 중 경기의 상세는 수집 주기(12분)로 갱신된다.
+- 하이라이트 제목 번역을 수집이 받게 옮기기. 지금은 경기 상세 응답을 줄 때 없는 제목을 뒤에서 옮긴다(`HighlightTitles`).
+  - 끝난 것(#229): 경기 상세는 수집이 받고(`ingest.GameDetailIngest`), 화면용 API의 경기 상세(`GameDetailService`)는 DB만 읽는다. 진행 중 경기의 상세는 수집 주기(12분)로 갱신된다. 저장하는 JSON 타입(`GameDetail`)은 수집과 조회가 같이 써서 `core`에 있다.
 - 리그 평균(`LeagueEnvironments`)을 수집이 받아 DB에 두기. 지금은 메모리에만 12시간 두어 서버를 다시 띄우면 사라지고, 못 받으면 표준값으로 계산해 숫자가 달라질 수 있다.
 
 그다음 구조 이동:
@@ -170,7 +171,7 @@ member(앞으로) ─▶ api, core
 | `core`는 다른 모듈을 모른다 | 3건: `CurrentSeason` → `GameIngest`·`SampleMlbClient`, `PhotoSources` → `PhotoStore` |
 | `external`은 `api`를 모른다 | 1건: `VideoConfig` → `SavantClips` |
 | `api`는 `ingest`를 모른다 | 11건: 시간대 상수 `GameIngest.US_EASTERN`(6곳), 요청 중 받기, 관리자 수집 실행, 수집 끝 이벤트, 사진 내주기 |
-| `api` → `external`은 문 하나로만(공 영상 주소만) | 11건: `GameDetailService`, `GameDetails`, `LeagueEnvironments`, `SavantClips`, `HighlightTitles` |
+| `api` → `external`은 문 하나로만(공 영상 주소만) | 5건(#229 뒤 import로 다시 셈): `LeagueEnvironments`(MLB 클라이언트 3), `HighlightTitles`(번역기 1), `SavantClips`(가져오기 1, 남겨 둘 '문'). `GameDetailService`는 밖을 모르고, `GameDetails`는 `ingest`로 옮겼다 |
 | 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 11건 |
 | 계산 클래스는 응답 타입을 모른다 | 8건 |
