@@ -2,15 +2,6 @@ package com.korleaguer.news;
 
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.korleaguer.config.NewsProperties;
-import com.korleaguer.news.ClaudeDestinationTagger;
-import com.korleaguer.news.ClaudeHighlightTitleTranslator;
-import com.korleaguer.news.ClaudeSummarizer;
-import com.korleaguer.news.DestinationTagger;
-import com.korleaguer.news.HighlightTitleTranslator;
-import com.korleaguer.news.HttpGetter;
-import com.korleaguer.news.JdkHttpGetter;
-import com.korleaguer.news.PoliteFetcher;
-import com.korleaguer.news.Summarizer;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

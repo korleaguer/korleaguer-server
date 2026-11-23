@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.DestinationMention;
@@ -7,6 +7,8 @@ import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsDestination.Stance;
 import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.news.DestinationTagger.Kind;
+import com.korleaguer.news.DestinationTagger;
+import com.korleaguer.news.Summarizer;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
 import com.korleaguer.support.MutableClock;

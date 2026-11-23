@@ -1,0 +1,47 @@
+// client 모듈: 밖(남의 서버)과 말하는 법. MLB 클라이언트(client), 기사 가져오기·robots·요청 예절과 Claude 요약·분류·번역(news).
+// core만 안다(ARCHITECTURE.md §3). 실행 파일은 만들지 않고 라이브러리 jar만 만든다.
+plugins {
+	id 'java-library'
+	id 'io.spring.dependency-management'
+}
+
+group = 'com.korleaguer'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+// Spring Boot 플러그인은 실행 파일을 만드는 루트에만 건다. 라이브러리 버전만 같은 BOM으로 맞춘다.
+dependencyManagement {
+	imports {
+		mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+	}
+}
+
+dependencies {
+	// 분류기 결과 등 공개 메서드가 core 타입(엔티티의 값)을 드러내므로 api로 준다
+	api project(':core')
+	// MLB Stats API 호출(RestClient)과 응답 읽기
+	implementation 'org.springframework:spring-web'
+	implementation 'tools.jackson.core:jackson-databind'
+	// 기사 요약(Claude API 공식 Java SDK). ANTHROPIC_API_KEY가 있을 때만 쓴다
+	implementation 'com.anthropic:anthropic-java:3.2.0'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Spring Boot 플러그인이 루트에서 해 주던 것을 여기서는 직접 건다(core/build.gradle과 같다).
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.compilerArgs.add('-parameters')
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

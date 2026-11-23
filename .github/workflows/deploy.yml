@@ -32,6 +32,7 @@ on:
       - 'deploy/**'
       - 'src/test/**'
       - 'core/src/test/**'
+      - 'client/src/test/**'
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
     inputs:
@@ -224,7 +225,7 @@ jobs:
           ATTEMPT: ${{ github.run_attempt }}
           GH_TOKEN: ${{ github.token }}
           # 배포하지 않는 파일. 위 on.push.paths-ignore와 같게 유지한다.
-          IGNORED: '\.md$|^deploy/|^(core/)?src/test/|^\.github/ISSUE_TEMPLATE/'
+          IGNORED: '\.md$|^deploy/|^((core|client)/)?src/test/|^\.github/ISSUE_TEMPLATE/'
 
       - name: 배포할 이미지
         id: tag

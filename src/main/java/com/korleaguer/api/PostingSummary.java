@@ -37,7 +37,7 @@ public record PostingSummary(List<Player> players, List<Past> history) {
 
     /**
      * 최근 days일(한국 날짜, 오늘 포함) 기사에서 이 선수의 행선지로 거론된 MLB 구단. 기사마다 AI로 고른 것을 센다
-     * (news.NewsTagger). 같은 기사를 여러 언론사가 실으면 따로 센다.
+     * (ingest.NewsTagger). 같은 기사를 여러 언론사가 실으면 따로 센다.
      *
      * @param teams 거론(linked)이 많은 순 → 오늘 거론된 구단 → 최근에 거론된 순. 반대 전망만 있는 구단도 넣는다.
      *              기사가 없거나 아직 고르지 않았으면 빈 목록

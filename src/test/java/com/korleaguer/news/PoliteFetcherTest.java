@@ -1,5 +1,6 @@
 package com.korleaguer.news;
 
+import com.korleaguer.support.FakeHttp;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.Test;
 
@@ -10,8 +11,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import static com.korleaguer.news.FakeHttp.ok;
-import static com.korleaguer.news.FakeHttp.reply;
+import static com.korleaguer.support.FakeHttp.ok;
+import static com.korleaguer.support.FakeHttp.reply;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 예의 지키기: robots.txt(우리 이름·Claude 계열), 사이트별 간격, 조건부 요청, 실패하면 쉬기 */

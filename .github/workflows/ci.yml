@@ -55,4 +55,5 @@ jobs:
           path: |
             build/reports/tests/test
             core/build/reports/tests/test
+            client/build/reports/tests/test
           retention-days: 7

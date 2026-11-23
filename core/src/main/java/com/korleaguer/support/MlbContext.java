@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.support;
 
 import com.korleaguer.support.MlbTeams;
 import com.korleaguer.support.TeamNames;

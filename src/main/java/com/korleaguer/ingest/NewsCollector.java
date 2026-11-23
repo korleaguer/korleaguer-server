@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.NewsProperties;
@@ -7,8 +7,11 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.news.FeedParser;
+import com.korleaguer.news.PoliteFetcher;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.MlbContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;

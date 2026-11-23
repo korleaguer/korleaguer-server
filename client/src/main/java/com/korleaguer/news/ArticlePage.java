@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * 자바스크립트로 그려 HTML에 문단이 없으므로 페이지에 담긴 본문 JSON(Fusion.globalContent)의 글 요소를 읽는다.
  * 못 찾으면 빈 문자열이다.
  */
-record ArticlePage(String imageUrl, String text, String description, String title) {
+public record ArticlePage(String imageUrl, String text, String description, String title) {
 
     ArticlePage(String imageUrl, String text) {
         this(imageUrl, text, null, null);
@@ -41,7 +41,7 @@ record ArticlePage(String imageUrl, String text, String description, String titl
      * (og:title, 사이트 이름 꼬리를 뗀 것을 먼저)을 돌려준다. 한글·영문·숫자만 견줘 같거나, 피드 제목이 그 앞부분일 때만
      * 바꾼다(다른 기사·바뀐 제목이면 그대로). 바꿀 것이 없으면 null
      */
-    String betterTitle(String stored) {
+    public String betterTitle(String stored) {
         if (title == null || stored == null) {
             return null;
         }
@@ -136,7 +136,7 @@ record ArticlePage(String imageUrl, String text, String description, String titl
             .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .build();
 
-    static ArticlePage parse(byte[] html) {
+    public static ArticlePage parse(byte[] html) {
         String page = new String(html, charset(html));
         // og:image를 먼저 보고, 없을 때만 twitter:image(트위터 카드에 사이트 로고를 두는 곳이 있다)
         String image = meta(page, "og:image", "og:image:secure_url");
@@ -287,7 +287,7 @@ record ArticlePage(String imageUrl, String text, String description, String titl
      * 칸 안), article 칸 수와 첫 칸 태그, 찾은 본문 칸(BODY_BOX), 첫 긴 문단의 순서와 바로 앞 칸 태그(본문이 어느 칸에
      * 있는지), 처음 멈춤 줄(저작권 안내)이 나온 문단 순서, 본문 JSON(Arc XP)이 있는지. 순서는 1부터, 없으면 -1
      */
-    static String outline(byte[] html) {
+    public static String outline(byte[] html) {
         String page = new String(html, charset(html));
         String clean = NOISE.matcher(page).replaceAll(" ");
         int paragraphs = 0;
