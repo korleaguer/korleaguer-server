@@ -50,7 +50,7 @@ class IngestServiceLockTest {
                 mock(IngestWriter.class), blockingRefresher, mock(SeasonDatesRefresher.class),
                 mock(SeasonMetricRefresher.class), mock(LeaguePositionRefresher.class),
                 mock(KoreanRecordsRefresher.class), mock(LeagueAverageRefresher.class), mock(GameIngest.class),
-                mock(GameDetailIngest.class), players, mock(PlayerSeasonRepository.class), ingestLogs, roster, currentSeason,
+                mock(GameDetailIngest.class), mock(HighlightTitleIngest.class), players, mock(PlayerSeasonRepository.class), ingestLogs, roster, currentSeason,
                 mock(ResponseCaches.class), Clock.systemUTC());
 
         Thread first = new Thread(service::syncPlayers);

@@ -70,6 +70,12 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
   - 끝난 경기를 시작 하루 뒤에 받았으면 굳힌다(`complete`, 하이라이트가 다 올라온 뒤). 시작 시각을 모르는 끝난 경기는 바로 굳힌다. 굳은 상세는 다시 받지 않는다. 
   - 실패한 경기는 건너뛴다. 채우기에서 실패한 경기는 6시간 뒤에 다시 받는다(계속 실패하는 경기를 실행마다 다시 묻지 않게). MLB에 타석별 기록이 없는 경기(404)는 굳힐 때가 됐으면 '없음'(`available: false`)으로 굳혀 다시 묻지 않는다. 잘못 굳은 상세를 다시 받으려면 `player_game_detail`에서 그 줄을 지운다(다음 수집이 다시 받는다). 샘플 모드에는 타석별 기록이 없어 상세가 생기지 않는다.
   - 양: 진행 중인 경기는 수집 때마다(12분) 1번씩 더 받는다(3시간 경기면 약 15번). 끝난 뒤에는 경기마다 보통 4번(끝난 직후와 하루 뒤, 각각 2번). 마이너 경기는 1~2번. 2026 시즌 우리 선수 경기(메이저 304개·마이너 266건)로 어림하면 한 시즌 약 6,000번, 하루 30번쯤이다. 처음 배포하면 지난 경기를 따라잡기마다 10경기씩 채운다.
+- **하이라이트 제목 번역(이슈 #199·#237):** 경기 상세 하이라이트의 MLB 영어 제목을 수집이 미리 한국어로 옮겨 `highlight_title`에 둔다(`ingest.HighlightTitleIngest`. 번역기는 `news.ClaudeHighlightTitleTranslator`로 기사 요약과 같은 키·모델을 쓴다). 화면용 API는 저장된 번역만 응답의 `titleKo`에 붙이고(`api.HighlightTitles`) 아직 없으면 null이다. 전에는 누가 경기 상세를 열어야 그 제목을 옮겼다.
+  - 언제: 따라잡기마다(12분) 경기 상세 채우기 다음에 옮긴다. 한 번 실행에 AI를 10번까지만 부른다(제목 하나에 1~2초라 보통 20초 안쪽. 못 옮긴 호출도 센다). 밀린 제목은 한 시간에 50개까지 줄어든다.
+  - 대상: 번역이 없거나, 옮긴 번역 규칙 판(`prompt_version` = 모델/지시문 판)이 지금과 다른 제목. 비어 있거나 300자를 넘거나 이미 한글이 든 제목은 옮기지 않는다. 같은 영어 제목은 한 줄이고 모든 선수·경기가 같이 쓴다. 번역기에는 그 제목이 나온 경기 상세의 선수 이름을 넘긴다(제목에서 그 선수 이름을 뺀다).
+  - 찾는 법: 경기 상세를 저장할 때 그 제목을 대기 줄 맨 앞에 넣는다. 이미 저장된 상세(`player_game_detail.payload`의 JSON)는 서버가 뜬 뒤 한 번만 훑는다: 큰 번호부터 50줄씩, 이번 실행 몫이 찰 때까지만, 한 번 실행에 200줄까지. 끝까지 훑고 밀린 제목이 없으면 그 뒤 실행은 DB를 읽지 않는다. 대기 줄은 메모리에 있어 서버를 다시 띄우면 처음부터 다시 훑는다(이미 옮긴 제목은 번역 표에 있어 다시 옮기지 않는다).
+  - 쉬기: 못 옮긴 제목(빈 답·못 쓸 답)은 1시간 뒤에 다시 해 보고, 또 못 옮길 때마다 쉬는 시간을 두 배로 늘린다(2·4·8·16시간, 그 뒤로는 하루 한 번). AI 서비스가 답하지 못하면 그 실행을 멈추고 모든 제목을 5분 쉰다. 키가 거절되면(401·403) 서버를 다시 띄울 때까지 끈다. 번역이 실패해도 수집의 다른 단계는 그대로 돈다.
+  - `ANTHROPIC_API_KEY`가 없거나 샘플 모드면 옮기지 않는다(저장된 번역은 그대로 보인다). 번역 표는 응답 캐시를 비우지 않는다(경기 상세 응답은 캐시하지 않는다).
 - **경기 갱신(시즌 중):** 우리 선수 팀들의 오늘·어제(미국 동부 날짜) 일정을 받고(1번), 진행 중인 경기와 다시 확인할 때가 된 끝난 경기만 `game/{gamePk}/boxscore`로 받는다.
   - 박스스코어를 받은 경기에 우리 선수 기록이 있으면 경기 상세도 같이 받는다(아래 '경기 상세').
   - 한국 시간 01:00~16:00(미국 경기 시간대)에는 12분마다, 그 밖에는 1시간마다(정각 근처 실행만).
@@ -80,7 +86,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
   - 타자: 타순(`battingOrder`)이 `00`으로 끝나면(100~900) `STARTER`, 그 밖의 타순(301 등)은 `SUB`. 투수: 그 편 `pitchers`의 첫 번째면 `STARTER`, 그 밖은 `SUB`. 투타겸업은 타석에 섰으면 타자 규칙. 타순도 투수 기록도 없고 `isSubstitute`면 `SUB`.
 - **경기 상태 값(`gameStatus`, DB `status_state`):** MLB `abstractGameState`/`codedGameState`/`detailedState`를 `scheduled`·`in_progress`·`final`·`postponed`·`canceled`·`delayed`·`suspended`로 바꾼다(`support.GameStatuses`). 그 밖은 MLB 값을 소문자로.
 - **받는 경기:** 정규시즌(R)과 포스트시즌(F·D·L·W)만 저장한다. 시범경기·올스타·마이너 경기는 받지 않는다. 연기된 경기는 같은 gamePk가 두 번 오므로 다시 잡힌 쪽을 쓴다.
-- **수집 기록(`ingest_log`):** 실행마다 한 줄(`requestsUsed` = MLB 요청 수). 스케줄 실행이 MLB를 한 번도 부르지 않았으면 남기지 않는다.
+- **수집 기록(`ingest_log`):** 실행마다 한 줄(`requestsUsed` = MLB 요청 수). 스케줄 실행이 MLB를 한 번도 부르지 않았고 하이라이트 제목도 옮기지 않았으면 남기지 않는다. 제목을 옮긴 실행은 메시지에 '하이라이트 제목 번역 n개'가 붙는다.
 
 ## 엔드포인트
 
@@ -89,7 +95,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `GET /api/home` | 최근 경기 한 줄 기록 + 시즌 성적(주로 메이저인 선수 먼저, 그 안에서 순위 기준을 채운 선수 먼저 타자 타율순, 투수 평균자책점순) + 순위 기준(`ranking`). 비시즌이면 `offseason`(다음 개막일, 선수별 시즌 성적표 `report`)과 `posting` |
 | `GET /api/players` | 선수 목록 |
 | `GET /api/players/{id}` | 선수 정보 + 시즌 성적 + 경기 기록(최신순) + MLB 안 위치(`saber`)·시즌별 기록(`seasons`)·기사(`news`) + 이번 시즌 마이너 경기(`minorGames`) + 만든 시각(`generatedAt`). 없으면 404 |
-| `GET /api/players/{id}/games/{gamePk}` | 경기 상세(그 선수의 타석별 기록 `plays`, 그 선수가 나온 MLB 하이라이트 `highlights`). 수집이 미리 받아 둔 것만 읽고 요청 중에 MLB를 부르지 않는다. 아직 못 받았거나, 우리 메이저 일정에 있는 경기인데 그 선수 기록이 없으면(진행 중인데 아직 안 나옴) 200에 `available: false`(빈 목록). 우리가 모르는 경기(메이저 일정에도 그 선수 마이너 기록에도 없음)나 없는 선수면 404. 진행 중 경기는 수집 주기(12분)로 갱신된다 |
+| `GET /api/players/{id}/games/{gamePk}` | 경기 상세(그 선수의 타석별 기록 `plays`, 그 선수가 나온 MLB 하이라이트 `highlights`). 수집이 미리 받아 둔 것만 읽고 요청 중에 MLB를 부르지 않는다. 하이라이트의 한국어 제목 `titleKo`도 수집이 미리 옮겨 둔 것만 붙인다(아직 없으면 null). 아직 못 받았거나, 우리 메이저 일정에 있는 경기인데 그 선수 기록이 없으면(진행 중인데 아직 안 나옴) 200에 `available: false`(빈 목록). 우리가 모르는 경기(메이저 일정에도 그 선수 마이너 기록에도 없음)나 없는 선수면 404. 진행 중 경기는 수집 주기(12분)로 갱신된다 |
 | `GET /api/players/{id}/games/{gamePk}/clips/{playId}` | 그 경기 상세에 나온 공 하나의 영상 주소(`mp4Url`, Baseball Savant). 저장된 상세에 있는 공 번호만 묻고 한 번 받으면 저장한다. 없으면 404 |
 | `GET /api/players/{id}/same-games` | 같은 경기에 나온 우리 선수: 그 시즌 메이저 경기(정규시즌·포스트시즌) 중 이 선수와 다른 우리 선수가 모두 기록을 남긴 경기를 상대 선수별로 묶음(`pairs`: 상대 `other`, 경기 수 `games`, 이 선수 팀 전적 `wins`·`losses`, 그 팀 이름 `teamKo`, 경기마다 두 사람 줄 `meetings[{mine, other}]`, 오래된 경기부터). 많이 만난 순. 없으면 빈 목록, 없는 선수면 404. 마이너 경기는 넣지 않는다 |
 | `GET /api/players/{id}/compare` | 두 선수 비교에 쓸 타자 시즌 성적 묶음: 이 선수 `me`와 견줄 수 있는 다른 우리 타자 `others`(그 시즌 메이저 타석이 하나라도 있는 타자, 타석 많은 순). 줄마다 선수 요약 `player`(`/api/players`와 같은 모양), 메이저 정규시즌 `games`·`plateAppearances`·`avg`·`homeRuns`·`rbi`·`stolenBases`·`ops`(홈 시즌 기록과 같은 계산), `wrcPlus`(선수 페이지 `saber`와 같은 MLB 공식 시즌 값, 없으면 null). 투수거나 메이저 타석이 없으면 `me`가 null이고 `others`는 빈 목록, 없는 선수면 404 |
@@ -302,7 +308,7 @@ com.korleaguer
 ├── client   MLB 공식 API 호출(HttpMlbClient)과 샘플(SampleMlbClient), 응답 record
 ├── ingest   선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
 │            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 경기 상세 받기(GameDetailIngest),
-│            리그 평균 받기(LeagueAverageRefresher), DB 저장(IngestWriter)
+│            하이라이트 제목 번역(HighlightTitleIngest), 리그 평균 받기(LeagueAverageRefresher), DB 저장(IngestWriter)
 ├── domain   JPA 엔티티와 리포지토리
 ├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder)
 ├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
@@ -315,7 +321,7 @@ com.korleaguer
 - 운영 DB 연결: `SPRING_DATASOURCE_URL`(예: `jdbc:mysql://mysql:3306/korleaguer?connectionTimeZone=UTC`)·`SPRING_DATASOURCE_USERNAME`·`SPRING_DATASOURCE_PASSWORD` 환경변수로 덮어쓴다.
 - 수집: 받은 뒤 저장만 트랜잭션으로 묶는다(시즌 백필은 일정·gameLog·"받았음" 표시를 한 번에). 값이 이상한 경기·기록은 그 건만 건너뛰고 수집 메시지에 개수를 남긴다.
 - 캐시: 홈·선수·내 선수 응답을 메모리(Caffeine)에 두고, 보이는 것이 실제로 바뀔 때만 비운다(`ResponseCaches`, 나중에 Redis로 바꿀 자리).
-  - 데이터: 수집이나 기사 수집이 DB에 실제로 썼을 때. Hibernate가 보내는 INSERT·UPDATE·DELETE를 센다(`DataChanges`). Hibernate는 값이 바뀐 줄만 UPDATE하므로 같은 일정·기록을 다시 받으면 세지 않는다. 수집 기록(`ingest_log`)·사진(`photo`)은 응답에 나오지 않아 세지 않는다. 리그 평균(`league_average`)은 wRC+·ERA+ 숫자를 바꾸므로 센다(메모리에 따로 두지 않고 응답을 계산할 때 DB에서 읽는다. 시즌 중에는 하루 한 번 다시 받을 때 비워진다). 수집은 끝날 때 바로, 그 밖의 쓰기(기사)는 다음 따라잡기(12분 안) 때 본다. 기사(`news_article`)는 홈·선수 페이지·기사 페이지에만 나오고 기사 페이지는 캐시하지 않으므로 홈·선수 캐시만 비운다.
+  - 데이터: 수집이나 기사 수집이 DB에 실제로 썼을 때. Hibernate가 보내는 INSERT·UPDATE·DELETE를 센다(`DataChanges`). Hibernate는 값이 바뀐 줄만 UPDATE하므로 같은 일정·기록을 다시 받으면 세지 않는다. 수집 기록(`ingest_log`)·사진(`photo`)은 응답에 나오지 않아 세지 않는다. 경기 상세 표(`player_game_detail`·`play_clip`)와 하이라이트 제목 번역(`highlight_title`)도 캐시하지 않는 경기 상세 응답에만 나와 세지 않는다. 리그 평균(`league_average`)은 wRC+·ERA+ 숫자를 바꾸므로 센다(메모리에 따로 두지 않고 응답을 계산할 때 DB에서 읽는다. 시즌 중에는 하루 한 번 다시 받을 때 비워진다). 수집은 끝날 때 바로, 그 밖의 쓰기(기사)는 다음 따라잡기(12분 안) 때 본다. 기사(`news_article`)는 홈·선수 페이지·기사 페이지에만 나오고 기사 페이지는 캐시하지 않으므로 홈·선수 캐시만 비운다.
   - 시각: 한국·미국 날짜가 바뀌면(D-day, 최근 N일, 'N일째', 나이) 모두, 포스팅 상태·보이는지·진행 막대(1% 단위)만 바뀌면 홈만. 따라잡기 때마다 본다.
   - 비우면 `CacheWarmer`가 홈, 선수 페이지 전부, 내 선수 카드(명단 전원 × 7·14·30일), 비시즌 홈의 선수 카드(`/api/my` 명단 전원·7일)를 뒤에서 다시 계산해 넣는다(자동 수집이 켜졌을 때). 따라잡기(12분마다, 앱 시작 때) 끝에도 빠진 것을 채운다. 운영 장비에서는 응답 하나를 처음 만드는 데 1~2초 걸려서, 사람이 처음 부를 때 기다리지 않게 하려는 것이다.
   - 사람마다 다른 내 선수 조합은 미리 채운 카드를 모아 바로 만들고, 데이터나 날짜가 바뀔 때까지 둔다. 비시즌에는 거의 하루, 시즌 중에는 다음 경기 갱신까지 남는다.

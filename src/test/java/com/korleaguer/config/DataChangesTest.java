@@ -26,6 +26,8 @@ class DataChangesTest {
             insert into player_game_detail (complete,fetched_at,game_pk,payload,player_id) values (?,?,?,?,?); NONE
             update player_game_detail set payload=? where id=?; NONE
             insert into play_clip (fetched_at,mp4_url,play_id) values (?,?,?); NONE
+            insert into highlight_title (created_at,prompt_version,title_en,title_ko) values (?,?,?,?); NONE
+            update highlight_title set created_at=?,prompt_version=?,title_ko=? where id=?; NONE
             insert into photo (key) values (?); NONE
             update flyway_schema_history set success=?; NONE
             """)

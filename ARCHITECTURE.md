@@ -58,7 +58,7 @@ member(앞으로) ─▶ api, core
 
 밖(MLB, 언론사, AI)은 수집이 미리 부르고, 화면용 API는 DB에 있는 것만 읽는다. 받기 전이면 "아직 없음"으로 답한다.
 
-- **수집이 미리 받는 것**: 경기·선수 기록, 기사, 사진, 그리고 경기 상세(타석별 기록·하이라이트), 하이라이트 제목 번역, 리그 평균. 경기 상세(#229)와 리그 평균(#233)은 수집이 받는다. 하이라이트 제목 번역은 지금 요청 중에 받고 있어 옮길 대상이다(§7).
+- **수집이 미리 받는 것**: 경기·선수 기록, 기사, 사진, 그리고 경기 상세(타석별 기록·하이라이트), 하이라이트 제목 번역, 리그 평균. 경기 상세(#229), 리그 평균(#233), 하이라이트 제목 번역(#237) 모두 수집이 받는다.
 - **요청 중에 밖을 불러도 되는 예외는 하나뿐이다.** `api`는 그 일을 하는 인터페이스 하나만 안다('문 하나').
   - 공 하나 영상 주소(`SavantClips`): 공마다 한 번씩이라 미리 받으면 하루 수백 번이고 대부분 보지 않는다. 저장된 경기 상세에 나온 공 번호만 묻는다.
   - 선수 페이지를 열 때 그 선수 시즌을 그 자리에서 받던 안전망(`OnDemandSeason`)은 없앴다(#231). 선수 시즌이 아직 없으면 있는 것만 보여 주고 스케줄 수집이 받는다.
@@ -94,7 +94,7 @@ member(앞으로) ─▶ api, core
 
 - 응답 캐시(Caffeine)와 캐시 채우기(`CacheWarmer`)
 - DB에 쓴 횟수 세기(`DataChanges`의 static 값)
-- 수집 한 번에 하나만 돌기(`IngestService`의 잠금)
+- 수집 한 번에 하나만 돌기(`IngestService`의 잠금). 하이라이트 제목 번역의 대기 줄과 쉬는 시각(`HighlightTitleIngest`)도 수집 안에서만 쓰는 메모리다
 - 스케줄 셋(수집 12분, 기사 30분, 사진 6시간)
 - MLB 요청 제한(`RateLimiter`)
 
@@ -152,20 +152,17 @@ member(앞으로) ─▶ api, core
 
 단계마다 동작을 바꾸지 않는 PR이다. 크면 나눈다.
 
-먼저 할 일(동작이 바뀌므로 구조 이동과 섞지 않는다):
+먼저 하기로 했던 일(화면용 API가 요청 중에 밖을 부르던 것을 수집으로 옮기기)은 끝났다: 경기 상세(#229, `ingest.GameDetailIngest`), 리그 평균(#233, `ingest.LeagueAverageRefresher`), 하이라이트 제목 번역(#237, `ingest.HighlightTitleIngest`). 화면용 API는 셋 다 DB만 읽고, 요청 중에 밖을 부르는 것은 공 영상 주소(`SavantClips`) 하나만 남았다.
+수집과 조회가 같이 쓰는 타입(`domain.GameDetail`, `domain.LeagueAverage`, `support.Woba`)은 `core`에 있다.
 
-- 하이라이트 제목 번역을 수집이 받게 옮기기. 지금은 경기 상세 응답을 줄 때 없는 제목을 뒤에서 옮긴다(`HighlightTitles`).
-  - 끝난 것(#229): 경기 상세는 수집이 받고(`ingest.GameDetailIngest`), 화면용 API의 경기 상세(`GameDetailService`)는 DB만 읽는다. 진행 중 경기의 상세는 수집 주기(12분)로 갱신된다. 저장하는 JSON 타입(`GameDetail`)은 수집과 조회가 같이 써서 `core`에 있다.
-  - 끝난 것(#233): 리그 평균은 수집이 받아 `league_average`에 두고(`ingest.LeagueAverageRefresher`), 화면용 API의 `LeagueEnvironments`는 DB만 읽는다. 줄이 아직 없으면 표준값으로 계산하고 다음 수집이 받는다. 표 모양(`domain.LeagueAverage`)과 wOBA 가중치(`support.Woba`)는 수집과 조회가 같이 써서 `core`에 있다.
-
-그다음 구조 이동:
+남은 구조 이동:
 
 1. `core` 떼기. `domain`, `support`, `posting`은 옮겼다(#225). 남은 것:
    - 설정 값·상수 클래스(`CurrentSeason`, `DataMode`, `…Properties`, `ResponseCaches`, `DataChanges`, 시간대 상수 등)를 `core`로. 아래 표의 3건을 먼저 푼다.
    - 자원(`db/migration`, `roster/*.yml`)을 `core`로. `tools/posting-photo`와 README가 `src/main/resources` 경로를 가리키므로 같이 고친다.
 2. `client` 떼기. `support`에 있는 `RateLimiter`(MLB 요청 제한)도 이때 `client`로 옮긴다.
 3. `batch`와 `api` 가르기
-4. `api` → `client` 참조를 문 하나로 좁히기(위 '먼저 할 일'이 끝나면 `SavantClips`만 남는다)
+4. `api` → `client` 참조를 문 하나로 좁히기(지금 `SavantClips`만 남았다)
 5. `api` 안쪽을 주제 패키지로 나누기
 
 ### 지금 규칙과 다른 곳
@@ -177,7 +174,7 @@ member(앞으로) ─▶ api, core
 | `core`는 다른 모듈을 모른다 | 3건: `CurrentSeason` → `GameIngest`·`SampleMlbClient`, `PhotoSources` → `PhotoStore` |
 | `client`는 `api`를 모른다 | 1건: `VideoConfig` → `SavantClips` |
 | `api`는 `batch`를 모른다 | 10건: 시간대 상수 `GameIngest.US_EASTERN`(6곳), 관리자 수집 실행, 수집 끝 이벤트, 사진 내주기. 요청 중 받기(`OnDemandSeason`)는 없앴다(#231) |
-| `api` → `client`는 문 하나로만(공 영상 주소만) | 2건(#233 뒤 import로 다시 셈): `HighlightTitles`(번역기 1), `SavantClips`(가져오기 1, 남겨 둘 '문'). `LeagueEnvironments`는 DB만 읽고(#233), `GameDetailService`는 밖을 모르고, `GameDetails`는 `ingest`로 옮겼다 |
+| `api` → `client`는 문 하나로만(공 영상 주소만) | 1건(#237 뒤 import로 다시 셈): `SavantClips`(가져오기 1, 남겨 둘 '문'). `HighlightTitles`는 번역 표만 읽고(#237), `LeagueEnvironments`는 DB만 읽고(#233), `GameDetailService`는 밖을 모르고, `GameDetails`는 `ingest`로 옮겼다 |
 | 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 11건 |
 | 계산 클래스는 응답 타입을 모른다 | 8건 |
