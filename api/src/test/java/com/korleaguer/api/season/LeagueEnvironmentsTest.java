@@ -29,7 +29,7 @@ class LeagueEnvironmentsTest {
         when(averages.findBySeasonAndLevel(anyInt(), anyString())).thenReturn(Optional.empty());
         when(averages.findBySeasonAndLevel(2026, "AAA")).thenReturn(Optional.of(row(2026, "AAA", 0.3382, 0.138, 4.99)));
 
-        assertThat(leagues.get(2026, "AAA")).isEqualTo(new LeagueEnvironments.Env(0.3382, 0.138, 4.99));
+        assertThat(leagues.get(2026, "AAA")).isEqualTo(new LeagueEnv(0.3382, 0.138, 4.99));
     }
 
     @Test
@@ -37,14 +37,14 @@ class LeagueEnvironmentsTest {
         when(averages.findBySeasonAndLevel(anyInt(), anyString())).thenReturn(Optional.empty());
         when(averages.findBySeasonAndLevel(2026, "AAA")).thenReturn(Optional.of(row(2026, "AAA", 0.3382, 0.138, 4.99)));
 
-        Map<String, LeagueEnvironments.Env> envs = leagues.of(2026, Set.of("AAA", "AA", "XYZ"));
+        Map<String, LeagueEnv> envs = leagues.of(2026, Set.of("AAA", "AA", "XYZ"));
 
         assertThat(envs.get("AAA").era()).isEqualTo(4.99);
         // 줄이 없는 더블A는 표준값 그 객체(내 선수 카드가 '못 받음'을 이 객체로 가린다), 모르는 단계는 넣지 않는다
-        assertThat(envs.get("AA")).isSameAs(LeagueEnvironments.STANDARD);
+        assertThat(envs.get("AA")).isSameAs(LeagueEnv.STANDARD);
         assertThat(envs).doesNotContainKey("XYZ");
         // 다른 시즌의 줄을 대신 쓰지 않는다
-        assertThat(leagues.get(2025, "AAA")).isSameAs(LeagueEnvironments.STANDARD);
+        assertThat(leagues.get(2025, "AAA")).isSameAs(LeagueEnv.STANDARD);
     }
 
     private static LeagueAverage row(int season, String level, double woba, double runsPerPa, double era) {

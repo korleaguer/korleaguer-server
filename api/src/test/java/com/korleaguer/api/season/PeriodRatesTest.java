@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 내 선수 카드 기간 wRC+·ERA+ 계산: 그 시즌 리그 평균 대비, 0~300으로 가두고, 근거가 모자라면 null */
 class PeriodRatesTest {
 
-    private static final LeagueEnvironments.Env LEAGUE = new LeagueEnvironments.Env(0.314, 0.117, 4.2);
+    private static final LeagueEnv LEAGUE = new LeagueEnv(0.314, 0.117, 4.2);
 
     @Test
     void hitterWrcPlusUsesLeagueAverage() {
@@ -95,7 +95,7 @@ class PeriodRatesTest {
         // 같은 기록이라도 타자 친화 리그(wOBA .338)에서는 메이저(.314)보다 낮게 나온다
         Batting line = new Batting(4, 1, 2, 1, 0, 0, 1, 1, 0, 0, 0, 0, 5, 3);
         Double inMajors = PeriodRates.wrcPlusOf(List.of(line), LEAGUE);
-        Double inTripleA = PeriodRates.wrcPlusOf(List.of(line), new LeagueEnvironments.Env(0.338, 0.13, 4.8));
+        Double inTripleA = PeriodRates.wrcPlusOf(List.of(line), new LeagueEnv(0.338, 0.13, 4.8));
         assertThat(inTripleA).isLessThan(inMajors);
         assertThat(PeriodRates.wrcPlusOf(List.of(line), null)).isNull();
         assertThat(PeriodRates.eraPlusOf(List.of(), null)).isNull();

@@ -1,12 +1,13 @@
 package com.korleaguer.api.season;
 
+import com.korleaguer.api.article.LinkedTeamsCounter;
+
 import com.korleaguer.api.player.RosterMember;
 
 import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.NewsArticleRepository;
-import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerLeaguePosition;
 import com.korleaguer.domain.PlayerLeaguePositionRepository;
@@ -42,7 +43,7 @@ class SeasonReportFinderSaberTest {
     private final SeasonReportFinder finder = new SeasonReportFinder(mock(AppearanceRepository.class),
             mock(MinorGameLogRepository.class), mock(PlayerMoveRepository.class), mock(PlayerSeasonMetricRepository.class),
             positions, mock(SeasonDatesRepository.class), mock(NewsArticleRepository.class),
-            mock(NewsDestinationRepository.class), new NewsProperties(true, "0 */30 * * * *", "korleaguer/test",
+            mock(LinkedTeamsCounter.class), new NewsProperties(true, "0 */30 * * * *", "korleaguer/test",
             List.of("korleaguer"), List.of()), mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC),
             // 단위 시험이라 따로 읽는 트랜잭션은 흉내만 낸다(트랜잭션 관리자 mock)
             new OptionalReads(mock(PlatformTransactionManager.class)));

@@ -519,7 +519,7 @@ class PostingFinderTest {
     @Test
     void nothingToShowIsNull() {
         PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news,
-                destinations, photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS);
+                new LinkedTeamsCounter(news, destinations, NEWS), photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS);
 
         assertThat(finder.find(Instant.parse("2026-11-11T01:00:00Z"))).isNull();
     }
@@ -530,7 +530,7 @@ class PostingFinderTest {
 
     private PostingFinder finder(PostingProperties.Current current, boolean officialPhotos) {
         Postings postings = postings(current);
-        return new PostingFinder(postings, news, destinations, photos(postings, officialPhotos), NEWS);
+        return new PostingFinder(postings, news, new LinkedTeamsCounter(news, destinations, NEWS), photos(postings, officialPhotos), NEWS);
     }
 
     private static Postings postings(PostingProperties.Current current) {

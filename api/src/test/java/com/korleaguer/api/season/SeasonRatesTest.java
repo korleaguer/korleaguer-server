@@ -25,10 +25,10 @@ class SeasonRatesTest {
 
     private static final LocalDate OPENING = LocalDate.of(2026, 3, 26);
     private static final LocalDate LAST_DAY = LocalDate.of(2026, 9, 27);
-    private static final LeagueEnvironments.Env MLB = new LeagueEnvironments.Env(0.315, 0.118, 4.17);
-    private static final LeagueEnvironments.Env AAA = new LeagueEnvironments.Env(0.338, 0.138, 4.99);
-    private static final LeagueEnvironments.Env AA = new LeagueEnvironments.Env(0.332, 0.137, 4.85);
-    private static final Map<String, LeagueEnvironments.Env> LEAGUES = Map.of("MLB", MLB, "AAA", AAA, "AA", AA);
+    private static final LeagueEnv MLB = new LeagueEnv(0.315, 0.118, 4.17);
+    private static final LeagueEnv AAA = new LeagueEnv(0.338, 0.138, 4.99);
+    private static final LeagueEnv AA = new LeagueEnv(0.332, 0.137, 4.85);
+    private static final Map<String, LeagueEnv> LEAGUES = Map.of("MLB", MLB, "AAA", AAA, "AA", AA);
 
     @Test
     void majorHitterUsesTheOfficialSeasonWrcPlus() {

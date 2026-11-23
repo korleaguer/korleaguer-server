@@ -1,5 +1,8 @@
 package com.korleaguer.api.season;
 
+import com.korleaguer.api.game.GameBatting;
+import com.korleaguer.api.game.GamePitching;
+
 import com.korleaguer.api.game.GameLineAssembler;
 import com.korleaguer.api.game.MinorGameLine;
 import com.korleaguer.api.player.MinorTeamNames;
@@ -163,11 +166,11 @@ public class MinorGameLinesTest {
         // 메이저 줄과 같은 문장(GameSummary)·같은 숫자 모양(GameLineAssembler)
         assertThat(hitter.summary()).isEqualTo("4타수 2안타(2루타 1) 1홈런 3타점 1볼넷");
         assertThat(hitter.summary()).isEqualTo(GameSummary.played(Role.HITTER, TWO_HITS, null));
-        assertThat(hitter.batting()).isEqualTo(GameLineAssembler.batting(TWO_HITS));
+        assertThat(hitter.batting()).isEqualTo(GameBatting.of(TWO_HITS));
         assertThat(hitter.batting().plateAppearances()).isEqualTo(5);
         assertThat(pitcher.summary()).isEqualTo("1⅓이닝 1피안타 1실점(0자책) 3탈삼진 1볼넷 · 승");
         assertThat(pitcher.summary()).isEqualTo(GameSummary.played(Role.PITCHER, null, RELIEF_WIN));
-        assertThat(pitcher.pitching()).isEqualTo(GameLineAssembler.pitching(RELIEF_WIN));
+        assertThat(pitcher.pitching()).isEqualTo(GamePitching.of(RELIEF_WIN));
         assertThat(pitcher.pitching().win()).isTrue();
     }
 
@@ -183,7 +186,7 @@ public class MinorGameLinesTest {
         // 트리플A·더블A는 30팀 모두라 수를 지킨다. 하위 단계는 새 팀이 보이면 더해 가므로(yml 머리 설명·README) 수는 정하지
         // 않고 아는 단계 약어인지만 본다(이슈 #191 리뷰)
         assertThat(byLevel).containsEntry("AAA", 30L).containsEntry("AA", 30L);
-        assertThat(byLevel.keySet()).allSatisfy(level -> assertThat(MinorRecords.LEVEL_KO).containsKey(level));
+        assertThat(byLevel.keySet()).allSatisfy(level -> assertThat(MinorTeamNames.LEVEL_KO).containsKey(level));
         assertThat(TEAMS.teams()).extracting(MinorTeamProperties.Team::id).doesNotHaveDuplicates();
         assertThat(TEAMS.teams()).allSatisfy(team -> assertThat(team.nameKo()).isNotBlank());
 

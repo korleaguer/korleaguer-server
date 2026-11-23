@@ -60,7 +60,7 @@ final class SeasonMonths {
     /** ERA+ 최댓값(무자책 달 포함). 화면 막대는 200에서 꽉 찬다 */
     static final int ERA_PLUS_CAP = 300;
 
-    private static final String MLB = LeagueEnvironments.MLB;
+    private static final String MLB = LeagueEnv.MLB;
 
     private SeasonMonths() {
     }
@@ -73,15 +73,15 @@ final class SeasonMonths {
     private record Span(int month, LocalDate from, LocalDate to) {
     }
 
-    /** 리그 평균 없이(모든 단계를 LeagueEnvironments.STANDARD로) */
+    /** 리그 평균 없이(모든 단계를 LeagueEnv.STANDARD로) */
     static List<Month> build(SeasonReports.Input in) {
         return build(in, Map.of());
     }
 
     /**
-     * @param leagues 단계(MLB·AAA 등)별 리그 평균. 없는 단계는 LeagueEnvironments.STANDARD로 잰다
+     * @param leagues 단계(MLB·AAA 등)별 리그 평균. 없는 단계는 LeagueEnv.STANDARD로 잰다
      */
-    static List<Month> build(SeasonReports.Input in, Map<String, LeagueEnvironments.Env> leagues) {
+    static List<Month> build(SeasonReports.Input in, Map<String, LeagueEnv> leagues) {
         LocalDate opening = in.openingDay();
         LocalDate last = in.lastRegularDay();
         if (opening == null || last == null || last.isBefore(opening)) {
@@ -106,7 +106,7 @@ final class SeasonMonths {
      * 공식 시즌 지표(in.mlb().quality(): 타자 wRC+, 투수 ERA-)와 경기별 기록으로 낸 시즌 값의 차이.
      * 공식 값이 없거나 경기 기록이 비면 보정하지 않는다. 전·후반 이유(SeasonReports)도 이 보정으로 두 반을 잰다
      */
-    static Scale scale(SeasonReports.Input in, boolean pitcher, LeagueEnvironments.Env mlb) {
+    static Scale scale(SeasonReports.Input in, boolean pitcher, LeagueEnv mlb) {
         Double official = in.mlb() == null ? null : in.mlb().quality();
         if (official == null) {
             return Scale.NONE;
@@ -125,13 +125,13 @@ final class SeasonMonths {
         return woba == null ? Scale.NONE : new Scale(official - WrcMath.wrcPlus(woba, mlb), 1);
     }
 
-    /** 그 단계 리그 평균. 받지 못한 단계(단계를 모르는 경기 포함)는 LeagueEnvironments.STANDARD */
-    static LeagueEnvironments.Env league(Map<String, LeagueEnvironments.Env> leagues, String stage) {
-        return stage == null ? LeagueEnvironments.STANDARD : leagues.getOrDefault(stage, LeagueEnvironments.STANDARD);
+    /** 그 단계 리그 평균. 받지 못한 단계(단계를 모르는 경기 포함)는 LeagueEnv.STANDARD */
+    static LeagueEnv league(Map<String, LeagueEnv> leagues, String stage) {
+        return stage == null ? LeagueEnv.STANDARD : leagues.getOrDefault(stage, LeagueEnv.STANDARD);
     }
 
     /** 경기들의 wRC+(그 리그 평균 대비에 shift를 더해 반올림). 타격 기록이 있는 경기만 넘긴다. 타석이 없으면 null */
-    static Integer wrcPlus(List<GameDay> games, LeagueEnvironments.Env league, double shift) {
+    static Integer wrcPlus(List<GameDay> games, LeagueEnv league, double shift) {
         Double woba = woba(games);
         return woba == null ? null : (int) Math.round(WrcMath.wrcPlus(woba, league) + shift);
     }
@@ -267,7 +267,7 @@ final class SeasonMonths {
     // ---- 칸 하나 ----
 
     private static Month month(Span span, boolean pitcher, Map<LocalDate, DayState> days, List<GameDay> majors,
-                               List<GameDay> minors, Map<String, LeagueEnvironments.Env> leagues, Scale scale) {
+                               List<GameDay> minors, Map<String, LeagueEnv> leagues, Scale scale) {
         Map<String, List<GameDay>> byStage = new HashMap<>();
         int rehabGames = 0;
         for (GameDay game : majors) {
@@ -299,7 +299,7 @@ final class SeasonMonths {
         boolean majorsStage = MLB.equals(stage);
         String levelKo = majorsStage ? null : MinorRecords.levelKo(stage);
         Month.Kind kind = majorsStage ? Month.Kind.MLB : Month.Kind.MINORS;
-        LeagueEnvironments.Env league = league(leagues, stage);
+        LeagueEnv league = league(leagues, stage);
         if (pitcher) {
             int outs = games.stream().mapToInt(g -> orZero(g.pitching().pitchingOuts())).sum();
             int earnedRuns = games.stream().mapToInt(g -> orZero(g.pitching().earnedRuns())).sum();
@@ -319,7 +319,7 @@ final class SeasonMonths {
     }
 
     /** ERA+(높을수록 잘함). 아웃이 없으면 null, 무자책이면 ERA_PLUS_CAP */
-    static Integer eraPlus(int earnedRuns, int outs, LeagueEnvironments.Env league, double factor) {
+    static Integer eraPlus(int earnedRuns, int outs, LeagueEnv league, double factor) {
         if (outs == 0) {
             return null;
         }

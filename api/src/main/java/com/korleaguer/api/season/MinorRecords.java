@@ -1,9 +1,11 @@
 package com.korleaguer.api.season;
 
+import com.korleaguer.api.game.GameBatting;
+import com.korleaguer.api.game.GamePitching;
+
 import com.korleaguer.api.card.FormFacts;
 import com.korleaguer.api.card.MyPlayersResponse;
 import com.korleaguer.api.game.GameLine;
-import com.korleaguer.api.game.GameLineAssembler;
 import com.korleaguer.api.game.MinorGameLine;
 import com.korleaguer.api.player.MinorTeamNames;
 
@@ -27,7 +29,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -40,9 +41,6 @@ import java.util.function.Function;
  */
 public final class MinorRecords {
 
-    /** 단계 약어 → 화면 이름 */
-    public static final Map<String, String> LEVEL_KO = Map.of(
-            "AAA", "트리플A", "AA", "더블A", "A+", "하이싱글A", "A", "싱글A", "ROK", "루키");
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
     // 마이너 경기의 한국 시각을 어림할 때 쓰는 시각(미국 저녁 경기 = 한국 다음 날 아침)
     private static final LocalTime ASSUMED_KST_TIME = LocalTime.of(8, 0);
@@ -63,7 +61,7 @@ public final class MinorRecords {
 
     /** 단계 약어의 화면 이름. 모르면 "마이너" */
     public static String levelKo(String level) {
-        return level == null ? "마이너" : LEVEL_KO.getOrDefault(level, "마이너");
+        return level == null ? "마이너" : MinorTeamNames.LEVEL_KO.getOrDefault(level, "마이너");
     }
 
     /**
@@ -105,7 +103,7 @@ public final class MinorRecords {
 
     /** 기간 타격 합계(마이너). seasonAvg는 그 시즌 마이너 전체 타율이다. */
     public static MyPlayersResponse.PeriodHitting hitting(List<MinorGameLog> period, List<MinorGameLog> season,
-                                                   java.util.function.Function<String, LeagueEnvironments.Env> leagues) {
+                                                   java.util.function.Function<String, LeagueEnv> leagues) {
         List<Batting> lines = battings(period);
         List<Batting> all = battings(season);
         int atBats = sum(lines, Batting::atBats);
@@ -121,7 +119,7 @@ public final class MinorRecords {
 
     /** 기간 투구 합계(마이너). 평균자책점은 아웃 수를 아는 경기만 센다. seasonEra는 그 시즌 마이너 전체다. */
     public static MyPlayersResponse.PeriodPitching pitching(List<MinorGameLog> period, List<MinorGameLog> season,
-                                                     java.util.function.Function<String, LeagueEnvironments.Env> leagues) {
+                                                     java.util.function.Function<String, LeagueEnv> leagues) {
         List<Pitching> lines = pitchings(period);
         List<Pitching> known = lines.stream().filter(p -> p.pitchingOuts() != null).toList();
         List<Pitching> allKnown = pitchings(season).stream().filter(p -> p.pitchingOuts() != null).toList();
@@ -149,7 +147,7 @@ public final class MinorRecords {
                         game.getOpponentName(), null, Boolean.TRUE.equals(game.getHome()), null, null,
                         game.getWin() == null ? null : game.getWin() ? "W" : "L", "final", true,
                         GameSummary.played(role, game.getBatting(), game.getPitching()),
-                        GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()), null,
+                        GameBatting.of(game.getBatting()), GamePitching.of(game.getPitching()), null,
                         MINOR_SEASON_TYPE, photoTeamAbbr))
                 .toList();
     }
@@ -175,7 +173,7 @@ public final class MinorRecords {
                         game.getOpponentName()),
                 game.getHome(), teamScore, opponentScore, result(game, schedule, teamScore, opponentScore),
                 GameSummary.played(role, game.getBatting(), game.getPitching()),
-                GameLineAssembler.batting(game.getBatting()), GameLineAssembler.pitching(game.getPitching()),
+                GameBatting.of(game.getBatting()), GamePitching.of(game.getPitching()),
                 MINOR_SEASON_TYPE);
     }
 
