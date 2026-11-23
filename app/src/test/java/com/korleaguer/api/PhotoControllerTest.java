@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** GET /api/photos/{이름}: 저장해 둔 사진을 ETag·캐시 헤더와 함께 준다. 목록에 없거나 이상한 이름은 404 (샘플 모드: 받지 않음) */
+/** GET /api/photos/{이름}: 저장해 둔 사진을 ETag·캐시 헤더와 함께 준다. 목록에 없거나 이상한 이름, 아직 받지 않은 사진은 404 (요청 중에는 원본을 받지 않는다) */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -120,6 +120,12 @@ class PhotoControllerTest {
                 .andExpect(content().bytes(edited));
         // 옛 이름(94×118 KBO 원본)은 목록에서 빠졌다. 하루 동안 저장해 둔 옛 사진이 새 주소에 섞이지 않게 이름을 바꿨다
         mockMvc.perform(get("/api/photos/kbo-si-hwan-roh")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listedPhotoNotStoredYetIsNotFound() throws Exception {
+        // 명단(baseball.yml 김혜성)에 있지만 아직 받지 않은 사진: 요청 중에 원본을 받지 않고 404(웹은 이름 첫 글자 원)
+        mockMvc.perform(get("/api/photos/mlb-808975")).andExpect(status().isNotFound());
     }
 
     @Test

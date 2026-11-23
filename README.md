@@ -38,7 +38,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
 | `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수와 명단 선수 관련 기사 수집·요약(30분마다). 기본 `true`. 포스팅 선수는 협상 기간(시작 3일 전 ~ 마감 3일 뒤)에만, 명단 선수(국내 리그로 돌아간 선수 빼고)는 늘 최근 30일 기사를 모은다(이슈 #119). `false`여도 홈은 DB에 있는 기사를 보여 준다 |
 | `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines and summaries; personal, non-commercial)` |
-| `KORLEAGUER_PHOTOS_ENABLED` | 선수 사진 미리 받기(앱이 뜰 때와 6시간마다). 기본 `true`. 꺼도 사진은 처음 요청될 때 받아 저장한다 |
+| `KORLEAGUER_PHOTOS_ENABLED` | 선수 사진 받기(앱이 뜰 때와 10분마다). 기본 `true`. 화면 요청은 저장본만 읽으므로 끄면 새 사진을 받지 않는다(받아 둔 사진은 그대로 준다) |
 | `KORLEAGUER_SEASON` | 시즌을 이 연도로 고정한다(테스트·수동 고정용). 샘플 모드는 샘플 데이터의 시즌(2026)으로 고정된다. 기본은 비움 = 자동: 미국 날짜로 올해 정규시즌 개막일이 지났으면 올해, 아니면 작년. 개막일을 아직 못 받았으면 3월 20일로 본다. 앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다 |
 
 > **MLB 이용 고지:** 응답에 붙는 MLB 저작권 안내(`gdx.mlb.com/components/copyright.txt`)는 "개인적·비상업적·대량이 아닌 사용(individual, non-commercial, non-bulk use)"만 허락한다.
@@ -175,7 +175,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
 - 우리가 만든 편집본은 원본에서 받지 않고 앱에 든 파일(`core/src/main/resources/photos/`)을 그대로 준다: 포스팅 선수(`kbo-{slug}-{사진 시즌}`)·포스팅 선배(`posting-…`, 둘 다 흰 바탕 256×256 JPEG, 얼굴 크기·위치가 같은 틀)와 과거 소속팀(`career-…`, MLB 배경 없는 사진과 같은 틀의 투명 PNG). 편집본이 없으면 공식 사진을 켠 서버는 뜨지 않는다. 만드는 법은 `tools/posting-photo/README.md`.
   - 포스팅 선수 사진은 현 소속 KBO 구단 공식 등록 사진이다. KBO 사진 서버 판(94×118)은 홈 76px 원에서 흐려서(3배 화면에 필요한 228px의 41%) 같은 사진의 큰 판(네이버 스포츠 이미지 서버, 210×262)으로 만든다. `posting.yml`의 `photo-url`은 그 출처 기록이다.
   - 사진 이름에 사진 시즌(`photo-season`)이 들어가, 새 시즌 사진으로 바꾸면 주소도 바뀐다. 사진을 하루 동안 저장해 두는 브라우저·중간 캐시에 옛 사진이 남지 않게 하려는 것이다(2026-11-18 노시환 사진을 `kbo-si-hwan-roh`에서 `kbo-si-hwan-roh-2026`으로 바꿨다).
-- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, MLB 사진이 없는 포스팅 선배는 KBO 사진 서버 `korleaguer.images.kbo-photo-template`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 앱이 뜰 때와 6시간마다 없는 사진을 미리 받고, 처음 요청된 사진은 그 자리에서 받는다.
+- 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, MLB 사진이 없는 포스팅 선배는 KBO 사진 서버 `korleaguer.images.kbo-photo-template`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 받기는 주기 작업만 한다: 앱이 뜰 때와 10분마다 없는 사진(원본 주소가 바뀐 사진 포함)을 받는다. 화면 요청(`/api/photos/{이름}`)은 DB 저장본만 읽고, 아직 없으면 404다(웹은 이름 첫 글자 원). 받기에 실패해도 저장본은 지우지 않고 다음 주기에 다시 받으며, 빠진 사진이 남으면 `photos: … still missing` 경고 로그를 남긴다.
 - 원본에 마지막으로 물어본 지 7일이 지나면 조건부 요청(If-None-Match·If-Modified-Since)으로 바뀌었는지만 묻는다. 304거나 본문(SHA-256)이 같으면 다시 쓰지 않는다. 원본 주소가 바뀌면 새로 받는다.
 - 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
 - 응답은 `ETag`(SHA-256)와 `Cache-Control: public, max-age=86400`. 같은 ETag로 물으면 304.

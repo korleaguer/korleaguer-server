@@ -33,11 +33,14 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 선수 사진을 우리가 호스팅한다(원본에서 처음 한 번만 받는다).
  * <ul>
- *   <li>처음 요청되거나 주기 작업(refresh)이 돌 때 원본에서 받아 DB(photo)에 둔다. 그다음부터는 저장본을 준다.</li>
+ *   <li>받기는 주기 작업(refresh, 뜰 때 한 번 + 10분마다)만 한다. 화면 요청(load)은 DB 저장본만 읽고 원본 사진 서버를 부르지 않는다
+ *       (화면용 API는 DB만 읽는다, ARCHITECTURE.md §3). 저장본이 없으면 빈 값이다(웹은 이름 첫 글자 원).</li>
  *   <li>원본에 마지막으로 물어본 지 7일이 지나면 주기 작업이 조건부 요청(If-None-Match·If-Modified-Since)으로
  *       바뀌었는지만 묻는다. 304거나, 200이어도 본문(SHA-256)이 같으면 다시 쓰지 않는다.
  *       시즌이 정해진 사진(PhotoSources.seasonFixed)은 다시 묻지 않는다.</li>
- *   <li>원본 주소가 바뀌면(명단·포스팅 파일 수정) 새로 받는다.</li>
+ *   <li>원본 주소가 바뀌면(명단·포스팅 파일 수정) 주기 작업이 새로 받는다. 새로 받기 전까지, 또 받기에 실패해도 옛 저장본을 그대로 준다.</li>
+ *   <li>받기에 실패해도 저장본을 지우지 않는다. 빠진 사진이 있으면 경고 로그를 남기고 다음 주기에 다시 받는다
+ *       (원본이 실패로 답했으면 PoliteFetcher가 그 사이트를 쉬게 한 시간이 지난 뒤).</li>
  *   <li>주기 작업은 지금 목록에 없는 이름의 행(사진 이름을 바꾸고 남은 옛 행)을 지운다. 목록이 정상일 때만(공식 사진을 켰고 목록이
  *       비지 않았을 때) 지운다. 끄면 목록이 통째로 비므로 지우지 않는다(다시 켰을 때 받은 사진을 또 받지 않게).</li>
  *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).</li>
@@ -73,7 +76,10 @@ public class PhotoStore implements PhotoLoader {
         this.clock = clock;
     }
 
-    /** 저장본. 없거나 원본 주소가 바뀌었으면 지금 받아 저장한다. 목록에 없는 이름이거나 받을 수 없으면 빈 값 */
+    /**
+     * 화면 요청용: DB 저장본만 읽는다(원본 사진 서버를 부르지 않는다). 원본 주소가 바뀌었어도 새로 받기 전까지는 옛 저장본을 준다.
+     * 목록에 없는 이름이거나 아직 받지 못했으면 빈 값
+     */
     @Override
     public Optional<Photo> load(String key) {
         Optional<String> source = sources.source(key);
@@ -84,18 +90,8 @@ public class PhotoStore implements PhotoLoader {
             return Optional.of(bundled.computeIfAbsent(key, k -> readBundled(k, source.get())));
         }
         Optional<Photo> stored = photos.findById(key);
-        if (stored.isPresent() && stored.get().getSourceUrl().equals(source.get())) {
-            sources.remember(key, stored.get().getSha256());
-            return stored;
-        }
-        synchronized (lock) {
-            Optional<Photo> again = photos.findById(key);
-            if (again.isPresent() && again.get().getSourceUrl().equals(source.get())) {
-                sources.remember(key, again.get().getSha256());
-                return again;
-            }
-            return download(key, source.get(), again.orElse(null), clock.instant()).or(() -> again);
-        }
+        stored.ifPresent(photo -> sources.remember(key, photo.getSha256()));
+        return stored;
     }
 
     /** 서버가 뜰 때 저장된 사진의 해시를 읽어 둔다(주소의 ?v=가 처음부터 붙게). 못 읽어도 주기 작업·요청 때 채워진다 */
@@ -110,12 +106,16 @@ public class PhotoStore implements PhotoLoader {
         }
     }
 
-    /** 주기 작업: 없는 사진은 받고, 물어본 지 7일 지난 사진은 바뀌었는지만 묻는다. 새로 받거나 바꾼 사진 수 */
+    /**
+     * 주기 작업: 없는 사진(원본 주소가 바뀐 사진 포함)은 받고, 물어본 지 7일 지난 사진은 바뀌었는지만 묻는다.
+     * 받을 것도 물을 것도 없으면 원본을 부르지 않는다(10분마다 돌아도 원본 요청은 늘지 않는다). 새로 받거나 바꾼 사진 수
+     */
     public int refresh() {
         if (dataMode == DataMode.SAMPLE) {
             return 0;
         }
         int changed = 0;
+        List<String> missing = new ArrayList<>();
         synchronized (lock) {
             for (Map.Entry<String, String> entry : sources.all().entrySet()) {
                 if (PhotoSources.bundled(entry.getValue())) {
@@ -126,6 +126,8 @@ public class PhotoStore implements PhotoLoader {
                 if (stored.isEmpty() || !stored.get().getSourceUrl().equals(entry.getValue())) {
                     if (download(entry.getKey(), entry.getValue(), stored.orElse(null), now).isPresent()) {
                         changed++;
+                    } else if (stored.isEmpty()) {
+                        missing.add(entry.getKey()); // 화면에는 사진 대신 이름 첫 글자 원이 나간다
                     }
                 } else {
                     sources.remember(entry.getKey(), stored.get().getSha256());
@@ -140,6 +142,9 @@ public class PhotoStore implements PhotoLoader {
         }
         if (changed > 0) {
             log.info("photos: {} photo(s) fetched or updated", changed);
+        }
+        if (!missing.isEmpty()) {
+            log.warn("photos: {} photo(s) still missing, will retry on the next run: {}", missing.size(), missing);
         }
         return changed;
     }

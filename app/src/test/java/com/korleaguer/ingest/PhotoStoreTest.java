@@ -34,7 +34,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** 사진 호스팅: 처음 한 번만 받고, 7일마다 바뀌었는지만 묻고(같으면 다시 쓰지 않음), 목록에 없는 사진은 받지 않는다. */
+/**
+ * 사진 호스팅: 주기 작업만 받고(화면 요청은 저장본만 읽음), 처음 한 번만 받고, 7일마다 바뀌었는지만 묻고(같으면 다시 쓰지 않음),
+ * 목록에 없는 사진은 받지 않는다. 받기에 실패해도 저장본은 지키고, 빠진 사진은 다음 주기에 다시 받는다.
+ */
 class PhotoStoreTest {
 
     private static final String MLB = "https://img.example.com/people/808982/headshot";
@@ -69,12 +72,14 @@ class PhotoStoreTest {
     }
 
     @Test
-    void firstLoadFetchesOnceThenServesTheStoredCopy() {
+    void refreshFetchesOnceThenRequestsServeTheStoredCopy() {
         reply(MLB, 200, "face", Map.of("content-type", "image/webp", "etag", "\"v1\""));
         PhotoStore store = store(DataMode.MLB);
 
+        store.refresh();
         Optional<Photo> first = store.load("mlb-808982");
         Optional<Photo> second = store.load("mlb-808982");
+        store.refresh(); // 이미 받았고 7일이 안 지났다: 원본을 부르지 않는다
 
         assertThat(first).map(Photo::getContentType).contains("image/webp");
         assertThat(second).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("face");
@@ -85,9 +90,65 @@ class PhotoStoreTest {
     @Test
     void robotsForbiddenImageServerStillServesTheChosenPhoto() {
         reply(KBO, 200, "heroes", Map.of("content-type", "image/jpeg"));
+        PhotoStore store = storeWithPostingSeasonPhoto("https://img.example.kr/{season}/{kboId}.jpg");
 
-        assertThat(storeWithPostingSeasonPhoto("https://img.example.kr/{season}/{kboId}.jpg").load("kbo-67341-2023"))
-                .isPresent();
+        store.refresh();
+
+        assertThat(store.load("kbo-67341-2023")).isPresent();
+    }
+
+    @Test
+    void requestsNeverCallTheSourceEvenWhenThePhotoIsMissing() {
+        reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
+        PhotoStore store = store(DataMode.MLB);
+
+        assertThat(store.load("mlb-808982")).isEmpty(); // 아직 받지 않았다: 화면은 이름 첫 글자 원
+        assertThat(requested).isEmpty(); // 화면 요청은 DB만 읽는다
+        assertThat(saved).isEmpty();
+    }
+
+    @Test
+    void changedSourceKeepsServingTheOldCopyUntilRefreshFetchesTheNewOne() {
+        Photo row = new Photo("mlb-808982");
+        row.replace("https://img.example.com/old/808982", "image/webp", "old".getBytes(StandardCharsets.UTF_8),
+                Hashes.sha256("old".getBytes(StandardCharsets.UTF_8)), null, null, clock.instant());
+        saved.put("mlb-808982", row);
+        reply(MLB, 200, "new", Map.of("content-type", "image/webp"));
+        PhotoStore store = store(DataMode.MLB);
+
+        assertThat(store.load("mlb-808982")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("old");
+        assertThat(requested).isEmpty();
+
+        store.refresh();
+
+        assertThat(store.load("mlb-808982")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("new");
+        assertThat(saved.get("mlb-808982").getSourceUrl()).isEqualTo(MLB);
+    }
+
+    @Test
+    void failedFetchKeepsTheStoredCopyAndALaterRunFillsTheMissingPhoto() {
+        Photo row = new Photo("mlb-808975");
+        row.replace("https://img.example.com/old/808975", "image/webp", "kim".getBytes(StandardCharsets.UTF_8),
+                Hashes.sha256("kim".getBytes(StandardCharsets.UTF_8)), null, null, clock.instant());
+        saved.put("mlb-808975", row);
+        reply(MLB, 500, "", Map.of());
+        reply(MLB_NO_VALIDATORS, 500, "", Map.of());
+        PhotoStore store = store(DataMode.MLB);
+
+        assertThat(store.refresh()).isZero(); // 원본이 실패: 이정후는 아직 없고, 김혜성은 옛 저장본을 지킨다
+        assertThat(store.load("mlb-808982")).isEmpty();
+        assertThat(store.load("mlb-808975")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("kim");
+
+        reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
+        reply(MLB_NO_VALIDATORS, 200, "kim2", Map.of("content-type", "image/webp"));
+        clock.advance(Duration.ofMinutes(10));
+        store.refresh(); // 실패한 사이트는 아직 쉬는 중: 원본을 부르지 않는다
+        assertThat(store.load("mlb-808982")).isEmpty();
+
+        clock.advance(Duration.ofMinutes(30));
+        assertThat(store.refresh()).isEqualTo(2); // 쉬는 시간이 지난 다음 주기에 빠진 사진과 바뀐 주소의 사진을 받는다
+        assertThat(store.load("mlb-808982")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("face");
+        assertThat(store.load("mlb-808975")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("kim2");
     }
 
     @Test
@@ -138,7 +199,7 @@ class PhotoStoreTest {
     void changedPhotoReplacesTheCopy() {
         reply(MLB, 200, "old", Map.of("content-type", "image/webp", "etag", "\"v1\""));
         PhotoStore store = store(DataMode.MLB);
-        store.load("mlb-808982");
+        store.refresh();
 
         reply(MLB, 200, "new", Map.of("content-type", "image/webp", "etag", "\"v2\""));
         clock.advance(Duration.ofDays(8));
@@ -154,6 +215,7 @@ class PhotoStoreTest {
         reply("https://kbo.example/robots.txt", 404, "", Map.of());
         reply(past, 200, "heroes", Map.of("content-type", "image/jpeg"));
         PhotoStore store = storeWithPostingSeasonPhoto("https://kbo.example/{season}/{kboId}.jpg");
+        store.refresh();
         assertThat(store.load("kbo-67341-2023")).isPresent();
         int before = requested.size();
 
@@ -243,7 +305,7 @@ class PhotoStoreTest {
         PhotoStore store = store(DataMode.MLB);
         assertThat(lastSources.mlbPath(808982L)).isEqualTo("/photos/mlb-808982"); // 아직 받지 못했다: 버전 없음
 
-        store.load("mlb-808982");
+        store.refresh();
         String first = lastSources.mlbPath(808982L);
         assertThat(first).isEqualTo("/photos/mlb-808982?v=" + Hashes.sha256("face".getBytes(StandardCharsets.UTF_8)).substring(0, 8));
 
@@ -307,8 +369,11 @@ class PhotoStoreTest {
     @Test
     void notAnImageIsIgnored() {
         reply(MLB, 200, "<html>blocked</html>", Map.of("content-type", "text/html"));
+        PhotoStore store = store(DataMode.MLB);
 
-        assertThat(store(DataMode.MLB).load("mlb-808982")).isEmpty();
+        store.refresh();
+
+        assertThat(store.load("mlb-808982")).isEmpty();
         assertThat(saved).isEmpty();
     }
 
