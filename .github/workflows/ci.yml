@@ -1,10 +1,22 @@
 # 전체 테스트(./gradlew test). PR마다 돌고, develop에 병합되면 배포 워크플로(deploy.yml)가 배포 전에 이 워크플로를 부른다.
-# 그래서 같은 커밋을 두 번 테스트하지 않는다(develop·main 푸시에 따로 돌지 않는다).
+# 그래서 같은 커밋을 두 번 테스트하지 않는다(develop·main 푸시에 따로 돌지 않는다. 아래 push는 gradle 파일이 바뀐 병합만이다).
+# 빨간불은 코드·테스트가 실제로 깨졌을 때만 켠다. 라이브러리 내려받기가 바깥 탓으로 막힌 것은 다시 해 본다(gradlew-retry.sh).
 name: CI
 
 on:
   pull_request:
     branches: [develop, main]
+  # 라이브러리 목록이나 Gradle 버전이 바뀐 병합 때만 develop에서 한 번 더 돈다. PR이 꺼내 쓰는 Gradle 캐시를 새로 저장하려는 것이다.
+  # 캐시 이름에 워크플로 이름이 들어가서(setup-gradle), 'CI'라는 이름으로 develop에서 돈 실행만 PR용 캐시를 저장한다.
+  # PR 실행은 읽기만 하고, 배포가 부를 때는 이름이 deploy라 캐시가 따로다. 이 push가 없으면 PR 캐시가 옛 라이브러리 목록에 멈춰
+  # PR마다 새 라이브러리를 Maven Central에서 다시 받고, 가끔 429(요청 너무 많음)로 실패한다(2026-11-18·19·23).
+  push:
+    branches: [develop]
+    paths:
+      - '**/*.gradle'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - '.github/workflows/ci.yml'
   workflow_call:
 
 # PR에 새 커밋이 오면 그 PR의 이전 실행은 취소한다. 배포에서 부를 때는 실행마다 따로라 취소하지 않는다.
@@ -32,7 +44,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
       - name: 테스트
-        run: ./gradlew test
+        run: .github/scripts/gradlew-retry.sh test
 
       # 실패하면 어떤 테스트가 깨졌는지 보고서를 내려받을 수 있게 남긴다.
       - name: 테스트 보고서 올리기
