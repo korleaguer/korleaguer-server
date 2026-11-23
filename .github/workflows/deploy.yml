@@ -122,7 +122,7 @@ jobs:
       # 아래 build-contexts로 app 단계 대신 들어간다.
       - name: jar 만들고 레이어로 풀기
         run: |
-          ./gradlew --no-daemon -q bootJar
+          .github/scripts/gradlew-retry.sh --no-daemon -q bootJar
           jar="$(find build/libs -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
           rm -rf build/image build/application.jar
           cp "$jar" build/application.jar
