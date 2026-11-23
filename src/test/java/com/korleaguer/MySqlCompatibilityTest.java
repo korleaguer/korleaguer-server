@@ -1,5 +1,9 @@
 package com.korleaguer;
 
+import com.korleaguer.domain.LeagueAverage;
+import com.korleaguer.domain.LeagueAverageRepository;
+import com.korleaguer.domain.MinorGameLogRepository;
+import com.korleaguer.domain.MinorSeasonLevel;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -8,6 +12,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Container;
@@ -18,6 +23,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -41,6 +48,12 @@ class MySqlCompatibilityTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private LeagueAverageRepository leagueAverages;
+
+    @Autowired
+    private MinorGameLogRepository minorGameLogs;
 
     @TestConfiguration
     static class FixedClock {
@@ -79,5 +92,27 @@ class MySqlCompatibilityTest {
         mockMvc.perform(get("/api/my").param("ids", "1,2,3,4,5,6").param("days", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players", hasSize(6)));
+    }
+
+    @Test
+    void leagueAverageRoundTripsOnMySql() {
+        // 리그 평균(V28, 이슈 #233): 반올림하지 않은 값이 그대로 돌아와야 화면 숫자가 받은 자리에서 계산한 값과 같다
+        LeagueAverage.Values values = new LeagueAverage.Values(1968.38 / 6125, 711 / 6200.0, 641 * 27.0 / 4320);
+        Instant fetchedAt = Instant.parse("2026-11-01T11:00:00.123456Z");
+        LeagueAverage row = new LeagueAverage(2025, "A+");
+        row.update(values, fetchedAt);
+        leagueAverages.saveAndFlush(row);
+
+        LeagueAverage read = leagueAverages.findBySeasonAndLevel(2025, "A+").orElseThrow();
+        assertThat(read.values()).isEqualTo(values);
+        assertThat(read.getFetchedAt()).isEqualTo(fetchedAt);
+        // (시즌, 단계)마다 한 줄만 들어간다
+        LeagueAverage again = new LeagueAverage(2025, "A+");
+        again.update(values, fetchedAt);
+        assertThatThrownBy(() -> leagueAverages.saveAndFlush(again)).isInstanceOf(DataIntegrityViolationException.class);
+        leagueAverages.delete(read);
+
+        // 받을 조합을 뽑는 조회(공식 날짜의 연도)도 MySQL에서 돈다. 샘플의 마이너 경기는 2026 트리플A뿐이다
+        assertThat(minorGameLogs.findSeasonLevels()).containsExactly(new MinorSeasonLevel(2026, 2026, "AAA"));
     }
 }

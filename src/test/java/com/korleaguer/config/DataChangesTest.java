@@ -15,6 +15,8 @@ class DataChangesTest {
             delete from minor_game_log mgl1_0 where mgl1_0.player_id=?; ALL
             UPDATE `player` SET level=? WHERE id=?; ALL
               insert into team (id) values (?); ALL
+            insert into league_average (era,fetched_at,level,runs_per_pa,season,woba) values (?,?,?,?,?,?); ALL
+            update league_average set era=?,fetched_at=?,runs_per_pa=?,woba=? where id=?; ALL
             insert into news_article (title) values (?); HOME
             merge into news_article values (?); HOME
             select g1_0.game_pk from game g1_0; NONE
