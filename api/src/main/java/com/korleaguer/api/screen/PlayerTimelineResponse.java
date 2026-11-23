@@ -1,5 +1,7 @@
 package com.korleaguer.api.screen;
 
+import com.korleaguer.api.player.MoveEntry;
+
 import com.korleaguer.domain.Level;
 
 import java.time.LocalDate;
@@ -28,20 +30,8 @@ public record PlayerTimelineResponse(int season, List<Integer> seasons, LocalDat
      * @param lastMoveOn 이 기간 마지막 이동 날짜. 이동이 없으면 null
      * @param stat       펼친 줄에 쓸 시즌 숫자 한 줄. 표본이 없으면 null
      */
-    public record PlayerTimeline(long playerId, List<Segment> segments, List<PlayerPageResponse.Move> moves,
+    public record PlayerTimeline(long playerId, List<TimelineSegment> segments, List<MoveEntry> moves,
                                  LocalDate lastMoveOn, Stat stat) {
-    }
-
-    /** 띠 구간 종류. MLB 메이저, MINORS 마이너, INJURED 부상자 명단(재활 경기 배정 포함), NO_TEAM 방출·FA 선언 뒤 계약 전 */
-    public enum Kind { MLB, MINORS, INJURED, NO_TEAM }
-
-    /**
-     * 띠 구간(양 끝 날짜 포함). 부상 구간의 끝은 해제일 전날이다.
-     *
-     * @param levelKo 마이너 단계 이름(트리플A 등). 부상 구간은 있던 단계. 모르거나 메이저·팀 없음이면 null
-     * @param teamKo  그 구간의 팀(이동 기록의 팀 이름, 마이너는 "오클라호마시티"처럼 지명만). 모르거나 팀 없음이면 null
-     */
-    public record Segment(LocalDate from, LocalDate to, Kind kind, String levelKo, String teamKo) {
     }
 
     /**

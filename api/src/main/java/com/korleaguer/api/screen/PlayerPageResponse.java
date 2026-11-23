@@ -1,5 +1,8 @@
 package com.korleaguer.api.screen;
 
+import com.korleaguer.api.player.MoveEntry;
+import com.korleaguer.api.player.PastTeamPhoto;
+
 import com.korleaguer.api.article.PostingSummary;
 import com.korleaguer.api.game.GameLine;
 import com.korleaguer.api.game.MinorGameLine;
@@ -23,7 +26,7 @@ import java.util.List;
  * minorHitting·minorPitching은 같은 시즌 마이너 경기 기록을 더한 것(홈 minorHitters·minorPitchers와 같은 계산)이고,
  * 마이너 경기가 없으면 null이다. 메이저 기록(hitting·pitching)과 따로 보여 줘야 작은 표본이 시즌 전체처럼 보이지 않는다.
  * moves는 MLB 공식 API의 이동 기록 중 팬에게 의미 있는 것만, 최신순이다(없으면 빈 목록). 팀 이름은 MLB 구단이면 한글
- * 이름, 마이너 팀 이름표(roster/minor-teams.yml)에 있는 팀이면 한국어 지명과 단계다(Move, 이슈 #183·#191).
+ * 이름, 마이너 팀 이름표(roster/minor-teams.yml)에 있는 팀이면 한국어 지명과 단계다(MoveEntry, 이슈 #183·#191).
  * 이슈 #133에서 더한 칸(옛 화면은 무시해도 된다):
  * <ul>
  *   <li>saber: 지금 시즌 MLB 안 위치(PlayerSaber, 타자·투수 모양이 다르다). 아직 받지 않았거나 그 시즌 MLB 기록이 없으면 null</li>
@@ -44,7 +47,7 @@ public record PlayerPageResponse(
         HitterSeason minorHitting,
         PitcherSeason minorPitching,
         List<GameLine> games,
-        List<Move> moves,
+        List<MoveEntry> moves,
         PlayerSaber saber,
         List<CareerSeason> seasons,
         List<PostingSummary.Headline> news,
@@ -85,33 +88,8 @@ public record PlayerPageResponse(
             String levelTeam,
             boolean freeAgent,
             String returnedKo,
-            List<CareerPhoto> careerPhotos,
+            List<PastTeamPhoto> careerPhotos,
             String photoTeamAbbr) {
     }
 
-    /**
-     * 과거 소속팀(KBO) 시절 공식 사진 한 장(명단 baseball.yml의 career-photos). 우리가 호스팅하는 주소다(/photos/career-67341-2023).
-     * 지금 MLB 사진(배경 없는 사진)과 같은 틀(투명 바탕, 같은 얼굴 크기·위치)의 편집본이라 화면은 두 사진을 같은 방식으로 보인다.
-     *
-     * @param teamKo 팀 이름(예: "키움 히어로즈")
-     * @param years  그 팀에서 뛴 해(예: "2017–2023")
-     */
-    public record CareerPhoto(String teamKo, String years, String photoUrl) {
-    }
-
-    /**
-     * 이동 기록 한 줄. labelKo는 서버가 typeCode(와 설명 글)로 만든 짧은 한국어 이름이다(예: "메이저 콜업").
-     * fromTeam·toTeam은 MLB 구단이면 한글 이름(예: "미네소타"), 마이너 팀 이름표(roster/minor-teams.yml: 미국의 마이너 팀
-     * 모두)에 있으면 경기 줄과 같은 한국어 지명에 단계를 붙인 이름(예: "귀넷(트리플A)", "콜럼버스(더블A)", 이슈 #183,
-     * "주피터(싱글A)", "FCL 브레이브스(루키)", 이슈 #191), 그 밖의 팀(도미니칸 서머 리그·국가대표 등)은 MLB가 준 영어 이름
-     * 그대로이고 없으면 null. toLevel은 옮겨 간 팀의 단계(MLB / MINORS), 모르면 null이다.
-     */
-    public record Move(
-            LocalDate date,
-            String typeCode,
-            String labelKo,
-            String fromTeam,
-            String toTeam,
-            Level toLevel) {
-    }
 }

@@ -3,8 +3,6 @@ package com.korleaguer.api.season;
 import com.korleaguer.api.game.GameBatting;
 import com.korleaguer.api.game.GamePitching;
 
-import com.korleaguer.api.card.FormFacts;
-import com.korleaguer.api.card.MyPlayersResponse;
 import com.korleaguer.api.game.GameLine;
 import com.korleaguer.api.game.MinorGameLine;
 import com.korleaguer.api.player.MinorTeamNames;
@@ -85,24 +83,24 @@ public final class MinorRecords {
     }
 
     /** 메이저 출전 한 번 → 소식 계산용 숫자. 날짜는 경기 시작의 미국 날짜다. */
-    public static FormFacts.GameStat stat(Appearance appearance) {
+    public static GameStat stat(Appearance appearance) {
         return stat(LocalDate.ofInstant(appearance.getGame().getStartTimeUtc(), MlbTime.US_EASTERN),
                 appearance.getBatting(), appearance.getPitching());
     }
 
     /** 마이너 경기 한 번 → 소식 계산용 숫자 */
-    public static FormFacts.GameStat stat(MinorGameLog game) {
+    public static GameStat stat(MinorGameLog game) {
         return stat(game.getGameDate(), game.getBatting(), game.getPitching());
     }
 
-    private static FormFacts.GameStat stat(LocalDate date, Batting b, Pitching p) {
-        return new FormFacts.GameStat(date, b != null, b == null ? 0 : orZero(b.atBats()), b == null ? 0 : orZero(b.hits()),
+    private static GameStat stat(LocalDate date, Batting b, Pitching p) {
+        return new GameStat(date, b != null, b == null ? 0 : orZero(b.atBats()), b == null ? 0 : orZero(b.hits()),
                 b == null ? 0 : orZero(b.homeRuns()), b == null ? 0 : b.plateAppearancesOrComputed(), p != null,
                 p == null ? null : p.runsAllowed());
     }
 
     /** 기간 타격 합계(마이너). seasonAvg는 그 시즌 마이너 전체 타율이다. */
-    public static MyPlayersResponse.PeriodHitting hitting(List<MinorGameLog> period, List<MinorGameLog> season,
+    public static PeriodHitting hitting(List<MinorGameLog> period, List<MinorGameLog> season,
                                                    java.util.function.Function<String, LeagueEnv> leagues) {
         List<Batting> lines = battings(period);
         List<Batting> all = battings(season);
@@ -111,14 +109,14 @@ public final class MinorRecords {
         // 기간 wRC+는 그 단계 리그 평균과 견준다(한 단계일 때만, 아니면 null)
         String level = PeriodRates.singleLevel(period);
         Double wrc = level == null ? null : PeriodRates.wrcPlusOf(lines, leagues.apply(level));
-        return new MyPlayersResponse.PeriodHitting(lines.size(), atBats, hits, sum(lines, Batting::homeRuns),
+        return new PeriodHitting(lines.size(), atBats, hits, sum(lines, Batting::homeRuns),
                 sum(lines, Batting::rbi), sum(lines, Batting::walks), sum(lines, Batting::stolenBases),
                 BaseballMath.avg(hits, atBats), BaseballMath.avg(sum(all, Batting::hits), sum(all, Batting::atBats)),
                 wrc, wrc == null ? null : level, PeriodRates.mixedLevels(period));
     }
 
     /** 기간 투구 합계(마이너). 평균자책점은 아웃 수를 아는 경기만 센다. seasonEra는 그 시즌 마이너 전체다. */
-    public static MyPlayersResponse.PeriodPitching pitching(List<MinorGameLog> period, List<MinorGameLog> season,
+    public static PeriodPitching pitching(List<MinorGameLog> period, List<MinorGameLog> season,
                                                      java.util.function.Function<String, LeagueEnv> leagues) {
         List<Pitching> lines = pitchings(period);
         List<Pitching> known = lines.stream().filter(p -> p.pitchingOuts() != null).toList();
@@ -127,7 +125,7 @@ public final class MinorRecords {
         int earnedRuns = sumP(known, Pitching::earnedRuns);
         String level = PeriodRates.singleLevel(period);
         Double eraPlus = level == null ? null : PeriodRates.eraPlusOf(lines, leagues.apply(level));
-        return new MyPlayersResponse.PeriodPitching(lines.size(), outs, BaseballMath.inningsText(outs), earnedRuns,
+        return new PeriodPitching(lines.size(), outs, BaseballMath.inningsText(outs), earnedRuns,
                 BaseballMath.era(earnedRuns, outs), sumP(lines, Pitching::pitcherStrikeouts), sumP(lines, Pitching::wins),
                 sumP(lines, Pitching::losses), sumP(lines, Pitching::saves),
                 BaseballMath.era(sumP(allKnown, Pitching::earnedRuns), sumP(allKnown, Pitching::pitchingOuts)),
@@ -209,35 +207,35 @@ public final class MinorRecords {
     }
 
     /** 한 시즌 메이저 합계(정규시즌). 출전이 없으면 null */
-    public static MyPlayersResponse.Totals majors(Player player, List<Appearance> regular) {
+    public static LevelTotals majors(Player player, List<Appearance> regular) {
         if (regular.isEmpty()) {
             return null;
         }
         if (player.role() == Role.PITCHER) {
             PitcherSeason p = SeasonStats.pitcher(player, null, null, null, regular, 0);
-            return new MyPlayersResponse.Totals("MLB", p.games(), 0, 0, 0, null, p.outs(), p.inningsText(), p.era(),
+            return new LevelTotals("MLB", p.games(), 0, 0, 0, null, p.outs(), p.inningsText(), p.era(),
                     p.strikeouts(), p.saves(), 0);
         }
         HitterSeason h = SeasonStats.hitter(player, null, null, null, regular, 0);
-        return new MyPlayersResponse.Totals("MLB", h.games(), h.atBats(), h.hits(), h.homeRuns(), h.avg(), 0, null,
+        return new LevelTotals("MLB", h.games(), h.atBats(), h.hits(), h.homeRuns(), h.avg(), 0, null,
                 null, 0, 0, 0);
     }
 
     /** 한 시즌 마이너 합계. 경기가 없으면 null. 여러 단계를 뛰었으면 level은 MINORS다. */
-    public static MyPlayersResponse.Totals minors(Player player, List<MinorGameLog> season) {
+    public static LevelTotals minors(Player player, List<MinorGameLog> season) {
         if (season.isEmpty()) {
             return null;
         }
         List<String> levels = season.stream().map(MinorGameLog::getLevel).filter(Objects::nonNull).distinct().toList();
         String level = levels.size() == 1 ? levels.getFirst() : "MINORS";
         if (player.role() == Role.PITCHER) {
-            MyPlayersResponse.PeriodPitching p = pitching(season, season, l -> null);
+            PeriodPitching p = pitching(season, season, l -> null);
             int holds = season.stream().map(MinorGameLog::getHolds).filter(Objects::nonNull).mapToInt(Integer::intValue).sum();
-            return new MyPlayersResponse.Totals(level, p.games(), 0, 0, 0, null, p.outs(), p.inningsText(), p.era(),
+            return new LevelTotals(level, p.games(), 0, 0, 0, null, p.outs(), p.inningsText(), p.era(),
                     p.strikeouts(), p.saves(), holds);
         }
-        MyPlayersResponse.PeriodHitting h = hitting(season, season, l -> null);
-        return new MyPlayersResponse.Totals(level, h.games(), h.atBats(), h.hits(), h.homeRuns(), h.avg(), 0, null,
+        PeriodHitting h = hitting(season, season, l -> null);
+        return new LevelTotals(level, h.games(), h.atBats(), h.hits(), h.homeRuns(), h.avg(), 0, null,
                 null, 0, 0, 0);
     }
 

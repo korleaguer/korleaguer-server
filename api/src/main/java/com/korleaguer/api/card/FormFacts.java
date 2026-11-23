@@ -1,5 +1,7 @@
 package com.korleaguer.api.card;
 
+import com.korleaguer.api.season.GameStat;
+
 import com.korleaguer.api.game.GameLine;
 
 import com.korleaguer.domain.Lineup;
@@ -34,19 +36,12 @@ public final class FormFacts {
     }
 
     /**
-     * 경기 한 번 숫자. date는 미국 날짜, batted·pitched는 그 기록이 있는지, runsAllowed는 모르면 null이다.
-     */
-    public record GameStat(LocalDate date, boolean batted, int atBats, int hits, int homeRuns, int plateAppearances,
-                    boolean pitched, Integer runsAllowed) {
-    }
-
-    /**
      * @param season 시즌 경기(오래된 것부터, 연속 기록용)
      * @param stint  지금 단계 기간의 경기(오래된 것부터, 최근 경기용)
      * @param prefix 앞에 붙일 말("트리플A " 등, 없으면 "")
      * @param start  지금 단계 기간이 무엇으로 시작됐나(최근 경기가 다 차지 않으면 "복귀 후 6경기"처럼 쓴다)
      */
-    static MyPlayersResponse.Fact hitter(List<GameStat> season, List<GameStat> stint, String prefix,
+    static CardFact hitter(List<GameStat> season, List<GameStat> stint, String prefix,
                                          CardStatuses.Start start) {
         int hitStreak = 0;
         for (GameStat game : season.reversed()) {
@@ -60,7 +55,7 @@ public final class FormFacts {
             }
         }
         if (hitStreak >= 5) {
-            return new MyPlayersResponse.Fact(HOT, prefix + hitStreak + "경기 연속 안타");
+            return new CardFact(HOT, prefix + hitStreak + "경기 연속 안타");
         }
         int hitless = 0;
         for (GameStat game : season.reversed()) {
@@ -73,7 +68,7 @@ public final class FormFacts {
             hitless++;
         }
         if (hitless >= 4) {
-            return new MyPlayersResponse.Fact(COLD, prefix + hitless + "경기 연속 무안타");
+            return new CardFact(COLD, prefix + hitless + "경기 연속 무안타");
         }
         List<GameStat> batted = stint.stream().filter(GameStat::batted).toList();
         List<GameStat> recent = batted.subList(Math.max(0, batted.size() - RECENT_GAMES), batted.size());
@@ -83,17 +78,17 @@ public final class FormFacts {
         String label = label(recent.size(), RECENT_GAMES, "경기", start);
         int homeRuns = recent.stream().mapToInt(GameStat::homeRuns).sum();
         if (homeRuns >= 2) {
-            return new MyPlayersResponse.Fact(HOT, prefix + label + " " + homeRuns + "홈런");
+            return new CardFact(HOT, prefix + label + " " + homeRuns + "홈런");
         }
         long multiHit = recent.stream().filter(g -> g.hits() >= 2).count();
         if (multiHit >= 3) {
-            return new MyPlayersResponse.Fact(HOT, prefix + label + " 멀티히트 " + multiHit + "번");
+            return new CardFact(HOT, prefix + label + " 멀티히트 " + multiHit + "번");
         }
         return null;
     }
 
     /** 투수 소식. 인자는 hitter와 같다. */
-    static MyPlayersResponse.Fact pitcher(List<GameStat> season, List<GameStat> stint, String prefix,
+    static CardFact pitcher(List<GameStat> season, List<GameStat> stint, String prefix,
                                           CardStatuses.Start start) {
         int scoreless = 0;
         for (GameStat game : season.reversed()) {
@@ -106,7 +101,7 @@ public final class FormFacts {
             scoreless++;
         }
         if (scoreless >= 3) {
-            return new MyPlayersResponse.Fact(HOT, prefix + scoreless + "번 연속 무실점 등판");
+            return new CardFact(HOT, prefix + scoreless + "번 연속 무실점 등판");
         }
         List<GameStat> pitched = stint.stream().filter(GameStat::pitched).toList();
         List<GameStat> recent = pitched.subList(Math.max(0, pitched.size() - RECENT_APPEARANCES), pitched.size());
@@ -116,22 +111,22 @@ public final class FormFacts {
         String label = label(recent.size(), RECENT_APPEARANCES, "번 등판", start);
         long clean = recent.stream().filter(g -> g.runsAllowed() != null && g.runsAllowed() == 0).count();
         if (clean >= 4) {
-            return new MyPlayersResponse.Fact(HOT, prefix + label + " 중 " + clean + "번 무실점");
+            return new CardFact(HOT, prefix + label + " 중 " + clean + "번 무실점");
         }
         long scored = recent.size() - clean;
         if (scored >= 3) {
-            return new MyPlayersResponse.Fact(COLD, prefix + label + " 중 " + scored + "번 실점");
+            return new CardFact(COLD, prefix + label + " 중 " + scored + "번 실점");
         }
         return null;
     }
 
     /** 비시즌·FA 소식: 시즌 최장 연속 기록(메이저·마이너 중 긴 쪽) */
-    static MyPlayersResponse.Fact seasonBest(List<List<GameStat>> seasons, boolean pitcher) {
+    static CardFact seasonBest(List<List<GameStat>> seasons, boolean pitcher) {
         int best = seasons.stream().mapToInt(games -> longest(games, pitcher)).max().orElse(0);
         if (pitcher) {
-            return best >= 3 ? new MyPlayersResponse.Fact(HOT, "시즌 최장 " + best + "번 연속 무실점 등판") : null;
+            return best >= 3 ? new CardFact(HOT, "시즌 최장 " + best + "번 연속 무실점 등판") : null;
         }
-        return best >= 5 ? new MyPlayersResponse.Fact(HOT, "시즌 최장 " + best + "경기 연속 안타") : null;
+        return best >= 5 ? new CardFact(HOT, "시즌 최장 " + best + "경기 연속 안타") : null;
     }
 
     private static int longest(List<GameStat> games, boolean pitcher) {
@@ -166,7 +161,7 @@ public final class FormFacts {
      * 타자 출전 줄. teamGames는 지금 단계 기간의 팀 끝난 경기(오래된 것부터, 최근 10개)다.
      * 뛰었으면 선발·교체(모르면 PLAYED), 안 뛰었으면 ABSENT.
      */
-    static MyPlayersResponse.Play hitterPlay(List<GameLine> teamGames, CardStatuses.Start start) {
+    static CardPlay hitterPlay(List<GameLine> teamGames, CardStatuses.Start start) {
         List<String> recent = teamGames.stream()
                 .map(line -> !line.played() ? "ABSENT"
                         : line.lineup() == Lineup.STARTER ? "STARTER"
@@ -174,17 +169,17 @@ public final class FormFacts {
                 .toList();
         String after = recent.size() < RECENT_GAMES && (start == CardStatuses.Start.RETURNED
                 || start == CardStatuses.Start.CALLED_UP) ? start.name() : null;
-        return new MyPlayersResponse.Play(recent, after, null, null);
+        return new CardPlay(recent, after, null, null);
     }
 
     /** 투수 출전 줄: 최근 14일(오늘 포함) 등판 수와 마지막 등판이 며칠 전인지 */
-    static MyPlayersResponse.Play pitcherPlay(List<GameStat> season, LocalDate usToday) {
+    static CardPlay pitcherPlay(List<GameStat> season, LocalDate usToday) {
         List<GameStat> pitched = season.stream().filter(GameStat::pitched).toList();
         int last14 = (int) pitched.stream()
                 .filter(g -> !g.date().isAfter(usToday) && ChronoUnit.DAYS.between(g.date(), usToday) < 14)
                 .count();
         Integer daysSince = pitched.isEmpty() ? null
                 : (int) ChronoUnit.DAYS.between(pitched.getLast().date(), usToday);
-        return new MyPlayersResponse.Play(null, null, last14, daysSince);
+        return new CardPlay(null, null, last14, daysSince);
     }
 }

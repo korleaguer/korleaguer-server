@@ -132,7 +132,7 @@ public class NewsListFinder {
         Map<String, Integer> counted = new HashMap<>();
         // 많이 나온 말은 첫 쪽에만(뉴스 탭 맨 위 알약 줄). 검색어가 있어도 준다: 알약을 눌러 거른 채로도 줄이 그대로 보여야
         // 한다(이슈 #165). 그래서 검색어와 상관없이, 이 쪽을 만들며 읽은 기사와 별개로 범위의 최근 기사만 센다
-        List<NewsListResponse.Topic> topics = top
+        List<NewsTopic> topics = top
                 ? withSearchCounts(NewsTopics.count(recentGroups(scope, postingOnly), ownTeamWords(wanted, all)),
                         scope, postingOnly, counted)
                 : List.of();
@@ -163,11 +163,11 @@ public class NewsListFinder {
      * 알약을 누르면 기사 전체에서 찾으므로 숫자도 전체에서 센다(최근 수만 보이면 기사가 TOPIC_ROWS를 넘은 뒤 'FA 17'을 눌러
      * 25줄이 나오는 식으로 어긋난다). 순서는 보이는 숫자 순(같으면 최근 순)
      */
-    private List<NewsListResponse.Topic> withSearchCounts(List<NewsListResponse.Topic> recent, List<String> scope,
+    private List<NewsTopic> withSearchCounts(List<NewsTopic> recent, List<String> scope,
                                                           Set<String> postingOnly, Map<String, Integer> counted) {
         return recent.stream()
-                .map(t -> new NewsListResponse.Topic(t.word(), searchRows(scope, postingOnly, t.word(), counted)))
-                .sorted(Comparator.comparingInt(NewsListResponse.Topic::count).reversed())
+                .map(t -> new NewsTopic(t.word(), searchRows(scope, postingOnly, t.word(), counted)))
+                .sorted(Comparator.comparingInt(NewsTopic::count).reversed())
                 .toList();
     }
 
