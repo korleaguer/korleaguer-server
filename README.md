@@ -320,8 +320,8 @@ com.korleaguer
 │   ├── web       컨트롤러, 예외 처리, CORS(WebConfig)
 │   ├── screen    화면 조립: 홈·선수 페이지(BaseballQueryService), 이동 연표, 비교, 같은 경기, 최근 경기, 캐시 채우기(CacheWarmer)
 │   ├── card      내 선수 카드(MyPlayersService)
-│   ├── records   한국인 역대 기록(RecordsService), 화제 문구(GameBuzz)
 │   ├── offseason 포스팅·비시즌 묶음(PostingFinder·OffSeasonFinder)
+│   ├── records   한국인 역대 기록(RecordsService), 화제 문구(GameBuzz)
 │   ├── season    시즌 성적과 그 계산(성적표 SeasonReport, wRC+·리그 평균, 마이너 기록)
 │   ├── article   기사 목록·페이지, 포스팅 요약(PostingSummary), 거론 구단 세기
 │   ├── game      경기 줄(GameLine), 경기 상세(GameDetailService)
