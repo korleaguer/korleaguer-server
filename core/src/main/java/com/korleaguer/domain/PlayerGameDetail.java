@@ -45,6 +45,10 @@ public class PlayerGameDetail {
         this.fetchedAt = fetchedAt;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     public long getPlayerId() {
         return playerId;
     }

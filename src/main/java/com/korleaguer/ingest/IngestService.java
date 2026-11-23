@@ -25,10 +25,10 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * 수집 진입점. MLB 공식 Stats API는 여기(수집기)서만 부르고, 화면용 API는 DB만 읽는다(경기 상세·리그 평균도 수집이 미리 받는다).
+ * 수집 진입점. MLB 공식 Stats API는 여기(수집기)서만 부르고, 화면용 API는 DB만 읽는다(경기 상세·리그 평균·하이라이트 제목 번역도 수집이 미리 받는다).
  * - 실행마다 ingest_log에 한 줄을 남긴다(requestsUsed = MLB 요청 수). 끝나면 응답에 나오는 데이터를 실제로 바꿨을 때만
  *   홈·선수·내 선수 응답 캐시를 비운다(ResponseCaches. 같은 내용을 다시 받았으면 그대로 둔다).
- *   스케줄 실행(SCHEDULED)이 MLB를 한 번도 부르지 않았으면 줄을 남기지 않는다.
+ *   스케줄 실행(SCHEDULED)이 MLB를 한 번도 부르지 않았고 하이라이트 제목도 옮기지 않았으면 줄을 남기지 않는다.
  * - 한 번에 하나만 돈다. 이미 도는 중이면 IngestAlreadyRunningException을 던진다.
  * - 단계마다 받은 것을 저장한다. MLB가 403/429로 거절하면 그 실행의 남은 단계는 건너뛰고 BLOCKED로 끝난다.
  * - mlb와 sample이 같은 코드를 탄다(MlbClient 구현만 다르다).
@@ -44,6 +44,12 @@ public class IngestService {
     private static final int LINEUP_GAMES_PER_RUN = 20;
     /** 따라잡기 한 번에 경기 상세(타석별 기록·하이라이트)를 채우는 지난 경기 수(경기당 요청 1~2번이라 많아야 20번, 약 20초) */
     static final int DETAIL_GAMES_PER_RUN = 10;
+    /**
+     * 따라잡기 한 번에 하이라이트 제목을 옮기려고 AI를 부르는 횟수. 제목 하나에 1~2초라 보통 20초 안쪽이다
+     * (선발·교체 채우기, 경기 상세 채우기와 같은 크기). 그동안 수집 잠금을 잡고 뒤 단계가 기다린다.
+     * 12분마다 10개면 한 시간에 50개, 하루 1,200개까지 옮긴다
+     */
+    static final int TITLES_PER_RUN = 10;
 
     private final MlbClient client;
     private final IngestWriter writer;
@@ -55,6 +61,7 @@ public class IngestService {
     private final LeagueAverageRefresher leagueAverageRefresher;
     private final GameIngest gameIngest;
     private final GameDetailIngest gameDetailIngest;
+    private final HighlightTitleIngest highlightTitleIngest;
     private final PlayerRepository players;
     private final PlayerSeasonRepository seasons;
     private final IngestLogRepository ingestLogs;
@@ -68,9 +75,10 @@ public class IngestService {
                          SeasonDatesRefresher seasonDatesRefresher, SeasonMetricRefresher seasonMetricRefresher,
                          LeaguePositionRefresher leaguePositionRefresher, KoreanRecordsRefresher koreanRecordsRefresher,
                          LeagueAverageRefresher leagueAverageRefresher, GameIngest gameIngest,
-                         GameDetailIngest gameDetailIngest, PlayerRepository players,
-                         PlayerSeasonRepository seasons, IngestLogRepository ingestLogs, RosterProperties roster,
-                         CurrentSeason currentSeason, ResponseCaches responseCaches, Clock clock) {
+                         GameDetailIngest gameDetailIngest, HighlightTitleIngest highlightTitleIngest,
+                         PlayerRepository players, PlayerSeasonRepository seasons, IngestLogRepository ingestLogs,
+                         RosterProperties roster, CurrentSeason currentSeason, ResponseCaches responseCaches,
+                         Clock clock) {
         this.client = client;
         this.writer = writer;
         this.playerRefresher = playerRefresher;
@@ -81,6 +89,7 @@ public class IngestService {
         this.leagueAverageRefresher = leagueAverageRefresher;
         this.gameIngest = gameIngest;
         this.gameDetailIngest = gameDetailIngest;
+        this.highlightTitleIngest = highlightTitleIngest;
         this.players = players;
         this.seasons = seasons;
         this.ingestLogs = ingestLogs;
@@ -122,6 +131,8 @@ public class IngestService {
      *   <li>refreshGames면: 우리 팀의 오늘·어제(미국 날짜) 경기 갱신(갱신이 밀렸으면 밀린 날부터), 끝난 경기 재확인</li>
      *   <li>선발·교체를 모르는 지난 경기를 최근 것부터 조금씩(LINEUP_GAMES_PER_RUN) 채우기</li>
      *   <li>경기 상세가 없거나 굳힐 때가 된 끝난 경기(메이저·마이너)를 최근 것부터 조금씩(DETAIL_GAMES_PER_RUN) 받기</li>
+     *   <li>저장된 경기 상세의 하이라이트 영어 제목 가운데 한국어 번역이 없거나 번역 규칙 판이 낡은 것을 조금씩(TITLES_PER_RUN) 옮기기
+     *       (HighlightTitleIngest. MLB가 아니라 AI를 부른다. 실패해도 수집을 멈추지 않는다)</li>
      *   <li>오늘 아직 안 받은 선수의 MLB 안 위치·시즌별 기록(하루 한 번, LeaguePositionRefresher. lookAhead 단계보다도 뒤)</li>
      *   <li>한국인 메이저리거 역대 기록의 시즌별 개수 기록(명단 선수는 하루 한 번, 명단 밖 선수는 처음 한 번, KoreanRecordsRefresher)</li>
      *   <li>리그 평균(화면의 wRC+·ERA+ 기준): 아직 없는 (시즌, 단계)는 받고, 지금 시즌 줄은 시즌 중일 때만 하루 한 번 다시 받는다
@@ -152,6 +163,7 @@ public class IngestService {
             }
             steps.add(() -> gameIngest.fillLineups(LINEUP_GAMES_PER_RUN));
             steps.add(() -> gameDetailIngest.fill(DETAIL_GAMES_PER_RUN));
+            steps.add(() -> highlightTitleIngest.translate(TITLES_PER_RUN));
             if (lookAhead) {
                 steps.add(gameIngest::lookAhead);
                 steps.add(seasonMetricRefresher::refresh);
@@ -200,6 +212,7 @@ public class IngestService {
         try {
             IngestLog entry = ingestLogs.save(IngestLog.start(kind, clock.instant()));
             long requestsBefore = client.requestCount();
+            long titlesBefore = highlightTitleIngest.translatedCount();
             List<String> messages = new ArrayList<>();
             IngestStatus status = IngestStatus.SUCCESS;
             try {
@@ -224,8 +237,10 @@ public class IngestService {
             String message = messages.isEmpty() ? "할 일 없음" : String.join(" · ", messages);
             entry.finish(status, message, requestsUsed, clock.instant());
             log.info("ingest {} {} ({} MLB requests): {}", kind, status, requestsUsed, message);
-            if (kind == IngestKind.SCHEDULED && status == IngestStatus.SUCCESS && requestsUsed == 0) {
-                // 할 일이 없던 스케줄 실행은 남기지 않는다(12분마다 쌓이지 않게).
+            boolean titlesTranslated = highlightTitleIngest.translatedCount() != titlesBefore;
+            if (kind == IngestKind.SCHEDULED && status == IngestStatus.SUCCESS && requestsUsed == 0
+                    && !titlesTranslated) {
+                // 할 일이 없던 스케줄 실행은 남기지 않는다(12분마다 쌓이지 않게). 하이라이트 제목만 옮긴 실행은 남긴다(MLB 요청 0번).
                 ingestLogs.delete(entry);
                 return entry;
             }

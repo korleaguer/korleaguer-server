@@ -37,7 +37,7 @@ import java.util.Optional;
  *   <li>영상(korleaguer.videos.enabled=false, 환경 변수 KORLEAGUER_VIDEOS)을 끄면 하이라이트를 비우고 공 영상을 묻지 않는다.
  *       MLB 영상은 MLB 저작물이라 공개 전에 허락을 받거나 끈다(선수 사진 스위치와 같은 뜻).</li>
  * </ul>
- * 요청 중에 밖을 부르는 것은 공 하나 영상 주소(clip → SavantClips)뿐이다.
+ * 요청 중에 밖을 부르는 것은 공 하나 영상 주소(clip → SavantClips)뿐이다. 하이라이트 한국어 제목도 수집이 미리 옮겨 둔 것만 붙인다(이슈 #237).
  */
 @Service
 public class GameDetailService {
@@ -78,7 +78,7 @@ public class GameDetailService {
     }
 
     public GameDetail detail(long playerId, long gamePk) {
-        return withKoreanTitles(load(playerId, gamePk), playerId);
+        return withKoreanTitles(load(playerId, gamePk));
     }
 
     private GameDetail load(long playerId, long gamePk) {
@@ -107,15 +107,14 @@ public class GameDetailService {
 
     /**
      * 하이라이트에 한국어 제목을 붙인다(이슈 #199). 저장된 상세 JSON에는 넣지 않고 응답마다 번역 표(highlight_title)에서
-     * 붙이므로, 이미 굳은 상세에도 번역이 생기면 바로 보인다. 없는 제목은 뒤에서 옮기고 이번 응답에서는 null이다
+     * 붙이므로, 이미 굳은 상세에도 번역이 생기면 바로 보인다. 번역은 수집이 미리 해 두고(이슈 #237) 아직 없는 제목은 null이다
      */
-    private GameDetail withKoreanTitles(GameDetail response, long playerId) {
-        Player player = players.findById(playerId).orElse(null);
-        if (response.highlights().isEmpty() || player == null || player.getNameEn() == null) {
+    private GameDetail withKoreanTitles(GameDetail response) {
+        if (response.highlights().isEmpty()) {
             return response;
         }
         Map<String, String> korean = highlightTitles.koreanOf(
-                response.highlights().stream().map(GameDetail.GameHighlight::title).toList(), player.getNameKo(), player.getNameEn());
+                response.highlights().stream().map(GameDetail.GameHighlight::title).toList());
         List<GameDetail.GameHighlight> highlights = response.highlights().stream()
                 .map(h -> h.withTitleKo(korean.get(h.title()))).toList();
         return new GameDetail(response.playerId(), response.gamePk(), response.role(), response.available(),

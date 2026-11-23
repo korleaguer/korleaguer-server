@@ -46,6 +46,7 @@ import java.util.Optional;
  *       시작 시각을 모르는 끝난 경기는 기다릴 기준이 없어 바로 굳힌다. 굳은 것은 다시 받지 않는다.</li>
  *   <li>받는 때: (1) 박스스코어를 받는 메이저 경기에서 같이(refresh. 진행 중 경기는 수집 때마다 갱신된다),
  *       (2) 빠졌거나 굳힐 때가 된 것을 최근 경기부터 조금씩(fill).</li>
+ *   <li>상세를 저장하면 그 하이라이트 제목을 번역 대기 줄에 넣는다(HighlightTitleIngest.offer. 번역은 그 단계가 한다).</li>
  * </ul>
  * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 경기만 건너뛴다.
  * 채우기에서 실패한 경기는 '받아 봤음'(굳지 않은 available=false)을 남기고 RETRY_AFTER 뒤에 다시 받는다.
@@ -65,15 +66,18 @@ public class GameDetailIngest {
     private final AppearanceRepository appearances;
     private final MinorGameLogRepository minorGames;
     private final PlayerGameDetailRepository details;
+    private final HighlightTitleIngest highlightTitles;
     private final JsonMapper json;
     private final Clock clock;
 
     public GameDetailIngest(MlbClient client, AppearanceRepository appearances, MinorGameLogRepository minorGames,
-                            PlayerGameDetailRepository details, JsonMapper json, Clock clock) {
+                            PlayerGameDetailRepository details, HighlightTitleIngest highlightTitles, JsonMapper json,
+                            Clock clock) {
         this.client = client;
         this.appearances = appearances;
         this.minorGames = minorGames;
         this.details = details;
+        this.highlightTitles = highlightTitles;
         this.json = json;
         this.clock = clock;
     }
@@ -202,7 +206,7 @@ public class GameDetailIngest {
             Role role = player.role();
             GameDetail detail = new GameDetail(player.getId(), gamePk, role.name(), true, major,
                     GameDetails.plays(pbp, player.getMlbId(), role), GameDetails.highlights(content, player.getMlbId()));
-            if (save(detail, complete, now)) {
+            if (save(detail, player, complete, now)) {
                 saved++;
             }
         }
@@ -213,16 +217,18 @@ public class GameDetailIngest {
         return start == null || !now.isBefore(start.plus(COMPLETE_AFTER));
     }
 
-    private boolean save(GameDetail detail, boolean complete, Instant now) {
-        String payload = fitted(detail);
-        if (payload == null) {
+    private boolean save(GameDetail detail, Player player, boolean complete, Instant now) {
+        Fitted fitted = fitted(detail);
+        if (fitted == null) {
             log.warn("game detail {} for player {} is too long to keep", detail.gamePk(), detail.playerId());
             if (complete) {
                 store(GameDetail.unavailable(detail.playerId(), detail.gamePk(), detail.role()), true, now);
             }
             return false;
         }
-        store(detail.playerId(), detail.gamePk(), payload, complete, now);
+        store(detail.playerId(), detail.gamePk(), fitted.payload(), complete, now);
+        // 저장한 하이라이트의 제목을 번역 대기 줄에 넣는다(칸에 못 들어가 덜어 낸 영상의 제목은 넣지 않는다)
+        highlightTitles.offer(fitted.detail(), player);
         return true;
     }
 
@@ -238,21 +244,25 @@ public class GameDetailIngest {
         details.save(row);
     }
 
-    /** 저장할 JSON. 칸보다 길면 뒤 하이라이트부터 덜어 낸다. 그래도 길면 null(저장하지 않음) */
-    private String fitted(GameDetail detail) {
+    /** 저장할 상세와 그 JSON. 칸보다 길면 뒤 하이라이트부터 덜어 낸다. 그래도 길면 null(저장하지 않음) */
+    private Fitted fitted(GameDetail detail) {
         List<GameDetail.GameHighlight> highlights = new ArrayList<>(detail.highlights());
         while (true) {
             GameDetail candidate = new GameDetail(detail.playerId(), detail.gamePk(), detail.role(),
                     detail.available(), detail.clips(), detail.plays(), List.copyOf(highlights));
             String payload = json.writeValueAsString(candidate);
             if (payload.length() <= PlayerGameDetail.MAX_PAYLOAD_LENGTH) {
-                return payload;
+                return new Fitted(candidate, payload);
             }
             if (highlights.isEmpty()) {
                 return null;
             }
             highlights.removeLast();
         }
+    }
+
+    /** 칸에 맞춘 상세와 저장할 JSON */
+    private record Fitted(GameDetail detail, String payload) {
     }
 
     /** 상세를 받을 끝난 경기 하나와 그 경기의 우리 선수들 */
