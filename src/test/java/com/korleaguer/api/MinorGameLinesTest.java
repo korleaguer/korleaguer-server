@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.MinorTeamProperties;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameSchedule;

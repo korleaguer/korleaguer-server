@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;

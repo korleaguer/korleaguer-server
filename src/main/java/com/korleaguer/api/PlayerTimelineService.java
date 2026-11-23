@@ -3,8 +3,8 @@ package com.korleaguer.api;
 import com.korleaguer.api.PlayerTimelineResponse.PlayerTimeline;
 import com.korleaguer.api.PlayerTimelineResponse.Stat;
 import com.korleaguer.api.SeasonReports.GameDay;
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.MinorGameLogRepository;
@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  *   <li>이동은 선수 화면과 같은 규칙(BaseballQueryService.fanMoves)으로 팬에게 보일 것만 고른다.</li>
  *   <li>시즌 숫자는 홈 비시즌 성적표와 같은 계산(SeasonReportFinder → SeasonReports.build → SeasonRates)이다.
  *       그래서 시즌 중에도 나오고, 같은 선수·시즌이면 같은 값이다. 기사·'MLB 안 위치'는 읽지 않는다.</li>
- *   <li>응답은 시즌마다 캐시한다(AppConfig.TIMELINE_CACHE). 데이터나 날짜가 바뀔 때 비우고(ResponseCaches),
+ *   <li>응답은 시즌마다 캐시한다(ResponseCaches.TIMELINE_CACHE). 데이터나 날짜가 바뀔 때 비우고(ResponseCaches),
  *       CacheWarmer가 지금 시즌을 미리 채워 둔다.</li>
  * </ul>
  */
@@ -91,7 +91,7 @@ public class PlayerTimelineService {
         return season;
     }
 
-    @Cacheable(cacheNames = AppConfig.TIMELINE_CACHE, key = "#season")
+    @Cacheable(cacheNames = ResponseCaches.TIMELINE_CACHE, key = "#season")
     public PlayerTimelineResponse timeline(int season) {
         Instant now = clock.instant();
         LocalDate today = KoreanTime.kstDate(now);

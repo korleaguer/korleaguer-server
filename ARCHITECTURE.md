@@ -29,11 +29,11 @@
 
 | 모듈 | 하는 일 | 바뀌는 이유 | 지금 패키지 |
 |---|---|---|---|
-| `core` | 엔티티, 리포지토리, DB 마이그레이션, 기본 야구 계산, 설정 값·상수, 응답 캐시 비우기 | 데이터 모양 | `domain`, `support`, `posting`, `config` 일부 |
+| `core` | 엔티티, 리포지토리, DB 마이그레이션, 기본 야구 계산, 설정 값·상수, 응답 캐시 비우기 | 데이터 모양 | `domain`, `support`, `posting`, `config`, `photo`(사진 목록) |
 | `client` | 밖과 말하는 법(남의 서버를 부르는 코드): MLB 클라이언트, 기사 가져오기(robots·예절), Claude 요약, 사진 원본 받기 | 외부 API와 예절 | `client`, `news`의 가져오기·요약 |
-| `batch` | 수집: 받아서 바꾸고 저장하는 작업과 그 스케줄 | 무엇을 언제 받나 | `ingest`, `news`·`photo`의 수집 |
+| `batch` | 수집: 받아서 바꾸고 저장하는 작업과 그 스케줄 | 무엇을 언제 받나 | `ingest`(사진 받기 `PhotoStore` 포함), `news`의 수집 |
 | `api` | 컨트롤러, 화면 조립, 화면용 계산 규칙, 응답 | 화면 요구 | `api` |
-| `app` | 조립만(main, 실행 파일) | 배포 방식 | `ApiApplication` |
+| `app` | 조립만(main, 실행 파일) | 배포 방식 | `ApiApplication`, `AppConfig` |
 | `member` (앞으로) | 계정, 내 선수 저장, 댓글·반응, 알림 | 정책과 보안 | 없음 |
 
 ```
@@ -49,7 +49,7 @@ member(앞으로) ─▶ api, core
 - `batch`는 스케줄로 도는 수집 작업이라는 뜻이다. Spring Batch 프레임워크는 쓰지 않는다(`@Scheduled`로 돌린다). Java 패키지 이름은 `com.korleaguer.ingest` 그대로 둔다(모듈 이름만 `batch`).
 
 - `core`는 다른 모듈을 모른다. `client`는 `core`만 안다.
-- `batch`와 `api`는 서로 모른다. 둘 사이에 알릴 일이 있으면 `core`에 둔 이벤트로 알린다(수집 끝을 알리는 `CatchUpFinished`가 그 역할인데, 지금은 자리가 `ingest`라 옮길 대상이다).
+- `batch`와 `api`는 서로 모른다. 둘 사이에 알릴 일이 있으면 `core`에 둔 이벤트로 알린다(수집 끝을 알리는 `config.CatchUpFinished`가 그 역할이다).
 - **`core`에 넣는 것은 여기까지다**: 엔티티, 리포지토리, 타율·ERA 같은 기본 계산, 설정 값. "여러 곳에서 쓸 것 같다"는 이유로 넣지 않는다. 화면용 계산 규칙(`SeasonVerdict`, `CardStatuses` 등)은 `api`에 둔다.
 - 스케줄만 따로 모듈로 떼지 않는다. 스케줄 클래스는 셋뿐이고, 언제 도는지가 아니라 무엇을 하는지로 묶는다.
 - 실행 파일은 당분간 하나다. 수집과 API를 다른 프로세스로 떼는 것은 조립 모듈을 하나 더 두면 되게 해 둔다(그때 실행 모듈 이름은 `app-api`, `app-batch`).
@@ -146,7 +146,7 @@ member(앞으로) ─▶ api, core
 
 ## 7. 아직 안 한 일 (11-23 기준)
 
-방향을 정했고 `core`의 첫 조각만 옮겼다. 지금 코드가 규칙과 다른 것은 버그가 아니라 할 일이다.
+방향을 정했고 `core`를 뗐다(#226·#239). 지금 코드가 규칙과 다른 것은 버그가 아니라 할 일이다.
 
 ### 단계
 
@@ -157,9 +157,8 @@ member(앞으로) ─▶ api, core
 
 남은 구조 이동:
 
-1. `core` 떼기. `domain`, `support`, `posting`은 옮겼다(#225). 남은 것:
-   - 설정 값·상수 클래스(`CurrentSeason`, `DataMode`, `…Properties`, `ResponseCaches`, `DataChanges`, 시간대 상수 등)를 `core`로. 아래 표의 3건을 먼저 푼다.
-   - 자원(`db/migration`, `roster/*.yml`)을 `core`로. `tools/posting-photo`와 README가 `src/main/resources` 경로를 가리키므로 같이 고친다.
+1단계 `core` 떼기는 끝났다: `domain`·`support`·`posting`(#226), 설정 값·상수·응답 캐시 비우기·모듈 사이 이벤트(`config`), 사진 목록(`photo.PhotoSources`), 자원(`db/migration`, `roster/*.yml`, `photos/`)(#239). 한 Java 패키지는 한 모듈에만 두려고 루트 `config`의 조립 코드는 쓰는 쪽 패키지로, 사진 받기(`PhotoStore`·`PhotoScheduler`)는 `ingest`로 옮겼다.
+
 2. `client` 떼기. `support`에 있는 `RateLimiter`(MLB 요청 제한)도 이때 `client`로 옮긴다.
 3. `batch`와 `api` 가르기
 4. `api` → `client` 참조를 문 하나로 좁히기(지금 `SavantClips`만 남았다)
@@ -167,14 +166,15 @@ member(앞으로) ─▶ api, core
 
 ### 지금 규칙과 다른 곳
 
-2026-11-23, develop `1b62121`에서 클래스 230개의 import와 이름 참조로 센 값이다. 옮길 때 컴파일로 다시 확인한다.
+2026-11-23, develop `1b62121`에서 클래스 230개의 import와 이름 참조로 센 값이다(모듈 경계 줄은 #239 뒤 import로 다시 셈). 옮길 때 컴파일로 다시 확인한다.
 
 | 규칙 | 지금 어기는 곳 |
 |---|---|
-| `core`는 다른 모듈을 모른다 | 3건: `CurrentSeason` → `GameIngest`·`SampleMlbClient`, `PhotoSources` → `PhotoStore` |
-| `client`는 `api`를 모른다 | 1건: `VideoConfig` → `SavantClips` |
-| `api`는 `batch`를 모른다 | 10건: 시간대 상수 `GameIngest.US_EASTERN`(6곳), 관리자 수집 실행, 수집 끝 이벤트, 사진 내주기. 요청 중 받기(`OnDemandSeason`)는 없앴다(#231) |
-| `api` → `client`는 문 하나로만(공 영상 주소만) | 1건(#237 뒤 import로 다시 셈): `SavantClips`(가져오기 1, 남겨 둘 '문'). `HighlightTitles`는 번역 표만 읽고(#237), `LeagueEnvironments`는 DB만 읽고(#233), `GameDetailService`는 밖을 모르고, `GameDetails`는 `ingest`로 옮겼다 |
+| `core`는 다른 모듈을 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다). 막던 3건은 시간대 상수 `support.MlbTime`, 샘플 시즌 `DataMode.SAMPLE_SEASON`, 해시 `support.Hashes`로 풀었다(#239) |
+| `client`는 `api`를 모른다 | 0건(`VideoConfig`는 `api`로 옮겼다, #239) |
+| `api`는 `batch`를 모른다 | 4건: 관리자 수집 실행(`AdminController` → `IngestService`, `ApiExceptionHandler` → `IngestAlreadyRunningException`), 사진 내주기(`PhotoController` → `PhotoStore`), 비시즌 판단(`OffSeasonFinder` → `GameIngest`의 최근 경기·미국 날짜). 시간대 상수와 수집 끝 이벤트는 `core`로 옮겼다(#239) |
+| `api` → `client`는 문 하나로만(공 영상 주소만) | 1건(#237 뒤 import로 다시 셈): `SavantClips`(가져오기 1, 남겨 둘 '문'). `HighlightTitles`는 번역 표만 읽고(#237), `LeagueEnvironments`는 DB만 읽고(#233), `GameDetailService`는 밖을 모르고, `GameDetails`는 `ingest`로 옮겼다. 그 밖에 `news.MlbContext`(기사 제목이 MLB 이야기인지 보는 순수 계산, 밖을 부르지 않음)를 `NewsListFinder`·`NewsPageFinder`·`PostingFinder`가 쓴다. `client`를 뗄 때 자리를 정한다 |
+| 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
 | 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 11건 |
 | 계산 클래스는 응답 타입을 모른다 | 8건 |

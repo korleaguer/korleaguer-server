@@ -1,4 +1,4 @@
-package com.korleaguer.ingest;
+package com.korleaguer.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

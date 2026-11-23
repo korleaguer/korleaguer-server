@@ -1,11 +1,12 @@
 package com.korleaguer.news;
 
 import com.korleaguer.config.DataMode;
-import com.korleaguer.domain.Player;
-import com.korleaguer.domain.PlayerRepository;
-import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.config.NewsProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
 import org.slf4j.Logger;

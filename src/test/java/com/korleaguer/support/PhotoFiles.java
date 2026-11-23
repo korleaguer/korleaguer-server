@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
-/** 테스트용: 앱에 들어 있는 편집본 사진(src/main/resources/photos)의 주소 버전(sha256 앞 8자)을 파일 내용으로 계산한다 */
+/** 테스트용: 앱에 들어 있는 편집본 사진(core/src/main/resources/photos)의 주소 버전(sha256 앞 8자)을 파일 내용으로 계산한다 */
 public final class PhotoFiles {
 
     private PhotoFiles() {

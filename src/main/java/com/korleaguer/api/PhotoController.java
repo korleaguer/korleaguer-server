@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
 import com.korleaguer.domain.Photo;
+import com.korleaguer.ingest.PhotoStore;
 import com.korleaguer.photo.PhotoSources;
-import com.korleaguer.photo.PhotoStore;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

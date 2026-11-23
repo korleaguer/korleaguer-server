@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.MinorTeamProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;

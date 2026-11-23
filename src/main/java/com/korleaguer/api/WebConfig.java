@@ -1,4 +1,4 @@
-package com.korleaguer.config;
+package com.korleaguer.api;
 
 import com.korleaguer.api.AdminTokenInterceptor;
 import org.springframework.context.annotation.Configuration;

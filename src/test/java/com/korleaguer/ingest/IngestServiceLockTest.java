@@ -5,6 +5,7 @@ import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.ResponseCaches;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
 import com.korleaguer.domain.IngestStatus;

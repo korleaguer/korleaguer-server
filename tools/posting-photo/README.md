@@ -7,7 +7,7 @@
 
 ## 포스팅 선수
 
-홈 MLB 도전 카드 맨 위 포스팅 선수 사진(76px 원, `src/main/resources/photos/kbo-{slug}-{photo-season}.jpg`)을 만든다.
+홈 MLB 도전 카드 맨 위 포스팅 선수 사진(76px 원, `core/src/main/resources/photos/kbo-{slug}-{photo-season}.jpg`)을 만든다.
 원본은 현 소속 KBO 구단의 공식 선수 등록 사진이다. KBO 사진 서버 판(`KBO_IMAGE/person/middle/{시즌}/{번호}.jpg`)은 94×118이라
 3배 화면의 76px 원에 필요한 228px의 41%밖에 안 돼 흐리다. 그래서 같은 사진의 큰 판(네이버 스포츠 이미지 서버
 `sports-phinf.pstatic.net/player/kbo/default/{번호}.png`, 210×262, 배경 없음)으로 `cut` 편집본을 만든다(아래 선배 사진과 같은 틀).
@@ -26,8 +26,8 @@
 cd tools/posting-photo
 xcrun swiftc -O -o /tmp/posting-photo posting-photo.swift
 curl -sS -A 'korleaguer-photo-tool' -o /tmp/original.png 'https://sports-phinf.pstatic.net/player/kbo/default/<kbo-id>.png'
-/tmp/posting-photo cut /tmp/original.png ../../src/main/resources/photos/kbo-<slug>-<photo-season>.jpg
-/tmp/posting-photo measure ../../src/main/resources/photos/kbo-<slug>-<photo-season>.jpg
+/tmp/posting-photo cut /tmp/original.png ../../core/src/main/resources/photos/kbo-<slug>-<photo-season>.jpg
+/tmp/posting-photo measure ../../core/src/main/resources/photos/kbo-<slug>-<photo-season>.jpg
 ```
 
 - `posting.yml` current에 `photo-season`과 `photo-url`(큰 판 주소)을 적고, 같은 사진의 KBO 사진 서버 주소는 주석으로 남긴다.
@@ -39,7 +39,7 @@ curl -sS -A 'korleaguer-photo-tool' -o /tmp/original.png 'https://sports-phinf.p
 
 ## 포스팅 선배
 
-홈 MLB 도전 카드의 선배 동그라미 사진(`src/main/resources/photos/posting-{MLB 선수 번호}-{시즌}.jpg`)을 만든다.
+홈 MLB 도전 카드의 선배 동그라미 사진(`core/src/main/resources/photos/posting-{MLB 선수 번호}-{시즌}.jpg`)을 만든다.
 MLB 공식 증명사진은 배경 회색이 사진마다 다르고 얼굴이 사진에 꽉 차 있어서, 바로 위 포스팅 선수(KBO 공식 사진, 흰 배경)와 나란히 두면 어색하다.
 그래서 배경을 지워 흰 바탕(#FFFFFF)에 놓고, 얼굴 크기·위치를 노시환 KBO 2026 공식 사진과 같게 맞춘 256×256 정사각형으로 저장한다.
 화면은 이 사진으로 원을 채운다(노시환 사진과 같은 표시).
@@ -58,7 +58,7 @@ MLB 공식 증명사진은 배경 회색이 사진마다 다르고 얼굴이 사
 cd tools/posting-photo
 xcrun swiftc -O -o /tmp/posting-photo posting-photo.swift
 curl -sS -A 'korleaguer-photo-tool' -o /tmp/original.jpg '<photo-url>'
-/tmp/posting-photo cut /tmp/original.jpg ../../src/main/resources/photos/posting-<mlb-id>-<photo-season>.jpg
+/tmp/posting-photo cut /tmp/original.jpg ../../core/src/main/resources/photos/posting-<mlb-id>-<photo-season>.jpg
 ```
 
 - 원본은 posting.yml의 `photo-url`이다. 인터넷 보관소 주소가 열리지 않으면 운영 서버에 남은 원본(`https://pigeon.ddns.net/photos/mlb-<mlb-id>-<photo-season>`, 2026-11-11까지 받아 둔 것)을 쓴다.
@@ -67,7 +67,7 @@ curl -sS -A 'korleaguer-photo-tool' -o /tmp/original.jpg '<photo-url>'
 
 ## 과거 소속팀
 
-선수 페이지 머리 원에서 지금 MLB 사진과 넘겨 보는 과거 소속팀(KBO) 사진(`src/main/resources/photos/career-{KBO 선수 번호}-{시즌}.png`)을 만든다.
+선수 페이지 머리 원에서 지금 MLB 사진과 넘겨 보는 과거 소속팀(KBO) 사진(`core/src/main/resources/photos/career-{KBO 선수 번호}-{시즌}.png`)을 만든다.
 지금 MLB 사진은 배경 없는 사진(headshot/silo, 360×360)이라, KBO 사진도 같은 틀로 맞춘다: 투명 바탕 288×288(원 지름 96px의 3배),
 얼굴 높이 51.1%·얼굴 중심 위에서 51.6%·가로 가운데(MLB silo 사진 5장을 잰 평균, `posting-photo.swift` 맨 위).
 화면은 두 사진을 같은 방식(원 안에 조금 작게 아래에 붙임)으로 보인다.
@@ -95,7 +95,7 @@ curl -sS -A 'korleaguer-photo-tool' -o /tmp/original.jpg '<photo-url>'
 cd tools/posting-photo
 xcrun swiftc -O -o /tmp/posting-photo posting-photo.swift
 curl -sS -A 'korleaguer-photo-tool' -o /tmp/original.png 'https://sports-phinf.pstatic.net/player/kbo/default/<kbo-id>.png'
-/tmp/posting-photo silo /tmp/original.png ../../src/main/resources/photos/career-<kbo-id>-<season>.png
+/tmp/posting-photo silo /tmp/original.png ../../core/src/main/resources/photos/career-<kbo-id>-<season>.png
 ```
 
 - 만든 사진은 지금 MLB 사진과 나란히 놓고 눈으로 확인한다: 얼굴 크기·높이가 같고, 어깨가 아래 끝까지 이어진다.

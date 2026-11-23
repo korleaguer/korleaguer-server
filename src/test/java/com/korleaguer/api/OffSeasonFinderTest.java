@@ -5,6 +5,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.ingest.GameIngest;
+import com.korleaguer.support.MlbTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +38,7 @@ class OffSeasonFinderTest {
     @BeforeEach
     void setUp() {
         when(currentSeason.current()).thenReturn(2026);
-        when(gameIngest.usDate(any())).thenAnswer(inv -> LocalDate.ofInstant(inv.getArgument(0), GameIngest.US_EASTERN));
+        when(gameIngest.usDate(any())).thenAnswer(inv -> LocalDate.ofInstant(inv.getArgument(0), MlbTime.US_EASTERN));
         when(seasonDates.findById(anyInt())).thenReturn(Optional.empty());
         when(seasonDates.findById(2026)).thenReturn(Optional.of(dates(2026, "2026-03-25", "2026-09-27")));
     }

@@ -7,6 +7,9 @@ public enum DataMode {
     MLB("mlb"),
     SAMPLE("sample");
 
+    /** 샘플 데이터(sample/mlb.json)의 경기·기록이 있는 시즌. 샘플 모드는 시즌을 이 값으로 고정한다(CurrentSeason) */
+    public static final int SAMPLE_SEASON = 2026;
+
     private final String value;
 
     DataMode(String value) {

@@ -23,12 +23,27 @@ import java.util.List;
 public class ResponseCaches {
 
     private static final Logger log = LoggerFactory.getLogger(ResponseCaches.class);
-    public static final List<String> ALL = List.of(AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE, AppConfig.MY_CACHE,
-            AppConfig.CARD_CACHE, AppConfig.RECORDS_CACHE, AppConfig.TIMELINE_CACHE, AppConfig.SAME_GAMES_CACHE,
-            AppConfig.COMPARE_CACHE);
-    public static final List<String> HOME = List.of(AppConfig.HOME_CACHE);
+
+    public static final String HOME_CACHE = "home";
+    public static final String PLAYER_CACHE = "player";
+    /** 내 선수(GET /api/my). 선수 조합(ids)과 기간(days)마다 따로 둔다 */
+    public static final String MY_CACHE = "my";
+    /** 내 선수 카드 한 장. 선수와 기간(days)마다 따로 둔다. 처음 보는 조합도 이것을 모아 바로 답한다 */
+    public static final String CARD_CACHE = "card";
+    /** 한국인 메이저리거 역대 기록(GET /api/records, 이슈 #177). 응답이 하나뿐이다 */
+    public static final String RECORDS_CACHE = "records";
+    /** 선수 이동 연표(GET /api/players/timeline). 시즌마다 따로 둔다 */
+    public static final String TIMELINE_CACHE = "timeline";
+    /** 같은 경기에 나온 우리 선수(GET /api/players/{id}/same-games, 이슈 #217). 선수마다 따로 둔다 */
+    public static final String SAME_GAMES_CACHE = "sameGames";
+    /** 두 선수 비교용 타자 시즌 성적 묶음(GET /api/players/{id}/compare, 이슈 #221). 선수마다 따로 둔다 */
+    public static final String COMPARE_CACHE = "compare";
+
+    public static final List<String> ALL = List.of(HOME_CACHE, PLAYER_CACHE, MY_CACHE, CARD_CACHE, RECORDS_CACHE,
+            TIMELINE_CACHE, SAME_GAMES_CACHE, COMPARE_CACHE);
+    public static final List<String> HOME = List.of(HOME_CACHE);
     /** 기사가 나오는 응답: 홈(포스팅·성적표 기사)과 선수 페이지(그 선수 기사, 이슈 #133) */
-    public static final List<String> NEWS = List.of(AppConfig.HOME_CACHE, AppConfig.PLAYER_CACHE);
+    public static final List<String> NEWS = List.of(HOME_CACHE, PLAYER_CACHE);
 
     private final CacheManager cacheManager;
     private final ApplicationEventPublisher events;

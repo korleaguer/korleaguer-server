@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbBoxscore;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.SampleMlbClient;
+import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.support.MutableClock;

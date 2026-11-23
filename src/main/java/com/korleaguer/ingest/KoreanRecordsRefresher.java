@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbSeasonSplit;
+import com.korleaguer.config.KoreanMlbProperties;
 import com.korleaguer.domain.KoreanMlbSeason;
 import com.korleaguer.domain.KoreanMlbSeasonRepository;
 import com.korleaguer.domain.Player;

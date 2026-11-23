@@ -13,6 +13,7 @@ import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.support.BaseballMath;
+import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -76,7 +77,7 @@ public class SeasonMetricRefresher {
     public String refresh() {
         int season = currentSeason.current();
         Instant now = clock.instant();
-        if (!regularSeasonOver(season, LocalDate.ofInstant(now, GameIngest.US_EASTERN))) {
+        if (!regularSeasonOver(season, LocalDate.ofInstant(now, MlbTime.US_EASTERN))) {
             return "";
         }
         Instant startOfDay = LocalDate.ofInstant(now, ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();

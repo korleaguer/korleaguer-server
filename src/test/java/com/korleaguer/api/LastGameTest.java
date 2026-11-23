@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.MinorTeamProperties;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.MinorGameLog;

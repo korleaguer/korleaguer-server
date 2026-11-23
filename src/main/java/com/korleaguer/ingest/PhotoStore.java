@@ -1,9 +1,11 @@
-package com.korleaguer.photo;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.Photo;
 import com.korleaguer.domain.PhotoRepository;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.photo.PhotoSources;
+import com.korleaguer.support.Hashes;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,12 +17,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -197,7 +196,7 @@ public class PhotoStore {
     }
 
     private Photo save(String key, String source, Photo old, PoliteFetcher.Fetched fetched, Instant now) {
-        String sha = sha256(fetched.body());
+        String sha = Hashes.sha256(fetched.body());
         Photo photo = old == null ? new Photo(key) : old;
         if (old != null && sha.equals(old.getSha256()) && source.equals(old.getSourceUrl())) {
             photo.confirm(fetched.etag(), fetched.lastModified(), now);
@@ -228,7 +227,7 @@ public class PhotoStore {
             byte[] data = in.readAllBytes();
             Photo photo = new Photo(key);
             String type = resource.endsWith(".png") ? "image/png" : "image/jpeg";
-            photo.replace(source, type, data, sha256(data), null, null, clock.instant());
+            photo.replace(source, type, data, Hashes.sha256(data), null, null, clock.instant());
             return photo;
         } catch (IOException e) {
             throw new UncheckedIOException("cannot read bundled photo " + resource, e);
@@ -251,11 +250,4 @@ public class PhotoStore {
         return contentType.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
     }
 
-    static String sha256(byte[] data) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
-    }
 }
