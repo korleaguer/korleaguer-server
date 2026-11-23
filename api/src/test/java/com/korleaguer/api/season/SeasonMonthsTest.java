@@ -82,7 +82,7 @@ class SeasonMonthsTest {
         Input input = hitter(List.of(), minors, List.of());
 
         int standard = SeasonMonths.build(input).get(3).wrcPlus();
-        int tripleA = SeasonMonths.build(input, Map.of("AAA", new LeagueEnvironments.Env(0.338, 0.138, 4.99)))
+        int tripleA = SeasonMonths.build(input, Map.of("AAA", new LeagueEnv(0.338, 0.138, 4.99)))
                 .get(3).wrcPlus();
 
         assertThat(tripleA).isLessThan(standard);
@@ -167,8 +167,8 @@ class SeasonMonthsTest {
                 move("2026-08-30", "OUT", "Minnesota Twins sent RHP Woo-Suk Go outright to St. Paul Saints."));
 
         // 2026 리그 평균자책점: MLB 4.17, 트리플A 4.99, 더블A 4.85
-        Map<String, LeagueEnvironments.Env> leagues = Map.of("MLB", new LeagueEnvironments.Env(0.314, 0.118, 4.17),
-                "AAA", new LeagueEnvironments.Env(0.338, 0.138, 4.99), "AA", new LeagueEnvironments.Env(0.331, 0.137, 4.85));
+        Map<String, LeagueEnv> leagues = Map.of("MLB", new LeagueEnv(0.314, 0.118, 4.17),
+                "AAA", new LeagueEnv(0.338, 0.138, 4.99), "AA", new LeagueEnv(0.331, 0.137, 4.85));
         List<Month> months = SeasonMonths.build(new Input(808970, Role.PITCHER, 2026, OPENING, LAST_DAY, false, null,
                 List.of(), majors, minors, moves), leagues);
 

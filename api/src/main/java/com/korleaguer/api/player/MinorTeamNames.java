@@ -1,9 +1,7 @@
 package com.korleaguer.api.player;
 
-import com.korleaguer.api.season.MinorRecords;
 
 import com.korleaguer.config.MinorTeamProperties;
-import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,9 +10,14 @@ import java.util.Map;
  * 마이너 팀 화면 이름. 한국어 이름(minor-teams.yml)이 있으면 그것, 없으면 영어 지명(MLB franchiseName), 그것도 없으면
  * 영어 팀 이름이다. 이동 기록에는 단계도 붙인다(moveName). 같은 번호가 두 번이거나 이름이 비거나 단계를 모르는 값이면
  * 앱이 뜰 때 실패한다(사람이 적은 값이라 바로 알게).
+ * 뜰 때 한 번 만든 뒤 바뀌지 않는 이름표(값)라 스프링 빈 클래스로 두지 않는다. 빈 등록은 PlayerConfig가 하고,
+ * 계산 클래스는 이 표를 값으로 받아 쓴다.
  */
-@Component
 public class MinorTeamNames {
+
+    /** 단계 약어 → 화면 이름 */
+    public static final Map<String, String> LEVEL_KO = Map.of(
+            "AAA", "트리플A", "AA", "더블A", "A+", "하이싱글A", "A", "싱글A", "ROK", "루키");
 
     private final Map<Long, String> korean = new HashMap<>();
     /** 팀 번호 → 단계 화면 이름(트리플A·더블A·하이싱글A·싱글A·루키). yml에 단계를 적은 팀만 있다 */
@@ -30,7 +33,7 @@ public class MinorTeamNames {
             }
             if (team.level() != null && !team.level().isBlank()) {
                 // 단계는 이동 기록 팀 이름에 그대로 보이므로, 오타(AAAA 등)로 조용히 빠지지 않게 아는 약어만 받는다
-                String levelKo = MinorRecords.LEVEL_KO.get(team.level().strip());
+                String levelKo = LEVEL_KO.get(team.level().strip());
                 if (levelKo == null) {
                     throw new IllegalStateException(
                             "minor-teams.yml: unknown level " + team.level() + " (" + team + ")");

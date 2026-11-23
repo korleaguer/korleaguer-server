@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import com.korleaguer.api.article.LinkedTeamsCounter;
+
 import com.korleaguer.api.article.PostingSummary;
 
 import com.korleaguer.api.player.RosterMember;
@@ -39,13 +41,14 @@ class SeasonReportFinderNewsTest {
 
     private final NewsArticleRepository news = mock(NewsArticleRepository.class);
     private final NewsDestinationRepository destinations = mock(NewsDestinationRepository.class);
-    private final SeasonReportFinder finder = new SeasonReportFinder(mock(AppearanceRepository.class),
-            mock(MinorGameLogRepository.class), mock(PlayerMoveRepository.class), mock(PlayerSeasonMetricRepository.class),
-            mock(PlayerLeaguePositionRepository.class), mock(SeasonDatesRepository.class), news, destinations,
-            new NewsProperties(true, "0 */30 * * * *",
+    private static final NewsProperties NEWS_PROPERTIES = new NewsProperties(true, "0 */30 * * * *",
             "korleaguer/test", List.of("korleaguer"), List.of(new NewsProperties.Source("마이데일리", "https://a.example/rss",
             null, null, null, "lead"), new NewsProperties.Source("스포츠조선", "https://b.example/rss", null, null, null,
-            "lead"))), mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC),
+            "lead")));
+    private final SeasonReportFinder finder = new SeasonReportFinder(mock(AppearanceRepository.class),
+            mock(MinorGameLogRepository.class), mock(PlayerMoveRepository.class), mock(PlayerSeasonMetricRepository.class),
+            mock(PlayerLeaguePositionRepository.class), mock(SeasonDatesRepository.class), news,
+            new LinkedTeamsCounter(news, destinations, NEWS_PROPERTIES), NEWS_PROPERTIES, mock(LeagueEnvironments.class), Clock.fixed(NOW, ZoneOffset.UTC),
             // 단위 시험이라 따로 읽는 트랜잭션은 흉내만 낸다(트랜잭션 관리자 mock)
             new OptionalReads(mock(PlatformTransactionManager.class)));
 

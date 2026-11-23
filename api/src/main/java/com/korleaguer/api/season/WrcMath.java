@@ -13,7 +13,7 @@ final class WrcMath {
     }
 
     /** 그 리그 평균 대비 wRC+(100 = 평균, 구장 보정 없음) */
-    static double wrcPlus(double woba, LeagueEnvironments.Env league) {
+    static double wrcPlus(double woba, LeagueEnv league) {
         return ((woba - league.woba()) / SCALE + league.runsPerPa()) / league.runsPerPa() * 100;
     }
 }

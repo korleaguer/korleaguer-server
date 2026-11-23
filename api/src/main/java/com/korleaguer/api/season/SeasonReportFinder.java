@@ -15,7 +15,6 @@ import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
-import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerLeaguePosition;
 import com.korleaguer.domain.PlayerLeaguePositionRepository;
@@ -92,14 +91,14 @@ public class SeasonReportFinder {
     public SeasonReportFinder(AppearanceRepository appearances, MinorGameLogRepository minorGameLogs,
                               PlayerMoveRepository moves, PlayerSeasonMetricRepository metrics,
                               PlayerLeaguePositionRepository leaguePositions, SeasonDatesRepository seasonDates,
-                              NewsArticleRepository news, NewsDestinationRepository destinations,
+                              NewsArticleRepository news, LinkedTeamsCounter linkedTeams,
                               NewsProperties newsProperties, LeagueEnvironments leagues, Clock clock,
                               OptionalReads reads) {
         this.reads = reads;
         this.news = news;
         this.leagues = leagues;
         this.publishers = newsProperties.publishers();
-        this.linkedTeams = new LinkedTeamsCounter(news, destinations, publishers);
+        this.linkedTeams = linkedTeams;
         this.clock = clock;
         this.appearances = appearances;
         this.minorGameLogs = minorGameLogs;
@@ -163,9 +162,9 @@ public class SeasonReportFinder {
     }
 
     /** 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 DB에서 읽는다) */
-    private Map<String, LeagueEnvironments.Env> environments(SeasonRecords records, int season) {
+    private Map<String, LeagueEnv> environments(SeasonRecords records, int season) {
         Set<String> levels = new HashSet<>();
-        levels.add(LeagueEnvironments.MLB);
+        levels.add(LeagueEnv.MLB);
         records.minors().values().forEach(games -> games.forEach(g -> levels.add(g.level())));
         return leagues.of(season, levels);
     }
@@ -174,7 +173,7 @@ public class SeasonReportFinder {
      * 이동 연표(PlayerTimelineService)가 선수별 시즌 숫자를 같은 계산으로 내는 재료: 선수별 성적표 입력(기록이 하나도
      * 없는 선수는 빠진다)과 리그 평균. 기사·'MLB 안 위치'는 읽지 않는다. 재료를 못 읽으면 빈 값이다
      */
-    public record TimelineMaterials(Map<Long, SeasonReports.Input> inputs, Map<String, LeagueEnvironments.Env> environments) {
+    public record TimelineMaterials(Map<Long, SeasonReports.Input> inputs, Map<String, LeagueEnv> environments) {
         static final TimelineMaterials NONE = new TimelineMaterials(Map.of(), Map.of());
     }
 
@@ -205,7 +204,7 @@ public class SeasonReportFinder {
     }
 
     private List<SeasonReport> reports(List<RosterMember> roster, int season, SeasonRecords records) {
-        Map<String, LeagueEnvironments.Env> environments = environments(records, season);
+        Map<String, LeagueEnv> environments = environments(records, season);
 
         List<SeasonReports.Built> built = new ArrayList<>();
         for (RosterMember member : roster) {

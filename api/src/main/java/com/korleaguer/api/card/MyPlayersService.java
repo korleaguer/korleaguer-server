@@ -1,5 +1,7 @@
 package com.korleaguer.api.card;
 
+import com.korleaguer.api.season.LeagueEnv;
+
 import com.korleaguer.api.BadRequestException;
 
 import com.korleaguer.api.game.GameLine;
@@ -394,8 +396,8 @@ public class MyPlayersService {
         Integer streak = pitcher ? SeasonStats.scorelessStreak(seasonAppearances)
                 : SeasonStats.hitStreak(seasonAppearances);
         // 기간 wRC+·ERA+의 기준은 카드 기간이 속한 시즌의 메이저 리그 평균이다(마이너·재활 기록은 MinorRecords가 따로 만들고 값이 없다)
-        LeagueEnvironments.Env league = leagues.get(currentSeason.seasonAt(range.to().minusMillis(1)),
-                LeagueEnvironments.MLB);
+        LeagueEnv league = leagues.get(currentSeason.seasonAt(range.to().minusMillis(1)),
+                LeagueEnv.MLB);
         MyPlayersResponse.PeriodHitting hitting = pitcher ? null : hitting(member, period, regular, league);
         MyPlayersResponse.PeriodPitching pitching = pitcher ? pitching(member, period, regular, league) : null;
         List<FormFacts.GameStat> majorStats = card.majorSeason().stream().map(MinorRecords::stat).toList();
@@ -646,24 +648,24 @@ public class MyPlayersService {
     }
 
     /** 마이너 기간의 단계 약어 → 그 시즌 그 단계 리그 평균(모르는 단계는 null). 시즌은 기간 경기의 공식 날짜 연도다 */
-    private java.util.function.Function<String, LeagueEnvironments.Env> minorLeague(List<MinorGameLog> games) {
+    private java.util.function.Function<String, LeagueEnv> minorLeague(List<MinorGameLog> games) {
         int season = games.getLast().getGameDate().getYear();
         // 평균을 못 받아 표준값(메이저 기준)으로 떨어진 단계는 견주지 않는다(지어내지 않는다)
         return level -> {
-            if (!LeagueEnvironments.SPORT_IDS.containsKey(level)) {
+            if (!LeagueEnv.SPORT_IDS.containsKey(level)) {
                 return null;
             }
-            LeagueEnvironments.Env env = leagues.get(season, level);
-            return env == LeagueEnvironments.STANDARD ? null : env;
+            LeagueEnv env = leagues.get(season, level);
+            return env == LeagueEnv.STANDARD ? null : env;
         };
     }
 
     private static String plusLevel(Double value) {
-        return value == null ? null : LeagueEnvironments.MLB;
+        return value == null ? null : LeagueEnv.MLB;
     }
 
     private static MyPlayersResponse.PeriodHitting hitting(RosterMember member, List<Appearance> period,
-                                                           List<Appearance> regular, LeagueEnvironments.Env league) {
+                                                           List<Appearance> regular, LeagueEnv league) {
         // 기간 합계에는 마이너 경기 수를 쓰지 않는다(0).
         HitterSeason total = SeasonStats.hitter(member.player(), null, null, member.team(), period, 0);
         HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, null, member.team(), regular, 0);
@@ -673,7 +675,7 @@ public class MyPlayersService {
     }
 
     private static MyPlayersResponse.PeriodPitching pitching(RosterMember member, List<Appearance> period,
-                                                             List<Appearance> regular, LeagueEnvironments.Env league) {
+                                                             List<Appearance> regular, LeagueEnv league) {
         PitcherSeason total = SeasonStats.pitcher(member.player(), null, null, member.team(), period, 0);
         PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, null, member.team(), regular, 0);
         return new MyPlayersResponse.PeriodPitching(total.games(), total.outs(), total.inningsText(),

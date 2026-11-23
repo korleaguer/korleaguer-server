@@ -24,12 +24,12 @@ public final class PeriodRates {
     }
 
     /** 기간 타자 wRC+(소수 첫째 자리). 타격 기록이 없거나 세부 칸이 모자라거나 타석이 없으면 null */
-    public static Double wrcPlus(List<Appearance> period, LeagueEnvironments.Env league) {
+    public static Double wrcPlus(List<Appearance> period, LeagueEnv league) {
         return wrcPlusOf(period.stream().map(Appearance::getBatting).toList(), league);
     }
 
     /** 경기별 타격 줄(마이너 경기 포함)로 낸 기간 wRC+. 규칙은 wrcPlus와 같다 */
-    static Double wrcPlusOf(List<Batting> lines, LeagueEnvironments.Env league) {
+    static Double wrcPlusOf(List<Batting> lines, LeagueEnv league) {
         if (league == null) {
             return null;
         }
@@ -48,12 +48,12 @@ public final class PeriodRates {
     }
 
     /** 기간 투수 ERA+(소수 첫째 자리). 아웃을 아는 경기가 없으면 null, 무자책이면 상한 */
-    public static Double eraPlus(List<Appearance> period, LeagueEnvironments.Env league) {
+    public static Double eraPlus(List<Appearance> period, LeagueEnv league) {
         return eraPlusOf(period.stream().map(Appearance::getPitching).toList(), league);
     }
 
     /** 경기별 투구 줄(마이너 경기 포함)로 낸 기간 ERA+. 규칙은 eraPlus와 같다 */
-    static Double eraPlusOf(List<Pitching> lines, LeagueEnvironments.Env league) {
+    static Double eraPlusOf(List<Pitching> lines, LeagueEnv league) {
         if (league == null) {
             return null;
         }
@@ -64,7 +64,7 @@ public final class PeriodRates {
         return eraPlus(earnedRuns, outs, league);
     }
 
-    public static Double eraPlus(int earnedRuns, int outs, LeagueEnvironments.Env league) {
+    public static Double eraPlus(int earnedRuns, int outs, LeagueEnv league) {
         if (outs == 0) {
             return null;
         }
