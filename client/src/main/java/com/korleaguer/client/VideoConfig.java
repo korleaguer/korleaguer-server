@@ -1,4 +1,4 @@
-package com.korleaguer.api;
+package com.korleaguer.client;
 
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.NewsProperties;

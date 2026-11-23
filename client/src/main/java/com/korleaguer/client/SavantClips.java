@@ -1,7 +1,7 @@
-package com.korleaguer.api;
+package com.korleaguer.client;
 
-import com.korleaguer.video.PlayVideoFinder;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.video.PlayVideoFinder;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

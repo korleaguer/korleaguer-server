@@ -1,6 +1,5 @@
 package com.korleaguer.api;
 
-import com.korleaguer.video.PlayVideoFinder;
 import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameContent;
@@ -10,6 +9,7 @@ import com.korleaguer.domain.HighlightTitle;
 import com.korleaguer.domain.HighlightTitleRepository;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.ingest.GameDetailIngest;
+import com.korleaguer.video.PlayVideoFinder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

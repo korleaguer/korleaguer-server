@@ -1,6 +1,5 @@
 package com.korleaguer.api;
 
-import com.korleaguer.video.PlayVideoFinder;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameDetail;
 import com.korleaguer.domain.GameRepository;
@@ -11,6 +10,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerGameDetail;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.video.PlayVideoFinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
