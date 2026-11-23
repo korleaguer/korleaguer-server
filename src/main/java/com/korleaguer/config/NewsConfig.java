@@ -60,7 +60,7 @@ public class NewsConfig {
 
     /**
      * 하이라이트 영상 제목 번역기(이슈 #199). 요약기와 같은 키·모델을 쓰고, 키가 없으면 끈다.
-     * 경기 상세를 연 사람의 요청과 상관없이 뒤 스레드에서 도는 일이라 30초만 기다리고 한 번만 다시 해 본다.
+     * 수집 스레드에서 도는 일이라(ingest.HighlightTitleIngest, 이슈 #237) 30초만 기다리고 한 번만 다시 해 본다.
      */
     @Bean
     public HighlightTitleTranslator highlightTitleTranslator(@Value("${ANTHROPIC_API_KEY:}") String apiKey,
