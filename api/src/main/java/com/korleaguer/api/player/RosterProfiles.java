@@ -1,6 +1,5 @@
 package com.korleaguer.api.player;
 
-import com.korleaguer.api.screen.PlayerPageResponse;
 
 import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.Player;
@@ -61,13 +60,13 @@ public class RosterProfiles {
     }
 
     /** 과거 소속팀(KBO) 시절 공식 사진(명단 순서). 사진을 껐거나 적어 둔 사진이 없으면 빈 목록 */
-    public List<PlayerPageResponse.CareerPhoto> careerPhotos(Player player) {
+    public List<PastTeamPhoto> careerPhotos(Player player) {
         RosterProperties.Entry entry = byNameKo.get(player.getNameKo());
         if (entry == null) {
             return List.of();
         }
         return entry.careerPhotos().stream()
-                .map(photo -> new PlayerPageResponse.CareerPhoto(photo.team(), photo.years(),
+                .map(photo -> new PastTeamPhoto(photo.team(), photo.years(),
                         photos.careerPath(entry.kboId(), photo.season())))
                 .filter(photo -> photo.photoUrl() != null)
                 .toList();

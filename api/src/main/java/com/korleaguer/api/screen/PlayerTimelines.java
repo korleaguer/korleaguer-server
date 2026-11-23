@@ -1,7 +1,7 @@
 package com.korleaguer.api.screen;
 
-import com.korleaguer.api.screen.PlayerTimelineResponse.Kind;
-import com.korleaguer.api.screen.PlayerTimelineResponse.Segment;
+import com.korleaguer.api.player.MoveEntry;
+
 import com.korleaguer.domain.Level;
 
 import java.time.LocalDate;
@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 선수 이동 연표의 띠 구간(PlayerTimelineResponse.Segment)을 이동 기록과 첫 경기로 계산한다(순수 계산, DB를 읽지 않는다).
+ * 선수 이동 연표의 띠 구간(TimelineSegment)을 이동 기록과 첫 경기로 계산한다(순수 계산, DB를 읽지 않는다).
  * 웹 시안(mock/players/timeline.ts)과 같은 규칙이다.
  * <ul>
  *   <li>상태 = 어디에 있나(메이저·마이너) + 부상자 명단인가 + 팀이 없나(방출·FA 선언 뒤). 표시는 팀 없음 &gt; 부상 &gt; 메이저·마이너 순이다.</li>
@@ -51,8 +51,8 @@ final class PlayerTimelines {
     /** 상태: minors면 마이너, inj는 부상자 명단, fa는 팀 없음. teamKo·levelKo는 있는 곳(모르면 null) */
     private record State(boolean minors, boolean inj, boolean fa, String teamKo, String levelKo) {
 
-        Kind kind() {
-            return fa ? Kind.NO_TEAM : inj ? Kind.INJURED : minors ? Kind.MINORS : Kind.MLB;
+        TimelineKind kind() {
+            return fa ? TimelineKind.NO_TEAM : inj ? TimelineKind.INJURED : minors ? TimelineKind.MINORS : TimelineKind.MLB;
         }
 
         State injured(boolean value) {
@@ -84,7 +84,7 @@ final class PlayerTimelines {
     }
 
     /** 같은 상태가 이어지는 한 토막(시작 날짜). 종류·팀·단계가 바뀔 때마다 새로 연다 */
-    private record Piece(LocalDate start, Kind kind, String teamKo, String levelKo) {
+    private record Piece(LocalDate start, TimelineKind kind, String teamKo, String levelKo) {
     }
 
     /**
@@ -94,15 +94,15 @@ final class PlayerTimelines {
      * @param from  띠 시작
      * @param to    띠 끝(포함)
      */
-    static List<Segment> segments(List<PlayerPageResponse.Move> moves, LocalDate from, LocalDate to, FirstGames first) {
+    static List<TimelineSegment> segments(List<MoveEntry> moves, LocalDate from, LocalDate to, FirstGames first) {
         if (to.isBefore(from)) {
             return List.of();
         }
-        List<PlayerPageResponse.Move> inRange = moves.stream()
+        List<MoveEntry> inRange = moves.stream()
                 .filter(m -> m.date() != null && !m.date().isBefore(from) && !m.date().isAfter(to))
-                .sorted(Comparator.comparing(PlayerPageResponse.Move::date).thenComparingInt(PlayerTimelines::order))
+                .sorted(Comparator.comparing(MoveEntry::date).thenComparingInt(PlayerTimelines::order))
                 .toList();
-        PlayerPageResponse.Move firstState = inRange.stream()
+        MoveEntry firstState = inRange.stream()
                 .filter(m -> STATE_TYPES.contains(m.typeCode()))
                 .findFirst().orElse(null);
 
@@ -116,7 +116,7 @@ final class PlayerTimelines {
         } else if (firstState != null) {
             // 첫 상태 이동 날의 이동들이 만든 상태를 시작 상태로
             state = new State(false, false, false, first.majorTeamKo(), null);
-            for (PlayerPageResponse.Move m : inRange) {
+            for (MoveEntry m : inRange) {
                 if (m.date().equals(firstState.date())) {
                     state = apply(state, m);
                 }
@@ -127,7 +127,7 @@ final class PlayerTimelines {
 
         List<Piece> pieces = new ArrayList<>();
         pieces.add(piece(from, state));
-        for (PlayerPageResponse.Move m : inRange) {
+        for (MoveEntry m : inRange) {
             state = apply(state, m);
             Piece next = piece(m.date(), state);
             Piece last = pieces.getLast();
@@ -144,8 +144,8 @@ final class PlayerTimelines {
     }
 
     /** 같은 종류가 이어지는 토막을 하나로. 팀·단계는 가장 오래 머문 토막(같으면 나중 것)의 값 */
-    private static List<Segment> merge(List<Piece> pieces, LocalDate to) {
-        List<Segment> segments = new ArrayList<>();
+    private static List<TimelineSegment> merge(List<Piece> pieces, LocalDate to) {
+        List<TimelineSegment> segments = new ArrayList<>();
         int i = 0;
         while (i < pieces.size()) {
             int j = i;
@@ -161,15 +161,15 @@ final class PlayerTimelines {
                 j++;
             }
             LocalDate end = j < pieces.size() ? pieces.get(j).start().minusDays(1) : to;
-            segments.add(new Segment(pieces.get(i).start(), end, longest.kind(), longest.levelKo(), longest.teamKo()));
+            segments.add(new TimelineSegment(pieces.get(i).start(), end, longest.kind(), longest.levelKo(), longest.teamKo()));
             i = j;
         }
         return segments;
     }
 
     private static Piece piece(LocalDate start, State state) {
-        Kind kind = state.kind();
-        return kind == Kind.NO_TEAM ? new Piece(start, kind, null, null)
+        TimelineKind kind = state.kind();
+        return kind == TimelineKind.NO_TEAM ? new Piece(start, kind, null, null)
                 : new Piece(start, kind, state.teamKo(), state.levelKo());
     }
 
@@ -178,14 +178,14 @@ final class PlayerTimelines {
     }
 
     /** 같은 날 이동을 보는 순서: 부상자 명단 해제 → 그 밖 → 방출·FA 선언 */
-    private static int order(PlayerPageResponse.Move m) {
+    private static int order(MoveEntry m) {
         if ("SC".equals(m.typeCode()) && m.labelKo() != null && m.labelKo().endsWith("해제")) {
             return 0;
         }
         return "REL".equals(m.typeCode()) || "DFA".equals(m.typeCode()) ? 2 : 1;
     }
 
-    private static State apply(State s, PlayerPageResponse.Move m) {
+    private static State apply(State s, MoveEntry m) {
         String code = m.typeCode() == null ? "" : m.typeCode();
         String label = m.labelKo() == null ? "" : m.labelKo();
         Level level = m.toLevel();

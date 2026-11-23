@@ -115,8 +115,9 @@ public class RecordsService {
                         }
                     });
         }
-        return KoreanRecords.build(dataMode.value(), season, now.truncatedTo(ChronoUnit.SECONDS),
-                List.copyOf(people.values()), lines, games);
+        KoreanRecords.Tables tables = KoreanRecords.build(season, List.copyOf(people.values()), lines, games);
+        return new RecordsResponse(dataMode.value(), season, now.truncatedTo(ChronoUnit.SECONDS), tables.categories(),
+                tables.next(), tables.passed(), tables.singleSeason());
     }
 
     /** 경기 한 줄의 개수 기록. 그 묶음 기록이 없으면(대수비 등 기록 없는 출전) 모두 0이고 경기도 세지 않는다 */

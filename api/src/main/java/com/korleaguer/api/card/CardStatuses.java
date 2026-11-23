@@ -71,7 +71,7 @@ final class CardStatuses {
      * 정한 결과. status는 배지(평소대로면 null), stintStart는 지금 단계(메이저·마이너)에서 뛴 기간이 시작된 날
      * (출전 줄·소식을 그날 뒤 경기로만 센다, 모르면 null), start는 그 기간이 무엇으로 시작됐는지다.
      */
-    record Resolved(MyPlayersResponse.CardStatus status, LocalDate stintStart, Start start) {
+    record Resolved(CardStatus status, LocalDate stintStart, Start start) {
     }
 
     /**
@@ -140,7 +140,7 @@ final class CardStatuses {
                     : sentDown == null ? null : sentDown.getMoveDate();
             boolean fromMajors = decision.kind() == Kind.SENT_DOWN ? decision.fromMajors()
                     : sentDown != null && Set.of("OPT", "OUT").contains(code(sentDown));
-            MyPlayersResponse.CardStatus badge = status("MINORS", since, usToday, minorLevel, minorTeam, null);
+            CardStatus badge = status("MINORS", since, usToday, minorLevel, minorTeam, null);
             // 개막 전(지난 시즌·겨울)에 내려갔으면 이번 시즌 마이너 경기 전부가 한 기간이다.
             if (since == null || since.isBefore(today.seasonStart())) {
                 return new Resolved(badge, null, Start.OTHER);
@@ -152,12 +152,12 @@ final class CardStatuses {
             return new Resolved(null, null, Start.OTHER);
         }
         if (decision.kind() == Kind.RETURNED || decision.kind() == Kind.ACTIVATED) {
-            MyPlayersResponse.CardStatus badge = decision.kind() == Kind.RETURNED && recent(decision.date(), usToday)
+            CardStatus badge = decision.kind() == Kind.RETURNED && recent(decision.date(), usToday)
                     ? status("RETURNED", decision.date(), usToday, null, null, null) : null;
             return new Resolved(badge, decision.date(), Start.RETURNED);
         }
         if (decision.kind() == Kind.CALLED_UP) {
-            MyPlayersResponse.CardStatus badge = recent(decision.date(), usToday)
+            CardStatus badge = recent(decision.date(), usToday)
                     ? status("CALLED_UP", decision.date(), usToday, null, null, null) : null;
             return new Resolved(badge, decision.date(), Start.CALLED_UP);
         }
@@ -312,10 +312,10 @@ final class CardStatuses {
      * 배지 한 개. days는 since(이동 기록 날짜, 미국 날짜)부터 오늘(미국 날짜)까지라 미국 날짜끼리 센다. 마지막 경기 날짜는
      * 시작 시각의 한국 날짜로 내보낸다(선수 화면 경기 달력과 같은 날, 이슈 #183)
      */
-    private static MyPlayersResponse.CardStatus status(String kind, LocalDate since, LocalDate usToday, String level,
+    private static CardStatus status(String kind, LocalDate since, LocalDate usToday, String level,
                                                        String teamName, LastGame lastGame) {
         Integer days = since == null || since.isAfter(usToday) ? null : daysSince(since, usToday);
-        return new MyPlayersResponse.CardStatus(kind, since, days, level, teamName,
+        return new CardStatus(kind, since, days, level, teamName,
                 lastGame == null ? null : lastGame.kstDate(), lastGame == null ? null : lastGame.level());
     }
 

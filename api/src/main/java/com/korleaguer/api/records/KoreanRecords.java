@@ -5,7 +5,6 @@ import com.korleaguer.api.game.GameLine;
 import com.korleaguer.domain.KoreanMlbSeason;
 import com.korleaguer.domain.PlayerSeasonMetric;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -83,7 +82,7 @@ final class KoreanRecords {
      * @param seasons     MLB 번호 → 시즌 줄(그 선수 묶음 것만)
      * @param seasonGames MLB 번호 → 이번 시즌 경기(오래된 것부터). 현역만 있으면 된다
      */
-    static RecordsResponse build(String dataMode, int season, Instant now, List<Person> people,
+    static Tables build(int season, List<Person> people,
                                  Map<Long, List<SeasonLine>> savedSeasons, Map<Long, List<GameLine>> seasonGames) {
         Map<Long, List<SeasonLine>> seasons = withSeasonGames(season, savedSeasons, seasonGames);
         Map<Long, Map<Stat, Integer>> totals = new HashMap<>();
@@ -96,15 +95,15 @@ final class KoreanRecords {
             totals.put(person.mlbId(), byStat);
         }
 
-        List<RecordsResponse.Category> categories = new ArrayList<>();
-        Map<Stat, List<RecordsResponse.Leader>> leadersByStat = new HashMap<>();
+        List<RecordCategory> categories = new ArrayList<>();
+        Map<Stat, List<RecordLeader>> leadersByStat = new HashMap<>();
         for (Stat stat : Stat.values()) {
-            List<RecordsResponse.Leader> leaders = leaders(stat, people, seasons, totals);
+            List<RecordLeader> leaders = leaders(stat, people, seasons, totals);
             leadersByStat.put(stat, leaders);
-            categories.add(new RecordsResponse.Category(stat.key, stat.label, stat.group.name(), stat.label, leaders));
+            categories.add(new RecordCategory(stat.key, stat.label, stat.group.name(), stat.label, leaders));
         }
 
-        List<RecordsResponse.Next> next = new ArrayList<>();
+        List<RecordNext> next = new ArrayList<>();
         for (Person person : people) {
             if (!person.active()) {
                 continue;
@@ -113,25 +112,37 @@ final class KoreanRecords {
                 if (stat.group != person.group()) {
                     continue;
                 }
-                RecordsResponse.Next one = next(stat, person, leadersByStat.get(stat), totals);
+                RecordNext one = next(stat, person, leadersByStat.get(stat), totals);
                 if (one != null) {
                     next.add(one);
                 }
             }
         }
-        next.sort(Comparator.comparingDouble((RecordsResponse.Next n) -> (double) n.toPass() / n.targetValue())
-                .thenComparingInt(RecordsResponse.Next::toPass));
+        next.sort(Comparator.comparingDouble((RecordNext n) -> (double) n.toPass() / n.targetValue())
+                .thenComparingInt(RecordNext::toPass));
 
-        List<RecordsResponse.Passed> passed = passed(season, people, seasons, seasonGames, totals);
+        List<RecordPassed> passed = passed(season, people, seasons, seasonGames, totals);
 
-        List<RecordsResponse.Best> best = new ArrayList<>();
+        List<RecordBest> best = new ArrayList<>();
         for (Stat stat : Stat.values()) {
             if (stat.singleSeason) {
-                best.add(new RecordsResponse.Best(stat.key, stat.label, stat.group.name(), stat.label,
+                best.add(new RecordBest(stat.key, stat.label, stat.group.name(), stat.label,
                         singleSeason(stat, people, seasons)));
             }
         }
-        return new RecordsResponse(dataMode, season, now, categories, next, passed, best);
+        return new Tables(categories, next, passed, best);
+    }
+
+    /**
+     * 역대 기록 표 넷(응답 RecordsResponse가 그대로 품는다). 계산은 응답 타입을 모르고, 응답은 RecordsService가 만든다.
+     *
+     * @param categories   기록별 통산 순위
+     * @param next         넘을 기록(넘기까지 남은 수가 적은 순)
+     * @param passed       올해 넘은 기록
+     * @param singleSeason 한 시즌 최다
+     */
+    record Tables(List<RecordCategory> categories, List<RecordNext> next, List<RecordPassed> passed,
+                  List<RecordBest> singleSeason) {
     }
 
     /**
@@ -163,7 +174,7 @@ final class KoreanRecords {
     }
 
     /** 통산 순위(값 0은 뺀다). 같은 값이면 먼저 데뷔한 선수가 앞이고 등수는 같다 */
-    private static List<RecordsResponse.Leader> leaders(Stat stat, List<Person> people,
+    private static List<RecordLeader> leaders(Stat stat, List<Person> people,
                                                         Map<Long, List<SeasonLine>> seasons,
                                                         Map<Long, Map<Stat, Integer>> totals) {
         record Row(Person person, int value, int first, int last) {
@@ -180,7 +191,7 @@ final class KoreanRecords {
             rows.add(new Row(person, value, first, last));
         }
         rows.sort(Comparator.comparingInt(Row::value).reversed().thenComparingInt(Row::first));
-        List<RecordsResponse.Leader> result = new ArrayList<>();
+        List<RecordLeader> result = new ArrayList<>();
         int rank = 0;
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
@@ -188,22 +199,22 @@ final class KoreanRecords {
                 rank = i + 1;
             }
             Person p = row.person();
-            result.add(new RecordsResponse.Leader(rank, p.playerId(), p.mlbId(), p.nameKo(), p.photoUrl(), row.value(),
+            result.add(new RecordLeader(rank, p.playerId(), p.mlbId(), p.nameKo(), p.photoUrl(), row.value(),
                     row.first(), row.last(), p.active()));
         }
         return result;
     }
 
     /** 바로 위 선수(값이 더 큰 선수 중 가장 작은 값, 같은 값이면 순위표에서 앞선 선수). 0이거나 1위면 없음 */
-    private static RecordsResponse.Next next(Stat stat, Person person, List<RecordsResponse.Leader> leaders,
+    private static RecordNext next(Stat stat, Person person, List<RecordLeader> leaders,
                                              Map<Long, Map<Stat, Integer>> totals) {
         int mine = totals.get(person.mlbId()).get(stat);
         if (mine <= 0) {
             return null;
         }
-        RecordsResponse.Leader me = leaders.stream().filter(l -> l.mlbId() == person.mlbId()).findFirst().orElse(null);
-        RecordsResponse.Leader target = null;
-        for (RecordsResponse.Leader leader : leaders) {
+        RecordLeader me = leaders.stream().filter(l -> l.mlbId() == person.mlbId()).findFirst().orElse(null);
+        RecordLeader target = null;
+        for (RecordLeader leader : leaders) {
             if (leader.value() > mine && (target == null || leader.value() < target.value())) {
                 target = leader;
             }
@@ -211,7 +222,7 @@ final class KoreanRecords {
         if (me == null || target == null) {
             return null;
         }
-        return new RecordsResponse.Next(person.playerId(), person.mlbId(), person.nameKo(), person.photoUrl(), stat.key,
+        return new RecordNext(person.playerId(), person.mlbId(), person.nameKo(), person.photoUrl(), stat.key,
                 stat.label, stat.label, mine, me.rank(), target.nameKo(), target.value(), target.active(),
                 target.value() - mine + 1, target.rank());
     }
@@ -220,11 +231,11 @@ final class KoreanRecords {
      * 이번 시즌 넘은 선배: 현역 선수의 지난 시즌까지 합에서 시작해 이번 시즌 경기를 차례로 더하며,
      * 현역이 아닌 같은 묶음 선수의 통산 값(0보다 큰)을 처음 넘은 경기를 찾는다. 최근 것부터, 같은 날이면 기록 순서대로.
      */
-    private static List<RecordsResponse.Passed> passed(int season, List<Person> people,
+    private static List<RecordPassed> passed(int season, List<Person> people,
                                                        Map<Long, List<SeasonLine>> seasons,
                                                        Map<Long, List<GameLine>> seasonGames,
                                                        Map<Long, Map<Stat, Integer>> totals) {
-        List<RecordsResponse.Passed> result = new ArrayList<>();
+        List<RecordPassed> result = new ArrayList<>();
         for (Person person : people) {
             List<GameLine> games = seasonGames.getOrDefault(person.mlbId(), List.of());
             if (!person.active() || games.isEmpty()) {
@@ -246,7 +257,7 @@ final class KoreanRecords {
                         }
                         int value = totals.get(senior.mlbId()).get(stat);
                         if (value > 0 && cumulative <= value && value < after) {
-                            result.add(new RecordsResponse.Passed(person.playerId(), person.mlbId(), person.nameKo(),
+                            result.add(new RecordPassed(person.playerId(), person.mlbId(), person.nameKo(),
                                     person.photoUrl(), stat.key, stat.label, stat.label, game.dateKst(),
                                     senior.nameKo(), value));
                         }
@@ -255,14 +266,14 @@ final class KoreanRecords {
                 }
             }
         }
-        result.sort(Comparator.comparing(RecordsResponse.Passed::dateKst).reversed()
+        result.sort(Comparator.comparing(RecordPassed::dateKst).reversed()
                 .thenComparingInt(p -> Stat.valueOfKey(p.category()).ordinal())
-                .thenComparing(Comparator.comparingInt(RecordsResponse.Passed::passedValue).reversed()));
+                .thenComparing(Comparator.comparingInt(RecordPassed::passedValue).reversed()));
         return result;
     }
 
     /** 한 시즌 최다 10위까지(10위와 같은 값이면 함께) */
-    private static List<RecordsResponse.SeasonRow> singleSeason(Stat stat, List<Person> people,
+    private static List<RecordSeasonRow> singleSeason(Stat stat, List<Person> people,
                                                                 Map<Long, List<SeasonLine>> seasons) {
         record Row(Person person, int season, int value) {
         }
@@ -279,7 +290,7 @@ final class KoreanRecords {
             }
         }
         rows.sort(Comparator.comparingInt(Row::value).reversed().thenComparingInt(Row::season));
-        List<RecordsResponse.SeasonRow> result = new ArrayList<>();
+        List<RecordSeasonRow> result = new ArrayList<>();
         int rank = 0;
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
@@ -290,7 +301,7 @@ final class KoreanRecords {
                 break;
             }
             Person p = row.person();
-            result.add(new RecordsResponse.SeasonRow(rank, p.playerId(), p.mlbId(), p.nameKo(), row.season(),
+            result.add(new RecordSeasonRow(rank, p.playerId(), p.mlbId(), p.nameKo(), row.season(),
                     row.value(), p.active()));
         }
         return result;

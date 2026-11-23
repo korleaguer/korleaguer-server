@@ -107,7 +107,7 @@ final class NewsTopics {
      * 묶음들에서 많이 나온 말(많은 순, 같으면 정해 둔 순서) 최대 SHOWN개. MIN_COUNT번 미만은 뺀다.
      * skip에 든 말(고른 선수의 지금 구단 이름)은 세지 않는다
      */
-    static List<NewsListResponse.Topic> count(List<SameArticles.Group> groups, Collection<String> skip) {
+    static List<NewsTopic> count(List<SameArticles.Group> groups, Collection<String> skip) {
         List<String> texts = groups.stream().map(NewsTopics::text).toList();
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (String word : WORDS) {
@@ -125,8 +125,8 @@ final class NewsTopics {
             }
         }
         return counts.entrySet().stream()
-                .map(e -> new NewsListResponse.Topic(e.getKey(), e.getValue()))
-                .sorted(Comparator.comparingInt(NewsListResponse.Topic::count).reversed())
+                .map(e -> new NewsTopic(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparingInt(NewsTopic::count).reversed())
                 .limit(SHOWN)
                 .toList();
     }

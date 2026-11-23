@@ -1,6 +1,5 @@
 package com.korleaguer.api.player;
 
-import com.korleaguer.api.screen.PlayerPageResponse;
 
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.RosterProperties;
@@ -68,7 +67,7 @@ class RosterProfilesTest {
         RosterProfiles profiles = profiles(true, TEMPLATE);
 
         assertThat(profiles.careerPhotos(new Player("이정후"))).containsExactly(
-                new PlayerPageResponse.CareerPhoto("키움 히어로즈", "2017–2023", "/photos/career-67341-2023?v=" + PhotoFiles.version("career-67341-2023.png")));
+                new PastTeamPhoto("키움 히어로즈", "2017–2023", "/photos/career-67341-2023?v=" + PhotoFiles.version("career-67341-2023.png")));
         assertThat(profiles.careerPhotos(new Player("김하성"))).isEmpty();
         assertThat(profiles(false, TEMPLATE).careerPhotos(new Player("이정후"))).isEmpty();
     }
