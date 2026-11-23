@@ -278,6 +278,7 @@ docker build -t korleaguer-server:local .   # 이미지만 만들어 보기
 ## 구조
 
 구조 규칙과 방향(모듈, 누가 누구를 알아도 되나, 정해진 결정, 아직 안 한 일)은 [`ARCHITECTURE.md`](ARCHITECTURE.md)에 있다. 아래는 지금 패키지 모습이다.
+Gradle 모듈은 둘이다. `domain`·`support`·`posting`은 `core` 모듈(`core/src`)에 있고, 나머지는 루트 프로젝트(`src`)에 있다. `./gradlew test`와 `./gradlew bootRun`은 전과 같이 루트에서 돌린다.
 
 ```
 com.korleaguer
