@@ -1,5 +1,7 @@
 package com.korleaguer.api.screen;
 
+import com.korleaguer.api.player.MoveEntry;
+
 import com.korleaguer.api.BadRequestException;
 
 import com.korleaguer.api.season.SeasonReports;
@@ -114,13 +116,13 @@ public class PlayerTimelineService {
 
         // /api/players와 같은 순서(id 순)
         List<Player> roster = players.findAll(Sort.by("id"));
-        Map<Long, List<PlayerPageResponse.Move>> movesByPlayer = movesOf(roster, from, to);
+        Map<Long, List<MoveEntry>> movesByPlayer = movesOf(roster, from, to);
         SeasonReportFinder.TimelineMaterials materials = seasonReports.timelineMaterials(roster, season);
 
         List<PlayerTimeline> result = new ArrayList<>();
         for (Player player : roster) {
             SeasonReports.Input input = materials.inputs().get(player.getId());
-            List<PlayerPageResponse.Move> playerMoves = movesByPlayer.getOrDefault(player.getId(), List.of());
+            List<MoveEntry> playerMoves = movesByPlayer.getOrDefault(player.getId(), List.of());
             result.add(new PlayerTimeline(player.getId(),
                     PlayerTimelines.segments(playerMoves, from, to, firstGames(input)), playerMoves,
                     playerMoves.isEmpty() ? null : playerMoves.getLast().date(), stat(player, input, materials)));
@@ -141,7 +143,7 @@ public class PlayerTimelineService {
     }
 
     /** 선수마다 from~to의 이동(날짜 오름차순, 팬에게 보일 것만) */
-    private Map<Long, List<PlayerPageResponse.Move>> movesOf(List<Player> roster, LocalDate from, LocalDate to) {
+    private Map<Long, List<MoveEntry>> movesOf(List<Player> roster, LocalDate from, LocalDate to) {
         if (roster.isEmpty()) {
             return Map.of();
         }
@@ -149,12 +151,12 @@ public class PlayerTimelineService {
         Map<Long, List<PlayerMove>> byPlayer = moves.findSinceOldestFirst(ids, from).stream()
                 .filter(m -> !m.getMoveDate().isAfter(to))
                 .collect(Collectors.groupingBy(m -> m.getPlayer().getId()));
-        Map<Long, List<PlayerPageResponse.Move>> result = new HashMap<>();
+        Map<Long, List<MoveEntry>> result = new HashMap<>();
         byPlayer.forEach((id, oldestFirst) -> {
             // fanMoves는 최신순을 받는다(같은 이동이 두 번 오면 나중 것을 남기는 쪽이 같도록 선수 화면과 같은 순서로)
             List<PlayerMove> newestFirst = new ArrayList<>(oldestFirst);
             Collections.reverse(newestFirst);
-            List<PlayerPageResponse.Move> fan = new ArrayList<>(BaseballQueryService.fanMoves(newestFirst, minorTeamNames));
+            List<MoveEntry> fan = new ArrayList<>(BaseballQueryService.fanMoves(newestFirst, minorTeamNames));
             Collections.reverse(fan);
             result.put(id, fan);
         });

@@ -62,7 +62,7 @@ public class GameBuzzFinder {
         List<Long> playerIds = candidates.stream().map(GameLine::playerId).distinct().toList();
         // 줄마다 그 경기가 속한 시즌 기록을 쓴다(시즌 경계 근처 기간에 두 시즌 줄이 섞여도 어긋나지 않게)
         Map<Integer, Map<Long, List<Appearance>>> bySeason = new HashMap<>();
-        List<RecordsResponse.Passed> passed = records.records().passed();
+        List<RecordPassed> passed = records.records().passed();
 
         List<GameBuzz> result = new ArrayList<>();
         for (GameLine line : candidates) {
@@ -89,7 +89,7 @@ public class GameBuzzFinder {
     }
 
     /** 그 경기 날(한국 날짜)에 이 선수가 넘은 선배 기록. 같은 날 여럿이면 passed의 순서(종목 순)로 첫 번째 */
-    private static Optional<GameBuzz> passed(GameLine line, List<RecordsResponse.Passed> passed) {
+    private static Optional<GameBuzz> passed(GameLine line, List<RecordPassed> passed) {
         return passed.stream()
                 .filter(p -> p.playerId() != null && p.playerId() == line.playerId()
                         && p.dateKst().equals(line.startTimeKst().toLocalDate()))
@@ -104,7 +104,7 @@ public class GameBuzzFinder {
     }
 
     /** 예: "한국인 통산 홈런 이대호(14개) 넘음" */
-    static String passedText(RecordsResponse.Passed p) {
+    static String passedText(RecordPassed p) {
         String unit = switch (p.category()) {
             case "games" -> "경기";
             case "wins" -> "승";

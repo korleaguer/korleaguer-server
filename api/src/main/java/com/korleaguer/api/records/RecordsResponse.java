@@ -1,7 +1,6 @@
 package com.korleaguer.api.records;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -19,39 +18,9 @@ public record RecordsResponse(
         String dataMode,
         int season,
         Instant generatedAt,
-        List<Category> categories,
-        List<Next> next,
-        List<Passed> passed,
-        List<Best> singleSeason) {
+        List<RecordCategory> categories,
+        List<RecordNext> next,
+        List<RecordPassed> passed,
+        List<RecordBest> singleSeason) {
 
-    /** 한 기록의 통산 순위. group: HITTING / PITCHING */
-    public record Category(String key, String label, String group, String unit, List<Leader> leaders) {
-    }
-
-    /** 통산 순위 한 줄. rank는 같은 값이면 같은 등수(1, 2, 2, 4), firstSeason·lastSeason은 MLB에서 뛴 첫·마지막 시즌 */
-    public record Leader(int rank, Long playerId, long mlbId, String nameKo, String photoUrl, int value,
-                         int firstSeason, int lastSeason, boolean active) {
-    }
-
-    /**
-     * 다음 선배. value·rank는 지금 통산 값과 등수, target*는 바로 위 선수(같은 값이 여럿이면 순위표에서 앞선 선수),
-     * toPass는 넘으려면 남은 수(같아지려면 toPass - 1), rankAfter는 넘으면 오르는 등수다.
-     */
-    public record Next(Long playerId, long mlbId, String nameKo, String photoUrl, String category, String label,
-                       String unit, int value, int rank, String targetNameKo, int targetValue, boolean targetActive,
-                       int toPass, int rankAfter) {
-    }
-
-    /** 이번 시즌 넘은 선배. dateKst는 넘은 경기의 한국 날짜, passedValue는 넘은 선배의 통산 값 */
-    public record Passed(Long playerId, long mlbId, String nameKo, String photoUrl, String category, String label,
-                         String unit, LocalDate dateKst, String passedNameKo, int passedValue) {
-    }
-
-    /** 한 시즌 최다 */
-    public record Best(String key, String label, String group, String unit, List<SeasonRow> rows) {
-    }
-
-    public record SeasonRow(int rank, Long playerId, long mlbId, String nameKo, int season, int value,
-                            boolean active) {
-    }
 }

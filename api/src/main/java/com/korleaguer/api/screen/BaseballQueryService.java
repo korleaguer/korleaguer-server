@@ -1,5 +1,7 @@
 package com.korleaguer.api.screen;
 
+import com.korleaguer.api.player.MoveEntry;
+
 import com.korleaguer.api.article.PostingSummary;
 import com.korleaguer.api.game.GameLine;
 import com.korleaguer.api.game.GameLineAssembler;
@@ -313,17 +315,17 @@ public class BaseballQueryService {
      * MLB가 같은 날 같은 내용을 두 번 준 줄은 하나만 남긴다. 팀 이름은 TeamLabels.moveTeam(MLB 구단은 한글 이름,
      * 트리플A·더블A 팀은 "귀넷(트리플A)")이다.
      */
-    public static List<PlayerPageResponse.Move> fanMoves(List<PlayerMove> newestFirst, MinorTeamNames minorTeams) {
+    public static List<MoveEntry> fanMoves(List<PlayerMove> newestFirst, MinorTeamNames minorTeams) {
         record Key(LocalDate date, String typeCode, String description) {
         }
         Set<Key> seen = new HashSet<>();
-        List<PlayerPageResponse.Move> result = new ArrayList<>();
+        List<MoveEntry> result = new ArrayList<>();
         for (PlayerMove move : newestFirst) {
             String label = MoveLabels.korean(move.getTypeCode(), move.getTypeDesc(), move.getDescription());
             if (label == null || !seen.add(new Key(move.getMoveDate(), move.getTypeCode(), move.getDescription()))) {
                 continue;
             }
-            result.add(new PlayerPageResponse.Move(move.getMoveDate(), move.getTypeCode(), label,
+            result.add(new MoveEntry(move.getMoveDate(), move.getTypeCode(), label,
                     TeamLabels.moveTeam(move.getFromTeamId(), move.getFromTeamName(), minorTeams),
                     TeamLabels.moveTeam(move.getToTeamId(), move.getToTeamName(), minorTeams),
                     move.getToLevel()));
