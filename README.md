@@ -177,7 +177,7 @@ curl -X POST -H "X-Admin-Token: $KORLEAGUER_ADMIN_TOKEN" localhost:8080/admin/in
   - 사진 이름에 사진 시즌(`photo-season`)이 들어가, 새 시즌 사진으로 바꾸면 주소도 바뀐다. 사진을 하루 동안 저장해 두는 브라우저·중간 캐시에 옛 사진이 남지 않게 하려는 것이다(2026-11-18 노시환 사진을 `kbo-si-hwan-roh`에서 `kbo-si-hwan-roh-2026`으로 바꿨다).
 - 원본(MLB 사진 서버 `korleaguer.images.player-photo-template`, MLB 사진이 없는 포스팅 선배는 KBO 사진 서버 `korleaguer.images.kbo-photo-template`)에서 **처음 한 번만** 받아 DB에 저장한다(`PhotoStore`). 받기는 주기 작업만 한다: 앱이 뜰 때와 10분마다 없는 사진(원본 주소가 바뀐 사진 포함)을 받는다. 화면 요청(`/api/photos/{이름}`)은 DB 저장본만 읽고, 아직 없으면 404다(웹은 이름 첫 글자 원). 받기에 실패해도 저장본은 지우지 않고 다음 주기에 다시 받으며, 빠진 사진이 남으면 `photos: … still missing` 경고 로그를 남긴다.
 - 원본에 마지막으로 물어본 지 7일이 지나면 조건부 요청(If-None-Match·If-Modified-Since)으로 바뀌었는지만 묻는다. 304거나 본문(SHA-256)이 같으면 다시 쓰지 않는다. 원본 주소가 바뀌면 새로 받는다.
-- 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
+- 명단·포스팅에 있는 사진만 받고 준다(아무 주소나 대신 받아 주지 않는다). 사진만(image/*, 2MB까지). 요청 예절은 기사 수집과 같은 `PoliteFetcher`(robots.txt·사이트당 1초·실패하면 쉬기). 단 사진 하나가 404·403이면 그 사진만 실패로 보고 사진 서버를 쉬게 하지 않는다(다른 선수 사진은 계속 받는다). 단 사진용은 robots.txt가 401·403이면 표준대로 '없음'으로 본다(그림 말고는 다 막는 사진 서버).
 - 응답은 `ETag`(SHA-256)와 `Cache-Control: public, max-age=86400`. 같은 ETag로 물으면 304.
 - 사진의 권리는 MLB·각 구단에 있다(공식 사진을 끄면 `photoUrl`이 모두 null).
 

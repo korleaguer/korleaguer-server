@@ -114,6 +114,15 @@ public class PoliteFetcher {
     }
 
     /**
+     * 한 주소씩 따로 있는 자원용(선수 사진): get과 같지만 404·410(그 자원이 없음)과 401·403·451(그 자원을 막음)은
+     * 그 주소만 실패로 보고 사이트를 쉬게 하지 않는다. 사진 하나의 주소가 틀려도 같은 사진 서버의 다른 사진은 계속 받는다.
+     * robots.txt·간격·429·503·5xx 등 나머지 규칙은 같다.
+     */
+    public synchronized Optional<Fetched> getItem(URI uri, Map<String, String> headers) {
+        return get(uri, headers, 0, false);
+    }
+
+    /**
      * 기사 페이지용: 조건 없이 한 번 받는다(304로 본문을 놓치지 않게). 404·410(기사 없어짐)과 401·403·451(페이지를 막음)은
      * 사이트를 쉬게 하지 않는다(피드는 계속 받는다. 페이지를 막은 사이트는 부르는 쪽이 페이지 읽기를 끈다).
      * robots.txt·간격·429·503 등 나머지 규칙은 같다.
@@ -198,9 +207,9 @@ public class PoliteFetcher {
             return Optional.empty();
         }
         if (!missingPausesSite && (status == 404 || status == 410 || status == 401 || status == 403 || status == 451)) {
-            // 기사 페이지: 그 페이지가 없거나 페이지를 막았을 뿐이다. 사이트(피드)는 쉬게 하지 않고, 페이지를 막은 사이트는
-            // 부르는 쪽(NewsEnricher)이 페이지 읽기만 오래 끈다
-            log.info("fetch: {} answered {} (article page)", uri, status);
+            // 기사 페이지·사진: 그 주소가 없거나 그 주소를 막았을 뿐이다. 사이트(피드·다른 사진)는 쉬게 하지 않고, 페이지를 막은
+            // 사이트는 부르는 쪽(NewsEnricher)이 페이지 읽기만 오래 끈다
+            log.info("fetch: {} answered {} (this address only, site not paused)", uri, status);
             return Optional.empty();
         }
         if (status == 401 || status == 403 || status == 404 || status == 410 || status == 451) {

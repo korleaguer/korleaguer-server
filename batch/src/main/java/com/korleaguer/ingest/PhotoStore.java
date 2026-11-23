@@ -43,7 +43,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       (원본이 실패로 답했으면 PoliteFetcher가 그 사이트를 쉬게 한 시간이 지난 뒤).</li>
  *   <li>주기 작업은 지금 목록에 없는 이름의 행(사진 이름을 바꾸고 남은 옛 행)을 지운다. 목록이 정상일 때만(공식 사진을 켰고 목록이
  *       비지 않았을 때) 지운다. 끄면 목록이 통째로 비므로 지우지 않는다(다시 켰을 때 받은 사진을 또 받지 않게).</li>
- *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).</li>
+ *   <li>요청 예절은 PoliteFetcher(robots.txt, 사이트당 1초 간격, 실패하면 쉬기)를 따른다. 사진만 받는다(image/*, 2MB까지).
+ *       사진 하나가 404·403이면 그 사진만 실패로 보고 사진 서버를 쉬게 하지 않는다(getItem: 다른 선수 사진은 계속 받는다).</li>
  *   <li>샘플 모드는 네트워크를 쓰지 않는다(저장본이 없으면 사진 없음).</li>
  *   <li>우리가 만든 사진(원본 주소 classpath:…, 포스팅 선수·포스팅 선배·과거 소속팀 편집본)은 받지 않고 그 파일을
  *       그대로 준다. 샘플 모드에서도 준다.</li>
@@ -66,6 +67,8 @@ public class PhotoStore implements PhotoLoader {
     private final Clock clock;
     private final Object lock = new Object();
     private final Map<String, Photo> bundled = new ConcurrentHashMap<>();
+    /** 마지막으로 로그에 알린 빠진 사진·옛 주소 사진. 같은 상태면 주기마다 다시 경고하지 않는다(lock 안에서만 쓴다) */
+    private List<String> reportedGaps = List.of();
 
     public PhotoStore(PhotoSources sources, PhotoRepository photos, @Qualifier("photoFetcher") PoliteFetcher fetcher,
                       DataMode dataMode, Clock clock) {
@@ -116,6 +119,7 @@ public class PhotoStore implements PhotoLoader {
         }
         int changed = 0;
         List<String> missing = new ArrayList<>();
+        List<String> stale = new ArrayList<>();
         synchronized (lock) {
             for (Map.Entry<String, String> entry : sources.all().entrySet()) {
                 if (PhotoSources.bundled(entry.getValue())) {
@@ -128,6 +132,8 @@ public class PhotoStore implements PhotoLoader {
                         changed++;
                     } else if (stored.isEmpty()) {
                         missing.add(entry.getKey()); // 화면에는 사진 대신 이름 첫 글자 원이 나간다
+                    } else {
+                        stale.add(entry.getKey()); // 새 주소에서 못 받아 옛 사진을 그대로 준다
                     }
                 } else {
                     sources.remember(entry.getKey(), stored.get().getSha256());
@@ -139,14 +145,28 @@ public class PhotoStore implements PhotoLoader {
                 }
             }
             removeUnlisted();
+            reportGaps(missing, stale);
         }
         if (changed > 0) {
             log.info("photos: {} photo(s) fetched or updated", changed);
         }
-        if (!missing.isEmpty()) {
-            log.warn("photos: {} photo(s) still missing, will retry on the next run: {}", missing.size(), missing);
-        }
         return changed;
+    }
+
+    /** 빠진 사진(저장본 없음)과 옛 주소 사진(새 주소에서 못 받음)을 알린다. 지난번과 같으면 다시 경고하지 않는다 */
+    private void reportGaps(List<String> missing, List<String> stale) {
+        List<String> gaps = new ArrayList<>(missing);
+        gaps.addAll(stale);
+        if (gaps.equals(reportedGaps)) {
+            return;
+        }
+        if (gaps.isEmpty()) {
+            log.info("photos: every listed photo is stored again");
+        } else {
+            log.warn("photos: still missing {} (served as initials), still on the old source {} (served as the old photo);"
+                    + " will retry on the next runs", missing, stale);
+        }
+        reportedGaps = List.copyOf(gaps);
     }
 
     /** 지금 목록에 없는 이름의 행을 지운다. 목록이 비었으면(공식 사진을 껐으면) 아무것도 지우지 않는다 */
@@ -168,7 +188,7 @@ public class PhotoStore implements PhotoLoader {
         if (dataMode == DataMode.SAMPLE) {
             return Optional.empty();
         }
-        Optional<PoliteFetcher.Fetched> fetched = fetcher.get(URI.create(source), Map.of("Accept", ACCEPT));
+        Optional<PoliteFetcher.Fetched> fetched = fetcher.getItem(URI.create(source), Map.of("Accept", ACCEPT));
         if (fetched.isEmpty() || !fetched.get().modified() || !usable(fetched.get(), source)) {
             return Optional.empty();
         }
@@ -185,7 +205,7 @@ public class PhotoStore implements PhotoLoader {
         if (photo.getLastModified() != null) {
             headers.put("If-Modified-Since", photo.getLastModified());
         }
-        Optional<PoliteFetcher.Fetched> fetched = fetcher.get(URI.create(photo.getSourceUrl()), headers);
+        Optional<PoliteFetcher.Fetched> fetched = fetcher.getItem(URI.create(photo.getSourceUrl()), headers);
         if (fetched.isEmpty()) {
             return false; // 원본이 안 되면 저장본을 그대로 두고 다음에 다시 묻는다
         }

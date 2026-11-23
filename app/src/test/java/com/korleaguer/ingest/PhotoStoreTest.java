@@ -126,6 +126,22 @@ class PhotoStoreTest {
     }
 
     @Test
+    void oneMissingPhotoAtTheSourceDoesNotStopTheOtherPhotos() {
+        reply(MLB, 404, "", Map.of()); // 이정후 사진 주소만 틀렸다
+        reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp"));
+        PhotoStore store = store(DataMode.MLB);
+
+        assertThat(store.refresh()).isEqualTo(1); // 같은 사진 서버를 쉬게 하지 않아 김혜성 사진은 받는다
+        assertThat(store.load("mlb-808982")).isEmpty();
+        assertThat(store.load("mlb-808975")).isPresent();
+
+        reply(MLB, 200, "face", Map.of("content-type", "image/webp")); // 주소를 고친 다음 주기
+        clock.advance(Duration.ofMinutes(10));
+        assertThat(store.refresh()).isEqualTo(1);
+        assertThat(store.load("mlb-808982")).isPresent();
+    }
+
+    @Test
     void failedFetchKeepsTheStoredCopyAndALaterRunFillsTheMissingPhoto() {
         Photo row = new Photo("mlb-808975");
         row.replace("https://img.example.com/old/808975", "image/webp", "kim".getBytes(StandardCharsets.UTF_8),
