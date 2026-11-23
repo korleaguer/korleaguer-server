@@ -157,30 +157,12 @@ public class IngestService {
         });
     }
 
-    /** 선수 한 명의 이번 시즌을 아직 안 받았으면 받는다(선수 페이지를 열 때). */
-    public IngestLog loadPlayerSeason(long playerId) {
-        return run(IngestKind.PLAYER_SEASON, steps -> {
-            Player player = players.findById(playerId).orElse(null);
-            if (player != null && player.getMlbId() != null) {
-                steps.add(() -> {
-                    int season = currentSeason.current();
-                    return gameIngest.backfillSeason(withoutSeason(List.of(player), season), season);
-                });
-            }
-        });
-    }
-
     /**
      * 이번 시즌 경기가 지금 앞뒤 며칠 안에 있는지(DB만 본다). 없으면 비시즌으로 보고 경기 갱신을 하지 않고,
      * 스케줄이 하루 한 번 앞 일정만 받는다(catchUp의 lookAhead).
      */
     public boolean inSeason(Instant now) {
         return gameIngest.hasGamesAround(now, SEASON_MARGIN_DAYS);
-    }
-
-    /** 선수의 이번 시즌을 받았는지 */
-    public boolean hasSeason(long playerId) {
-        return seasons.exists(playerId, currentSeason.current());
     }
 
     private void ensureRoster() {

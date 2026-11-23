@@ -2,7 +2,6 @@ package com.korleaguer.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.time.Duration;
 
 /**
  * application.properties 의 korleaguer.* 설정
@@ -16,9 +15,8 @@ public record KorleaguerProperties(Integer season, String dataSource, Ingest ing
     /**
      * scheduleEnabled: 자동 수집(스케줄과 앱 시작 때 따라잡기)을 켤지.
      * cron: 스케줄이 깨어나는 주기(UTC). 깨어날 때마다 할 일이 있는지 보고 필요한 것만 받는다.
-     * onDemandTimeout: 선수 페이지를 열 때 그 선수 시즌이 비어 있으면 그 자리에서 받는데, 그때 기다리는 최대 시간
      */
-    public record Ingest(boolean scheduleEnabled, String cron, Duration onDemandTimeout) {
+    public record Ingest(boolean scheduleEnabled, String cron) {
     }
 
     public record Admin(String token) {

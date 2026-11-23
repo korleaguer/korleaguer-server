@@ -1,7 +1,6 @@
 package com.korleaguer.api;
 
 import com.korleaguer.domain.GameDetail;
-import com.korleaguer.ingest.OnDemandSeason;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,19 +17,17 @@ public class BaseballController {
 
     private final BaseballQueryService queryService;
     private final MyPlayersService myPlayers;
-    private final OnDemandSeason onDemandSeason;
     private final GameDetailService gameDetails;
     private final PlayerTimelineService timelines;
     private final SameGamesService sameGames;
     private final CompareService compare;
 
     public BaseballController(BaseballQueryService queryService, MyPlayersService myPlayers,
-                              OnDemandSeason onDemandSeason, GameDetailService gameDetails,
+                              GameDetailService gameDetails,
                               PlayerTimelineService timelines, SameGamesService sameGames,
                               CompareService compare) {
         this.queryService = queryService;
         this.myPlayers = myPlayers;
-        this.onDemandSeason = onDemandSeason;
         this.gameDetails = gameDetails;
         this.timelines = timelines;
         this.sameGames = sameGames;
@@ -57,16 +54,15 @@ public class BaseballController {
         return timelines.timeline(timelines.resolveSeason(season));
     }
 
-    /** 그 선수의 이번 시즌을 아직 받지 않았으면 먼저 짧게 받아 본다(OnDemandSeason). 그 밖에는 DB만 읽는다. */
+    /** 선수 화면. DB만 읽는다(그 선수 시즌을 아직 받지 않았으면 있는 것만 준다. 스케줄 수집이 받는다) */
     @GetMapping("/players/{id}")
     public PlayerPageResponse player(@PathVariable long id) {
-        onDemandSeason.ensureSeason(id);
         return queryService.player(id);
     }
 
     /**
      * 선수 화면이 있는지만 답한다(있으면 200, 없으면 404, 본문 없음). 웹이 선수 화면을 열 때마다 먼저 물어 없는 주소에 404를 준다.
-     * 이 처리가 없으면 Spring이 HEAD에도 위 GET을 불러 시즌 받기·선수 화면 계산을 다 하고 본문만 버린다
+     * 이 처리가 없으면 Spring이 HEAD에도 위 GET을 불러 선수 화면 계산을 다 하고 본문만 버린다
      */
     @RequestMapping(value = "/players/{id}", method = RequestMethod.HEAD)
     public ResponseEntity<Void> playerExists(@PathVariable long id) {
