@@ -32,7 +32,7 @@
 | `core` | 엔티티, 리포지토리, DB 마이그레이션, 기본 야구 계산, 설정 값·상수, 응답 캐시 비우기 | 데이터 모양 | `domain`, `support`, `posting`, `config`, `photo`(사진 목록), `video`(공 영상 주소 문) |
 | `client` | 밖과 말하는 법(남의 서버를 부르는 코드): MLB 클라이언트, 기사 가져오기(robots·예절), Claude 요약, 사진 원본 받기 | 외부 API와 예절 | `client`(공 영상 주소 `SavantClips` 포함), `news`(가져오기·요약) |
 | `batch` | 수집: 받아서 바꾸고 저장하는 작업과 그 스케줄 | 무엇을 언제 받나 | `ingest`(사진 받기 `PhotoStore`, 기사 수집 `NewsCollector`·`NewsEnricher`·`NewsTagger`, 관리용 수집 엔드포인트 `AdminController` 포함) |
-| `api` | 컨트롤러, 화면 조립, 화면용 계산 규칙, 응답 | 화면 요구 | `api` |
+| `api` | 컨트롤러, 화면 조립, 화면용 계산 규칙, 응답 | 화면 요구 | `api`(주제 패키지 `web`·`screen`·`card`·`records`·`offseason`·`season`·`article`·`game`·`player`) |
 | `app` | 조립만(main, 실행 파일) | 배포 방식 | `ApiApplication`, `AppConfig`, 설정 파일(`application.properties`, `news/sources.yml`) |
 | `member` (앞으로) | 계정, 내 선수 저장, 댓글·반응, 알림 | 정책과 보안 | 없음 |
 
@@ -70,8 +70,11 @@ member(앞으로) ─▶ api, core
 - **주제별로 나누고 아래 방향으로만 안다.** 화면별(홈, 선수 페이지, 내 선수)로 나누지 않는다. 화면은 저마다 경기·시즌 성적·선수 기본을 다 써서 서로 물린다.
 
   ```
-  웹(컨트롤러·예외) ▶ 화면 조립 ▶ 내 선수 카드 / 기사 / 포스팅·비시즌 / 역대 기록 ▶ 시즌 성적 ▶ 경기 ▶ 선수 기본
+  웹 web(컨트롤러·예외 처리) ▶ 화면 조립 screen(최근 경기 포함) ▶ 내 선수 카드 card / 역대 기록·화제 문구 records / 포스팅·비시즌 offseason
+  ▶ 시즌 성적 season ▶ 기사·포스팅 요약 article ▶ 경기 game ▶ 선수 기본 player
   ```
+
+  같은 층(card·records·offseason)끼리도 모른다. 여러 층이 함께 던지는 공통 예외(`BadRequestException`)는 `com.korleaguer.api` 바로 아래에 둔다. 이 방향은 `ApiArchitectureTest`가 검사한다.
 
 - **순수 계산 클래스는 스프링 빈과 리포지토리를 모른다.** 값을 받아 값을 돌려준다. 그래야 규칙 하나를 스프링 없이 읽고 테스트할 수 있다.
 - **응답은 계산 결과 타입을 그대로 품는다.** 응답 전용 타입으로 옮겨 담는 층은 두지 않는다. 방향은 응답 → 계산 타입이다. 계산 클래스가 화면 응답 타입(`…Response`)을 알면 안 된다.
@@ -114,6 +117,7 @@ member(앞으로) ─▶ api, core
 | 큰 덩어리는 바뀌는 이유로 나눈다: 수집 / 조회 / 사용자(앞으로), 그 아래 공통 | 11-23 | 화면 요구, 외부 API, 정책이 서로 다른 속도로 바뀐다 |
 | 화면용 API는 DB만 읽는다. 경기 상세·하이라이트 제목 번역·리그 평균은 수집이 미리 받는다. 요청 중에 밖을 부르는 예외는 공 영상 주소 하나뿐이다('문 하나'). 선수 시즌 안전망(`OnDemandSeason`)도 없앤다 | 11-23 | 같은 날 먼저 '전부 미리 받지 않는다'로 정했다가 바꿨다. 근거였던 "미리 받으면 MLB 요청이 크게 는다"가 세어 보지 않은 말이었다(끝난 경기만 받으면 하루 5번꼴, 진행 중 갱신까지 넣어도 하루 30번쯤). 요청 중 받기는 기다리는 상한이 없고 수집과 요청 제한을 같이 써 서로 늦춘다. 안전망은 운영 수집 기록에서 11-10부터 11-23까지 한 번도 돌지 않았다(스케줄 수집은 118번) |
 | 조회 안쪽은 주제별로 나누고 아래 방향으로만 안다 | 11-23 | 화면별로 묶으면 18개 클래스가 서로 물린다. 주제별로 묶으면 거꾸로 된 참조가 16건뿐이다 |
+| 주제 순서는 처음 정한 순서에서 두 군데를 조정한 B안으로 한다: 최근 경기는 화면 조립에, 기사(포스팅 요약 포함)는 시즌 성적 아래에 둔다 | 11-23 | 클래스 86개를 실제로 놓아 보니 처음 순서는 거꾸로·옆 참조가 20건, B안은 8건이었다. 최근 경기는 홈 한 덩어리를 만드는 조립이고, 기사는 성적표와 포스팅 카드가 함께 쓰는 재료라 그 둘보다 아래가 맞다. 사용자가 비교를 보고 골랐다 |
 | 응답은 계산 결과 타입을 그대로 품는다(응답 전용 타입 분리 안 함) | 11-23 | 옮겨 담는 코드와 리뷰할 양만 늘어난다. 실용 |
 | 사용자 데이터와 사용자 글은 조회 응답과 따로 둔다 | 11-23 | 조회 응답의 캐시 두 겹(서버, 웹)을 지킨다 |
 | 모듈은 `core / client / batch / api / app`. Gradle 멀티모듈로 단계적으로 쪼갠다 | 11-23 | 사용자 제안(스케줄링·코어 도메인·API·외부 연동)을 조정했다. 큰 경계는 컴파일러가 막는 것이 가장 확실하다 |
@@ -167,7 +171,7 @@ member(앞으로) ─▶ api, core
 
 4단계 '문 하나'도 끝났다(#245): 공 영상 주소를 찾는 일을 `core`의 `video.PlayVideoFinder`(메서드 하나, 공 번호 모양 `PLAY_ID`, 결과 `Lookup`)로 좁히고, 구현 `SavantClips`와 조립 `VideoConfig`는 `client`로 옮겼다. `api` 모듈은 이제 `core`만 의존한다. 사진 내주기의 `photo.PhotoLoader`(#243)와 같은 모양이다.
 
-5. `api` 안쪽을 주제 패키지로 나누기. 검사 도구(ArchUnit)와 패키지와 상관없는 규칙 둘(순수 계산은 빈·리포지토리를, 응답 타입을 모른다)은 먼저 넣었다(#249). 주제 방향 규칙은 패키지를 나눈 뒤 더한다.
+5단계 `api` 안쪽 주제 패키지도 끝났다: 검사 도구 ArchUnit과 클래스 종류 규칙 둘(#249), 주제 패키지 아홉과 방향 규칙(#251). 구조 이동 다섯 단계가 모두 끝났고, 남은 일은 아래 표의 얼린 곳을 고치는 것이다.
 
 ### 지금 규칙과 다른 곳
 
@@ -180,13 +184,12 @@ member(앞으로) ─▶ api, core
 | `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
 | `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
 | 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
-| 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
+| 조회 안쪽 주제는 아래 방향으로만 | 8곳, 얼려 둠(#251). 아래가 위를 앎: `season.MinorRecords` → `card.FormFacts`·`card.MyPlayersResponse`, `player.MinorTeamNames` → `season.MinorRecords`, `card.MyPlayersService` → `screen.BaseballQueryService`, `player.RosterProfiles` → `screen.PlayerPageResponse`. 같은 층끼리: `card.MyPlayersService`·`card.MyPlayersResponse` → `records.GameBuzz`·`records.GameBuzzFinder` |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 8개 클래스, 얼려 둠(#249): `LinkedTeamsCounter`(리포지토리), `MinorRecords`, `PeriodRates`, `SeasonMonths`, `SeasonRates`, `SeasonReports`, `TeamLabels`, `WrcMath`(빈 `LeagueEnvironments`·`MinorTeamNames`·`GameLineAssembler`) |
 | 순수 계산은 응답 타입을 모른다 | 6개 클래스, 얼려 둠(#249): `CardStatuses`, `FormFacts`, `MinorRecords`(`MyPlayersResponse`), `KoreanRecords`(`RecordsResponse`), `NewsTopics`(`NewsListResponse`), `PlayerTimelines`(`PlayerPageResponse`) |
 
 ### 아직 정하지 않은 것
 
-- `api` 안쪽 주제 패키지의 이름과 클래스 86개의 자리(임시 묶음만 있다).
 - 엔드포인트별 응답 모양을 파일로 뽑아 두는 검사('그대로 품기'의 보완).
 - 수집과 API를 다른 프로세스로 뗄 때 캐시 비우기를 어떻게 알릴지(§3 규모의 목록).
 - 로그인 방식(소셜·이메일), 세션이냐 토큰이냐, 댓글 신고·관리. 만들 때 정한다.
