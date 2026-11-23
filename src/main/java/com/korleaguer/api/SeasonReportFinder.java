@@ -156,7 +156,7 @@ public class SeasonReportFinder {
         return new SeasonRecords(majors, minors, metricRows, openingDay, lastRegularDay);
     }
 
-    /** 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 메모리에 둔다) */
+    /** 달별 wRC+·ERA+의 리그 평균: 메이저와 우리 선수가 뛴 마이너 단계만 묻는다(LeagueEnvironments가 DB에서 읽는다) */
     private Map<String, LeagueEnvironments.Env> environments(SeasonRecords records, int season) {
         Set<String> levels = new HashSet<>();
         levels.add(LeagueEnvironments.MLB);

@@ -42,4 +42,14 @@ public interface MinorGameLogRepository extends JpaRepository<MinorGameLog, Long
     /** 마이너 경기 기록이 있는 시즌(연도) */
     @Query("select distinct g.season from MinorGameLog g")
     List<Integer> findSeasons();
+
+    /**
+     * 마이너 경기 기록에 나오는 (시즌, 공식 날짜의 연도, 단계). 리그 평균을 받을 조합을 정할 때 쓴다(ingest.LeagueAverageRefresher).
+     * 화면 계산이 시즌으로도(성적표·연표), 공식 날짜의 연도로도(내 선수 카드) 리그 평균을 물어 둘 다 준다
+     */
+    @Query("""
+            select distinct new com.korleaguer.domain.MinorSeasonLevel(g.season, year(g.gameDate), g.level)
+            from MinorGameLog g
+            """)
+    List<MinorSeasonLevel> findSeasonLevels();
 }

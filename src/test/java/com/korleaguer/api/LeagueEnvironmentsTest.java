@@ -1,80 +1,55 @@
 package com.korleaguer.api;
 
-import com.korleaguer.client.MlbApiException;
-import com.korleaguer.client.MlbClient;
-import com.korleaguer.client.MlbGameLogSplit;
-import com.korleaguer.client.MlbStat;
+import com.korleaguer.domain.LeagueAverage;
+import com.korleaguer.domain.LeagueAverageRepository;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 리그 단계별 평균(이슈 #175): 팀 합계 더하기, 메모리에 두기, 못 받으면 표준값 */
+/**
+ * 리그 단계별 평균 읽기(이슈 #175·#233): 저장된 줄을 그대로 쓰고, 없으면 표준값. MLB는 부르지 않는다(MLB 클라이언트를 모른다).
+ * 받아서 저장하는 쪽은 ingest.LeagueAverageRefresherTest
+ */
 class LeagueEnvironmentsTest {
 
-    private static final Instant NOW = Instant.parse("2026-11-17T00:00:00Z");
+    private final LeagueAverageRepository averages = mock(LeagueAverageRepository.class);
+    private final LeagueEnvironments leagues = new LeagueEnvironments(averages);
 
     @Test
-    void addsTeamTotalsIntoLeagueAverages() {
-        // 두 팀: 타석 1,000·득점 120, 아웃 2,700·자책 450 → 타석당 0.120, 평균자책점 4.50
-        List<MlbGameLogSplit> hitting = List.of(team(hitting(400, 100, 20, 2, 12, 40, 5, 3, 450, 50)),
-                team(hitting(480, 120, 25, 3, 15, 50, 6, 4, 550, 70)));
-        List<MlbGameLogSplit> pitching = List.of(team(pitching(1350, 200)), team(pitching(1350, 250)));
+    void readsTheStoredRowAsIs() {
+        when(averages.findBySeasonAndLevel(anyInt(), anyString())).thenReturn(Optional.empty());
+        when(averages.findBySeasonAndLevel(2026, "AAA")).thenReturn(Optional.of(row(2026, "AAA", 0.3382, 0.138, 4.99)));
 
-        LeagueEnvironments.Env env = LeagueEnvironments.fromTotals(hitting, pitching);
-
-        assertThat(env.runsPerPa()).isCloseTo(0.120, within(1e-9));
-        assertThat(env.era()).isCloseTo(4.50, within(1e-9));
-        assertThat(env.woba()).isBetween(0.30, 0.36);
+        assertThat(leagues.get(2026, "AAA")).isEqualTo(new LeagueEnvironments.Env(0.3382, 0.138, 4.99));
     }
 
     @Test
-    void keepsWhatItGotAndFallsBackToStandardValues() {
-        MlbClient mlb = mock(MlbClient.class);
-        when(mlb.getTeamSeasonTotals(eq(11), eq(MlbClient.Group.HITTING), anyInt()))
-                .thenReturn(List.of(team(hitting(480, 120, 25, 3, 15, 50, 6, 4, 550, 70))));
-        when(mlb.getTeamSeasonTotals(eq(11), eq(MlbClient.Group.PITCHING), anyInt()))
-                .thenReturn(List.of(team(pitching(1350, 250))));
-        when(mlb.getTeamSeasonTotals(eq(12), eq(MlbClient.Group.HITTING), anyInt()))
-                .thenThrow(new MlbApiException("down", null));
-        LeagueEnvironments leagues = new LeagueEnvironments(mlb, Clock.fixed(NOW, ZoneOffset.UTC));
+    void missingRowFallsBackToTheStandardValues() {
+        when(averages.findBySeasonAndLevel(anyInt(), anyString())).thenReturn(Optional.empty());
+        when(averages.findBySeasonAndLevel(2026, "AAA")).thenReturn(Optional.of(row(2026, "AAA", 0.3382, 0.138, 4.99)));
 
         Map<String, LeagueEnvironments.Env> envs = leagues.of(2026, Set.of("AAA", "AA", "XYZ"));
-        leagues.of(2026, Set.of("AAA"));
 
-        assertThat(envs.get("AAA").era()).isCloseTo(5.0, within(1e-9));
-        // 못 받은 더블A는 표준값, 모르는 단계는 넣지 않는다
-        assertThat(envs.get("AA")).isEqualTo(LeagueEnvironments.STANDARD);
+        assertThat(envs.get("AAA").era()).isEqualTo(4.99);
+        // 줄이 없는 더블A는 표준값 그 객체(내 선수 카드가 '못 받음'을 이 객체로 가린다), 모르는 단계는 넣지 않는다
+        assertThat(envs.get("AA")).isSameAs(LeagueEnvironments.STANDARD);
         assertThat(envs).doesNotContainKey("XYZ");
-        // 트리플A는 두 번 물어도 한 번만 받는다
-        verify(mlb, times(1)).getTeamSeasonTotals(11, MlbClient.Group.HITTING, 2026);
+        // 다른 시즌의 줄을 대신 쓰지 않는다
+        assertThat(leagues.get(2025, "AAA")).isSameAs(LeagueEnvironments.STANDARD);
     }
 
-    private static MlbGameLogSplit team(MlbStat stat) {
-        return new MlbGameLogSplit("2026", null, null, null, null, null, null, null, null, stat, null);
-    }
-
-    private static MlbStat hitting(int atBats, int hits, int doubles, int triples, int homeRuns, int walks,
-                                   int hitByPitch, int sacFlies, int plateAppearances, int runs) {
-        return new MlbStat(162, null, atBats, runs, hits, doubles, triples, homeRuns, null, walks, null, hitByPitch,
-                null, sacFlies, plateAppearances, null, null, null, null, null, null, null, null, null, null);
-    }
-
-    private static MlbStat pitching(int outs, int earnedRuns) {
-        return new MlbStat(162, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                outs, null, earnedRuns, null, null, null, null, null, null);
+    private static LeagueAverage row(int season, String level, double woba, double runsPerPa, double era) {
+        LeagueAverage row = new LeagueAverage(season, level);
+        row.update(new LeagueAverage.Values(woba, runsPerPa, era), Instant.parse("2026-11-01T00:00:00Z"));
+        return row;
     }
 }

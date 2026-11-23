@@ -4,6 +4,7 @@ import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.support.BaseballMath;
+import com.korleaguer.support.Woba;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +38,7 @@ final class PeriodRates {
         if (full.isEmpty() || full.size() < batted.size() * MIN_DETAILED_SHARE) {
             return null;
         }
-        WrcMath.Sum sum = new WrcMath.Sum();
+        Woba.Sum sum = new Woba.Sum();
         for (Batting b : full) {
             sum.add(orZero(b.atBats()), orZero(b.hits()), orZero(b.doubles()), orZero(b.triples()),
                     orZero(b.homeRuns()), orZero(b.walks()), orZero(b.hitByPitch()), orZero(b.sacFlies()));
