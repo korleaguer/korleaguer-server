@@ -121,6 +121,7 @@ member(앞으로) ─▶ api, core
 | 스케줄링만의 모듈은 두지 않고 수집에 합친다. 화면용 계산 규칙은 `core`가 아니라 `api`에 둔다 | 11-23 | 스케줄 클래스는 셋뿐이다. `core`가 모든 것을 빨아들이는 것을 막는다 |
 | 헥사고날 전면 도입과 계층별 패키지는 쓰지 않는다 | 11-23 | §3 '쓰지 않는 것' |
 | 서버 한 대 전제를 유지한다. 넓히는 순서는 앞단 캐시 → 프로세스 분리 → API 여러 대 | 11-23 | 응답이 모두 캐시되고 선수가 적어 읽기는 충분히 버틴다 |
+| 모듈 안쪽 규칙은 ArchUnit 테스트로 검사한다(`api` 모듈의 `ApiArchitectureTest`). 규칙을 넣을 때 이미 어기던 곳은 얼려 두고 새로 어기는 것만 막는다. Spring Modulith는 쓰지 않는다 | 11-23 | 모듈 사이는 Gradle이 막지만 모듈 안쪽은 못 막는다. Spring Modulith는 기능별 세로 구조를 전제하고 '순수 계산은 빈을 모른다' 같은 클래스 종류 규칙을 못 쓴다. ArchUnit은 Java 구조 테스트의 기반 라이브러리(Spring Modulith도 속에서 쓴다)이고 테스트 의존성 하나라 되돌리기 쉽다. 사용자가 비교를 보고 골랐다. Modulith의 이벤트 기록 기능은 알림을 만들 때 다시 본다 |
 
 ## 5. 에이전트가 일하는 법
 
@@ -136,6 +137,7 @@ member(앞으로) ─▶ api, core
 - **PR**: '리뷰 포인트'에 `구조: 따른 규칙 / 새로 생긴 경계 넘는 참조(없으면 없음)`을 한 줄 적는다.
 - **모듈을 새로 뗄 때 같이 고칠 곳**: `settings.gradle`의 `include`, 모듈 `build.gradle`(Spring Boot 플러그인을 걸지 않으므로 `-parameters`와 UTF-8을 직접 건다. `-parameters`가 없으면 리포지토리 `@Query`의 이름 붙은 인자를 못 이어 앱이 뜨다 실패한다), `Dockerfile`의 `COPY` 두 줄, `deploy.yml`의 배포하지 않는 경로 두 곳(`paths-ignore`, `IGNORED`), `ci.yml`의 테스트 보고서 경로. 패키지 이름은 바꾸지 않고 폴더만 옮긴다.
 - **테스트 자리**: 스프링 없이 도는 단위 테스트는 그 모듈로 옮긴다. 앱 전체를 띄우는 테스트(`@SpringBootTest`)와 여러 모듈이 같이 쓰는 테스트 도우미(`MutableClock`, `PhotoFiles`, `FakeHttp`, `MlbFixtures`)와 그것을 쓰는 테스트, 테스트 자원(`mlb/*.json`)을 쓰는 테스트는 `app`에 둔다.
+- **구조 검사**: 모듈 사이 경계는 Gradle(모듈 `build.gradle`의 의존성)이, `api` 안쪽 규칙은 `api/src/test/java/com/korleaguer/api/ApiArchitectureTest.java`가 막는다. 얼린 목록(`api/src/test/resources/archunit_store`)은 손으로 늘리지 않는다. 얼린 곳을 고치면 테스트가 목록에서 저절로 뺀다(그 변경도 커밋한다). 클래스를 다른 패키지로 옮겨 이름이 바뀌면 목록이 맞지 않으니, `archunit.properties`의 `allowStoreCreation`을 잠깐 `true`로 하고 `archunit_store`를 지운 뒤 테스트를 돌려 다시 만들고 PR에 적는다.
 - **하위 에이전트에게 서버 일을 맡길 때**: 브리프에 "`ARCHITECTURE.md`를 먼저 읽고 따를 것"을 넣는다.
 
 ## 6. 이 문서 고치기
@@ -165,7 +167,7 @@ member(앞으로) ─▶ api, core
 
 4단계 '문 하나'도 끝났다(#245): 공 영상 주소를 찾는 일을 `core`의 `video.PlayVideoFinder`(메서드 하나, 공 번호 모양 `PLAY_ID`, 결과 `Lookup`)로 좁히고, 구현 `SavantClips`와 조립 `VideoConfig`는 `client`로 옮겼다. `api` 모듈은 이제 `core`만 의존한다. 사진 내주기의 `photo.PhotoLoader`(#243)와 같은 모양이다.
 
-5. `api` 안쪽을 주제 패키지로 나누기
+5. `api` 안쪽을 주제 패키지로 나누기. 검사 도구(ArchUnit)와 패키지와 상관없는 규칙 둘(순수 계산은 빈·리포지토리를, 응답 타입을 모른다)은 먼저 넣었다(#249). 주제 방향 규칙은 패키지를 나눈 뒤 더한다.
 
 ### 지금 규칙과 다른 곳
 
@@ -179,13 +181,12 @@ member(앞으로) ─▶ api, core
 | `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
 | 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
 | 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
-| 순수 계산은 스프링 빈·리포지토리를 모른다 | 11건 |
-| 계산 클래스는 응답 타입을 모른다 | 8건 |
+| 순수 계산은 스프링 빈·리포지토리를 모른다 | 8개 클래스, 얼려 둠(#249): `LinkedTeamsCounter`(리포지토리), `MinorRecords`, `PeriodRates`, `SeasonMonths`, `SeasonRates`, `SeasonReports`, `TeamLabels`, `WrcMath`(빈 `LeagueEnvironments`·`MinorTeamNames`·`GameLineAssembler`) |
+| 순수 계산은 응답 타입을 모른다 | 6개 클래스, 얼려 둠(#249): `CardStatuses`, `FormFacts`, `MinorRecords`(`MyPlayersResponse`), `KoreanRecords`(`RecordsResponse`), `NewsTopics`(`NewsListResponse`), `PlayerTimelines`(`PlayerPageResponse`) |
 
 ### 아직 정하지 않은 것
 
 - `api` 안쪽 주제 패키지의 이름과 클래스 86개의 자리(임시 묶음만 있다).
-- 조회 안쪽 규칙을 검사할 도구(ArchUnit이 후보다. 모듈 경계는 Gradle이 막지만 모듈 안쪽은 못 막는다).
 - 엔드포인트별 응답 모양을 파일로 뽑아 두는 검사('그대로 품기'의 보완).
 - 수집과 API를 다른 프로세스로 뗄 때 캐시 비우기를 어떻게 알릴지(§3 규모의 목록).
 - 로그인 방식(소셜·이메일), 세션이냐 토큰이냐, 댓글 신고·관리. 만들 때 정한다.
