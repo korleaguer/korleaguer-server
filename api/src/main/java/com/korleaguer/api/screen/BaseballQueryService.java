@@ -1,0 +1,357 @@
+package com.korleaguer.api.screen;
+
+import com.korleaguer.api.article.PostingSummary;
+import com.korleaguer.api.game.GameLine;
+import com.korleaguer.api.game.GameLineAssembler;
+import com.korleaguer.api.game.MinorGameLine;
+import com.korleaguer.api.offseason.OffSeason;
+import com.korleaguer.api.offseason.OffSeasonFinder;
+import com.korleaguer.api.offseason.PostingFinder;
+import com.korleaguer.api.player.MinorTeamNames;
+import com.korleaguer.api.player.PlayerNotFoundException;
+import com.korleaguer.api.player.PlayerSummary;
+import com.korleaguer.api.player.RosterMember;
+import com.korleaguer.api.player.RosterProfiles;
+import com.korleaguer.api.player.TeamLabels;
+import com.korleaguer.api.season.CareerSeason;
+import com.korleaguer.api.season.HitterSeason;
+import com.korleaguer.api.season.MinorRecords;
+import com.korleaguer.api.season.PitcherSeason;
+import com.korleaguer.api.season.PlayerSaber;
+import com.korleaguer.api.season.RankingMinimums;
+import com.korleaguer.api.season.SeasonReportFinder;
+import com.korleaguer.api.season.SeasonStats;
+
+import com.korleaguer.config.CurrentSeason;
+import com.korleaguer.config.DataMode;
+import com.korleaguer.config.ResponseCaches;
+import com.korleaguer.domain.AffiliationRepository;
+import com.korleaguer.domain.Appearance;
+import com.korleaguer.domain.AppearanceRepository;
+import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.MinorGameLog;
+import com.korleaguer.domain.MinorGameLogRepository;
+import com.korleaguer.domain.MinorSeason;
+import com.korleaguer.domain.MinorSeasonRepository;
+import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerCareerSeasonRepository;
+import com.korleaguer.domain.PlayerLeaguePositionRepository;
+import com.korleaguer.domain.PlayerMove;
+import com.korleaguer.domain.PlayerMoveRepository;
+import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.PlayerSeasonMetric;
+import com.korleaguer.domain.Role;
+import com.korleaguer.domain.SeasonType;
+import com.korleaguer.domain.Team;
+import com.korleaguer.support.BatsThrows;
+import com.korleaguer.support.BirthDates;
+import com.korleaguer.support.BodyMeasures;
+import com.korleaguer.support.KoreanTime;
+import com.korleaguer.support.MoveLabels;
+import com.korleaguer.support.PositionNames;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * DB를 읽어 화면용 응답을 만든다. 홈과 선수 응답은 60초 캐시하고, 수집이 끝나면 IngestService가 비운다.
+ * 시즌은 응답을 만들 때마다 CurrentSeason에 한 번 묻는다(개막일이 지나면 다시 띄우지 않아도 새 시즌을 보인다).
+ */
+@Service
+@Transactional(readOnly = true)
+public class BaseballQueryService {
+
+    private static final List<String> REGULAR_SEASON = List.of(SeasonType.REGULAR.stored());
+    /** 선수 화면에 붙이는 그 선수 기사 수 */
+    static final int PLAYER_NEWS = 10;
+
+    private final PlayerRepository players;
+    private final AffiliationRepository affiliations;
+    private final AppearanceRepository appearances;
+    private final GameRepository games;
+    private final PlayerMoveRepository moves;
+    private final MinorSeasonRepository minorSeasons;
+    private final MinorGameLogRepository minorGameLogs;
+    private final PlayerLeaguePositionRepository leaguePositions;
+    private final PlayerCareerSeasonRepository careerSeasons;
+    private final GameLineAssembler gameLines;
+    private final RecentGamesFinder recentGames;
+    private final OffSeasonFinder offSeasons;
+    private final PostingFinder postings;
+    private final SeasonReportFinder seasonReports;
+    private final RosterProfiles profiles;
+    private final MinorTeamNames minorTeamNames;
+    private final DataMode dataMode;
+    private final CurrentSeason currentSeason;
+    private final Clock clock;
+
+    public BaseballQueryService(PlayerRepository players, AffiliationRepository affiliations,
+                                AppearanceRepository appearances, GameRepository games, PlayerMoveRepository moves,
+                                MinorSeasonRepository minorSeasons, MinorGameLogRepository minorGameLogs,
+                                PlayerLeaguePositionRepository leaguePositions,
+                                PlayerCareerSeasonRepository careerSeasons, GameLineAssembler gameLines,
+                                RecentGamesFinder recentGames, OffSeasonFinder offSeasons, PostingFinder postings,
+                                SeasonReportFinder seasonReports, RosterProfiles profiles,
+                                MinorTeamNames minorTeamNames, DataMode dataMode, CurrentSeason currentSeason,
+                                Clock clock) {
+        this.players = players;
+        this.affiliations = affiliations;
+        this.appearances = appearances;
+        this.games = games;
+        this.moves = moves;
+        this.minorSeasons = minorSeasons;
+        this.minorGameLogs = minorGameLogs;
+        this.leaguePositions = leaguePositions;
+        this.careerSeasons = careerSeasons;
+        this.gameLines = gameLines;
+        this.recentGames = recentGames;
+        this.offSeasons = offSeasons;
+        this.postings = postings;
+        this.seasonReports = seasonReports;
+        this.profiles = profiles;
+        this.minorTeamNames = minorTeamNames;
+        this.dataMode = dataMode;
+        this.currentSeason = currentSeason;
+        this.clock = clock;
+    }
+
+    @Cacheable(ResponseCaches.HOME_CACHE)
+    public HomeResponse home() {
+        Instant now = clock.instant();
+        int season = currentSeason.current();
+        boolean statsAvailable = statsAvailable();
+        List<RosterMember> roster = roster();
+        RankingMinimums ranking = RankingMinimums.of(teamGamesPlayed(roster, season));
+
+        List<HitterSeason> hitters = List.of();
+        List<PitcherSeason> pitchers = List.of();
+        List<HitterSeason> minorHitters = List.of();
+        List<PitcherSeason> minorPitchers = List.of();
+        if (statsAvailable && !roster.isEmpty()) {
+            List<Long> ids = roster.stream().map(m -> m.player().getId()).toList();
+            Map<Long, List<Appearance>> byPlayer = regularSeason(ids, season);
+            Map<Long, MinorSeason> minors = minorSeasonsOf(ids, season);
+            // 올해 주로 메이저에서 뛴 선수 먼저(주로 마이너면 맨 아래), 그 안에서 순위 기준을 채운 선수 먼저,
+            // 그 안에서 타율(투수는 평균자책점) 순
+            hitters = roster.stream()
+                    .filter(m -> m.player().role() == Role.HITTER)
+                    .map(m -> SeasonStats.hitter(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()), m.team(),
+                            seasonOf(byPlayer, m.player()), hittingGames(minors.get(m.player().getId()))))
+                    .sorted(Comparator.comparing(HitterSeason::mainlyMinors)
+                            .thenComparing((HitterSeason h) -> !ranking.qualifies(h))
+                            .thenComparing(HitterSeason::avg, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .toList();
+            pitchers = roster.stream()
+                    .filter(m -> m.player().role() == Role.PITCHER)
+                    .map(m -> SeasonStats.pitcher(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()), m.team(),
+                            seasonOf(byPlayer, m.player()), pitchingGames(minors.get(m.player().getId()))))
+                    .sorted(Comparator.comparing(PitcherSeason::mainlyMinors)
+                            .thenComparing((PitcherSeason p) -> !ranking.qualifies(p))
+                            .thenComparing(PitcherSeason::era, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .toList();
+
+            // 마이너 시즌 성적(이슈 #37): 이번 시즌 마이너 경기가 있는 선수만, 마이너 경기 많은 순
+            Map<Long, List<MinorGameLog>> minorLogs = minorGameLogs.findSeason(ids, season).stream()
+                    .collect(Collectors.groupingBy(g -> g.getPlayer().getId()));
+            minorHitters = roster.stream()
+                    .filter(m -> m.player().role() == Role.HITTER && minorLogs.containsKey(m.player().getId()))
+                    .map(m -> SeasonStats.minorHitter(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()),
+                            minorLogs.get(m.player().getId())))
+                    .sorted(Comparator.comparingInt(HitterSeason::games).reversed())
+                    .toList();
+            minorPitchers = roster.stream()
+                    .filter(m -> m.player().role() == Role.PITCHER && minorLogs.containsKey(m.player().getId()))
+                    .map(m -> SeasonStats.minorPitcher(m.player(), profiles.photoUrl(m.player()), profiles.photoTeamAbbr(m.player(), m.team()),
+                            minorLogs.get(m.player().getId())))
+                    .sorted(Comparator.comparingInt(PitcherSeason::games).reversed())
+                    .toList();
+        }
+
+        OffSeason offseason = offSeasons.find(roster, now);
+        if (offseason != null) {
+            // 시즌 성적표(이슈 #118): 끝난 시즌의 선수별 판정·한 줄 요약
+            offseason = offseason.withReport(seasonReports.find(roster, offseason.season()));
+        }
+        // 포스팅(이번 겨울 MLB 도전)은 비시즌 홈에만 보인다
+        PostingSummary posting = offseason == null ? null : postings.find(now);
+        return new HomeResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
+                recentGames.find(roster, now, statsAvailable), ranking, hitters, pitchers, minorHitters, minorPitchers,
+                offseason, posting);
+    }
+
+    /** 선수 번호 → 이번 시즌 마이너 출전 경기 수. 아직 받지 않은 선수는 빠진다. */
+    private Map<Long, MinorSeason> minorSeasonsOf(List<Long> playerIds, int season) {
+        return minorSeasons.findAll(playerIds, season).stream()
+                .collect(Collectors.toMap(m -> m.getPlayer().getId(), m -> m));
+    }
+
+    private static int hittingGames(MinorSeason minor) {
+        return minor == null ? 0 : minor.getHittingGames();
+    }
+
+    private static int pitchingGames(MinorSeason minor) {
+        return minor == null ? 0 : minor.getPitchingGames();
+    }
+
+    /** 시즌이 얼마나 지났는지: 메이저에 있는 선수들의 구단 중 이번 정규시즌에 끝난 경기가 가장 많은 구단의 경기 수 */
+    private int teamGamesPlayed(List<RosterMember> roster, int season) {
+        return (int) roster.stream()
+                .map(RosterMember::majorTeam)
+                .filter(Objects::nonNull)
+                .map(Team::getMlbTeamId)
+                .distinct()
+                .mapToLong(teamId -> games.countFinalGames(teamId, season, SeasonType.REGULAR.stored()))
+                .max()
+                .orElse(0);
+    }
+
+    /** MLB에서 받기 전인 선수도 포함한다(영어 이름·포지션·팀·나이·등번호가 null). */
+    public List<PlayerSummary> players() {
+        Map<Long, Team> teamByPlayer = roster().stream()
+                .collect(Collectors.toMap(m -> m.player().getId(), RosterMember::team));
+        LocalDate today = KoreanTime.kstDate(clock.instant());
+        return players.findAll(Sort.by("id")).stream()
+                .map(p -> PlayerSummary.of(p, profiles.photoUrl(p), teamByPlayer.get(p.getId()), today,
+                        profiles.returnedKo(p), profiles.photoTeamAbbr(p, teamByPlayer.get(p.getId()))))
+                .toList();
+    }
+
+    /** 선수 화면(player)이 404 없이 나오는지(HEAD /api/players/{id}). 선수 줄 하나만 읽고 화면 계산은 하지 않는다 */
+    public boolean playerExists(long id) {
+        return shownPlayer(id).isPresent();
+    }
+
+    /**
+     * 선수 화면에 내는 선수. 없으면 빈 값(GET·HEAD 모두 404). player와 playerExists가 함께 써서 둘의 404 기준이 어긋나지 않는다.
+     * 숨길 선수 같은 조건을 더하면 여기에 더한다
+     */
+    private Optional<Player> shownPlayer(long id) {
+        return players.findById(id);
+    }
+
+    @Cacheable(cacheNames = ResponseCaches.PLAYER_CACHE, key = "#id")
+    public PlayerPageResponse player(long id) {
+        // 계산을 시작한 시각이 응답의 generatedAt이다(홈과 같다). 응답째 캐시하므로 캐시에서 줄 때도 이 시각이 그대로 나가
+        // 화면의 '기준 …'이 실제로 숫자를 계산한 때를 가리킨다
+        Instant now = clock.instant();
+        Player player = shownPlayer(id).orElseThrow(() -> new PlayerNotFoundException(id));
+        RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
+        Team team = member.team();
+        int season = currentSeason.current();
+        boolean statsAvailable = statsAvailable();
+
+        HitterSeason hitting = null;
+        PitcherSeason pitching = null;
+        HitterSeason minorHitting = null;
+        PitcherSeason minorPitching = null;
+        List<MinorGameLine> minorGames = List.of();
+        if (statsAvailable) {
+            List<Appearance> mine = seasonOf(regularSeason(List.of(player.getId()), season), player);
+            MinorSeason minor = minorSeasons.find(player.getId(), season).orElse(null);
+            // 마이너 시즌 성적: 홈의 마이너 줄과 같은 계산(경기별 기록을 더함). 마이너 경기가 없으면 null
+            List<MinorGameLog> minorLogs = minorGameLogs.findSeason(List.of(player.getId()), season);
+            String photoUrl = profiles.photoUrl(player);
+            String photoTeam = profiles.photoTeamAbbr(player, team);
+            if (player.role() == Role.PITCHER) {
+                pitching = SeasonStats.pitcher(player, photoUrl, photoTeam, team, mine, pitchingGames(minor));
+                if (!minorLogs.isEmpty()) minorPitching = SeasonStats.minorPitcher(player, photoUrl, photoTeam, minorLogs);
+            } else {
+                hitting = SeasonStats.hitter(player, photoUrl, photoTeam, team, mine, hittingGames(minor));
+                if (!minorLogs.isEmpty()) minorHitting = SeasonStats.minorHitter(player, photoUrl, photoTeam, minorLogs);
+            }
+            // 마이너 경기 줄(이슈 #145): 웹이 메이저 경기 줄과 날짜순으로 섞어 보인다
+            minorGames = MinorRecords.gameLines(player.role(), minorLogs, minorTeamNames);
+        }
+
+        // 시즌(1월 1일 ~ 지금) 동안 시작한 경기
+        Instant seasonStart = LocalDate.of(season, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant seasonEnd = LocalDate.of(season + 1, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        List<GameLine> games = gameLines.lines(List.of(member), seasonStart,
+                now.isBefore(seasonEnd) ? now : seasonEnd, statsAvailable);
+
+        PlayerPageResponse.PlayerInfo info = new PlayerPageResponse.PlayerInfo(
+                player.getId(), player.getNameKo(), profiles.photoUrl(player), profiles.mlbUrl(player),
+                player.getNameEn(), player.role(), player.getPosition(), PositionNames.korean(player.getPosition()),
+                TeamLabels.korean(team), TeamLabels.abbreviation(team), TeamLabels.english(team),
+                player.getBirthPlace(), player.getJersey(), player.getBirthDate(),
+                BirthDates.age(player.getBirthDate(), player.getAge(), KoreanTime.kstDate(now)),
+                BodyMeasures.heightCm(player.getHeight()), BodyMeasures.weightKg(player.getWeight()),
+                BatsThrows.korean(player.getBatsThrows()), player.getDebutYear(), profiles.careerKo(player),
+                player.getLevel(), player.getLevelTeamName(), player.isFreeAgent(), profiles.returnedKo(player),
+                profiles.careerPhotos(player), profiles.photoTeamAbbr(player, team));
+        // MLB 안 위치·시즌별 기록(LeaguePositionRefresher가 하루 한 번 받아 둔 것)과 이 선수 기사(이슈 #133)
+        PlayerSeasonMetric.Group group = PlayerSeasonMetric.Group.of(player.role());
+        PlayerSaber saber = PlayerSaber.of(leaguePositions.find(player.getId(), season, group).orElse(null));
+        List<CareerSeason> careers = careerSeasons.findNewestFirst(player.getId(), group).stream()
+                .map(CareerSeason::of)
+                .toList();
+        return new PlayerPageResponse(dataMode.value(), statsAvailable, season, now.truncatedTo(ChronoUnit.SECONDS),
+                info, hitting, pitching, minorHitting, minorPitching, games,
+                fanMoves(moves.findNewestFirst(player.getId()), minorTeamNames), saber, careers,
+                seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS), minorGames);
+    }
+
+    /**
+     * 이동 기록(최신순) 중 팬에게 보일 것만 고른다. 이름(labelKo)이 없는 줄(의미 없는 상태 변경)은 빼고,
+     * MLB가 같은 날 같은 내용을 두 번 준 줄은 하나만 남긴다. 팀 이름은 TeamLabels.moveTeam(MLB 구단은 한글 이름,
+     * 트리플A·더블A 팀은 "귀넷(트리플A)")이다.
+     */
+    public static List<PlayerPageResponse.Move> fanMoves(List<PlayerMove> newestFirst, MinorTeamNames minorTeams) {
+        record Key(LocalDate date, String typeCode, String description) {
+        }
+        Set<Key> seen = new HashSet<>();
+        List<PlayerPageResponse.Move> result = new ArrayList<>();
+        for (PlayerMove move : newestFirst) {
+            String label = MoveLabels.korean(move.getTypeCode(), move.getTypeDesc(), move.getDescription());
+            if (label == null || !seen.add(new Key(move.getMoveDate(), move.getTypeCode(), move.getDescription()))) {
+                continue;
+            }
+            result.add(new PlayerPageResponse.Move(move.getMoveDate(), move.getTypeCode(), label,
+                    TeamLabels.moveTeam(move.getFromTeamId(), move.getFromTeamName(), minorTeams),
+                    TeamLabels.moveTeam(move.getToTeamId(), move.getToTeamName(), minorTeams),
+                    move.getToLevel()));
+        }
+        return result;
+    }
+
+    /**
+     * 선수 기록을 받는 상태인지. MLB 공식 API(와 샘플)는 경기별 선수 기록을 늘 주므로 true다.
+     * 응답의 statsAvailable 필드는 화면 호환 때문에 남겨 둔다. 내 선수 응답(MyPlayersService)도 이 값을 쓴다.
+     */
+    public boolean statsAvailable() {
+        return true;
+    }
+
+    // 소속 줄이 있는 선수들. 소속이 끝난 선수(FA 등)도 마지막 소속으로 넣는다(시즌 기록이 홈에서 빠지지 않게).
+    private List<RosterMember> roster() {
+        return affiliations.findAllLatest().stream()
+                .map(a -> RosterMember.of(a.getPlayer(), a))
+                .toList();
+    }
+
+    private Map<Long, List<Appearance>> regularSeason(Collection<Long> playerIds, int season) {
+        return appearances.findSeason(playerIds, season, REGULAR_SEASON).stream()
+                .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
+    }
+
+    private static List<Appearance> seasonOf(Map<Long, List<Appearance>> byPlayer, Player player) {
+        return byPlayer.getOrDefault(player.getId(), List.of());
+    }
+}

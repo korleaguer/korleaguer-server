@@ -1,8 +1,8 @@
 package com.korleaguer.ingest;
 
-import com.korleaguer.api.BaseballQueryService;
-import com.korleaguer.api.SeasonReport;
-import com.korleaguer.api.SeasonTier;
+import com.korleaguer.api.screen.BaseballQueryService;
+import com.korleaguer.api.season.SeasonReport;
+import com.korleaguer.api.season.SeasonTier;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.Player;

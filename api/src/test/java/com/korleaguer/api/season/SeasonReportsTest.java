@@ -1,0 +1,652 @@
+package com.korleaguer.api.season;
+
+import com.korleaguer.api.season.SeasonReports.GameDay;
+import com.korleaguer.api.season.SeasonReports.Input;
+import com.korleaguer.api.season.SeasonReports.Move;
+import com.korleaguer.api.season.SeasonVerdict.Line;
+import com.korleaguer.domain.Batting;
+import com.korleaguer.domain.Level;
+import com.korleaguer.domain.Pitching;
+import com.korleaguer.domain.Role;
+import com.korleaguer.support.BaseballMath;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * 시즌 성적표 글: 2026 시즌 우리 선수 6명과 비슷하게 만든 재료로 판정·한 줄 요약·이유·시즌 wRC+·ERA+·겨울 이동을 확인한다.
+ * (경기별 기록은 실제 기록이 아니라 합계가 맞게 지어낸 값이다.)
+ */
+class SeasonReportsTest {
+
+    private static final LocalDate OPENING = LocalDate.of(2026, 3, 25);
+    private static final LocalDate LAST_DAY = LocalDate.of(2026, 9, 27);
+    /** 다 뛰었고(600타석) 타격은 리그 평균(wRC+ 100)인 제 몫 한 시즌 */
+    private static final Line FULL_SEASON_LINE = new Line(2026, 600, 0, 100.0, 2.0);
+
+    @Test
+    void leeJungHoo() {
+        // 143경기: 6월까지 76경기 304타수 96안타(.316), 7월부터 67경기 269타수 62안타(.230). 모두 단타·볼넷 없음이라
+        // 표준 리그 평균 대비 wRC+ 78.3·26.6이고, 공식 시즌 wRC+ 101.8로 맞추는 보정 +47.8을 둘 다 더한다
+        // (메이저 달 막대와 같은 잣대)
+        List<GameDay> games = new ArrayList<>();
+        int[] firstHits = spread(96, 76);
+        int[] secondHits = spread(62, 67);
+        for (int i = 0; i < 143; i++) {
+            LocalDate day = OPENING.plusDays(1 + i * 184L / 143);
+            boolean first = i < 76;
+            int atBats = !first && i == 76 ? 5 : 4;
+            games.add(hitting(day, atBats, first ? firstHits[i] : secondHits[i - 76], 0, 0, 0));
+        }
+        assertThat(games.get(75).date()).isBefore(LocalDate.of(2026, 7, 1));
+        assertThat(games.get(76).date()).isAfter(LocalDate.of(2026, 6, 30));
+
+        // 짧은 부상자 명단 두 번보다 전·후반 흐름을 쓴다. 정규시즌 이틀 뒤 해제는 겨울 이동이 아니다
+        List<Move> moves = List.of(
+                move("2026-05-22", "SC", "San Francisco Giants placed RF Jung Hoo Lee on the 10-day injured list "
+                        + "retroactive to May 19, 2026. Mid-back strain."),
+                move("2026-09-21", "SC", "San Francisco Giants placed RF Jung Hoo Lee on the 10-day injured list. "
+                        + "Groin contusion."),
+                move("2026-09-29", "SC", "San Francisco Giants activated RF Jung Hoo Lee from the 10-day injured list."));
+        SeasonReport report = build(hitter(808982, new Line(2026, 579, 0, 101.8, 0.97), games, List.of(), moves,
+                false, new Line(2025, 617, 0, 107.0, 2.0)));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.SOLID);
+        assertThat(report.label()).isEqualTo("제 몫 한 시즌");
+        assertThat(report.headline()).isEqualTo("143경기 완주, 타격은 리그 평균");
+        assertThat(report.reason()).isEqualTo("6월까지 wRC+ 126 → 7월부터 74");
+        assertThat(report.level()).isEqualTo(Level.MLB);
+        assertThat(report.war()).isEqualTo(1.0);
+        // 시즌 wRC+는 공식 값(101.8) 반올림(SeasonRatesTest)
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(102, null, null);
+        // 달별 기록: 3월 말(개막 뒤 6일)은 4월 칸이라 4~9월 여섯 칸, 모두 메이저(SeasonMonthsTest)
+        assertThat(report.months()).extracting(SeasonReport.Month::month).containsExactly(4, 5, 6, 7, 8, 9);
+        assertThat(report.months()).extracting(SeasonReport.Month::kind).containsOnly(SeasonReport.Month.Kind.MLB);
+        assertThat(report.winterMoves()).isEmpty();
+    }
+
+    @Test
+    void baeJiHwan() {
+        // 메이저 5월 밀워키 2경기(4타석), 트리플A 92경기 374타석 330타수 86안타(.261) 36도루, 8월 25일 무릎 부상 뒤 경기 없음
+        List<GameDay> majors = List.of(hitting(LocalDate.of(2026, 5, 2), 2, 0, 0, 0, 0, "밀워키", "신시내티"),
+                hitting(LocalDate.of(2026, 5, 3), 2, 1, 0, 0, 0, "밀워키", "신시내티"));
+        int[] hits = spread(86, 92);
+        List<GameDay> minors = IntStream.range(0, 92)
+                .mapToObj(i -> minorHitting(LocalDate.of(2026, 4, 1).plusDays(i * 146L / 92), "AAA",
+                        i < 54 ? 4 : 3, hits[i], i < 36 ? 1 : 0, i < 54 ? 0 : 1))
+                .toList();
+        List<Move> moves = List.of(
+                move("2026-04-30", "CU", "Milwaukee Brewers recalled CF Ji Hwan Bae from Nashville Sounds."),
+                move("2026-05-04", "OPT", "Milwaukee Brewers optioned CF Ji Hwan Bae to Nashville Sounds."),
+                move("2026-08-25", "SC", "Nashville Sounds placed CF Ji Hwan Bae on the 7-day injured list. Left knee sprain."));
+
+        SeasonReport report = build(hitter(678225, new Line(2026, 4, 0, 249.4, 0.09), majors, minors, moves, false,
+                new Line(2023, 371, 0, 77.0, 0.3)));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.MINORS);
+        assertThat(report.label()).isEqualTo("트리플A에서 보낸 시즌");
+        // 숫자 칸(트리플A 타율·경기·안타·홈런)에 없는 도루만 숫자로 쓴다
+        assertThat(report.headline()).isEqualTo("트리플A에서 도루 36개");
+        assertThat(report.reason()).isEqualTo("5월 밀워키에서 메이저 2경기 · 8월 말 부상으로 일찍 시즌 마감");
+        assertThat(report.level()).isEqualTo(Level.MINORS);
+        // 숫자 칸이 트리플A 합계라 시즌 wRC+도 트리플A 합계로 잰다(메이저 4타석 공식 249.4가 아니다).
+        // 리그 평균을 넘기지 않아 표준값으로 잰 값: 330타수 86안타 38볼넷 → 77
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(77, null, "트리플A");
+    }
+
+    @Test
+    void kimHyeseong() {
+        List<GameDay> majors = IntStream.range(0, 43)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 3, i % 4 == 0 ? 0 : 1, 0, 0, 0)).toList();
+        List<GameDay> minors = IntStream.range(0, 86)
+                .mapToObj(i -> minorHitting(LocalDate.of(2026, 5, 29).plusDays(i * 110L / 86), "AAA", 4, 1, 0, 1))
+                .toList();
+        List<Move> moves = List.of(
+                move("2026-05-28", "OPT", "Los Angeles Dodgers optioned 2B Hyeseong Kim to Oklahoma City Comets."),
+                // 정규시즌(9/27) 다음 날 포스트시즌 명단 콜업도 시즌 이야기다
+                move("2026-09-28", "CU", "Los Angeles Dodgers recalled 2B Hyeseong Kim from Oklahoma City Comets."));
+
+        SeasonReport report = build(hitter(808975, new Line(2026, 131, 0, 83.0, 0.35), majors, minors, moves, false,
+                new Line(2025, 170, 0, 90.0, 0.4)));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.MINORS);
+        // '메이저 43경기'는 숫자 칸 아래 줄에 있다
+        assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
+        assertThat(report.reason()).isEqualTo("5월 말 트리플A로 · 9월 말 다시 메이저");
+        assertThat(report.winterMoves()).isEmpty();
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(103, "트리플A");
+    }
+
+    @Test
+    void goWooSuk() {
+        // 메이저 7월 미네소타 4경기 4이닝. 마이너: 더블A 8경기 13⅔이닝 1자책(0.66), 트리플A 28경기 37이닝 21자책(5.11)
+        List<GameDay> majors = IntStream.range(0, 4)
+                .mapToObj(i -> pitching(LocalDate.of(2026, 7, 10 + i * 3), 3, i == 3 ? 3 : 0, i == 3 ? 3 : 0, 1,
+                        false, "미네소타", "디트로이트"))
+                .toList();
+        List<GameDay> minors = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            minors.add(minorPitching(LocalDate.of(2026, 4, 5).plusDays(i * 3L), "AA", i == 0 ? 6 : 5, i == 0 ? 1 : 0));
+        }
+        for (int i = 0; i < 28; i++) {
+            int outs = i < 27 ? 4 : 3;
+            minors.add(minorPitching(LocalDate.of(2026, 5, 1).plusDays(i * 4L), "AAA", outs, i < 21 ? 1 : 0));
+        }
+        List<Move> moves = List.of(
+                move("2026-03-24", "OPT", "Minnesota Twins optioned RHP Woo-Suk Go to St. Paul Saints."),
+                move("2026-07-09", "SE", "Minnesota Twins selected the contract of RHP Woo-Suk Go from St. Paul Saints."),
+                move("2026-07-22", "OPT", "Minnesota Twins optioned RHP Woo-Suk Go to St. Paul Saints."),
+                move("2026-10-06", "OUT", "Minnesota Twins sent RHP Woo-Suk Go outright to St. Paul Saints."),
+                new Move(LocalDate.of(2026, 11, 3), "DFA", "Declared Free Agency", "RHP Woo-Suk Go elected free agency."));
+
+        SeasonReport report = build(new Input(808970, Role.PITCHER, 2026, OPENING, LAST_DAY, false,
+                new Line(2026, 4, 0, 216.1, -0.14), List.of(), majors, minors, moves));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.MINORS);
+        assertThat(report.label()).isEqualTo("마이너에서 보낸 시즌");
+        assertThat(report.headline()).isEqualTo("더블A 평균자책점 0.66, 트리플A 5.11");
+        assertThat(report.reason()).isEqualTo("7월 미네소타에서 메이저 4경기");
+        assertThat(report.war()).isEqualTo(-0.1);
+        // 더블A·트리플A 합계 50⅔이닝 22자책(3.91)을 리그 평균(여기서는 표준값 4.20)과 견준 ERA+. 단계가 섞여 '마이너'
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::eraPlus, SeasonReport::statLevelKo)
+                .containsExactly(null, 107, "마이너");
+        assertThat(report.winterMoves()).containsExactly(
+                new SeasonReport.WinterMove(LocalDate.of(2026, 11, 3), "FA 선언"),
+                new SeasonReport.WinterMove(LocalDate.of(2026, 10, 6), "마이너 이관(아웃라이트)"));
+    }
+
+    @Test
+    void songSungMun() {
+        // 메이저 첫해 78경기 141타수 27안타(.191). 개막 직전 옆구리 부상, 트리플A를 두 번 오갔다
+        int[] hits = spread(27, 78);
+        List<GameDay> majors = IntStream.range(0, 78)
+                .mapToObj(i -> hitting(LocalDate.of(2026, 4, 10).plusDays(i * 2L), i < 63 ? 2 : 1, hits[i], 0, 0, 0))
+                .toList();
+        List<Move> moves = List.of(
+                // 개막일 당일 등재도 개막 직전 부상이다
+                move("2026-03-25", "SC", "San Diego Padres placed 3B Sung-Mun Song on the 10-day injured list. "
+                        + "Right oblique strain."),
+                move("2026-04-09", "SC", "San Diego Padres activated 2B Sung-Mun Song from the 10-day injured list."),
+                move("2026-05-10", "OPT", "San Diego Padres optioned 2B Sung-Mun Song to El Paso Chihuahuas."),
+                move("2026-06-02", "CU", "San Diego Padres recalled 2B Sung-Mun Song from El Paso Chihuahuas."),
+                move("2026-07-15", "OPT", "San Diego Padres optioned 2B Sung-Mun Song to El Paso Chihuahuas."),
+                move("2026-08-20", "CU", "San Diego Padres recalled 2B Sung-Mun Song from El Paso Chihuahuas."));
+
+        SeasonReport report = build(hitter(823550, new Line(2026, 154, 0, 57.9, 0.24), majors, List.of(), moves, true));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.POOR);
+        assertThat(report.label()).isEqualTo("아쉬운 시즌");
+        // 78경기·타율 .191은 숫자 칸에 있다. 트리플A를 오간 이야기를 제목으로 올리고 이유 줄에서는 뺀다
+        assertThat(report.headline()).isEqualTo("메이저 첫 시즌, 트리플A 오가며 적응");
+        assertThat(report.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(58, null);
+    }
+
+    @Test
+    void kimHaSeong() {
+        // 51경기, 3월 손가락 부상 → 7월 같은 곳 염증으로 다시 부상자 명단
+        List<GameDay> majors = IntStream.range(0, 51)
+                .mapToObj(i -> hitting(LocalDate.of(2026, 5, 1).plusDays(i), 3, i % 3 == 0 ? 1 : 0, 0, 0, 0)).toList();
+        List<Move> moves = List.of(
+                move("2026-03-27", "SC", "Atlanta Braves placed SS Ha-Seong Kim on the 10-day injured list. "
+                        + "Right middle finger sprain."),
+                move("2026-04-30", "SC", "Atlanta Braves activated SS Ha-Seong Kim from the 10-day injured list."),
+                move("2026-07-10", "SC", "Atlanta Braves placed SS Ha-Seong Kim on the 10-day injured list. "
+                        + "Right finger inflammation."),
+                move("2026-07-28", "SC", "Atlanta Braves transferred SS Ha-Seong Kim from the 10-day injured list "
+                        + "to the 60-day injured list. Right finger inflammation."));
+
+        SeasonReport report = build(hitter(673490, new Line(2026, 147, 0, 7.3, -1.17), majors, List.of(), moves, false,
+                new Line(2023, 626, 0, 110.0, 4.4), new Line(2024, 470, 0, 101.0, 2.6)));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.POOR);
+        assertThat(report.headline()).isEqualTo("손가락 부상으로 두 번 빠진 시즌");
+        assertThat(report.reason()).isEqualTo("3월 손가락 부상 · 7월 같은 곳 다시 이탈");
+        assertThat(report.war()).isEqualTo(-1.2);
+        assertThat(report).extracting(SeasonReport::wrcPlus, SeasonReport::statLevelKo).containsExactly(7, null);
+    }
+
+    @Test
+    void missingMetricsCountVolumesFromGames() {
+        // 합계·지표를 받지 못했다: 경기별 타석으로 센다(150경기 × 4타석 = 600타석 → 제 몫 한 시즌)
+        List<GameDay> majors = IntStream.range(0, 150)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 4, 1, 0, 0, 0)).toList();
+
+        SeasonReport report = build(hitter(1, null, majors, List.of(), List.of(), false));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.SOLID);
+        assertThat(report.war()).isNull();
+        // WAR를 모르면 숫자 칸에 경기·타율이 있어 말로만 쓴다
+        assertThat(report.headline()).isEqualTo("시즌 완주");
+    }
+
+    @Test
+    void starterHeadlineUsesWinsInsteadOfTheNumbersBox() {
+        List<GameDay> games = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            games.add(pitching(day(1 + i * 5), 18, 0, 0, 6, false, "토론토", "보스턴"));
+        }
+        games.add(pitching(day(30), 21, 0, 0, 9, true, "토론토", "시애틀"));
+        games.add(pitching(day(35), 15, 4, 4, 3, false, "토론토", "뉴욕 양키스"));
+        SeasonReport report = build(new Input(1, Role.PITCHER, 2026, OPENING, LAST_DAY, false,
+                new Line(2026, 130, 25, 85.0, 2.8), List.of(), games, List.of(), List.of()));
+
+        assertThat(report.tier()).isEqualTo(SeasonTier.GOOD);
+        // 숫자 칸의 등판·이닝 대신 승(이 재료는 7경기 중 1승)
+        assertThat(report.headline()).isEqualTo("선발 1승, 평균보다 좋은 투구");
+    }
+
+    @Test
+    void shortAndPoorSeasonsByVolumeAndQuality() {
+        List<GameDay> streak = streakThenOut(12);
+        SeasonReport shortSeason = build(hitter(1, new Line(2026, 60, 0, 140.0, 0.5), streak, List.of(), List.of(),
+                false));
+        assertThat(shortSeason.tier()).isEqualTo(SeasonTier.SHORT);
+        assertThat(shortSeason.label()).isEqualTo("출전이 적었던 시즌");
+
+        SeasonReport poor = build(hitter(1, new Line(2026, 400, 0, 70.0, -0.5), streak, List.of(), List.of(), false));
+        assertThat(poor.tier()).isEqualTo(SeasonTier.POOR);
+    }
+
+    @Test
+    void wrcPlusWords() {
+        assertThat(SeasonReports.hittingWords(135.0)).isEqualTo("리그 상위급 타격");
+        assertThat(SeasonReports.hittingWords(110.0)).isEqualTo("평균보다 좋은 타격");
+        assertThat(SeasonReports.hittingWords(101.8)).isEqualTo("타격은 리그 평균");
+        assertThat(SeasonReports.hittingWords(85.0)).isEqualTo("타격은 평균보다 조금 아래");
+        assertThat(SeasonReports.hittingWords(70.0)).isNull();
+        assertThat(SeasonReports.hittingWords(null)).isNull();
+        assertThat(SeasonReports.avgText(0.316)).isEqualTo(".316");
+        assertThat(SeasonReports.avgText(1.0)).isEqualTo("1.000");
+    }
+
+    @Test
+    void injuryDictionary() {
+        assertThat(InjuryParts.korean("Right oblique strain.")).isEqualTo("옆구리");
+        assertThat(InjuryParts.korean("Left side tightness.")).isEqualTo("옆구리");
+        assertThat(InjuryParts.korean("Right middle finger sprain.")).isEqualTo("손가락");
+        assertThat(InjuryParts.korean("Left thumb sprain.")).isEqualTo("엄지");
+        assertThat(InjuryParts.korean("Right hand contusion.")).isEqualTo("손");
+        assertThat(InjuryParts.korean("Left wrist inflammation.")).isEqualTo("손목");
+        assertThat(InjuryParts.korean("Right elbow UCL sprain.")).isEqualTo("팔꿈치");
+        assertThat(InjuryParts.korean("Right shoulder impingement.")).isEqualTo("어깨");
+        assertThat(InjuryParts.korean("Right forearm and elbow soreness.")).isEqualTo("팔뚝");
+        assertThat(InjuryParts.korean("Lower back strain.")).isEqualTo("허리");
+        assertThat(InjuryParts.korean("Left hamstring strain.")).isEqualTo("햄스트링");
+        assertThat(InjuryParts.korean("Right knee sprain.")).isEqualTo("무릎");
+        assertThat(InjuryParts.korean("Left ankle sprain.")).isEqualTo("발목");
+        assertThat(InjuryParts.korean("Right foot fracture.")).isEqualTo("발");
+        assertThat(InjuryParts.korean("Left hip flexor strain.")).isEqualTo("고관절");
+        assertThat(InjuryParts.korean("Right groin strain.")).isEqualTo("사타구니");
+        assertThat(InjuryParts.korean("Left calf strain.")).isEqualTo("종아리");
+        assertThat(InjuryParts.korean("Right quad strain.")).isEqualTo("허벅지");
+        assertThat(InjuryParts.korean("Left quadriceps strain.")).isEqualTo("허벅지");
+        assertThat(InjuryParts.korean("Concussion.")).isEqualTo("뇌진탕");
+        assertThat(InjuryParts.korean("Illness.")).isNull();
+
+        assertThat(InjuryParts.isPlacement("SC", "X placed SS Y on the 10-day injured list. Right finger sprain."))
+                .isTrue();
+        assertThat(InjuryParts.isPlacement("SC", "X transferred SS Y from the 10-day injured list to the 60-day "
+                + "injured list.")).isFalse();
+        assertThat(InjuryParts.isPlacement("SC", "X activated SS Y from the 10-day injured list.")).isFalse();
+        assertThat(InjuryParts.isPlacement("OPT", "X optioned SS Y to Z.")).isFalse();
+    }
+
+    @Test
+    void injuryReasonsInOrder() {
+        // 개막 직전 부상 → 같은 곳 재발 / 다른 곳 / 부위 모름
+        List<Move> moves = List.of(
+                move("2026-03-20", "SC", "A placed B on the 15-day injured list. Right elbow inflammation."),
+                move("2026-06-03", "SC", "A placed B on the 15-day injured list. Right elbow soreness."),
+                move("2026-08-01", "SC", "A placed B on the 15-day injured list. Illness."));
+        List<GameDay> games = IntStream.range(0, 40)
+                .mapToObj(i -> hitting(OPENING.plusDays(30 + i * 3L), 3, 1, 0, 0, 0)).toList();
+
+        SeasonReport report = build(hitter(1, new Line(2026, 160, 0, 95.0, 0.3), games, List.of(), moves, false));
+
+        assertThat(report.reason()).isEqualTo("개막 직전 팔꿈치 부상 · 6월 같은 곳 다시 이탈");
+    }
+
+    @Test
+    void headlineNeverRepeatsTheNumbersBoxBelowIt() {
+        // 판정·역할마다 한 줄 요약을 만들고, 웹 숫자 칸(홈 SeasonReportCard의 Numbers)과 그 아래 다른 단계 줄의
+        // 숫자가 제목에 다시 나오지 않는지 본다(문구 점검 11-13, 이슈 #147)
+        List<GameDay> season = IntStream.range(0, 120)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 4, i % 10 == 0 ? 3 : 1, i % 40 == 0 ? 2 : 0, 1, 0))
+                .toList();
+        List<GameDay> short40 = season.subList(0, 40);
+        List<GameDay> tripleA = IntStream.range(0, 80)
+                .mapToObj(i -> minorHitting(LocalDate.of(2026, 5, 1).plusDays(i), "AAA", 4, i % 3 == 0 ? 2 : 1, 0, 1))
+                .toList();
+        List<GameDay> relief = IntStream.range(0, 60)
+                .mapToObj(i -> relief(OPENING.plusDays(1 + i * 3L), null, 3, i % 9 == 0 ? 1 : 0, i % 2 == 0))
+                .toList();
+        List<GameDay> minorRelief = IntStream.range(0, 40)
+                .mapToObj(i -> relief(LocalDate.of(2026, 4, 5).plusDays(i * 4L), "AAA", 3, i % 5 == 0 ? 1 : 0, i < 12))
+                .toList();
+        List<Move> oneInjury = List.of(move("2026-05-01", "SC", "A placed B on the 10-day injured list. "
+                + "Left hamstring strain."));
+        List<Move> optioned = List.of(move("2026-06-01", "OPT", "A optioned B to C."),
+                move("2026-07-01", "CU", "A recalled B from C."));
+
+        List<Input> inputs = List.of(
+                // 짧았지만 좋았던 시즌(숫자 칸에 경기가 있다)
+                hitter(1, new Line(2026, 160, 0, 135.0, 1.4), short40, List.of(), List.of(), false),
+                // 출전이 적었던 시즌, 부상 한 번
+                hitter(2, new Line(2026, 60, 0, 70.0, -0.2), season.subList(0, 15), List.of(), oneInjury, false),
+                // 아쉬운 시즌, 트리플A 강등
+                hitter(3, new Line(2026, 400, 0, 60.0, -1.0), season.subList(0, 100), List.of(), optioned, false),
+                // 아쉬운 시즌, 이유 없음
+                hitter(4, new Line(2026, 450, 0, 60.0, -1.0), season, List.of(), List.of(), false),
+                // 트리플A에서 보낸 시즌, 도루 적음 → OPS
+                hitter(5, new Line(2026, 8, 0, 90.0, 0.0), season.subList(0, 2), tripleA, List.of(), false),
+                // 마무리 투수
+                new Input(6, Role.PITCHER, 2026, OPENING, LAST_DAY, false, new Line(2026, 60, 0, 60.0, 2.0), List.of(),
+                        relief, List.of(), List.of()),
+                // 트리플A 한 단계에서 던진 구원 투수
+                new Input(7, Role.PITCHER, 2026, OPENING, LAST_DAY, false, new Line(2026, 2, 0, 150.0, -0.1), List.of(),
+                        List.of(), minorRelief, List.of()));
+
+        List<String> headlines = new ArrayList<>();
+        for (Input input : inputs) {
+            SeasonReport report = build(input);
+            assertHeadlineSkipsBoxNumbers(input, report);
+            headlines.add(report.tier() + " " + report.headline());
+        }
+        assertThat(headlines).containsExactly(
+                "SHORT_GOOD 뛴 경기에선 리그 상위급 타격",
+                "SHORT 햄스트링 부상으로 한 번 빠진 시즌",
+                "POOR 메이저와 트리플A를 오간 시즌",
+                "POOR 샌프란시스코에서 보낸 시즌",
+                "MINORS 트리플A OPS .802",
+                "GOOD 세이브 30개, 리그 상위급 투구",
+                "MINORS 트리플A 세이브 12개");
+    }
+
+    @Test
+    void reasonDropsWhatTheHeadlineAlreadySays() {
+        // '메이저와 트리플A를 오간 시즌'이면 이유 줄은 언제 오갔는지만 남긴다(같은 말 두 번 금지)
+        List<GameDay> games = IntStream.range(0, 100)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 4, 1, 0, 0, 0)).toList();
+        List<Move> twice = List.of(move("2026-05-10", "OPT", "A optioned B to C."),
+                move("2026-06-02", "CU", "A recalled B from C."),
+                move("2026-07-15", "OPT", "A optioned B to C."),
+                move("2026-08-20", "CU", "A recalled B from C."));
+        SeasonReport report = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), games, List.of(), twice, false));
+
+        assertThat(report.headline()).isEqualTo("메이저와 트리플A를 오간 시즌");
+        assertThat(report.reason()).isNull();
+
+        // 한 번 내려가 돌아오지 못했으면 '오간'이 아니다. 이유 줄의 '8월 초 트리플A로'도 제목과 같아 뺀다
+        SeasonReport stayedDown = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), games, List.of(),
+                List.of(move("2026-08-05", "OPT", "A optioned B to C.")), false));
+        assertThat(stayedDown.headline()).isEqualTo("8월 초 트리플A로 내려간 시즌");
+        assertThat(stayedDown.reason()).isNull();
+    }
+
+    @Test
+    void lateStartOnlyWhenTheFirstGameCameAfterOpeningDay() {
+        // 개막 전에 부상자 명단에 올랐다가 개막전부터 뛰었으면 '늦게 출발'이 아니다
+        List<Move> injured = List.of(move("2026-03-10", "SC", "A placed B on the 15-day injured list. "
+                + "Right oblique strain."));
+        List<GameDay> fromOpening = IntStream.range(0, 100)
+                .mapToObj(i -> hitting(OPENING.plusDays(i), 4, 1, 0, 0, 0)).toList();
+        List<GameDay> fromApril = IntStream.range(0, 100)
+                .mapToObj(i -> hitting(OPENING.plusDays(15 + i), 4, 1, 0, 0, 0)).toList();
+
+        SeasonReport onTime = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), fromOpening, List.of(), injured, true));
+        SeasonReport late = build(hitter(1, new Line(2026, 400, 0, 60.0, -1.0), fromApril, List.of(), injured, true));
+
+        assertThat(onTime.reason()).isEqualTo("개막 직전 옆구리 부상");
+        assertThat(late.reason()).isEqualTo("개막 직전 옆구리 부상으로 늦게 출발");
+    }
+
+    @Test
+    void halfSeasonFlowIsToldInWrcPlusNotBattingAverage() {
+        // 두 반 모두 타율 .250이어도 앞 반에 홈런 14·볼넷 70이 있었다: 타율로는 이유가 없었지만 wRC+로는 큰 흐름이다
+        SeasonReport power = build(hitter(1, FULL_SEASON_LINE, halves(70, 14, 70, 70, 0, 0), List.of(), List.of(),
+                false));
+        assertThat(power.tier()).isEqualTo(SeasonTier.SOLID);
+        assertThat(power.reason()).isEqualTo("6월까지 wRC+ 143 → 7월부터 46");
+        for (String word : SeasonReports.FORBIDDEN_WORDS) {
+            assertThat(power.reason()).doesNotContain(word);
+        }
+
+        // 타율은 .300 → .239로 .061 떨어졌지만(예전 규칙이면 이유) 뒤 반에 홈런·볼넷이 늘어 wRC+는 92 → 107(차이 15)이라
+        // 흐름으로 쓰지 않는다
+        SeasonReport average = build(hitter(1, FULL_SEASON_LINE, halves(84, 0, 0, 67, 8, 30), List.of(), List.of(),
+                false));
+        assertThat(average.reason()).isNull();
+    }
+
+    @Test
+    void halfSeasonGapIsMeasuredOnTheShownNumbersWithFiftyAtBatsEachHalf() {
+        // 문턱(HALF_GAP_WRC 35)은 글에 보이는 두 숫자로 잰다: 118 → 83은 쓰고, 뒤 반 안타가 하나 더 있어 117 → 83이면
+        // 쓰지 않는다(이 재료의 타율 차이는 .047·.043이라 예전 규칙으로는 둘 다 이유가 아니었다)
+        SeasonReport gap35 = build(hitter(1, FULL_SEASON_LINE, halves(80, 6, 20, 67, 0, 27), List.of(), List.of(),
+                false));
+        SeasonReport gap34 = build(hitter(1, FULL_SEASON_LINE, halves(80, 6, 20, 68, 0, 27), List.of(), List.of(),
+                false));
+        assertThat(gap35.reason()).isEqualTo("6월까지 wRC+ 118 → 7월부터 83");
+        assertThat(gap34.reason()).isNull();
+
+        // 반마다 50타수는 있어야 한다: 대타로 45타수씩이면 차이가 커도 쓰지 않는다
+        List<GameDay> pinchHits = new ArrayList<>();
+        for (int i = 0; i < 45; i++) {
+            pinchHits.add(hitting(LocalDate.of(2026, 4, 1).plusDays(i), 1, 1, 0, 0, 0));
+            pinchHits.add(hitting(LocalDate.of(2026, 7, 1).plusDays(i), 1, 0, 0, 0, 0));
+        }
+        SeasonReport few = build(hitter(1, new Line(2026, 320, 0, 100.0, 1.0), pinchHits, List.of(), List.of(), false));
+        assertThat(few.tier()).isEqualTo(SeasonTier.SOLID);
+        assertThat(few.reason()).isNull();
+    }
+
+    @Test
+    void generatedTextNeverUsesForbiddenWords() {
+        List<SeasonReport> reports = new ArrayList<>();
+        reports.add(sampleReport(new Line(2026, 650, 0, 145.0, 6.0)));
+        reports.add(sampleReport(new Line(2026, 200, 0, 125.0, 1.5)));
+        reports.add(sampleReport(new Line(2026, 500, 0, 82.0, 0.0)));
+        reports.add(sampleReport(new Line(2026, 400, 0, 60.0, -1.5)));
+        reports.add(sampleReport(new Line(2026, 30, 0, null, null)));
+        reports.add(sampleReport(null));
+        reports.add(build(new Input(2, Role.PITCHER, 2026, OPENING, LAST_DAY, true, new Line(2026, 20, 0, 150.0, -0.5),
+                List.of(), List.of(pitching(day(10), 3, 3, 3, 1, false, "토론토", "보스턴")), List.of(), injuries())));
+        reports.add(build(new Input(3, Role.PITCHER, 2026, OPENING, LAST_DAY, false, new Line(2026, 180, 30, 60.0, 5.0),
+                List.of(), List.of(pitching(day(10), 24, 0, 0, 11, true, "토론토", "보스턴")), List.of(), injuries())));
+
+        List<String> texts = reports.stream()
+                .flatMap(r -> Stream.concat(Stream.of(r.label(), r.headline(), r.reason()),
+                        r.winterMoves().stream().map(SeasonReport.WinterMove::label)))
+                .filter(text -> text != null)
+                .toList();
+        assertThat(texts).isNotEmpty();
+        for (String text : texts) {
+            for (String word : SeasonReports.FORBIDDEN_WORDS) {
+                assertThat(text).as("'%s' in '%s'", word, text).doesNotContain(word);
+            }
+        }
+        for (SeasonTier tier : SeasonTier.values()) {
+            for (String word : SeasonReports.FORBIDDEN_WORDS) {
+                assertThat(tier.label()).doesNotContain(word);
+                assertThat(SeasonTier.MINORS_MIXED_LABEL).doesNotContain(word);
+            }
+        }
+    }
+
+    // ---- 재료 만들기 ----
+
+    private static SeasonReport sampleReport(Line line) {
+        List<GameDay> games = IntStream.range(0, 120)
+                .mapToObj(i -> hitting(OPENING.plusDays(1 + i), 4, i % 10 == 0 ? 3 : 1, i % 40 == 0 ? 2 : 0, 1, 0,
+                        "샌프란시스코", "콜로라도"))
+                .toList();
+        List<GameDay> minors = IntStream.range(0, 20)
+                .mapToObj(i -> minorHitting(LocalDate.of(2026, 8, 1).plusDays(i), i % 2 == 0 ? "AAA" : "AA", 4, 1, 0, 0))
+                .toList();
+        return build(hitter(1, line, games, minors, injuries(), true, new Line(2025, 600, 0, 120.0, 4.0)));
+    }
+
+    private static List<Move> injuries() {
+        return List.of(
+                move("2026-03-01", "SC", "A placed B on the 60-day injured list. Right knee surgery."),
+                move("2026-05-12", "OPT", "A optioned B to C."),
+                move("2026-06-20", "CU", "A recalled B from C."),
+                move("2026-07-01", "SC", "A placed B on the 10-day injured list. Right knee soreness."),
+                move("2026-08-01", "SC", "A placed B on the 10-day injured list. Left calf strain."),
+                move("2026-10-30", "REL", "A released B."),
+                new Move(LocalDate.of(2026, 11, 3), "DFA", "Declared Free Agency", "B elected free agency."));
+    }
+
+    /**
+     * 4월 1일부터 70경기(6월 안), 7월 1일부터 70경기. 한 경기 4타수이고, 반마다 안타·홈런·볼넷 합계를 고르게 나눈다
+     * (홈런은 안타가 있는 앞 경기부터 한 개씩). 경기 수 절반이 7월 1일이라 '6월까지 → 7월부터'로 나뉜다
+     */
+    private static List<GameDay> halves(int hits1, int homeRuns1, int walks1, int hits2, int homeRuns2, int walks2) {
+        List<GameDay> games = new ArrayList<>(half(LocalDate.of(2026, 4, 1), hits1, homeRuns1, walks1));
+        games.addAll(half(LocalDate.of(2026, 7, 1), hits2, homeRuns2, walks2));
+        return games;
+    }
+
+    private static List<GameDay> half(LocalDate from, int hits, int homeRuns, int walks) {
+        int[] hitsPerGame = spread(hits, 70);
+        int[] walksPerGame = spread(walks, 70);
+        int homeRunsLeft = homeRuns;
+        List<GameDay> games = new ArrayList<>();
+        for (int i = 0; i < 70; i++) {
+            int homeRun = homeRunsLeft > 0 && hitsPerGame[i] > 0 ? 1 : 0;
+            homeRunsLeft -= homeRun;
+            games.add(new GameDay(from.plusDays(i), null, "샌프란시스코", "콜로라도",
+                    batting(4, hitsPerGame[i], homeRun, 0, 0, walksPerGame[i]), null, false, null));
+        }
+        return games;
+    }
+
+    private static List<GameDay> streakThenOut(int streak) {
+        List<GameDay> games = new ArrayList<>();
+        for (int i = 0; i < streak; i++) {
+            games.add(hitting(day(1 + i), 4, 1, 0, 0, 0));
+        }
+        games.add(hitting(day(1 + streak), 4, 0, 0, 0, 0));
+        return games;
+    }
+
+    private static SeasonReport build(Input input) {
+        return SeasonReports.build(input).report();
+    }
+
+    private static Input hitter(long id, Line line, List<GameDay> majors, List<GameDay> minors, List<Move> moves,
+                                boolean firstSeason, Line... previous) {
+        return new Input(id, Role.HITTER, 2026, OPENING, LAST_DAY, firstSeason, line, List.of(previous), majors, minors,
+                moves);
+    }
+
+    private static LocalDate day(int afterOpening) {
+        return OPENING.plusDays(afterOpening);
+    }
+
+    private static Move move(String date, String typeCode, String description) {
+        return new Move(LocalDate.parse(date), typeCode, null, description);
+    }
+
+    private static GameDay hitting(LocalDate date, int atBats, int hits, int homeRuns, int rbi, int steals) {
+        return hitting(date, atBats, hits, homeRuns, rbi, steals, "샌프란시스코", "콜로라도");
+    }
+
+    private static GameDay hitting(LocalDate date, int atBats, int hits, int homeRuns, int rbi, int steals,
+                                   String team, String opponent) {
+        return new GameDay(date, null, team, opponent, batting(atBats, hits, homeRuns, rbi, steals, 0), null, false,
+                null);
+    }
+
+    private static GameDay minorHitting(LocalDate date, String level, int atBats, int hits, int steals, int walks) {
+        return new GameDay(date, level, null, null, batting(atBats, hits, 0, 0, steals, walks), null, false, null);
+    }
+
+    private static Batting batting(int atBats, int hits, int homeRuns, int rbi, int steals, int walks) {
+        return new Batting(atBats, 0, hits, 0, 0, homeRuns, rbi, walks, 0, 0, steals, 0, atBats + walks, null);
+    }
+
+    private static GameDay pitching(LocalDate date, int outs, int runs, int earnedRuns, int strikeouts, boolean win,
+                                    String team, String opponent) {
+        return new GameDay(date, null, team, opponent, null, pitchingLine(outs, runs, earnedRuns, strikeouts, win),
+                outs >= 15, win);
+    }
+
+    private static GameDay minorPitching(LocalDate date, String level, int outs, int earnedRuns) {
+        return new GameDay(date, level, null, null, null, pitchingLine(outs, earnedRuns, earnedRuns, 1, false), false,
+                null);
+    }
+
+    private static Pitching pitchingLine(int outs, int runs, int earnedRuns, int strikeouts, boolean win) {
+        return new Pitching(outs, 0, runs, earnedRuns, 0, strikeouts, 0, 80, win ? 1 : 0, 0, 0);
+    }
+
+    /** 숫자 칸(웹 SeasonReportCard Numbers)과 그 아래 다른 단계 한 줄에 나오는 숫자가 제목에 없는지 */
+    private static void assertHeadlineSkipsBoxNumbers(Input in, SeasonReport report) {
+        boolean pitcher = in.role() == Role.PITCHER;
+        boolean minorsMain = report.level() == Level.MINORS;
+        boolean showWar = (report.tier() == SeasonTier.GOOD || report.tier() == SeasonTier.SOLID)
+                && report.war() != null && !minorsMain;
+        Set<String> box = new HashSet<>(boxNumbers(minorsMain ? in.minors() : in.majors(), pitcher, pitcher || !showWar));
+        if (showWar) {
+            box.add(String.format(Locale.ROOT, "%.1f", report.war()));
+        }
+        List<GameDay> other = minorsMain ? in.majors() : in.minors();
+        if (!other.isEmpty()) {
+            box.addAll(boxNumbers(other, pitcher, true));
+        }
+        List<String> numbers = Pattern.compile("\\d*\\.?\\d+[⅓⅔]?").matcher(report.headline()).results()
+                .map(MatchResult::group).toList();
+        assertThat(numbers).as("%s / 숫자 칸 %s", report.headline(), box).doesNotContainAnyElementsOf(box);
+    }
+
+    private static List<String> boxNumbers(List<GameDay> games, boolean pitcher, boolean withGames) {
+        List<String> numbers = new ArrayList<>();
+        if (withGames) {
+            numbers.add(String.valueOf(games.size()));
+        }
+        if (pitcher) {
+            int outs = games.stream().mapToInt(g -> g.pitching().pitchingOuts()).sum();
+            int earned = games.stream().mapToInt(g -> g.pitching().earnedRuns()).sum();
+            numbers.add(String.format(Locale.ROOT, "%.2f", BaseballMath.era(earned, outs)));
+            numbers.add(BaseballMath.inningsText(outs));
+            numbers.add(String.valueOf(games.stream().mapToInt(g -> g.pitching().pitcherStrikeouts()).sum()));
+        } else {
+            int hits = games.stream().mapToInt(g -> g.batting().hits()).sum();
+            int atBats = games.stream().mapToInt(g -> g.batting().atBats()).sum();
+            numbers.add(SeasonReports.avgText(BaseballMath.avg(hits, atBats)));
+            numbers.add(String.valueOf(hits));
+            numbers.add(String.valueOf(games.stream().mapToInt(g -> g.batting().homeRuns()).sum()));
+        }
+        return numbers;
+    }
+
+    /** 구원 등판 한 번(삼진 1개, 세이브면 saves 1) */
+    private static GameDay relief(LocalDate date, String level, int outs, int earnedRuns, boolean save) {
+        return new GameDay(date, level, "토론토", "보스턴", null,
+                new Pitching(outs, 0, earnedRuns, earnedRuns, 0, 1, 0, 15, 0, 0, save ? 1 : 0), false, null);
+    }
+
+    /** total을 n경기에 고르게 나눈다(경기마다 0 이상, 합이 total) */
+    private static int[] spread(int total, int n) {
+        int[] values = new int[n];
+        for (int i = 0; i < n; i++) {
+            values[i] = (int) ((long) (i + 1) * total / n - (long) i * total / n);
+        }
+        return values;
+    }
+}

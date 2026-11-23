@@ -1,6 +1,6 @@
 package com.korleaguer.ingest;
 
-import com.korleaguer.api.BaseballQueryService;
+import com.korleaguer.api.screen.BaseballQueryService;
 import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.MinorSeasonRepository;
