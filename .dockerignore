@@ -3,6 +3,8 @@
 .github
 .gradle
 build
+# 모듈(core 등)의 빌드 결과
+**/build
 data
 deploy
 *.md
