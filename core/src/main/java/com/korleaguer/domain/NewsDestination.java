@@ -8,7 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
 /**
- * 기사 한 건에서 '그 기사가 다루는 선수의 행선지로 거론된 MLB 구단' 하나(news.NewsTagger가 AI로 고른다).
+ * 기사 한 건에서 '그 기사가 다루는 선수의 행선지로 거론된 MLB 구단' 하나(ingest.NewsTagger가 AI로 고른다).
  * 홈 MLB 도전 카드의 '행선지로 거론된 구단'이 구단별로 센다(api.PostingFinder). 한 기사에 같은 구단은 한 줄이다.
  */
 @Entity

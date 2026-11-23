@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
- * 최근 LINKED_DAYS일 기사에서 한 선수의 행선지로 거론된 MLB 구단을 센다(기사마다 AI로 고른 것, news.NewsTagger).
+ * 최근 LINKED_DAYS일 기사에서 한 선수의 행선지로 거론된 MLB 구단을 센다(기사마다 AI로 고른 것, ingest.NewsTagger).
  * 홈 MLB 도전 카드(포스팅 선수)와 시즌 성적표의 FA 선수(이슈 #140)가 같은 규칙을 쓴다: 지금 수집하는 언론사의 기사만,
  * 같은 글을 실은 여러 언론사 기사(SameArticles 묶음)는 한 번만 센다.
  */
