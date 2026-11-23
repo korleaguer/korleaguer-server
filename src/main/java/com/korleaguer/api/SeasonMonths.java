@@ -7,6 +7,7 @@ import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Role;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.MoveLabels;
+import com.korleaguer.support.Woba;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -137,7 +138,7 @@ final class SeasonMonths {
 
     /** 경기들의 wOBA. 타격 기록이 있는 경기만 넘긴다. 타석이 없으면 null */
     static Double woba(List<GameDay> games) {
-        WrcMath.Sum sum = new WrcMath.Sum();
+        Woba.Sum sum = new Woba.Sum();
         for (GameDay g : games) {
             Batting b = g.batting();
             sum.add(orZero(b.atBats()), orZero(b.hits()), orZero(b.doubles()), orZero(b.triples()),

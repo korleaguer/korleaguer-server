@@ -48,7 +48,7 @@ public interface MlbClient {
     /**
      * 한 리그 단계의 한 시즌 팀별 합계(teams/stats?stats=season, 정규시즌). sportId 1 = MLB, 11 = 트리플A, 12 = 더블A,
      * 13 = 하이싱글A, 14 = 싱글A, 16 = 루키. 팀마다 한 줄(stat에 그 팀 타격 또는 투구 합계)이다.
-     * 성적표 달별 wRC+의 리그 평균에 쓴다(LeagueEnvironments). 기록이 없거나 지원하지 않는 클라이언트면 빈 목록
+     * 화면의 wRC+·ERA+가 견주는 리그 평균에 쓴다(ingest.LeagueAverageRefresher). 기록이 없거나 지원하지 않는 클라이언트면 빈 목록
      */
     default List<MlbGameLogSplit> getTeamSeasonTotals(int sportId, Group group, int season) {
         return List.of();
