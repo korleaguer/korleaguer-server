@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.video.PlayVideoFinder;
 import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameContent;
@@ -260,13 +261,10 @@ class GameDetailApiTest {
 
         @Bean
         @Primary
-        SavantClips fakeSavant(Fakes fakes) {
-            return new SavantClips(null) {
-                @Override
-                public Lookup find(String playId) {
-                    fakes.savantAsked.add(playId);
-                    return new Lookup(true, Optional.of(Fakes.CLIP));
-                }
+        PlayVideoFinder fakeSavant(Fakes fakes) {
+            return playId -> {
+                fakes.savantAsked.add(playId);
+                return new PlayVideoFinder.Lookup(true, Optional.of(Fakes.CLIP));
             };
         }
 

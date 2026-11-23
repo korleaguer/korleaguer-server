@@ -1,10 +1,10 @@
 package com.korleaguer.api;
 
-import com.korleaguer.api.SavantClips;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.NewsProperties;
 import com.korleaguer.news.JdkHttpGetter;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.video.PlayVideoFinder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -22,7 +22,7 @@ public class VideoConfig {
     private static final int MAX_PAGE_BYTES = 512 * 1024;
 
     @Bean
-    public SavantClips savantClips(KorleaguerProperties properties, NewsProperties news, Clock clock) {
+    public PlayVideoFinder savantClips(KorleaguerProperties properties, NewsProperties news, Clock clock) {
         JdkHttpGetter http = new JdkHttpGetter(properties.mlb().userAgent(), Duration.ofSeconds(3),
                 Duration.ofSeconds(5), MAX_PAGE_BYTES);
         return new SavantClips(new PoliteFetcher(http, news.robotsAgents(), clock, VideoConfig::sleep));
