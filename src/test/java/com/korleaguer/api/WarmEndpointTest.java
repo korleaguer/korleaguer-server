@@ -44,7 +44,7 @@ class WarmEndpointTest {
     @Test
     void withScheduledIngestItIsReadyOnlyAfterTheFirstFill() {
         KorleaguerProperties properties = new KorleaguerProperties(2026, null,
-                new KorleaguerProperties.Ingest(true, null, null), null, null, null);
+                new KorleaguerProperties.Ingest(true, null), null, null, null);
         CacheWarmer warmer = new CacheWarmer(mock(BaseballQueryService.class), mock(MyPlayersService.class),
                 mock(RecordsService.class), mock(PlayerTimelineService.class), mock(CurrentSeason.class),
                 mock(ResponseCaches.class), new Postings(new PostingProperties(List.of(), List.of())),
