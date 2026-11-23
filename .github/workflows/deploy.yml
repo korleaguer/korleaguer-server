@@ -11,7 +11,7 @@
 # 실패하면 고친 뒤 다시 병합하거나 그 실행을 '다시 실행'한다. 다시 실행은 그 커밋이 아직 develop 끝일 때만 배포한다
 # (그 뒤 커밋들이 배포하지 않는 파일만 바꿨으면 괜찮다. 그 사이 더 새 커밋이 나갔을 수 있어서다).
 # 배포 단계가 시작된 뒤 실행을 취소해도 서버는 교체를 끝까지 한다(실행은 '취소됨', main은 맞추지 않는다).
-# 문서·테스트만 바뀐 푸시(*.md, deploy/, src/test/, 모듈의 src/test/)는 배포하지 않는다.
+# 문서·테스트만 바뀐 푸시(*.md, deploy/, 모듈의 src/test/)는 배포하지 않는다.
 # 되돌리기: Actions → deploy → Run workflow에 되돌릴 커밋(예 1a2b3c4)을 넣으면 그 커밋의 이미지로 다시 배포한다
 # (서버에 최근 3개 이미지가 있고, 그보다 오래된 것은 GHCR에서 받는다). 되돌리기는 main을 옮기지 않는다.
 # 되돌리기 실행은 '다시 실행'하지 않는다(그 사이 나간 새 배포를 덮지 않게 막는다). 다시 하려면 Run workflow로 새로 건다.
@@ -30,9 +30,11 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'deploy/**'
-      - 'src/test/**'
       - 'core/src/test/**'
       - 'client/src/test/**'
+      - 'batch/src/test/**'
+      - 'api/src/test/**'
+      - 'app/src/test/**'
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
     inputs:
@@ -124,8 +126,9 @@ jobs:
       - name: jar 만들고 레이어로 풀기
         run: |
           .github/scripts/gradlew-retry.sh --no-daemon -q bootJar
-          jar="$(find build/libs -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
+          jar="$(find app/build/libs -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
           rm -rf build/image build/application.jar
+          mkdir -p build
           cp "$jar" build/application.jar
           java -Djarmode=tools -jar build/application.jar extract --layers --destination build/image/extracted
 
@@ -225,7 +228,7 @@ jobs:
           ATTEMPT: ${{ github.run_attempt }}
           GH_TOKEN: ${{ github.token }}
           # 배포하지 않는 파일. 위 on.push.paths-ignore와 같게 유지한다.
-          IGNORED: '\.md$|^deploy/|^((core|client)/)?src/test/|^\.github/ISSUE_TEMPLATE/'
+          IGNORED: '\.md$|^deploy/|^(core|client|batch|api|app)/src/test/|^\.github/ISSUE_TEMPLATE/'
 
       - name: 배포할 이미지
         id: tag

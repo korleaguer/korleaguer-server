@@ -17,7 +17,7 @@ repositories {
 	mavenCentral()
 }
 
-// Spring Boot 플러그인은 실행 파일을 만드는 루트에만 건다. 라이브러리 버전만 같은 BOM으로 맞춘다.
+// Spring Boot 플러그인은 실행 파일을 만드는 app에만 건다. 라이브러리 버전만 같은 BOM으로 맞춘다.
 dependencyManagement {
 	imports {
 		mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
@@ -31,7 +31,7 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// Spring Boot 플러그인이 루트에서 해 주던 것을 여기서는 직접 건다.
+// Spring Boot 플러그인이 app에서 해 주던 것을 여기서는 직접 건다.
 // -parameters: 리포지토리 @Query의 이름 붙은 인자(:playerIds)를 메서드 인자 이름으로 잇는다. 없으면 앱이 뜨다 실패한다.
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
