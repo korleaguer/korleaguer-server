@@ -37,8 +37,11 @@ import java.util.Optional;
  * 화면용 API(GameDetailService)는 여기서 저장한 것만 읽는다.
  * <ul>
  *   <li>받는 대상: 우리 선수가 뛴 경기. 메이저는 기록(appearance)이 있는 (선수, 경기), 마이너는 minor_game_log 줄이 있는 (선수, 경기).</li>
- *   <li>MLB 요청은 경기당 한 번씩: playByPlay 1번, 메이저 경기면 content(영상 목록) 1번 더. 마이너 경기에는 MLB 하이라이트가 없어 묻지 않는다.
+ *   <li>MLB 요청은 경기당 한 번씩: playByPlay 1번, 끝난 메이저 경기면 content(영상 목록) 1번 더. 마이너 경기에는 MLB 하이라이트가 없어 묻지 않는다.
+ *       진행 중 경기는 수집 때마다 받으므로 playByPlay만 받고(요청을 아낀다), 하이라이트는 끝난 뒤에 받는다.
  *       같은 경기에 우리 선수가 둘이면 한 번 받은 것으로 둘 다 만든다.</li>
+ *   <li>MLB에 타석별 기록이 없거나(404) 저장 칸보다 긴 경기는, 굳힐 때가 됐으면 '없음'(available=false)으로 굳힌다.
+ *       그러지 않으면 그 경기가 채우기 줄 맨 앞에 남아 실행마다 다시 묻고 뒤 경기를 막는다.</li>
  *   <li>굳힘(complete): 끝난 경기를 시작 COMPLETE_AFTER(하루) 뒤에 받았으면 굳힌다(하이라이트가 다 올라온 뒤).
  *       시작 시각을 모르는 끝난 경기는 기다릴 기준이 없어 바로 굳힌다. 굳은 것은 다시 받지 않는다.</li>
  *   <li>받는 때: (1) 박스스코어를 받는 메이저 경기에서 같이(refresh. 진행 중 경기는 수집 때마다 갱신된다),
@@ -167,11 +170,15 @@ public class GameDetailIngest {
 
     private int fetch(long gamePk, boolean major, boolean isFinal, Instant start, List<Player> targets, Instant now) {
         MlbPlayByPlay pbp = client.getPlayByPlay(gamePk);
+        boolean complete = isFinal && completesAt(start, now);
         if (pbp == null) {
+            if (complete) {
+                targets.forEach(p -> store(GameDetail.unavailable(p.getId(), gamePk, p.role().name()), true, now));
+            }
             return 0;
         }
-        MlbGameContent content = major ? client.getGameContent(gamePk) : null;
-        boolean complete = isFinal && completesAt(start, now);
+        // 진행 중에는 영상 목록을 묻지 않는다(수집 때마다 받으므로 경기당 요청이 두 배가 된다. 하이라이트는 끝난 뒤에 받는다)
+        MlbGameContent content = major && isFinal ? client.getGameContent(gamePk) : null;
         int saved = 0;
         for (Player player : targets) {
             Role role = player.role();
@@ -192,13 +199,25 @@ public class GameDetailIngest {
         String payload = fitted(detail);
         if (payload == null) {
             log.warn("game detail {} for player {} is too long to keep", detail.gamePk(), detail.playerId());
+            if (complete) {
+                store(GameDetail.unavailable(detail.playerId(), detail.gamePk(), detail.role()), true, now);
+            }
             return false;
         }
-        PlayerGameDetail row = details.findByPlayerIdAndGamePk(detail.playerId(), detail.gamePk())
-                .orElseGet(() -> new PlayerGameDetail(detail.playerId(), detail.gamePk()));
+        store(detail.playerId(), detail.gamePk(), payload, complete, now);
+        return true;
+    }
+
+    // '없음'처럼 짧은 상세를 그대로 저장한다
+    private void store(GameDetail detail, boolean complete, Instant now) {
+        store(detail.playerId(), detail.gamePk(), json.writeValueAsString(detail), complete, now);
+    }
+
+    private void store(long playerId, long gamePk, String payload, boolean complete, Instant now) {
+        PlayerGameDetail row = details.findByPlayerIdAndGamePk(playerId, gamePk)
+                .orElseGet(() -> new PlayerGameDetail(playerId, gamePk));
         row.update(payload, complete, now);
         details.save(row);
-        return true;
     }
 
     /** 저장할 JSON. 칸보다 길면 뒤 하이라이트부터 덜어 낸다. 그래도 길면 null(저장하지 않음) */
