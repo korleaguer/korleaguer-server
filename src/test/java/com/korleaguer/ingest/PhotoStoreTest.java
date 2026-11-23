@@ -1,12 +1,13 @@
-package com.korleaguer.photo;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.Photo;
 import com.korleaguer.domain.PhotoRepository;
-import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.news.HttpGetter;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
 import com.korleaguer.support.Hashes;

@@ -1,4 +1,4 @@
-package com.korleaguer.config;
+package com.korleaguer.news;
 
 import com.korleaguer.news.Summarizer;
 import org.junit.jupiter.api.Test;

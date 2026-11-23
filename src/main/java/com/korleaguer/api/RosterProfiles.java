@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
-import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.photo.PhotoSources;
 import org.springframework.stereotype.Component;
 

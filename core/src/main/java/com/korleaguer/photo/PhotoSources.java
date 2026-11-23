@@ -1,7 +1,7 @@
 package com.korleaguer.photo;
 
 import com.korleaguer.config.KorleaguerProperties;
-import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.posting.PastPosting;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;

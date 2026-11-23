@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
@@ -20,7 +21,6 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
-import com.korleaguer.news.NewsProperties;
 import com.korleaguer.support.MlbTeams;
 import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;

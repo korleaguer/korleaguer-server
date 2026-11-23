@@ -1,9 +1,10 @@
-package com.korleaguer.config;
+package com.korleaguer;
 
-import com.korleaguer.api.MinorTeamProperties;
-import com.korleaguer.ingest.KoreanMlbProperties;
-import com.korleaguer.ingest.RosterProperties;
-import com.korleaguer.news.NewsProperties;
+import com.korleaguer.config.KoreanMlbProperties;
+import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.MinorTeamProperties;
+import com.korleaguer.config.NewsProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.posting.PostingProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;

@@ -1,9 +1,10 @@
-package com.korleaguer.photo;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.Photo;
 import com.korleaguer.domain.PhotoRepository;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.support.Hashes;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;

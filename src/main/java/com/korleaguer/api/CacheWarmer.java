@@ -1,10 +1,10 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.config.ResponseCachesCleared;
-import com.korleaguer.ingest.CatchUpFinished;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
 import com.korleaguer.support.KoreanTime;

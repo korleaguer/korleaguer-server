@@ -1,14 +1,14 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.NewsProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
-import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.news.MlbContext;
-import com.korleaguer.news.NewsProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;

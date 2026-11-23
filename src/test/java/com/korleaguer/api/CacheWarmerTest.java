@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.config.ResponseCaches;
-import com.korleaguer.ingest.CatchUpFinished;
 import com.korleaguer.ingest.IngestService;
 import com.korleaguer.support.MutableClock;
 import jakarta.persistence.EntityManager;

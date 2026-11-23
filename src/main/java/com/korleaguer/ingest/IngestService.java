@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.ResponseCaches;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
