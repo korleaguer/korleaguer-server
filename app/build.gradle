@@ -1,0 +1,59 @@
+// app 모듈: 조립만 한다. main(ApiApplication), 앱 전체 설정(AppConfig, application.properties), 실행 파일(bootJar).
+// 앱 전체를 띄우는 테스트(@SpringBootTest)와 여러 모듈이 같이 쓰는 테스트 도우미도 여기 둔다(ARCHITECTURE.md §5).
+plugins {
+	id 'java'
+	id 'org.springframework.boot'
+	id 'io.spring.dependency-management'
+}
+
+group = 'com.korleaguer'
+version = '0.1.0'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation project(':core')
+	implementation project(':client')
+	implementation project(':batch')
+	implementation project(':api')
+	implementation 'org.springframework.boot:spring-boot-h2console'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation 'org.flywaydb:flyway-mysql'
+	runtimeOnly 'com.h2database:h2'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-cache-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	// 몇몇 API 테스트가 응답 JSON을 Jackson 2(ObjectMapper)로 읽는다. 전에는 anthropic-java를 타고 들어왔다(그 의존성은 client 모듈로 옮겼다)
+	testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-mysql'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// 실행 파일 이름은 모듈을 나누기 전과 같게 둔다(korleaguer-server-0.1.0.jar)
+tasks.named('bootJar') {
+	archiveBaseName = 'korleaguer-server'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

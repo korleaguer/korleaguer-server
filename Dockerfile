@@ -13,14 +13,20 @@ COPY gradle gradle
 # 모듈마다 build.gradle만 먼저 넣는다(settings.gradle의 include와 같게 유지).
 COPY core/build.gradle core/
 COPY client/build.gradle client/
+COPY batch/build.gradle batch/
+COPY api/build.gradle api/
+COPY app/build.gradle app/
 # 의존성만 먼저 받아 두면 코드만 바뀐 빌드에서 이 단계를 캐시로 건너뛴다.
-RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon -q dependencies > /dev/null
-COPY src src
+# 실행 파일을 만드는 app의 의존성이 모든 모듈의 라이브러리를 담는다.
+RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon -q :app:dependencies > /dev/null
 COPY core/src core/src
 COPY client/src client/src
+COPY batch/src batch/src
+COPY api/src api/src
+COPY app/src app/src
 # 테스트는 PR CI에서 이미 돈다. 여기서는 실행할 jar만 만든다.
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon -q bootJar \
-    && cp "$(ls build/libs/*.jar | grep -v -- '-plain.jar' | head -n 1)" application.jar \
+    && cp "$(ls app/build/libs/*.jar | grep -v -- '-plain.jar' | head -n 1)" application.jar \
     && java -Djarmode=tools -jar application.jar extract --layers --destination /extracted
 
 FROM eclipse-temurin:21-jre

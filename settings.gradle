@@ -1,5 +1,8 @@
 rootProject.name = 'korleaguer-server'
 
-// 모듈(ARCHITECTURE.md §3). 루트 프로젝트가 실행 파일을 만들고, 나머지 모듈은 단계적으로 떼어 낸다.
+// 모듈(ARCHITECTURE.md §3). app이 실행 파일을 만들고, 루트는 모듈을 묶기만 한다.
 include 'core'
 include 'client'
+include 'batch'
+include 'api'
+include 'app'

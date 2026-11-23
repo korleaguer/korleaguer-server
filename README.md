@@ -300,26 +300,27 @@ docker build -t korleaguer-server:local .   # 이미지만 만들어 보기
 ## 구조
 
 구조 규칙과 방향(모듈, 누가 누구를 알아도 되나, 정해진 결정, 아직 안 한 일)은 [`ARCHITECTURE.md`](ARCHITECTURE.md)에 있다. 아래는 지금 패키지 모습이다.
-Gradle 모듈은 셋이다. `domain`·`support`·`posting`·`photo`·`config`와 자원(DB 마이그레이션, 명단 `roster/*.yml`, 사진 편집본 `photos/`)은 `core` 모듈(`core/src`), 밖을 부르는 `client`·`news`와 샘플 자원(`sample/mlb.json`)은 `client` 모듈(`client/src`)에 있고, 나머지는 루트 프로젝트(`src`)에 있다. `./gradlew test`와 `./gradlew bootRun`은 전과 같이 루트에서 돌린다.
+Gradle 모듈은 다섯이다(괄호는 모듈). `core`(`core/src`): `domain`·`support`·`posting`·`photo`·`config`와 자원(DB 마이그레이션, 명단 `roster/*.yml`, 사진 편집본 `photos/`). `client`(`client/src`): 밖을 부르는 `client`·`news`와 샘플 자원(`sample/mlb.json`). `batch`(`batch/src`): 수집 `ingest`. `api`(`api/src`): 화면용 API `api`. `app`(`app/src`): `ApiApplication`·`AppConfig`와 설정 파일(`application.properties`, `news/sources.yml`), 실행 파일, 앱 전체를 띄우는 테스트. 루트는 모듈을 묶기만 한다. `./gradlew test`와 `./gradlew bootRun`은 전과 같이 루트에서 돌린다.
 
 ```
 com.korleaguer
-├── AppConfig 캐시·스케줄 켜기, 설정 값 등록, Clock, 뒤에서 도는 수집용 실행기
+├── AppConfig (app) 캐시·스케줄 켜기, 설정 값 등록, Clock, 뒤에서 도는 수집용 실행기
 ├── config   (core) 설정 값(korleaguer.*, 명단·기사·마이너 팀 이름표), 데이터 출처(DataMode), 지금 시즌(CurrentSeason),
 │            응답 캐시 비우기(ResponseCaches·DataChanges), 모듈 사이 이벤트(CatchUpFinished·ResponseCachesCleared)
 ├── client   (client) MLB 공식 API 호출(HttpMlbClient)과 샘플(SampleMlbClient), 응답 record, 클라이언트 선택(ClientConfig), 요청 제한(RateLimiter)
-├── ingest   선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
+├── ingest   (batch) 선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
 │            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 경기 상세 받기(GameDetailIngest),
 │            하이라이트 제목 번역(HighlightTitleIngest), 리그 평균 받기(LeagueAverageRefresher), DB 저장(IngestWriter),
 │            사진 한 번 받아 저장·재확인(PhotoStore)·주기 작업(PhotoScheduler),
-│            관련 기사 수집(NewsCollector)·기사 페이지 읽어 요약(NewsEnricher)·행선지 구단 고르기(NewsTagger)·스케줄(NewsScheduler)
-├── domain   JPA 엔티티와 리포지토리
-├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder), CORS(WebConfig), 공 영상(VideoConfig)
-├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
-├── photo    (core) 선수 사진 호스팅: 이름·원본 목록과 주소 버전(PhotoSources)
+│            관련 기사 수집(NewsCollector)·기사 페이지 읽어 요약(NewsEnricher)·행선지 구단 고르기(NewsTagger)·스케줄(NewsScheduler),
+│            관리용 수집 엔드포인트(AdminController, /admin/**, 토큰 검사 AdminTokenInterceptor)
+├── domain   (core) JPA 엔티티와 리포지토리, 우리 팀 경기가 있나(TrackedTeamGames)
+├── api      (api) 컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder), CORS(WebConfig), 공 영상(VideoConfig)
+├── posting  (core) 포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
+├── photo    (core) 선수 사진 호스팅: 이름·원본 목록과 주소 버전(PhotoSources), 사진 꺼내기 인터페이스(PhotoLoader)
 ├── news     (client) 기사·사진 가져오기와 AI: 피드 읽기(FeedParser), 기사 페이지 읽기(ArticlePage), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher),
 │            Claude 요약(ClaudeSummarizer)·행선지 구단 고르기(ClaudeDestinationTagger)·하이라이트 제목 번역(ClaudeHighlightTitleTranslator), 연결 조립(NewsConfig)
-└── support  한국 시간·미국 동부 시간, 야구 계산(타율·ERA·이닝, wOBA 가중치), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 내용 해시, 기사 제목이 MLB 이야기인지(MlbContext)
+└── support  (core) 한국 시간·미국 동부 시간, 야구 계산(타율·ERA·이닝, wOBA 가중치), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 내용 해시, 기사 제목이 MLB 이야기인지(MlbContext)
 ```
 
 - DB 스키마: `core/src/main/resources/db/migration/V1__init.sql`(MySQL 8 문법, H2 MySQL 모드에서도 그대로 돈다)과 `V7__player_free_agent.sql`(FA, V2~V6은 V1에 합쳐 없다). 시각은 `datetime(6)`에 UTC로 저장하고(`hibernate.jdbc.time_zone=UTC`, Instant는 TIMESTAMP로) 응답에서만 한국 시간으로 바꾼다. 외래 키는 표 단위로 적는다(MySQL은 열 옆의 `references`를 무시한다). 소속(`affiliation`)은 선수마다 한 줄(`unique (player_id)`).
@@ -335,4 +336,4 @@ com.korleaguer
   ```bash
   SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
   ```
-  JDBC URL은 `application.properties`의 `spring.datasource.url`, 사용자 `sa`, 비밀번호 없음.
+  JDBC URL은 `app/src/main/resources/application.properties`의 `spring.datasource.url`, 사용자 `sa`, 비밀번호 없음.
