@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *       배경을 지워 흰 바탕에 놓고 얼굴 크기·위치를 포스팅 선수 사진(노시환 KBO 공식 사진)과 같은 틀로 맞춘 편집본</li>
  * </ul>
  * 편집본(career-…, posting-…, 포스팅 선수 kbo-{slug}-{사진 시즌})은 원본에서 받지 않고 우리가 만든 파일
- * (src/main/resources/photos/, tools/posting-photo)을 그대로 준다. 편집본이 빠졌으면 서버가 뜨지 않는다
+ * (core/src/main/resources/photos/, tools/posting-photo)을 그대로 준다. 편집본이 빠졌으면 서버가 뜨지 않는다
  * (원본을 그대로 보이면 원 안 배경·크기·선명도가 제각각이라).
  * 공식 사진을 끄면(korleaguer.images.official-photos=false) 목록이 비고, 응답의 photoUrl도 모두 null이다.
  * 화면은 /photos/{이름}으로 받는다(웹이 /api/photos/{이름}으로 넘긴다).
@@ -227,11 +227,11 @@ public class PhotoSources {
         return "kbo-" + slug + "-" + season;
     }
 
-    /** 우리가 만든 편집본(src/main/resources/photos/{이름}{확장자})의 원본 주소. 파일이 없으면 서버가 뜨지 않는다 */
+    /** 우리가 만든 편집본(core/src/main/resources/photos/{이름}{확장자})의 원본 주소. 파일이 없으면 서버가 뜨지 않는다 */
     private static String bundledFile(String key, String extension, String owner, String howToMake) {
         String resource = BUNDLED_DIR + key + extension;
         if (PhotoSources.class.getClassLoader().getResource(resource) == null) {
-            throw new IllegalStateException(owner + ": edited photo src/main/resources/" + resource
+            throw new IllegalStateException(owner + ": edited photo core/src/main/resources/" + resource
                     + " is missing (make it from " + howToMake + ")");
         }
         return BUNDLED + resource;

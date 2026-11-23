@@ -45,7 +45,7 @@ class PhotoSourcesTest {
         assertThatThrownBy(() -> sources(postings, true))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("roster/posting.yml posting.current 노시환")
-                .hasMessageContaining("src/main/resources/photos/kbo-si-hwan-roh-2025.jpg is missing")
+                .hasMessageContaining("core/src/main/resources/photos/kbo-si-hwan-roh-2025.jpg is missing")
                 .hasMessageContaining("tools/posting-photo cut");
     }
 
