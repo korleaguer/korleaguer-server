@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.api.game.HighlightTitles;
+
 import com.korleaguer.domain.HighlightTitle;
 import com.korleaguer.domain.HighlightTitleRepository;
 import org.junit.jupiter.api.BeforeEach;

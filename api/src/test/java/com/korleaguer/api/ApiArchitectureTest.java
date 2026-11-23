@@ -10,6 +10,7 @@ import org.springframework.data.repository.Repository;
 import org.springframework.stereotype.Component;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 
 /**
@@ -17,6 +18,10 @@ import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
  * <p>
  * 순수 계산 클래스: api의 클래스 중 스프링 빈(@Component·@Service·컨트롤러·설정)도 아니고 화면 응답 타입(이름이 Response로
  * 끝남)도 아닌 것. 그 안에 든 중첩 클래스는 바깥 클래스를 따른다. 값을 받아 값을 돌려주므로 스프링 없이 읽고 시험할 수 있어야 한다.
+ * <p>
+ * 주제 패키지(ARCHITECTURE.md §3 '조회 안쪽'): 위에서부터 web(컨트롤러·예외 처리), screen(화면 조립),
+ * card·records·offseason(같은 층, 서로 모른다), season(시즌 성적), article(기사·포스팅 요약), game(경기), player(선수 기본).
+ * 아래 층은 위 층을 모른다. com.korleaguer.api 바로 아래(공통 예외)는 누구나 쓴다.
  * <p>
  * 규칙을 넣을 때(2026-11-23) 이미 어기던 곳은 얼려 두었다(src/test/resources/archunit_store). 새로 어기면 실패하고,
  * 얼린 곳을 고치면 목록에서 저절로 빠진다.
@@ -66,6 +71,32 @@ class ApiArchitectureTest {
     static final ArchRule pureCalculationDoesNotKnowResponses = freeze(
             noClasses().that(PURE_CALCULATION).should().dependOnClassesThat(RESPONSES)
                     .as("순수 계산 클래스는 화면 응답 타입(…Response)을 모른다"));
+
+    /** 주제는 아래 방향으로만 안다. 같은 층(card·records·offseason)끼리도 모른다 */
+    @ArchTest
+    static final ArchRule topicsKnowOnlyLowerTopics = freeze(layeredArchitecture()
+            .consideringOnlyDependenciesInLayers()
+            .layer("web").definedBy(API + ".web..")
+            .layer("screen").definedBy(API + ".screen..")
+            .layer("card").definedBy(API + ".card..")
+            .layer("records").definedBy(API + ".records..")
+            .layer("offseason").definedBy(API + ".offseason..")
+            .layer("season").definedBy(API + ".season..")
+            .layer("article").definedBy(API + ".article..")
+            .layer("game").definedBy(API + ".game..")
+            .layer("player").definedBy(API + ".player..")
+            .whereLayer("web").mayNotBeAccessedByAnyLayer()
+            .whereLayer("screen").mayOnlyBeAccessedByLayers("web")
+            .whereLayer("card").mayOnlyBeAccessedByLayers("web", "screen")
+            .whereLayer("records").mayOnlyBeAccessedByLayers("web", "screen")
+            .whereLayer("offseason").mayOnlyBeAccessedByLayers("web", "screen")
+            .whereLayer("season").mayOnlyBeAccessedByLayers("web", "screen", "card", "records", "offseason")
+            .whereLayer("article").mayOnlyBeAccessedByLayers("web", "screen", "card", "records", "offseason", "season")
+            .whereLayer("game").mayOnlyBeAccessedByLayers("web", "screen", "card", "records", "offseason", "season",
+                    "article")
+            .whereLayer("player").mayOnlyBeAccessedByLayers("web", "screen", "card", "records", "offseason", "season",
+                    "article", "game")
+            .as("api 주제는 아래 방향으로만 안다(web > screen > card·records·offseason > season > article > game > player)"));
 
     private static boolean inApi(JavaClass javaClass) {
         String name = javaClass.getPackageName();
