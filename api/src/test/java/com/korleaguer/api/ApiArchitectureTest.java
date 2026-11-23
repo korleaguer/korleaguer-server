@@ -24,12 +24,14 @@ import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 @AnalyzeClasses(packages = "com.korleaguer", importOptions = ImportOption.DoNotIncludeTests.class)
 class ApiArchitectureTest {
 
+    private static final String API = "com.korleaguer.api";
+
     private static final DescribedPredicate<JavaClass> PURE_CALCULATION = new DescribedPredicate<>(
             "are pure calculation classes of api (not Spring beans, not responses)") {
         @Override
         public boolean test(JavaClass javaClass) {
             JavaClass top = topLevel(javaClass);
-            return top.getPackageName().startsWith("com.korleaguer.api")
+            return inApi(top)
                     && !top.isMetaAnnotatedWith(Component.class)
                     && !top.getSimpleName().endsWith("Response");
         }
@@ -49,7 +51,7 @@ class ApiArchitectureTest {
         @Override
         public boolean test(JavaClass javaClass) {
             JavaClass top = topLevel(javaClass);
-            return top.getPackageName().startsWith("com.korleaguer.api") && top.getSimpleName().endsWith("Response");
+            return inApi(top) && top.getSimpleName().endsWith("Response");
         }
     };
 
@@ -64,6 +66,11 @@ class ApiArchitectureTest {
     static final ArchRule pureCalculationDoesNotKnowResponses = freeze(
             noClasses().that(PURE_CALCULATION).should().dependOnClassesThat(RESPONSES)
                     .as("순수 계산 클래스는 화면 응답 타입(…Response)을 모른다"));
+
+    private static boolean inApi(JavaClass javaClass) {
+        String name = javaClass.getPackageName();
+        return name.equals(API) || name.startsWith(API + ".");
+    }
 
     private static JavaClass topLevel(JavaClass javaClass) {
         JavaClass current = javaClass;
