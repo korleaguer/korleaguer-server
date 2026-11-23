@@ -1,6 +1,5 @@
 package com.korleaguer.api;
 
-import com.korleaguer.ingest.IngestAlreadyRunningException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,12 +26,6 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse newsNotFound() {
         return new ErrorResponse("news not found");
-    }
-
-    @ExceptionHandler(IngestAlreadyRunningException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse ingestAlreadyRunning() {
-        return new ErrorResponse("ingest already running");
     }
 
     // 400은 모두 같은 모양({"error": ...})으로 돌려준다.

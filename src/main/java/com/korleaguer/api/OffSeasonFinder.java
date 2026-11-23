@@ -3,7 +3,8 @@ package com.korleaguer.api;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
-import com.korleaguer.ingest.GameIngest;
+import com.korleaguer.domain.TrackedTeamGames;
+import com.korleaguer.support.MlbTime;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -29,23 +30,23 @@ public class OffSeasonFinder {
     /** 이 기간 안에 시작한 우리 선수 구단 경기가 하나도 없으면 비시즌이다. 올스타 휴식(나흘)보다 길게 둔다. */
     static final int QUIET_DAYS = 7;
 
-    private final GameIngest gameIngest;
+    private final TrackedTeamGames trackedTeams;
     private final SeasonDatesRepository seasonDates;
     private final CurrentSeason currentSeason;
 
-    public OffSeasonFinder(GameIngest gameIngest, SeasonDatesRepository seasonDates, CurrentSeason currentSeason) {
-        this.gameIngest = gameIngest;
+    public OffSeasonFinder(TrackedTeamGames trackedTeams, SeasonDatesRepository seasonDates, CurrentSeason currentSeason) {
+        this.trackedTeams = trackedTeams;
         this.seasonDates = seasonDates;
         this.currentSeason = currentSeason;
     }
 
     /** 비시즌이면 비시즌 정보, 시즌 중이면 null */
     OffSeason find(List<RosterMember> roster, Instant now) {
-        if (gameIngest.hasRecentGames(now, QUIET_DAYS)) {
+        if (trackedTeams.hasRecentGames(now, QUIET_DAYS)) {
             return null;
         }
         int season = currentSeason.current();
-        LocalDate usToday = gameIngest.usDate(now);
+        LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
         Optional<SeasonDates> thisSeason = seasonDates.findById(season);
         if (thisSeason.isPresent() && inRegularSeason(thisSeason.get(), usToday)) {
             return null;

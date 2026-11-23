@@ -1,20 +1,26 @@
 package com.korleaguer.api;
 
+import com.korleaguer.ingest.IngestAlreadyRunningException;
 import com.korleaguer.ingest.IngestService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 /**
  * 관리용 수집 엔드포인트(MLB 공식 Stats API). X-Admin-Token 검사는 AdminTokenInterceptor가 한다.
  * MLB 요청은 1초에 1회라 시즌 다시 받기는 끝날 때까지 몇십 초 걸릴 수 있다.
- * 수집이 이미 도는 중이면 409 {"error":"ingest already running"}을 돌려준다(ApiExceptionHandler).
+ * 수집이 이미 도는 중이면 409 {"error":"ingest already running"}을 돌려준다(아래 ingestAlreadyRunning).
+ * X-Admin-Token 검사를 거는 곳은 AdminWebConfig다.
  */
 @RestController
 @RequestMapping("/admin")
@@ -48,5 +54,12 @@ public class AdminController {
     @PostMapping("/ingest/catch-up")
     public IngestLogResponse catchUp() {
         return IngestLogResponse.from(ingestService.catchUp(true));
+    }
+
+    /** 수집이 이미 도는 중이다. 다른 오류 응답({"error": ...})과 같은 모양으로 준다 */
+    @ExceptionHandler(IngestAlreadyRunningException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> ingestAlreadyRunning() {
+        return Map.of("error", "ingest already running");
     }
 }

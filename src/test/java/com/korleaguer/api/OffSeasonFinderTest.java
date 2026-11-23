@@ -4,8 +4,7 @@ import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
-import com.korleaguer.ingest.GameIngest;
-import com.korleaguer.support.MlbTime;
+import com.korleaguer.domain.TrackedTeamGames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -30,22 +28,21 @@ class OffSeasonFinderTest {
     // 미국 동부 2026-11-11 07:00. 2026 정규시즌(3/25~9/27)이 끝났다.
     private static final Instant NOV_11 = Instant.parse("2026-11-11T12:00:00Z");
 
-    private final GameIngest gameIngest = mock(GameIngest.class);
+    private final TrackedTeamGames trackedTeams = mock(TrackedTeamGames.class);
     private final SeasonDatesRepository seasonDates = mock(SeasonDatesRepository.class);
     private final CurrentSeason currentSeason = mock(CurrentSeason.class);
-    private final OffSeasonFinder finder = new OffSeasonFinder(gameIngest, seasonDates, currentSeason);
+    private final OffSeasonFinder finder = new OffSeasonFinder(trackedTeams, seasonDates, currentSeason);
 
     @BeforeEach
     void setUp() {
         when(currentSeason.current()).thenReturn(2026);
-        when(gameIngest.usDate(any())).thenAnswer(inv -> LocalDate.ofInstant(inv.getArgument(0), MlbTime.US_EASTERN));
         when(seasonDates.findById(anyInt())).thenReturn(Optional.empty());
         when(seasonDates.findById(2026)).thenReturn(Optional.of(dates(2026, "2026-03-25", "2026-09-27")));
     }
 
     @Test
     void ourTeamsPlayedThisWeekSoInSeason() {
-        when(gameIngest.hasRecentGames(NOV_11, OffSeasonFinder.QUIET_DAYS)).thenReturn(true);
+        when(trackedTeams.hasRecentGames(NOV_11, OffSeasonFinder.QUIET_DAYS)).thenReturn(true);
 
         assertThat(finder.find(roster(1L, 2L), NOV_11)).isNull();
     }

@@ -11,10 +11,10 @@ import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
-import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.SeasonType;
+import com.korleaguer.domain.TrackedTeamGames;
 import com.korleaguer.support.MlbTeams;
 import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;
@@ -72,13 +72,14 @@ public class GameIngest {
     private final GameRepository games;
     private final AppearanceRepository appearances;
     private final GameDetailIngest gameDetails;
+    private final TrackedTeamGames trackedTeams;
     private final Clock clock;
     // 앞 일정을 마지막으로 받은 날(UTC 날짜). 앱이 떠 있는 동안만 기억한다.
     private volatile LocalDate lookedAheadOn;
 
     public GameIngest(MlbClient client, IngestWriter writer, PlayerRepository players,
                       AffiliationRepository affiliations, GameRepository games, AppearanceRepository appearances,
-                      GameDetailIngest gameDetails, Clock clock) {
+                      GameDetailIngest gameDetails, TrackedTeamGames trackedTeams, Clock clock) {
         this.client = client;
         this.writer = writer;
         this.players = players;
@@ -86,6 +87,7 @@ public class GameIngest {
         this.games = games;
         this.appearances = appearances;
         this.gameDetails = gameDetails;
+        this.trackedTeams = trackedTeams;
         this.clock = clock;
     }
 
@@ -156,7 +158,7 @@ public class GameIngest {
      * forceFinals면 그 기간의 끝난 경기를 settled여도 다시 받는다(관리용).
      */
     public String refreshGames(LocalDate from, LocalDate to, boolean forceFinals) {
-        return refreshGames(trackedTeamIds(), from, to, forceFinals);
+        return refreshGames(trackedTeams.teamIds(), from, to, forceFinals);
     }
 
     /**
@@ -170,7 +172,7 @@ public class GameIngest {
      * </ul>
      */
     public String refreshRecent() {
-        List<Long> teamIds = trackedTeamIds();
+        List<Long> teamIds = trackedTeams.teamIds();
         if (teamIds.isEmpty()) {
             return "";
         }
@@ -260,7 +262,7 @@ public class GameIngest {
         if (utcToday.equals(lookedAheadOn)) {
             return "";
         }
-        List<Long> teamIds = trackedTeamIds();
+        List<Long> teamIds = trackedTeams.teamIds();
         if (teamIds.isEmpty()) {
             return "";
         }
@@ -272,18 +274,7 @@ public class GameIngest {
 
     /** 우리 팀들의 경기가 now 앞뒤 days일 안에 있는지(시즌 중인지) */
     public boolean hasGamesAround(Instant now, int days) {
-        List<Long> teamIds = trackedTeamIds();
-        return !teamIds.isEmpty() && games.existsTeamGameBetween(teamIds,
-                now.minus(Duration.ofDays(days)), now.plus(Duration.ofDays(days)));
-    }
-
-    /**
-     * 지금부터 거슬러 days일 안에 시작한 우리 팀들의 경기가 있는지(DB만 본다). 홈이 비시즌인지 정할 때 쓴다(OffSeasonFinder).
-     * 앞으로 잡힌 경기는 보지 않는다: 개막 경기가 시작되기 전까지는 비시즌 화면(개막까지 남은 날)을 둔다.
-     */
-    public boolean hasRecentGames(Instant now, int days) {
-        List<Long> teamIds = trackedTeamIds();
-        return !teamIds.isEmpty() && games.existsTeamGameBetween(teamIds, now.minus(Duration.ofDays(days)), now);
+        return trackedTeams.hasGamesAround(now, days);
     }
 
     /** 미국 날짜(동부 시간) */
@@ -339,13 +330,6 @@ public class GameIngest {
 
     // 지금 메이저에 있는(또는 단계를 모르는) 선수들의 소속 팀. 마이너 선수의 MLB 구단 경기는 갱신하지 않는다.
     // 소속이 끝난 선수(FA 등)의 마지막 구단도 findAllCurrent에서 빠지므로 갱신하지 않는다.
-    private List<Long> trackedTeamIds() {
-        return affiliations.findAllCurrent().stream()
-                .filter(a -> a.getPlayer().getLevel() != Level.MINORS)
-                .map(a -> a.getTeam().getMlbTeamId())
-                .distinct()
-                .toList();
-    }
 
     private List<Long> currentTeamIds(List<Player> targets) {
         Set<Long> playerIds = targets.stream().map(Player::getId).collect(Collectors.toSet());

@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
 import com.korleaguer.domain.Photo;
-import com.korleaguer.ingest.PhotoStore;
+import com.korleaguer.photo.PhotoLoader;
 import com.korleaguer.photo.PhotoSources;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * GET /api/photos/{이름}: 우리가 호스팅하는 선수 사진(PhotoStore). 명단·포스팅에 있는 사진만 준다(없으면 404).
+ * GET /api/photos/{이름}: 우리가 호스팅하는 선수 사진(PhotoLoader, 수집 쪽 ingest.PhotoStore가 구현). 명단·포스팅에 있는 사진만 준다(없으면 404).
  * 처음이면 그 자리에서 원본을 받아 저장한 뒤 준다. 브라우저가 하루 동안 저장해 두고, 그 뒤에는 ETag로 바뀌었는지만 묻는다.
  * 주소에 ?v=(내용 해시 앞 8자)가 붙고 지금 내용과 같으면 내용이 바뀌면 주소도 바뀌므로 1년 immutable로 준다.
  * 버전이 없는 옛 주소나 지금 내용과 다른 버전은 하루짜리 그대로다(옛 주소도 계속 동작).
@@ -36,9 +36,9 @@ public class PhotoController {
     private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofDays(1)).cachePublic();
     private static final CacheControl VERSIONED = CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable();
 
-    private final PhotoStore store;
+    private final PhotoLoader store;
 
-    public PhotoController(PhotoStore store) {
+    public PhotoController(PhotoLoader store) {
         this.store = store;
     }
 

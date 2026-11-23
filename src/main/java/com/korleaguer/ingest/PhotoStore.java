@@ -4,6 +4,7 @@ import com.korleaguer.config.DataMode;
 import com.korleaguer.domain.Photo;
 import com.korleaguer.domain.PhotoRepository;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.photo.PhotoLoader;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.support.Hashes;
 import jakarta.annotation.PostConstruct;
@@ -46,7 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  */
 @Component
-public class PhotoStore {
+public class PhotoStore implements PhotoLoader {
 
     private static final Logger log = LoggerFactory.getLogger(PhotoStore.class);
 
@@ -73,6 +74,7 @@ public class PhotoStore {
     }
 
     /** 저장본. 없거나 원본 주소가 바뀌었으면 지금 받아 저장한다. 목록에 없는 이름이거나 받을 수 없으면 빈 값 */
+    @Override
     public Optional<Photo> load(String key) {
         Optional<String> source = sources.source(key);
         if (source.isEmpty()) {
