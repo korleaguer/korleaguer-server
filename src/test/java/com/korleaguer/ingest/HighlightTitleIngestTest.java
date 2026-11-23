@@ -182,6 +182,36 @@ class HighlightTitleIngestTest {
     }
 
     @Test
+    void aTitleThatKeepsFailingRestsLongerEachTimeUpToADay() {
+        saveDetail(lee, SOLO);
+        translator.unusable.add(SOLO);
+        HighlightTitleIngest ingest = ingest();
+
+        // 1시간 → 2시간 → 4시간 … 쉬는 시간이 두 배씩 는다
+        ingest.translate(10);
+        for (int hours : new int[]{1, 2, 4, 8, 16}) {
+            int before = translator.asked.size();
+            clock.advance(Duration.ofHours(hours).minusSeconds(1));
+            ingest.translate(10);
+            assertThat(translator.asked).hasSize(before);
+            clock.advance(Duration.ofSeconds(1));
+            ingest.translate(10);
+            assertThat(translator.asked).hasSize(before + 1);
+        }
+        // 그 뒤로는 하루(MAX_RETRY_AFTER)에 한 번만 다시 해 본다
+        for (int day = 0; day < 3; day++) {
+            int before = translator.asked.size();
+            clock.advance(HighlightTitleIngest.MAX_RETRY_AFTER.minusSeconds(1));
+            ingest.translate(10);
+            assertThat(translator.asked).hasSize(before);
+            clock.advance(Duration.ofSeconds(1));
+            ingest.translate(10);
+            assertThat(translator.asked).hasSize(before + 1);
+        }
+        assertThat(translator.asked).containsOnly(SOLO);
+    }
+
+    @Test
     void whenTheServiceFailsTheRunStopsAndEveryTitlePausesThenGoesOn() {
         saveDetail(lee, SOLO, CATCH, DOUBLE);
         translator.fail = true;

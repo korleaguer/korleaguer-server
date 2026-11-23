@@ -44,7 +44,8 @@ import java.util.stream.Collectors;
  *   <li>같은 영어 제목은 한 줄이고 모든 선수·경기가 같이 쓴다. 번역기에는 그 제목이 나온 경기 상세의 선수 이름을 넘긴다(제목에서 그 선수 이름을 뺀다).</li>
  *   <li>번역 규칙 판(translator.version())이 다른 옛 번역은 다시 옮겨 덮어쓴다.</li>
  *   <li>한 번 실행에 AI를 limit번까지만 부른다(못 옮긴 호출도 센다). 수집 잠금을 오래 잡지 않게 한다.</li>
- *   <li>못 옮긴 제목(빈 답·못 쓸 답)은 RETRY_AFTER 동안 다시 부르지 않는다. AI 서비스가 답하지 못하거나 저장에 실패하면 그 실행을 멈추고
+ *   <li>못 옮긴 제목(빈 답·못 쓸 답)은 RETRY_AFTER 동안 다시 부르지 않고, 또 못 옮길 때마다 쉬는 시간을 두 배로 늘린다(MAX_RETRY_AFTER까지).
+ *       영영 못 옮기는 제목을 한 시간마다 끝없이 부르지 않게 한다(서버를 다시 띄우면 처음부터 센다). AI 서비스가 답하지 못하거나 저장에 실패하면 그 실행을 멈추고
  *       모든 제목을 PAUSE 동안 쉰다. 키가 거절되면(401·403) 번역기가 서버를 다시 띄울 때까지 스스로 끈다.</li>
  *   <li>번역기가 꺼져 있거나(키 없음) 샘플 모드면 AI도 부르지 않고 훑지도 않는다.</li>
  * </ul>
@@ -57,6 +58,8 @@ public class HighlightTitleIngest {
 
     /** 못 옮긴 제목을 다시 해 보기까지 */
     static final Duration RETRY_AFTER = Duration.ofHours(1);
+    /** 못 옮긴 제목이 쉬는 시간의 끝(여러 번 못 옮기면 하루에 한 번만 다시 해 본다) */
+    static final Duration MAX_RETRY_AFTER = Duration.ofDays(1);
     /** AI 서비스가 답하지 못했을 때 모든 제목을 쉬는 시간 */
     static final Duration PAUSE = Duration.ofMinutes(5);
     /** title_en 칸 길이(V27) */
@@ -111,8 +114,10 @@ public class HighlightTitleIngest {
                 Waiting target = waiting.get(title);
                 Optional<String> korean = translator.translate(title, target.playerKo(), target.playerEn());
                 if (korean.isEmpty()) {
-                    waiting.put(title, target.retryAt(clock.instant().plus(RETRY_AFTER)));
-                    log.warn("highlight title could not be translated, not trying for {}: {}", RETRY_AFTER, title);
+                    Waiting resting = target.failedAt(clock.instant());
+                    waiting.put(title, resting);
+                    log.warn("highlight title could not be translated ({} times), not trying until {}: {}",
+                            resting.failures(), resting.notBefore(), title);
                     continue;
                 }
                 save(title, korean.get());
@@ -220,7 +225,7 @@ public class HighlightTitleIngest {
                 continue;
             }
             Player player = found.get(title);
-            Waiting target = new Waiting(player.getNameKo(), player.getNameEn(), Instant.MIN);
+            Waiting target = new Waiting(player.getNameKo(), player.getNameEn(), Instant.MIN, 0);
             if (first) {
                 waiting.putFirst(title, target);
             } else {
@@ -269,11 +274,17 @@ public class HighlightTitleIngest {
         }
     }
 
-    /** 옮길 제목 하나: 번역기에 넘길 선수 이름과, 이 시각 전에는 부르지 않는다(못 옮긴 뒤 쉬는 중) */
-    private record Waiting(String playerKo, String playerEn, Instant notBefore) {
+    /** 옮길 제목 하나: 번역기에 넘길 선수 이름, 이 시각 전에는 부르지 않는다(못 옮긴 뒤 쉬는 중), 못 옮긴 횟수 */
+    private record Waiting(String playerKo, String playerEn, Instant notBefore, int failures) {
 
-        Waiting retryAt(Instant when) {
-            return new Waiting(playerKo, playerEn, when);
+        /** 또 못 옮겼다: RETRY_AFTER × 2^(횟수-1)만큼, 많아야 MAX_RETRY_AFTER 쉰다 */
+        Waiting failedAt(Instant now) {
+            int count = failures + 1;
+            Duration rest = RETRY_AFTER.multipliedBy(1L << Math.min(count - 1, 10));
+            if (rest.compareTo(MAX_RETRY_AFTER) > 0) {
+                rest = MAX_RETRY_AFTER;
+            }
+            return new Waiting(playerKo, playerEn, now.plus(rest), count);
         }
     }
 }
