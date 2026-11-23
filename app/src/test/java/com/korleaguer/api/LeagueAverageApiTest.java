@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.api.season.LeagueEnv;
+
 import com.korleaguer.api.season.LeagueEnvironments;
 
 import com.korleaguer.client.MlbClient;
@@ -122,13 +124,13 @@ class LeagueAverageApiTest {
         LeagueAverage.Values tripleA = averages.findBySeasonAndLevel(2026, "AAA").orElseThrow().values();
 
         assertThat(leagues.get(2026, "AAA"))
-                .isEqualTo(new LeagueEnvironments.Env(tripleA.woba(), tripleA.runsPerPa(), tripleA.era()));
+                .isEqualTo(new LeagueEnv(tripleA.woba(), tripleA.runsPerPa(), tripleA.era()));
         // 서버를 다시 띄운 것처럼 새로 만든(메모리가 빈) 객체도 DB 값을 그대로 쓴다
         assertThat(new LeagueEnvironments(averages).of(2026, List.of("MLB", "AAA")))
                 .isEqualTo(leagues.of(2026, List.of("MLB", "AAA")))
-                .doesNotContainValue(LeagueEnvironments.STANDARD);
+                .doesNotContainValue(LeagueEnv.STANDARD);
         // 받지 않은 조합은 표준값
-        assertThat(leagues.get(2025, "MLB")).isSameAs(LeagueEnvironments.STANDARD);
+        assertThat(leagues.get(2025, "MLB")).isSameAs(LeagueEnv.STANDARD);
 
         mockMvc.perform(get("/api/home"));
         mockMvc.perform(get("/api/players/timeline"));

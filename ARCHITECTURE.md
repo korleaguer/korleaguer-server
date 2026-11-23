@@ -171,7 +171,7 @@ member(앞으로) ─▶ api, core
 
 4단계 '문 하나'도 끝났다(#245): 공 영상 주소를 찾는 일을 `core`의 `video.PlayVideoFinder`(메서드 하나, 공 번호 모양 `PLAY_ID`, 결과 `Lookup`)로 좁히고, 구현 `SavantClips`와 조립 `VideoConfig`는 `client`로 옮겼다. `api` 모듈은 이제 `core`만 의존한다. 사진 내주기의 `photo.PhotoLoader`(#243)와 같은 모양이다.
 
-5단계 `api` 안쪽 주제 패키지도 끝났다: 검사 도구 ArchUnit과 클래스 종류 규칙 둘(#249), 주제 패키지 아홉과 방향 규칙(#251). 구조 이동 다섯 단계가 모두 끝났고, 남은 일은 아래 표의 얼린 곳을 고치는 것이다.
+5단계 `api` 안쪽 주제 패키지도 끝났다: 검사 도구 ArchUnit과 클래스 종류 규칙 둘(#249), 주제 패키지 아홉과 방향 규칙(#251). 구조 이동 다섯 단계가 모두 끝났고, 남은 일은 아래 표의 얼린 곳을 고치는 것이다(#253부터).
 
 ### 지금 규칙과 다른 곳
 
@@ -184,8 +184,8 @@ member(앞으로) ─▶ api, core
 | `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
 | `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
 | 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
-| 조회 안쪽 주제는 아래 방향으로만 | 8곳, 얼려 둠(#251). 아래가 위를 앎: `season.MinorRecords` → `card.FormFacts`·`card.MyPlayersResponse`, `player.MinorTeamNames` → `season.MinorRecords`, `card.MyPlayersService` → `screen.BaseballQueryService`, `player.RosterProfiles` → `screen.PlayerPageResponse`. 같은 층끼리: `card.MyPlayersService`·`card.MyPlayersResponse` → `records.GameBuzz`·`records.GameBuzzFinder` |
-| 순수 계산은 스프링 빈·리포지토리를 모른다 | 8개 클래스, 얼려 둠(#249): `LinkedTeamsCounter`(리포지토리), `MinorRecords`, `PeriodRates`, `SeasonMonths`, `SeasonRates`, `SeasonReports`, `TeamLabels`, `WrcMath`(빈 `LeagueEnvironments`·`MinorTeamNames`·`GameLineAssembler`) |
+| 조회 안쪽 주제는 아래 방향으로만 | 7곳, 얼려 둠(#251, 마이너 단계 이름표를 `player`로 옮겨 1곳 줄임 #253). 아래가 위를 앎: `season.MinorRecords` → `card.FormFacts`·`card.MyPlayersResponse`, `card.MyPlayersService` → `screen.BaseballQueryService`, `player.RosterProfiles` → `screen.PlayerPageResponse`. 같은 층끼리: `card.MyPlayersService`·`card.MyPlayersResponse` → `records.GameBuzz`·`records.GameBuzzFinder` |
+| 순수 계산은 스프링 빈·리포지토리를 모른다 | 0곳(#253). 리그 평균 값은 `season.LeagueEnv`, 타격·투구 변환은 `game.GameBatting.of`·`GamePitching.of`, 마이너 팀 이름표 `player.MinorTeamNames`는 값 객체(빈 등록은 `PlayerConfig`), 거론 구단 세기 `article.LinkedTeamsCounter`는 빈으로 바꿨다 |
 | 순수 계산은 응답 타입을 모른다 | 6개 클래스, 얼려 둠(#249): `CardStatuses`, `FormFacts`, `MinorRecords`(`MyPlayersResponse`), `KoreanRecords`(`RecordsResponse`), `NewsTopics`(`NewsListResponse`), `PlayerTimelines`(`PlayerPageResponse`) |
 
 ### 아직 정하지 않은 것

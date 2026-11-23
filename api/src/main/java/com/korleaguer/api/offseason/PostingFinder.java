@@ -9,7 +9,6 @@ import com.korleaguer.api.article.SameArticles;
 import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
-import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PastPosting;
 import com.korleaguer.posting.PostingCase;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -52,13 +50,13 @@ public class PostingFinder {
     /** 영어 MLB 매체. 국내 기사만 제목이 MLB 이야기인지 본다(MlbContext) */
     private final Set<String> aiPublishers;
 
-    public PostingFinder(Postings postings, NewsArticleRepository news, NewsDestinationRepository destinations,
+    public PostingFinder(Postings postings, NewsArticleRepository news, LinkedTeamsCounter linkedTeams,
                          PhotoSources photos, NewsProperties newsProperties) {
         this.postings = postings;
         this.news = news;
         this.photos = photos;
         this.publishers = newsProperties.publishers();
-        this.linkedTeams = new LinkedTeamsCounter(news, destinations, publishers);
+        this.linkedTeams = linkedTeams;
         this.aiPublishers = newsProperties.aiPublishers();
     }
 

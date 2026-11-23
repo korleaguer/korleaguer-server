@@ -55,9 +55,9 @@ final class SeasonRates {
 
     /**
      * @param minorsCard 성적표가 마이너 합계를 앞세우는지(level == MINORS)
-     * @param leagues    단계(MLB·AAA 등)별 리그 평균. 없는 단계는 LeagueEnvironments.STANDARD
+     * @param leagues    단계(MLB·AAA 등)별 리그 평균. 없는 단계는 LeagueEnv.STANDARD
      */
-    static Rates of(SeasonReports.Input in, boolean minorsCard, Map<String, LeagueEnvironments.Env> leagues) {
+    static Rates of(SeasonReports.Input in, boolean minorsCard, Map<String, LeagueEnv> leagues) {
         boolean pitcher = in.role() == Role.PITCHER;
         // 공식 지표(wRC+·ERA-)를 받았으면 그 값, 아니면 경기별 기록
         SeasonVerdict.Line official = in.mlb() != null && in.mlb().quality() != null ? in.mlb() : null;
@@ -96,12 +96,12 @@ final class SeasonRates {
     }
 
     /** 경기별 기록의 wRC+. 리그 평균은 경기 단계(minors가 아니면 모두 MLB)의 값을 타석 비중으로 섞는다 */
-    private static Integer wrcPlus(List<GameDay> games, boolean minors, Map<String, LeagueEnvironments.Env> leagues) {
+    private static Integer wrcPlus(List<GameDay> games, boolean minors, Map<String, LeagueEnv> leagues) {
         List<GameDay> batted = games.stream().filter(g -> g.batting() != null).toList();
         // 단계를 모르는 마이너 경기(null)는 표준값으로 잰다(SeasonMonths.league). HashMap이라 null 단계도 담는다
         Map<String, Integer> plateAppearances = new HashMap<>();
         for (GameDay game : batted) {
-            plateAppearances.merge(minors ? game.level() : LeagueEnvironments.MLB,
+            plateAppearances.merge(minors ? game.level() : LeagueEnv.MLB,
                     game.batting().plateAppearancesOrComputed(), Integer::sum);
         }
         int total = plateAppearances.values().stream().mapToInt(Integer::intValue).sum();
@@ -112,7 +112,7 @@ final class SeasonRates {
     }
 
     /** 경기별 기록의 ERA+. 아웃 수를 아는 경기만 센다(숫자 칸의 평균자책점과 같은 기준). 리그 평균은 아웃 비중으로 섞는다 */
-    private static Integer eraPlus(List<GameDay> games, boolean minors, Map<String, LeagueEnvironments.Env> leagues) {
+    private static Integer eraPlus(List<GameDay> games, boolean minors, Map<String, LeagueEnv> leagues) {
         Map<String, Integer> outsByStage = new HashMap<>();
         int outs = 0;
         int earnedRuns = 0;
@@ -121,7 +121,7 @@ final class SeasonRates {
                 continue;
             }
             int gameOuts = game.pitching().pitchingOuts();
-            outsByStage.merge(minors ? game.level() : LeagueEnvironments.MLB, gameOuts, Integer::sum);
+            outsByStage.merge(minors ? game.level() : LeagueEnv.MLB, gameOuts, Integer::sum);
             outs += gameOuts;
             earnedRuns += SeasonReports.orZero(game.pitching().earnedRuns());
         }
@@ -132,24 +132,24 @@ final class SeasonRates {
     }
 
     /** 단계 리그 평균을 weights(타석·아웃) 비중으로 섞은 평균. total은 weights의 합(0보다 크다) */
-    private static LeagueEnvironments.Env mixed(Map<String, Integer> weights, int total,
-                                                Map<String, LeagueEnvironments.Env> leagues) {
+    private static LeagueEnv mixed(Map<String, Integer> weights, int total,
+                                                Map<String, LeagueEnv> leagues) {
         double woba = 0;
         double runsPerPa = 0;
         double era = 0;
         for (Map.Entry<String, Integer> entry : weights.entrySet()) {
-            LeagueEnvironments.Env league = SeasonMonths.league(leagues, entry.getKey());
+            LeagueEnv league = SeasonMonths.league(leagues, entry.getKey());
             double share = (double) entry.getValue() / total;
             woba += league.woba() * share;
             runsPerPa += league.runsPerPa() * share;
             era += league.era() * share;
         }
-        return new LeagueEnvironments.Env(woba, runsPerPa, era);
+        return new LeagueEnv(woba, runsPerPa, era);
     }
 
     /**
      * 마이너 합계의 단계 이름: 모두 한 단계면 그 이름(트리플A), 단계가 섞였거나 단계를 모르는 경기(level null)가 끼었으면
-     * '마이너'. 모르는 단계도 한 단계로 센다: 숫자는 그 경기를 표준값(LeagueEnvironments.STANDARD)으로 섞어 재므로
+     * '마이너'. 모르는 단계도 한 단계로 센다: 숫자는 그 경기를 표준값(LeagueEnv.STANDARD)으로 섞어 재므로
      * '트리플A'라 하면 잣대와 어긋난다(이슈 #179 리뷰). 모두 모르면 MinorRecords.levelKo(null)과 같이 '마이너'.
      * 홈 마이너 줄이 쓰는 MinorRecords.levelKo(마이너 경기 목록)와 같은 규칙이다(한쪽을 바꾸면 다른 쪽도 바꾼다)
      */

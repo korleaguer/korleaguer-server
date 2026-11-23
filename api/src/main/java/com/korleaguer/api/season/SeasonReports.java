@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import com.korleaguer.api.player.MinorTeamNames;
+
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Pitching;
@@ -124,7 +126,7 @@ public final class SeasonReports {
     /**
      * @param leagues 단계(MLB·AAA 등)별 리그 평균(달별 wRC+·ERA+에 쓴다, LeagueEnvironments). 없는 단계는 표준값
      */
-    public static Built build(Input in, Map<String, LeagueEnvironments.Env> leagues) {
+    public static Built build(Input in, Map<String, LeagueEnv> leagues) {
         boolean pitcher = in.role() == Role.PITCHER;
         List<GameDay> majors = byDate(in.majors());
         List<GameDay> minors = byDate(in.minors());
@@ -368,11 +370,11 @@ public final class SeasonReports {
     private enum FactKind { INJURY, STINT, UP_DOWN, DOWN, UP, HALF }
 
     private static String reason(Input in, SeasonTier tier, List<GameDay> majors, List<GameDay> minors,
-                                 Set<FactKind> usedInHeadline, Map<String, LeagueEnvironments.Env> leagues) {
+                                 Set<FactKind> usedInHeadline, Map<String, LeagueEnv> leagues) {
         if (in.role() == Role.HITTER && (tier == SeasonTier.GOOD || tier == SeasonTier.SOLID)) {
             // 다 뛴 시즌은 전·후반 흐름이 가장 큰 이야기다(짧은 부상자 명단보다 먼저).
             // 두 반은 메이저 달 막대와 같이 MLB 리그 평균과 견주고 공식 시즌 wRC+에 맞춰 옮긴다
-            LeagueEnvironments.Env mlb = SeasonMonths.league(leagues, LeagueEnvironments.MLB);
+            LeagueEnv mlb = SeasonMonths.league(leagues, LeagueEnv.MLB);
             Fact half = halfFact(majors, mlb, SeasonMonths.scale(in, false, mlb).wrcShift());
             if (half != null) {
                 return half.text();
@@ -505,7 +507,7 @@ public final class SeasonReports {
      * @param mlb   MLB 리그 평균(LeagueEnvironments)
      * @param shift 공식 시즌 wRC+에 맞추는 보정(SeasonMonths.scale, 메이저 달 막대와 같은 값)
      */
-    private static Fact halfFact(List<GameDay> majors, LeagueEnvironments.Env mlb, double shift) {
+    private static Fact halfFact(List<GameDay> majors, LeagueEnv mlb, double shift) {
         List<GameDay> games = majors.stream().filter(g -> g.batting() != null).toList();
         if (games.size() < 2) {
             return null;
@@ -584,7 +586,7 @@ public final class SeasonReports {
 
     private static String levelName(String level) {
         // 단계 이름은 MinorRecords 한 곳에서(두 표가 따로 있다가 하이A·하이싱글A로 어긋났다). 모르는 단계는 약어 그대로
-        return MinorRecords.LEVEL_KO.getOrDefault(level, level);
+        return MinorTeamNames.LEVEL_KO.getOrDefault(level, level);
     }
 
     private static boolean isCode(Move move, String... codes) {

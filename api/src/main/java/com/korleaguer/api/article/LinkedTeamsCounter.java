@@ -1,5 +1,6 @@
 package com.korleaguer.api.article;
 
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.DestinationMention;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
@@ -8,6 +9,7 @@ import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.support.KoreanTime;
 import com.korleaguer.support.TeamNames;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -25,8 +27,10 @@ import java.util.function.UnaryOperator;
  * 최근 LINKED_DAYS일 기사에서 한 선수의 행선지로 거론된 MLB 구단을 센다(기사마다 AI로 고른 것, ingest.NewsTagger).
  * 홈 MLB 도전 카드(포스팅 선수)와 시즌 성적표의 FA 선수(이슈 #140)가 같은 규칙을 쓴다: 지금 수집하는 언론사의 기사만,
  * 같은 글을 실은 여러 언론사 기사(SameArticles 묶음)는 한 번만 센다.
+ * DB(기사·거론 구단)를 읽으므로 빈이다. 두 화면(PostingFinder·SeasonReportFinder)이 같은 하나를 받아 쓴다.
  */
-public final class LinkedTeamsCounter {
+@Component
+public class LinkedTeamsCounter {
 
     /** '행선지로 거론된 구단'을 세는 날 수(한국 날짜, 오늘 포함) */
     static final int LINKED_DAYS = 7;
@@ -37,10 +41,11 @@ public final class LinkedTeamsCounter {
     private final NewsDestinationRepository destinations;
     private final Set<String> publishers;
 
-    public LinkedTeamsCounter(NewsArticleRepository news, NewsDestinationRepository destinations, Set<String> publishers) {
+    public LinkedTeamsCounter(NewsArticleRepository news, NewsDestinationRepository destinations,
+                              NewsProperties newsProperties) {
         this.news = news;
         this.destinations = destinations;
-        this.publishers = publishers;
+        this.publishers = newsProperties.publishers();
     }
 
     /**
