@@ -98,7 +98,7 @@ member(앞으로) ─▶ api, core
 - 응답 캐시(Caffeine)와 캐시 채우기(`CacheWarmer`)
 - DB에 쓴 횟수 세기(`DataChanges`의 static 값)
 - 수집 한 번에 하나만 돌기(`IngestService`의 잠금). 하이라이트 제목 번역의 대기 줄과 쉬는 시각(`HighlightTitleIngest`)도 수집 안에서만 쓰는 메모리다
-- 스케줄 셋(수집 12분, 기사 30분, 사진 6시간)
+- 스케줄 셋(수집 12분, 기사 30분, 사진 10분. 사진은 빠진 것이 없으면 DB만 보고 끝나고, 원본에 바뀌었는지 묻는 것은 7일마다다)
 - MLB 요청 제한(`RateLimiter`)
 
 ### 쓰지 않는 것
@@ -184,7 +184,7 @@ member(앞으로) ─▶ api, core
 | `client`는 `core`만 안다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #241) |
 | `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
 | `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
-| 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
+| 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 0건. 마지막 1건이던 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)를 #259에서 DB 저장본만 읽게 바꿨다. 저장본이 없으면 404(웹은 이름 첫 글자 원)이고, 원본 주소가 바뀌었으면 새로 받기 전까지 옛 저장본을 준다. 받기는 사진 주기 작업(뜰 때 한 번, 10분마다)만 한다. 운영에서 11-11부터 11-24까지 요청 중에 받은 일은 0번이었다(받을 사진 6장 모두 주기 작업이 받아 둠) |
 | 조회 안쪽 주제는 아래 방향으로만 | 0곳(#257). #251에 8곳이었다. 마지막 3곳은 역대 기록 층을 카드 아래로 내리고(사용자 결정), '기록을 받는 상태인지'를 `api` 바로 아래 `StatsAvailability`로 옮겨 풀었다 |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 0곳(#253). 리그 평균 값은 `season.LeagueEnv`, 타격·투구 변환은 `game.GameBatting.of`·`GamePitching.of`, 마이너 팀 이름표 `player.MinorTeamNames`는 값 객체(빈 등록은 `PlayerConfig`), 거론 구단 세기 `article.LinkedTeamsCounter`는 빈으로 바꿨다 |
 | 순수 계산은 응답 타입을 모른다 | 0곳(#255). 계산이 쓰던 응답 안 중첩 타입을 계산 쪽 독립 타입으로 꺼냈다(`card.CardStatus`·`CardFact`·`CardPlay`, `season.LevelTotals`·`PeriodHitting`·`PeriodPitching`·`GameStat`, `records.Record…` 여섯, `article.NewsTopic`, `player.MoveEntry`·`PastTeamPhoto`, `screen.TimelineSegment`·`TimelineKind`). 응답이 이것을 품는다 |

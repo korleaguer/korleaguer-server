@@ -11,8 +11,9 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.ExecutorService;
 
 /**
- * korleaguer.photos.enabled=true일 때: 앱이 뜨면 뒤에서 한 번, 그 뒤 korleaguer.photos.cron(UTC)마다 사진을 챙긴다
- * (없는 사진 받기, 물어본 지 7일 지난 사진은 바뀌었는지만 묻기). 첫 방문자가 사진을 기다리지 않게 미리 받아 둔다.
+ * korleaguer.photos.enabled=true일 때: 앱이 뜨면 뒤에서 한 번, 그 뒤 korleaguer.photos.cron(UTC, 10분마다)마다 사진을 챙긴다
+ * (없는 사진 받기, 물어본 지 7일 지난 사진은 바뀌었는지만 묻기). 화면 요청은 저장본만 읽으므로(PhotoStore.load) 사진 받기는
+ * 여기서만 한다. 명단에 선수를 넣으면 배포라 뜰 때 바로 받고, 받기에 실패한 사진은 다음 주기에 다시 받는다(원본이 실패로 답했으면 쉬는 시간이 지난 뒤).
  */
 @Component
 @ConditionalOnProperty(name = "korleaguer.photos.enabled", havingValue = "true")
