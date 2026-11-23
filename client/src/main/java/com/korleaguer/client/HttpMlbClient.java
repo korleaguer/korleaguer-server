@@ -1,6 +1,5 @@
 package com.korleaguer.client;
 
-import com.korleaguer.support.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.HttpClientErrorException;

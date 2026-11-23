@@ -12,10 +12,12 @@ COPY gradlew settings.gradle build.gradle ./
 COPY gradle gradle
 # 모듈마다 build.gradle만 먼저 넣는다(settings.gradle의 include와 같게 유지).
 COPY core/build.gradle core/
+COPY client/build.gradle client/
 # 의존성만 먼저 받아 두면 코드만 바뀐 빌드에서 이 단계를 캐시로 건너뛴다.
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon -q dependencies > /dev/null
 COPY src src
 COPY core/src core/src
+COPY client/src client/src
 # 테스트는 PR CI에서 이미 돈다. 여기서는 실행할 jar만 만든다.
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon -q bootJar \
     && cp "$(ls build/libs/*.jar | grep -v -- '-plain.jar' | head -n 1)" application.jar \

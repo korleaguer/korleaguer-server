@@ -1,6 +1,5 @@
 package com.korleaguer.news;
 
-import com.korleaguer.news.Summarizer;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

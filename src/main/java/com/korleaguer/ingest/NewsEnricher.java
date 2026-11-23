@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.NewsProperties;
@@ -6,6 +6,9 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsBlockedHost;
 import com.korleaguer.domain.NewsBlockedHostRepository;
+import com.korleaguer.news.ArticlePage;
+import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.news.Summarizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;

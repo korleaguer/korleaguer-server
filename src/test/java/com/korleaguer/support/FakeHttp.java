@@ -1,4 +1,6 @@
-package com.korleaguer.news;
+package com.korleaguer.support;
+
+import com.korleaguer.news.HttpGetter;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,36 +16,36 @@ import java.util.List;
 import java.util.Map;
 
 /** 주소별로 정해 둔 응답을 차례로 돌려주는 가짜 HTTP. 받은 요청(주소·헤더·시각)을 기억한다. 정해 두지 않은 주소는 404 */
-class FakeHttp implements HttpGetter {
+public class FakeHttp implements HttpGetter {
 
-    record Request(URI uri, Map<String, String> headers, Instant at) {
+    public record Request(URI uri, Map<String, String> headers, Instant at) {
     }
 
     private final Clock clock;
     private final Map<String, Deque<Object>> replies = new HashMap<>();
-    final List<Request> requests = new ArrayList<>();
+    public final List<Request> requests = new ArrayList<>();
 
-    FakeHttp(Clock clock) {
+    public FakeHttp(Clock clock) {
         this.clock = clock;
     }
 
     /** 이 주소에 차례로 돌려줄 응답(마지막 것은 계속 돌려준다) */
-    FakeHttp on(String url, Reply... answers) {
+    public FakeHttp on(String url, Reply... answers) {
         replies.computeIfAbsent(url, k -> new ArrayDeque<>()).addAll(List.of(answers));
         return this;
     }
 
     /** 이 주소는 연결에 실패한다 */
-    FakeHttp failing(String url) {
+    public FakeHttp failing(String url) {
         replies.computeIfAbsent(url, k -> new ArrayDeque<>()).add(new IOException("connection refused"));
         return this;
     }
 
-    static Reply ok(String body) {
+    public static Reply ok(String body) {
         return reply(200, body);
     }
 
-    static Reply reply(int status, String body, String... headerPairs) {
+    public static Reply reply(int status, String body, String... headerPairs) {
         Map<String, String> headers = new LinkedHashMap<>();
         for (int i = 0; i + 1 < headerPairs.length; i += 2) {
             headers.put(headerPairs[i].toLowerCase(), headerPairs[i + 1]);
@@ -51,7 +53,7 @@ class FakeHttp implements HttpGetter {
         return new Reply(status, headers, body.getBytes(StandardCharsets.UTF_8));
     }
 
-    List<String> urls() {
+    public List<String> urls() {
         return requests.stream().map(r -> r.uri().toString()).toList();
     }
 
