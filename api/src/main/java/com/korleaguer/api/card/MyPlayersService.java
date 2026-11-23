@@ -1,5 +1,6 @@
 package com.korleaguer.api.card;
 
+import com.korleaguer.api.StatsAvailability;
 import com.korleaguer.api.season.GameStat;
 import com.korleaguer.api.season.LevelTotals;
 import com.korleaguer.api.season.PeriodHitting;
@@ -16,7 +17,6 @@ import com.korleaguer.api.player.RosterMember;
 import com.korleaguer.api.player.RosterProfiles;
 import com.korleaguer.api.records.GameBuzz;
 import com.korleaguer.api.records.GameBuzzFinder;
-import com.korleaguer.api.screen.BaseballQueryService;
 import com.korleaguer.api.season.HitterSeason;
 import com.korleaguer.api.season.LeagueEnvironments;
 import com.korleaguer.api.season.MinorRecords;
@@ -101,7 +101,6 @@ public class MyPlayersService {
     private final AppearanceRepository appearances;
     private final GameRepository games;
     private final GameLineAssembler gameLines;
-    private final BaseballQueryService queryService;
     private final RosterProfiles profiles;
     private final DataMode dataMode;
     private final CurrentSeason currentSeason;
@@ -115,7 +114,7 @@ public class MyPlayersService {
 
     public MyPlayersService(PlayerRepository players, AffiliationRepository affiliations,
                             AppearanceRepository appearances, GameRepository games, GameLineAssembler gameLines,
-                            BaseballQueryService queryService, RosterProfiles profiles, DataMode dataMode,
+                            RosterProfiles profiles, DataMode dataMode,
                             CurrentSeason currentSeason, PlayerMoveRepository moves,
                             MinorGameLogRepository minorGameLogs, SeasonDatesRepository seasonDates, Clock clock,
                             CacheManager cacheManager, LeagueEnvironments leagues, GameBuzzFinder buzz) {
@@ -124,7 +123,6 @@ public class MyPlayersService {
         this.appearances = appearances;
         this.games = games;
         this.gameLines = gameLines;
-        this.queryService = queryService;
         this.profiles = profiles;
         this.dataMode = dataMode;
         this.currentSeason = currentSeason;
@@ -160,7 +158,7 @@ public class MyPlayersService {
         // (마이너 카드는 마이너 기간, 부상자 명단 카드는 '다치기 전'이라 따로 적는다, 시즌 합계 카드는 기간이 없다).
         boolean anyFallback = result.stream().anyMatch(p -> p.basis() == MyPlayersResponse.Basis.LAST_PLAYED
                 || (p.basis() == MyPlayersResponse.Basis.REHAB && p.isFallback()));
-        return new MyPlayersResponse(dataMode.value(), queryService.statsAvailable(), currentSeason.current(),
+        return new MyPlayersResponse(dataMode.value(), StatsAvailability.statsAvailable(), currentSeason.current(),
                 now.truncatedTo(ChronoUnit.SECONDS), days, today.minusDays(days - 1), today, anyFallback, result,
                 buzz(result));
     }
@@ -198,7 +196,7 @@ public class MyPlayersService {
         LocalDate today = KoreanTime.kstDate(now);
         LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
         int season = currentSeason.current();
-        boolean statsAvailable = queryService.statsAvailable();
+        boolean statsAvailable = StatsAvailability.statsAvailable();
         List<RosterMember> members = members(requested);
         boolean loadStats = statsAvailable && !members.isEmpty();
 
