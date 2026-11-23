@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.client.SampleMlbClient;
+import com.korleaguer.ingest.GameDetailIngest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 영상 스위치를 끄면(KORLEAGUER_VIDEOS=false) 하이라이트를 비우고 공 영상도 묻지 않는다. 타석 기록은 그대로 */
+/** 영상 스위치를 끄면(KORLEAGUER_VIDEOS=false) 하이라이트를 비우고 공 영상도 묻지 않는다. 타석 기록은 그대로(저장된 상세에 읽을 때 적용) */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:game-detail-off-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "korleaguer.videos.enabled=false"})
@@ -35,8 +36,13 @@ class GameDetailVideosOffTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private GameDetailIngest gameDetailIngest;
+
     @Test
     void noVideosWhenSwitchedOff() throws Exception {
+        // 수집은 스위치와 상관없이 받아 두고(다시 켜면 바로 보이게), 읽을 때 비운다
+        gameDetailIngest.fill(1000);
         mockMvc.perform(get("/api/players/1/games/1001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.plays", hasSize(4)))

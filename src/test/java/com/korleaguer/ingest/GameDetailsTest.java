@@ -1,9 +1,9 @@
-package com.korleaguer.api;
+package com.korleaguer.ingest;
 
-import com.korleaguer.api.GameDetailResponse.GameHighlight;
-import com.korleaguer.api.GameDetailResponse.GamePlay;
 import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbPlayByPlay;
+import com.korleaguer.domain.GameDetail.GameHighlight;
+import com.korleaguer.domain.GameDetail.GamePlay;
 import com.korleaguer.domain.Role;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -49,7 +49,8 @@ class GameDetailsTest {
         assertThat(homer.exitKmh()).isEqualTo(157); // 97.7 mph
         assertThat(homer.launchAngle()).isEqualTo(33);
         assertThat(homer.distanceM()).isEqualTo(115); // 377 ft
-        assertThat(homer.playId()).matches(SavantClips.PLAY_ID.pattern());
+        // 공 번호 모양(api.SavantClips.PLAY_ID가 받는 모양과 같다)
+        assertThat(homer.playId()).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
         assertThat(plays.getLast().opponentName()).isEqualTo("Edwin Díaz");
     }
 
