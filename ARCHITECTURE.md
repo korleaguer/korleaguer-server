@@ -25,15 +25,15 @@
 ### 모듈: 하는 일로 나눈다
 
 바뀌는 이유가 다른 것끼리 나눈다. Gradle 멀티모듈로 실제로 쪼개 컴파일러가 경계를 막게 한다(단계적으로, §7).
-지금은 `core`와 `client`가 따로 모듈이고(`core/`, `client/`), 나머지는 아직 루트 프로젝트(`src/`)에 패키지로 있다. 루트 프로젝트가 실행 파일을 만든다.
+다섯 모듈이 모두 Gradle 모듈이다(`core/`, `client/`, `batch/`, `api/`, `app/`, #243). 실행 파일은 `app`이 만들고, 루트는 모듈을 묶기만 한다.
 
 | 모듈 | 하는 일 | 바뀌는 이유 | 지금 패키지 |
 |---|---|---|---|
 | `core` | 엔티티, 리포지토리, DB 마이그레이션, 기본 야구 계산, 설정 값·상수, 응답 캐시 비우기 | 데이터 모양 | `domain`, `support`, `posting`, `config`, `photo`(사진 목록) |
 | `client` | 밖과 말하는 법(남의 서버를 부르는 코드): MLB 클라이언트, 기사 가져오기(robots·예절), Claude 요약, 사진 원본 받기 | 외부 API와 예절 | `client`, `news`(가져오기·요약) |
-| `batch` | 수집: 받아서 바꾸고 저장하는 작업과 그 스케줄 | 무엇을 언제 받나 | `ingest`(사진 받기 `PhotoStore`, 기사 수집 `NewsCollector`·`NewsEnricher`·`NewsTagger` 포함) |
+| `batch` | 수집: 받아서 바꾸고 저장하는 작업과 그 스케줄 | 무엇을 언제 받나 | `ingest`(사진 받기 `PhotoStore`, 기사 수집 `NewsCollector`·`NewsEnricher`·`NewsTagger`, 관리용 수집 엔드포인트 `AdminController` 포함) |
 | `api` | 컨트롤러, 화면 조립, 화면용 계산 규칙, 응답 | 화면 요구 | `api` |
-| `app` | 조립만(main, 실행 파일) | 배포 방식 | `ApiApplication`, `AppConfig` |
+| `app` | 조립만(main, 실행 파일) | 배포 방식 | `ApiApplication`, `AppConfig`, 설정 파일(`application.properties`, `news/sources.yml`) |
 | `member` (앞으로) | 계정, 내 선수 저장, 댓글·반응, 알림 | 정책과 보안 | 없음 |
 
 ```
@@ -135,7 +135,7 @@ member(앞으로) ─▶ api, core
 - **구조를 옮기는 PR은 동작을 바꾸지 않는다.** 기능 변경과 섞지 않는다. 클래스 이동과 내용 수정이 한 PR에 섞이면 리뷰할 수 없다.
 - **PR**: '리뷰 포인트'에 `구조: 따른 규칙 / 새로 생긴 경계 넘는 참조(없으면 없음)`을 한 줄 적는다.
 - **모듈을 새로 뗄 때 같이 고칠 곳**: `settings.gradle`의 `include`, 모듈 `build.gradle`(Spring Boot 플러그인을 걸지 않으므로 `-parameters`와 UTF-8을 직접 건다. `-parameters`가 없으면 리포지토리 `@Query`의 이름 붙은 인자를 못 이어 앱이 뜨다 실패한다), `Dockerfile`의 `COPY` 두 줄, `deploy.yml`의 배포하지 않는 경로 두 곳(`paths-ignore`, `IGNORED`), `ci.yml`의 테스트 보고서 경로. 패키지 이름은 바꾸지 않고 폴더만 옮긴다.
-- **테스트 자리**: 스프링 없이 도는 단위 테스트는 그 모듈로 옮긴다. 앱 전체를 띄우는 테스트(`@SpringBootTest`)와 여러 모듈이 같이 쓰는 테스트 도우미(`MutableClock`, `PhotoFiles`, `FakeHttp`)와 그것을 쓰는 테스트, 루트 테스트 자원(`mlb/*.json`)을 쓰는 테스트는 루트에 둔다.
+- **테스트 자리**: 스프링 없이 도는 단위 테스트는 그 모듈로 옮긴다. 앱 전체를 띄우는 테스트(`@SpringBootTest`)와 여러 모듈이 같이 쓰는 테스트 도우미(`MutableClock`, `PhotoFiles`, `FakeHttp`, `MlbFixtures`)와 그것을 쓰는 테스트, 테스트 자원(`mlb/*.json`)을 쓰는 테스트는 `app`에 둔다.
 - **하위 에이전트에게 서버 일을 맡길 때**: 브리프에 "`ARCHITECTURE.md`를 먼저 읽고 따를 것"을 넣는다.
 
 ## 6. 이 문서 고치기
@@ -146,7 +146,7 @@ member(앞으로) ─▶ api, core
 
 ## 7. 아직 안 한 일 (11-23 기준)
 
-방향을 정했고 `core`와 `client`를 뗐다(#226·#239·#241). 지금 코드가 규칙과 다른 것은 버그가 아니라 할 일이다.
+방향을 정했고 모듈 다섯을 모두 뗐다(#226·#239·#241·#243). 지금 코드가 규칙과 다른 것은 버그가 아니라 할 일이다.
 
 ### 단계
 
@@ -161,7 +161,8 @@ member(앞으로) ─▶ api, core
 
 2단계 `client` 떼기도 끝났다(#241): MLB 클라이언트(`client`)와 요청 제한 `RateLimiter`, 기사 가져오기·robots·요청 예절·Claude 요약·분류·번역(`news`), 샘플 자원. 한 패키지는 한 모듈에만 두려고 기사 수집(`NewsCollector` 등)은 `ingest`로, 수집과 화면이 같이 쓰는 `MlbContext`는 `core`의 `support`로 옮겼다.
 
-3. `batch`와 `api` 가르기
+3단계 `batch`·`api`·`app` 가르기도 끝났다(#243). 그 전에 `api`가 수집을 알던 4건을 풀었다: 관리용 수집 엔드포인트(`AdminController`·`IngestLogResponse`·`AdminTokenInterceptor`)는 `batch`로, 사진 내주기는 `core`의 `photo.PhotoLoader` 인터페이스(구현은 `ingest.PhotoStore`)로, 비시즌 판단의 '우리 팀 경기가 있나'(DB만 읽음)는 `core`의 `domain.TrackedTeamGames`로.
+
 4. `api` → `client` 참조를 문 하나로 좁히기(지금 `SavantClips`만 남았다)
 5. `api` 안쪽을 주제 패키지로 나누기
 
@@ -173,9 +174,9 @@ member(앞으로) ─▶ api, core
 |---|---|
 | `core`는 다른 모듈을 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다). 막던 3건은 시간대 상수 `support.MlbTime`, 샘플 시즌 `DataMode.SAMPLE_SEASON`, 해시 `support.Hashes`로 풀었다(#239) |
 | `client`는 `core`만 안다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #241) |
-| `api`는 `batch`를 모른다 | 4건: 관리자 수집 실행(`AdminController` → `IngestService`, `ApiExceptionHandler` → `IngestAlreadyRunningException`), 사진 내주기(`PhotoController` → `PhotoStore`), 비시즌 판단(`OffSeasonFinder` → `GameIngest`의 최근 경기·미국 날짜). 시간대 상수와 수집 끝 이벤트는 `core`로 옮겼다(#239) |
+| `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
 | `api` → `client`는 문 하나로만(공 영상 주소만) | 2곳, 모두 공 영상 주소(#241 뒤 import로 다시 셈): `SavantClips`가 `news.PoliteFetcher`를, 그 조립 `VideoConfig`가 `news.JdkHttpGetter`·`PoliteFetcher`를 쓴다. 4단계에서 인터페이스 하나로 좁힌다. `MlbContext`는 `core`로 옮겼다(#241) |
-| 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
+| 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
 | 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 11건 |
 | 계산 클래스는 응답 타입을 모른다 | 8건 |
