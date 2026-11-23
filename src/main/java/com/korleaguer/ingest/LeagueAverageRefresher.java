@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -42,13 +43,17 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>조합 하나에 MLB 요청 2번(teams/stats 타격·투구 합계). 한 번 실행은 많아야 받을 조합 수 × 2번이다.</li>
  *   <li>값이 안 나오는 응답(타석이나 아웃이 0: 개막 전, 샘플 모드)은 저장하지 않고 그날(UTC)은 다시 묻지 않는다.
  *       그날 물었다는 것은 앱이 떠 있는 동안만 기억한다(다시 띄우면 한 번 더 묻는다).</li>
- *   <li>403/429면 그대로 던져 그 실행을 멈춘다. 다른 오류는 그 조합만 건너뛰고(있던 줄은 그대로 둔다) 다음 수집 때 다시 묻는다.</li>
+ *   <li>403/429면 그대로 던져 그 실행을 멈춘다. 다른 오류는 그 조합만 건너뛰고(있던 줄은 그대로 둔다) RETRY_AFTER 뒤에 다시 묻는다
+ *       (계속 실패하는 조합을 수집 때마다 다시 묻지 않게. 앱이 떠 있는 동안만 기억한다).</li>
  * </ul>
  */
 @Component
 public class LeagueAverageRefresher {
 
     private static final Logger log = LoggerFactory.getLogger(LeagueAverageRefresher.class);
+
+    /** 받다 실패한 조합을 다시 묻기까지 */
+    static final Duration RETRY_AFTER = Duration.ofHours(1);
     /** 받는 순서: 새 시즌부터, 같은 시즌은 메이저부터 단계 순(sportId 순) */
     private static final Comparator<Key> NEWEST_SEASON_THEN_LEVEL = Comparator.comparingInt(Key::season).reversed()
             .thenComparingInt(key -> LeagueAverage.SPORT_IDS.get(key.level()));
@@ -65,6 +70,8 @@ public class LeagueAverageRefresher {
     private final Clock clock;
     // 값이 안 나온 조합 → 물은 날(UTC 날짜). 같은 날 다시 묻지 않으려고 둔다. 앱이 떠 있는 동안만 기억한다.
     private final Map<Key, LocalDate> emptyOn = new ConcurrentHashMap<>();
+    // 받다 실패한 조합 → 실패한 시각. RETRY_AFTER 동안 다시 묻지 않으려고 둔다. 앱이 떠 있는 동안만 기억한다.
+    private final Map<Key, Instant> failedAt = new ConcurrentHashMap<>();
 
     public LeagueAverageRefresher(MlbClient client, LeagueAverageRepository averages, AppearanceRepository appearances,
                                   MinorGameLogRepository minorGameLogs, CurrentSeason currentSeason, Clock clock) {
@@ -101,6 +108,10 @@ public class LeagueAverageRefresher {
             if (!due || utcToday.equals(emptyOn.get(key))) {
                 continue;
             }
+            Instant lastFailure = failedAt.get(key);
+            if (lastFailure != null && now.isBefore(lastFailure.plus(RETRY_AFTER))) {
+                continue;
+            }
             try {
                 int sportId = LeagueAverage.SPORT_IDS.get(key.level());
                 LeagueAverage.Values values = fromTotals(
@@ -115,12 +126,14 @@ public class LeagueAverageRefresher {
                 LeagueAverage target = row != null ? row : new LeagueAverage(key.season(), key.level());
                 target.update(values, now);
                 averages.save(target);
+                failedAt.remove(key);
                 done++;
             } catch (MlbBlockedException e) {
                 throw e;
             } catch (MlbApiException e) {
-                log.warn("[mlb] league average {} {} failed, will retry next ingest ({})", key.level(), key.season(),
-                        e.getMessage());
+                log.warn("[mlb] league average {} {} failed, will retry in {} ({})", key.level(), key.season(),
+                        RETRY_AFTER, e.getMessage());
+                failedAt.put(key, now);
                 failed++;
             }
         }

@@ -188,15 +188,20 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
-    void failedCombinationIsSkippedAndRetriedNextRun() {
+    void failedCombinationIsSkippedAndRetriedAfterAWhile() {
         failing.add("2026 11 hitting");
 
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 2개, 실패 1개");
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB, "AA");
 
-        // 다음 수집: 못 받은 트리플A만 다시 묻는다
+        // 바로 다음 수집: 방금 실패한 조합은 RETRY_AFTER 동안 다시 묻지 않는다(계속 실패하는 조합을 12분마다 묻지 않게)
         failing.clear();
         asked.clear();
+        assertThat(refresher.refresh(false)).isEmpty();
+        assertThat(asked).isEmpty();
+
+        // RETRY_AFTER 뒤: 못 받은 트리플A만 다시 묻는다
+        clock.set(NOW.plus(LeagueAverageRefresher.RETRY_AFTER));
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 1개");
         assertThat(asked).containsExactly("2026 11 hitting", "2026 11 pitching");
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB, "AA", "AAA");
