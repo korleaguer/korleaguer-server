@@ -70,11 +70,11 @@ member(앞으로) ─▶ api, core
 - **주제별로 나누고 아래 방향으로만 안다.** 화면별(홈, 선수 페이지, 내 선수)로 나누지 않는다. 화면은 저마다 경기·시즌 성적·선수 기본을 다 써서 서로 물린다.
 
   ```
-  웹 web(컨트롤러·예외 처리) ▶ 화면 조립 screen(최근 경기 포함) ▶ 내 선수 카드 card / 역대 기록·화제 문구 records / 포스팅·비시즌 offseason
-  ▶ 시즌 성적 season ▶ 기사·포스팅 요약 article ▶ 경기 game ▶ 선수 기본 player
+  웹 web(컨트롤러·예외 처리) ▶ 화면 조립 screen(최근 경기 포함) ▶ 내 선수 카드 card / 포스팅·비시즌 offseason
+  ▶ 역대 기록·화제 문구 records ▶ 시즌 성적 season ▶ 기사·포스팅 요약 article ▶ 경기 game ▶ 선수 기본 player
   ```
 
-  같은 층(card·records·offseason)끼리도 모른다. 여러 층이 함께 던지는 공통 예외(`BadRequestException`)는 `com.korleaguer.api` 바로 아래에 둔다. 이 방향은 `ApiArchitectureTest`가 검사한다.
+  같은 층(card·offseason)끼리도 모른다. 여러 층이 함께 던지는 공통 예외(`BadRequestException`)는 `com.korleaguer.api` 바로 아래에 둔다. 이 방향은 `ApiArchitectureTest`가 검사한다.
 
 - **순수 계산 클래스는 스프링 빈과 리포지토리를 모른다.** 값을 받아 값을 돌려준다. 그래야 규칙 하나를 스프링 없이 읽고 테스트할 수 있다.
 - **응답은 계산 결과 타입을 그대로 품는다.** 응답 전용 타입으로 옮겨 담는 층은 두지 않는다. 방향은 응답 → 계산 타입이다. 계산 클래스가 화면 응답 타입(`…Response`)을 알면 안 된다.
@@ -118,6 +118,7 @@ member(앞으로) ─▶ api, core
 | 화면용 API는 DB만 읽는다. 경기 상세·하이라이트 제목 번역·리그 평균은 수집이 미리 받는다. 요청 중에 밖을 부르는 예외는 공 영상 주소 하나뿐이다('문 하나'). 선수 시즌 안전망(`OnDemandSeason`)도 없앤다 | 11-23 | 같은 날 먼저 '전부 미리 받지 않는다'로 정했다가 바꿨다. 근거였던 "미리 받으면 MLB 요청이 크게 는다"가 세어 보지 않은 말이었다(끝난 경기만 받으면 하루 5번꼴, 진행 중 갱신까지 넣어도 하루 30번쯤). 요청 중 받기는 기다리는 상한이 없고 수집과 요청 제한을 같이 써 서로 늦춘다. 안전망은 운영 수집 기록에서 11-10부터 11-23까지 한 번도 돌지 않았다(스케줄 수집은 118번) |
 | 조회 안쪽은 주제별로 나누고 아래 방향으로만 안다 | 11-23 | 화면별로 묶으면 18개 클래스가 서로 물린다. 주제별로 묶으면 거꾸로 된 참조가 16건뿐이다 |
 | 주제 순서는 처음 정한 순서에서 두 군데를 조정한 B안으로 한다: 최근 경기는 화면 조립에, 기사(포스팅 요약 포함)는 시즌 성적 아래에 둔다 | 11-23 | 클래스 86개를 실제로 놓아 보니 처음 순서는 거꾸로·옆 참조가 20건, B안은 8건이었다. 최근 경기는 홈 한 덩어리를 만드는 조립이고, 기사는 성적표와 포스팅 카드가 함께 쓰는 재료라 그 둘보다 아래가 맞다. 사용자가 비교를 보고 골랐다 |
+| 역대 기록·화제 문구(records)는 내 선수 카드·포스팅 아래, 시즌 성적 위에 둔다 | 11-23 | 카드가 화제 문구('통산 홈런 ○○ 넘음')를 쓰고 화제 문구는 역대 기록을 읽는다. 같은 층에 두면 카드가 옆 층을 아는 곳 2곳이 풀리지 않는다. 사용자가 골랐다 |
 | 응답은 계산 결과 타입을 그대로 품는다(응답 전용 타입 분리 안 함) | 11-23 | 옮겨 담는 코드와 리뷰할 양만 늘어난다. 실용 |
 | 사용자 데이터와 사용자 글은 조회 응답과 따로 둔다 | 11-23 | 조회 응답의 캐시 두 겹(서버, 웹)을 지킨다 |
 | 모듈은 `core / client / batch / api / app`. Gradle 멀티모듈로 단계적으로 쪼갠다 | 11-23 | 사용자 제안(스케줄링·코어 도메인·API·외부 연동)을 조정했다. 큰 경계는 컴파일러가 막는 것이 가장 확실하다 |
@@ -141,7 +142,7 @@ member(앞으로) ─▶ api, core
 - **PR**: '리뷰 포인트'에 `구조: 따른 규칙 / 새로 생긴 경계 넘는 참조(없으면 없음)`을 한 줄 적는다.
 - **모듈을 새로 뗄 때 같이 고칠 곳**: `settings.gradle`의 `include`, 모듈 `build.gradle`(Spring Boot 플러그인을 걸지 않으므로 `-parameters`와 UTF-8을 직접 건다. `-parameters`가 없으면 리포지토리 `@Query`의 이름 붙은 인자를 못 이어 앱이 뜨다 실패한다), `Dockerfile`의 `COPY` 두 줄, `deploy.yml`의 배포하지 않는 경로 두 곳(`paths-ignore`, `IGNORED`), `ci.yml`의 테스트 보고서 경로. 패키지 이름은 바꾸지 않고 폴더만 옮긴다.
 - **테스트 자리**: 스프링 없이 도는 단위 테스트는 그 모듈로 옮긴다. 앱 전체를 띄우는 테스트(`@SpringBootTest`)와 여러 모듈이 같이 쓰는 테스트 도우미(`MutableClock`, `PhotoFiles`, `FakeHttp`, `MlbFixtures`)와 그것을 쓰는 테스트, 테스트 자원(`mlb/*.json`)을 쓰는 테스트는 `app`에 둔다.
-- **구조 검사**: 모듈 사이 경계는 Gradle(모듈 `build.gradle`의 의존성)이, `api` 안쪽 규칙은 `api/src/test/java/com/korleaguer/api/ApiArchitectureTest.java`가 막는다. 얼린 목록(`api/src/test/resources/archunit_store`)은 손으로 늘리지 않는다. 얼린 곳을 고치면 테스트가 목록에서 저절로 뺀다(그 변경도 커밋한다). 클래스를 다른 패키지로 옮겨 이름이 바뀌면 목록이 맞지 않으니, `archunit.properties`의 `allowStoreCreation`을 잠깐 `true`로 하고 `archunit_store`를 지운 뒤 테스트를 돌려 다시 만들고 PR에 적는다.
+- **구조 검사**: 모듈 사이 경계는 Gradle(모듈 `build.gradle`의 의존성)이, `api` 안쪽 규칙은 `api/src/test/java/com/korleaguer/api/ApiArchitectureTest.java`가 막는다. 어기면 테스트가 바로 실패한다. 규칙을 새로 넣을 때 이미 어긴 곳이 많으면, ArchUnit의 얼리기(`FreezingArchRule`)로 그 목록만 두고 새로 생기는 것을 막은 뒤 나눠 고친다(#249~#257에서 그렇게 했고, 다 고친 뒤 얼리기 장치는 걷어 냈다).
 - **하위 에이전트에게 서버 일을 맡길 때**: 브리프에 "`ARCHITECTURE.md`를 먼저 읽고 따를 것"을 넣는다.
 
 ## 6. 이 문서 고치기
@@ -171,7 +172,7 @@ member(앞으로) ─▶ api, core
 
 4단계 '문 하나'도 끝났다(#245): 공 영상 주소를 찾는 일을 `core`의 `video.PlayVideoFinder`(메서드 하나, 공 번호 모양 `PLAY_ID`, 결과 `Lookup`)로 좁히고, 구현 `SavantClips`와 조립 `VideoConfig`는 `client`로 옮겼다. `api` 모듈은 이제 `core`만 의존한다. 사진 내주기의 `photo.PhotoLoader`(#243)와 같은 모양이다.
 
-5단계 `api` 안쪽 주제 패키지도 끝났다: 검사 도구 ArchUnit과 클래스 종류 규칙 둘(#249), 주제 패키지 아홉과 방향 규칙(#251). 구조 이동 다섯 단계가 모두 끝났고, 남은 일은 아래 표의 얼린 곳을 고치는 것이다(#253부터).
+5단계 `api` 안쪽 주제 패키지도 끝났다: 검사 도구 ArchUnit과 클래스 종류 규칙 둘(#249), 주제 패키지 아홉과 방향 규칙(#251). 구조 이동 다섯 단계가 모두 끝났고, 규칙을 넣을 때 얼려 둔 곳도 모두 고쳤다(#253·#255·#257). 아래 표의 모듈 안쪽 규칙 셋은 어기는 곳이 없다.
 
 ### 지금 규칙과 다른 곳
 
@@ -184,7 +185,7 @@ member(앞으로) ─▶ api, core
 | `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
 | `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
 | 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
-| 조회 안쪽 주제는 아래 방향으로만 | 3곳, 얼려 둠(#251에서 8곳, #253·#255로 5곳 풀림). 아래가 위를 앎: `card.MyPlayersService` → `screen.BaseballQueryService`. 같은 층끼리: `card.MyPlayersService`·`card.MyPlayersResponse` → `records.GameBuzz`·`records.GameBuzzFinder` |
+| 조회 안쪽 주제는 아래 방향으로만 | 0곳(#257). #251에 8곳이었다. 마지막 3곳은 역대 기록 층을 카드 아래로 내리고(사용자 결정), '기록을 받는 상태인지'를 `api` 바로 아래 `StatsAvailability`로 옮겨 풀었다 |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 0곳(#253). 리그 평균 값은 `season.LeagueEnv`, 타격·투구 변환은 `game.GameBatting.of`·`GamePitching.of`, 마이너 팀 이름표 `player.MinorTeamNames`는 값 객체(빈 등록은 `PlayerConfig`), 거론 구단 세기 `article.LinkedTeamsCounter`는 빈으로 바꿨다 |
 | 순수 계산은 응답 타입을 모른다 | 0곳(#255). 계산이 쓰던 응답 안 중첩 타입을 계산 쪽 독립 타입으로 꺼냈다(`card.CardStatus`·`CardFact`·`CardPlay`, `season.LevelTotals`·`PeriodHitting`·`PeriodPitching`·`GameStat`, `records.Record…` 여섯, `article.NewsTopic`, `player.MoveEntry`·`PastTeamPhoto`, `screen.TimelineSegment`·`TimelineKind`). 응답이 이것을 품는다 |
 

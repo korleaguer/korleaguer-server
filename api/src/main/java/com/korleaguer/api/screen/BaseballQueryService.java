@@ -1,5 +1,6 @@
 package com.korleaguer.api.screen;
 
+import com.korleaguer.api.StatsAvailability;
 import com.korleaguer.api.player.MoveEntry;
 
 import com.korleaguer.api.article.PostingSummary;
@@ -138,7 +139,7 @@ public class BaseballQueryService {
     public HomeResponse home() {
         Instant now = clock.instant();
         int season = currentSeason.current();
-        boolean statsAvailable = statsAvailable();
+        boolean statsAvailable = StatsAvailability.statsAvailable();
         List<RosterMember> roster = roster();
         RankingMinimums ranking = RankingMinimums.of(teamGamesPlayed(roster, season));
 
@@ -257,7 +258,7 @@ public class BaseballQueryService {
         RosterMember member = RosterMember.of(player, affiliations.findByPlayer(player).orElse(null));
         Team team = member.team();
         int season = currentSeason.current();
-        boolean statsAvailable = statsAvailable();
+        boolean statsAvailable = StatsAvailability.statsAvailable();
 
         HitterSeason hitting = null;
         PitcherSeason pitching = null;
@@ -333,13 +334,6 @@ public class BaseballQueryService {
         return result;
     }
 
-    /**
-     * 선수 기록을 받는 상태인지. MLB 공식 API(와 샘플)는 경기별 선수 기록을 늘 주므로 true다.
-     * 응답의 statsAvailable 필드는 화면 호환 때문에 남겨 둔다. 내 선수 응답(MyPlayersService)도 이 값을 쓴다.
-     */
-    public boolean statsAvailable() {
-        return true;
-    }
 
     // 소속 줄이 있는 선수들. 소속이 끝난 선수(FA 등)도 마지막 소속으로 넣는다(시즌 기록이 홈에서 빠지지 않게).
     private List<RosterMember> roster() {
