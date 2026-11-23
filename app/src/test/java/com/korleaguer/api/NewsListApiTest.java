@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.api.article.NewsListFinder;
+
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.NewsArticle;

@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.api.season.LeagueEnvironments;
+
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbGameLogSplit;
 import com.korleaguer.client.MlbStat;

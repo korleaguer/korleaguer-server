@@ -1,5 +1,7 @@
 package com.korleaguer.api;
 
+import com.korleaguer.api.article.NewsPageFinder;
+
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import org.junit.jupiter.api.Test;
