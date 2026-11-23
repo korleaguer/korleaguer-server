@@ -49,7 +49,7 @@ class GameDetailsTest {
         assertThat(homer.exitKmh()).isEqualTo(157); // 97.7 mph
         assertThat(homer.launchAngle()).isEqualTo(33);
         assertThat(homer.distanceM()).isEqualTo(115); // 377 ft
-        // 공 번호 모양(api.SavantClips.PLAY_ID가 받는 모양과 같다)
+        // 공 번호 모양(video.PlayVideoFinder.PLAY_ID가 받는 모양과 같다)
         assertThat(homer.playId()).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
         assertThat(plays.getLast().opponentName()).isEqualTo("Edwin Díaz");
     }

@@ -10,6 +10,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerGameDetail;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.video.PlayVideoFinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +38,7 @@ import java.util.Optional;
  *   <li>영상(korleaguer.videos.enabled=false, 환경 변수 KORLEAGUER_VIDEOS)을 끄면 하이라이트를 비우고 공 영상을 묻지 않는다.
  *       MLB 영상은 MLB 저작물이라 공개 전에 허락을 받거나 끈다(선수 사진 스위치와 같은 뜻).</li>
  * </ul>
- * 요청 중에 밖을 부르는 것은 공 하나 영상 주소(clip → SavantClips)뿐이다. 하이라이트 한국어 제목도 수집이 미리 옮겨 둔 것만 붙인다(이슈 #237).
+ * 요청 중에 밖을 부르는 것은 공 하나 영상 주소(clip → PlayVideoFinder, 구현은 client.SavantClips)뿐이다. 하이라이트 한국어 제목도 수집이 미리 옮겨 둔 것만 붙인다(이슈 #237).
  */
 @Service
 public class GameDetailService {
@@ -53,7 +54,7 @@ public class GameDetailService {
     private final MinorGameLogRepository minorGames;
     private final PlayerGameDetailRepository details;
     private final PlayClipRepository clips;
-    private final SavantClips savant;
+    private final PlayVideoFinder savant;
     private final JsonMapper json;
     private final Clock clock;
     private final HighlightTitles highlightTitles;
@@ -61,7 +62,7 @@ public class GameDetailService {
 
     public GameDetailService(PlayerRepository players, GameRepository games, AppearanceRepository appearances,
                              MinorGameLogRepository minorGames, PlayerGameDetailRepository details,
-                             PlayClipRepository clips, SavantClips savant, JsonMapper json, Clock clock,
+                             PlayClipRepository clips, PlayVideoFinder savant, JsonMapper json, Clock clock,
                              HighlightTitles highlightTitles,
                              @Value("${korleaguer.videos.enabled:true}") boolean videos) {
         this.players = players;
@@ -126,7 +127,7 @@ public class GameDetailService {
      * 없거나 영상이 꺼져 있으면 빈 값
      */
     public Optional<String> clip(long playerId, long gamePk, String playId) {
-        if (!videos || playId == null || !SavantClips.PLAY_ID.matcher(playId).matches()) {
+        if (!videos || playId == null || !PlayVideoFinder.PLAY_ID.matcher(playId).matches()) {
             return Optional.empty();
         }
         boolean known = details.findByPlayerIdAndGamePk(playerId, gamePk)
@@ -143,7 +144,7 @@ public class GameDetailService {
                 || now.isBefore(saved.get().getFetchedAt().plus(CLIP_RETRY_AFTER)))) {
             return Optional.ofNullable(saved.get().getMp4Url());
         }
-        SavantClips.Lookup lookup = savant.find(playId);
+        PlayVideoFinder.Lookup lookup = savant.find(playId);
         if (!lookup.answered()) {
             return Optional.empty();
         }
