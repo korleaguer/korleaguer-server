@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.NewsProperties;
@@ -7,8 +7,10 @@ import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.news.PoliteFetcher;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.FakeHttp;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.korleaguer.news.FakeHttp.ok;
+import static com.korleaguer.support.FakeHttp.ok;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;

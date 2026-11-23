@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.support;
 
 import org.junit.jupiter.api.Test;
 

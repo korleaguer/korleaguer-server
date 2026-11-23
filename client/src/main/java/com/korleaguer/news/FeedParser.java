@@ -1,9 +1,5 @@
 package com.korleaguer.news;
 
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -19,6 +15,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 
 /**
  * RSS 2.0·Atom 피드와 뉴스 사이트맵(검색엔진용 공개 목록, RSS가 없는 언론사)에서 기사마다 제목·링크·발행 시각,

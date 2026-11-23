@@ -1,4 +1,4 @@
-package com.korleaguer.support;
+package com.korleaguer.client;
 
 import java.time.Duration;
 import java.util.ArrayDeque;

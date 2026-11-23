@@ -1,11 +1,7 @@
 package com.korleaguer.client;
 
-import com.korleaguer.client.HttpMlbClient;
-import com.korleaguer.client.MlbClient;
-import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
-import com.korleaguer.support.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;

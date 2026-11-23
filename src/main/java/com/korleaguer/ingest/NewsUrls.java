@@ -1,4 +1,4 @@
-package com.korleaguer.news;
+package com.korleaguer.ingest;
 
 import java.net.URI;
 import java.net.URISyntaxException;
