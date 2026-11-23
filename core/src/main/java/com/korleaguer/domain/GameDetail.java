@@ -1,17 +1,19 @@
-package com.korleaguer.api;
+package com.korleaguer.domain;
 
 import java.util.List;
 
 /**
- * 선수 한 명의 경기 한 개 상세(GET /api/players/{id}/games/{gamePk}). 웹 경기 달력에서 날짜를 누르면 뜨는 창에 쓴다.
+ * 선수 한 명의 경기 한 개 상세. 수집(ingest)이 만들어 player_game_detail.payload에 이 모양 JSON으로 저장하고,
+ * 화면용 API(GET /api/players/{id}/games/{gamePk})가 그대로 읽어 응답으로 준다. 웹 경기 달력에서 날짜를 누르면 뜨는 창에 쓴다.
+ * 필드 이름이 곧 저장된 JSON이자 웹과의 약속이다(이름·모양을 바꾸면 이미 저장된 줄을 못 읽는다).
  *
  * @param role       선수 주 역할(HITTER면 plays가 그 선수 타석, PITCHER면 그 선수가 상대한 타자)
- * @param available  타석 기록을 받았는지. false면 MLB에서 아직 못 받았다(잠시 뒤 다시)
+ * @param available  타석 기록을 받았는지. false면 수집이 아직 못 받았다(잠시 뒤 다시)
  * @param clips      타석마다 공 영상(Baseball Savant)을 물을 수 있는지(메이저 경기이고 영상이 켜져 있을 때)
  * @param plays      타석(투수면 상대 타자) 순서대로
  * @param highlights 그 선수가 나온 MLB 하이라이트 영상(올라온 순서). 영상이 꺼져 있거나 없으면 빈 목록
  */
-public record GameDetailResponse(
+public record GameDetail(
         long playerId,
         long gamePk,
         String role,
@@ -20,9 +22,9 @@ public record GameDetailResponse(
         List<GamePlay> plays,
         List<GameHighlight> highlights) {
 
-    /** 받지 못했을 때(MLB 오류 등) */
-    public static GameDetailResponse unavailable(long playerId, long gamePk, String role) {
-        return new GameDetailResponse(playerId, gamePk, role, false, false, List.of(), List.of());
+    /** 아직 받지 못했을 때(수집 전) */
+    public static GameDetail unavailable(long playerId, long gamePk, String role) {
+        return new GameDetail(playerId, gamePk, role, false, false, List.of(), List.of());
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.domain.GameDetail;
 import com.korleaguer.ingest.OnDemandSeason;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -91,11 +92,11 @@ public class BaseballController {
     }
 
     /**
-     * 선수 한 명의 경기 한 개 상세(타석별 기록·그 선수 하이라이트 영상). 처음 열 때 MLB에서 한 번 받아 저장한다(GameDetailService).
-     * 그 선수의 경기가 아니면 404
+     * 선수 한 명의 경기 한 개 상세(타석별 기록·그 선수 하이라이트 영상). 수집이 미리 받아 둔 것만 읽는다(GameDetailService).
+     * 아직 없거나 그 선수 기록이 없는 경기면 available=false, 우리가 모르는 경기·선수면 404
      */
     @GetMapping("/players/{id}/games/{gamePk}")
-    public GameDetailResponse gameDetail(@PathVariable long id, @PathVariable long gamePk) {
+    public GameDetail gameDetail(@PathVariable long id, @PathVariable long gamePk) {
         return gameDetails.detail(id, gamePk);
     }
 

@@ -1,9 +1,9 @@
-package com.korleaguer.api;
+package com.korleaguer.ingest;
 
-import com.korleaguer.api.GameDetailResponse.GameHighlight;
-import com.korleaguer.api.GameDetailResponse.GamePlay;
 import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbPlayByPlay;
+import com.korleaguer.domain.GameDetail.GameHighlight;
+import com.korleaguer.domain.GameDetail.GamePlay;
 import com.korleaguer.domain.Role;
 
 import java.util.ArrayList;
