@@ -1,19 +1,19 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.AppearanceRepository;
+import com.korleaguer.domain.DestinationMention;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
-import com.korleaguer.domain.DestinationMention;
 import com.korleaguer.domain.NewsDestination;
 import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerLeaguePositionRepository;
-import com.korleaguer.domain.Team;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.SeasonDatesRepository;
-import com.korleaguer.news.NewsProperties;
+import com.korleaguer.domain.Team;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
 

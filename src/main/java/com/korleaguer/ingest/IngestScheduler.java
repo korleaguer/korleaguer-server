@@ -1,5 +1,6 @@
 package com.korleaguer.ingest;
 
+import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.support.KoreanTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

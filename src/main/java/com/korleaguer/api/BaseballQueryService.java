@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
@@ -110,7 +110,7 @@ public class BaseballQueryService {
         this.clock = clock;
     }
 
-    @Cacheable(AppConfig.HOME_CACHE)
+    @Cacheable(ResponseCaches.HOME_CACHE)
     public HomeResponse home() {
         Instant now = clock.instant();
         int season = currentSeason.current();
@@ -224,7 +224,7 @@ public class BaseballQueryService {
         return players.findById(id);
     }
 
-    @Cacheable(cacheNames = AppConfig.PLAYER_CACHE, key = "#id")
+    @Cacheable(cacheNames = ResponseCaches.PLAYER_CACHE, key = "#id")
     public PlayerPageResponse player(long id) {
         // 계산을 시작한 시각이 응답의 generatedAt이다(홈과 같다). 응답째 캐시하므로 캐시에서 줄 때도 이 시각이 그대로 나가
         // 화면의 '기준 …'이 실제로 숫자를 계산한 때를 가리킨다

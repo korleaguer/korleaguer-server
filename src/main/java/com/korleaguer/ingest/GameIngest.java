@@ -16,6 +16,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.support.MlbTeams;
+import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -25,7 +26,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,8 +58,6 @@ import java.util.stream.Stream;
 @Component
 public class GameIngest {
 
-    /** 미국 날짜(경기 공식 날짜)를 정할 때 쓰는 시간대 */
-    public static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
     /** 따라잡기 경기 갱신이 밀렸을 때 거슬러 올라가는 최대 날 수 */
     static final int MAX_CATCH_UP_DAYS = 14;
     /** 비시즌에 미리 받아 보는 일정 범위(미국 날짜 오늘부터 며칠 뒤까지) */
@@ -290,7 +288,7 @@ public class GameIngest {
 
     /** 미국 날짜(동부 시간) */
     public LocalDate usDate(Instant instant) {
-        return LocalDate.ofInstant(instant, US_EASTERN);
+        return LocalDate.ofInstant(instant, MlbTime.US_EASTERN);
     }
 
     // 경기마다 박스스코어 한 번, 그리고 그 경기에 뛴 우리 선수의 상세(playByPlay 1번 + content 1번, 굳은 상세뿐이면 0번).

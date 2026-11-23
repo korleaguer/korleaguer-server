@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.MinorTeamProperties;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;

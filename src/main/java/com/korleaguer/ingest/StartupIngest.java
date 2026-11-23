@@ -1,5 +1,6 @@
 package com.korleaguer.ingest;
 
+import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KorleaguerProperties;
 import org.slf4j.Logger;

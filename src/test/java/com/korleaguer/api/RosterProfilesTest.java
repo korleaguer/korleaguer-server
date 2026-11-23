@@ -1,13 +1,13 @@
 package com.korleaguer.api;
 
-import com.korleaguer.support.PhotoFiles;
 import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
-import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.PhotoFiles;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

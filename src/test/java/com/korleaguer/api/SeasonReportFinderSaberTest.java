@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.NewsArticleRepository;
@@ -12,7 +13,6 @@ import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonDatesRepository;
-import com.korleaguer.news.NewsProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
 

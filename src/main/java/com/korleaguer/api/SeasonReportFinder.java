@@ -1,14 +1,15 @@
 package com.korleaguer.api;
 
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Lineup;
+import com.korleaguer.domain.MinorGameLog;
+import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsDestinationRepository;
-import com.korleaguer.domain.MinorGameLog;
-import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerLeaguePosition;
 import com.korleaguer.domain.PlayerLeaguePositionRepository;
@@ -20,9 +21,8 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
-import com.korleaguer.ingest.GameIngest;
-import com.korleaguer.news.NewsProperties;
 import com.korleaguer.support.MlbTeams;
+import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -35,8 +35,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -219,7 +219,7 @@ public class SeasonReportFinder {
         }
         Map<Long, RosterMember> members = roster.stream()
                 .collect(Collectors.toMap(m -> m.player().getId(), m -> m, (a, b) -> a));
-        Instant winterStart = records.lastRegularDay().plusDays(1).atStartOfDay(GameIngest.US_EASTERN).toInstant();
+        Instant winterStart = records.lastRegularDay().plusDays(1).atStartOfDay(MlbTime.US_EASTERN).toInstant();
         Instant now = clock.instant();
         Map<Long, PlayerSaber> sabers = sabers(roster, season);
         return built.stream()
@@ -396,7 +396,7 @@ public class SeasonReportFinder {
         Integer ours = home ? game.getHomeScore() : game.getAwayScore();
         Integer theirs = home ? game.getAwayScore() : game.getHomeScore();
         Boolean win = team == null || ours == null || theirs == null || !game.isFinal() ? null : ours > theirs;
-        return new SeasonReports.GameDay(LocalDate.ofInstant(game.getStartTimeUtc(), GameIngest.US_EASTERN), null,
+        return new SeasonReports.GameDay(LocalDate.ofInstant(game.getStartTimeUtc(), MlbTime.US_EASTERN), null,
                 TeamLabels.korean(team), TeamLabels.korean(opponent), a.getBatting(), a.getPitching(),
                 a.getLineup() == Lineup.STARTER && a.getPitching() != null, win);
     }

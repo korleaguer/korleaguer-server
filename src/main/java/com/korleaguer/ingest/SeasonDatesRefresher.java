@@ -7,6 +7,7 @@ import com.korleaguer.client.MlbSeason;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
+import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -69,7 +70,7 @@ public class SeasonDatesRefresher {
         if (utcToday.equals(checkedOn)) {
             return "";
         }
-        LocalDate usToday = LocalDate.ofInstant(now, GameIngest.US_EASTERN);
+        LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
         int year = usToday.getYear();
         // 올해 개막 전이면 올해 날짜, 올해 정규시즌이 끝났으면 내년 날짜, 시즌 중이면 묻지 않는다
         Optional<SeasonDates> thisYear = seasonDates.findById(year);

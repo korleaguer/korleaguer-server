@@ -1,8 +1,9 @@
-package com.korleaguer.config;
+package com.korleaguer.api;
 
 import com.korleaguer.api.SavantClips;
+import com.korleaguer.config.KorleaguerProperties;
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.news.JdkHttpGetter;
-import com.korleaguer.news.NewsProperties;
 import com.korleaguer.news.PoliteFetcher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

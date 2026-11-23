@@ -1,4 +1,4 @@
-package com.korleaguer.ingest;
+package com.korleaguer.config;
 
 /**
  * 따라잡기(12분마다 스케줄, mlb에서 앱 시작 때)가 끝났다. 수집이 데이터를 바꿨으면 캐시는 이미 비워졌다.

@@ -13,7 +13,7 @@ import java.time.temporal.ChronoUnit;
  * @param mlbId       MLB 선수 번호(photoUrl이 있을 때만)
  * @param photoSeason photoUrl 사진의 시즌(계약한 MLB 구단에서의 마지막 시즌, photoUrl이 있을 때만)
  * @param photoUrl    계약한 MLB 구단 시절 MLB 공식 사진 원본 주소(없으면 null). 화면에는 이 사진의 편집본
- *                    (src/main/resources/photos/posting-{mlbId}-{photoSeason}.jpg)을 보인다. 출처를 적은 사진만 호스팅해서
+ *                    (core/src/main/resources/photos/posting-{mlbId}-{photoSeason}.jpg)을 보인다. 출처를 적은 사진만 호스팅해서
  *                    사진을 보일지도 이 값으로 정한다
  */
 public record PastPosting(String nameKo, int season, LocalDate deadline, PostingResult result, String source,

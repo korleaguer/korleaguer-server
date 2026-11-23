@@ -1,8 +1,7 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.AppConfig;
+import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.config.ResponseCaches;
-import com.korleaguer.ingest.CatchUpFinished;
 import com.korleaguer.ingest.IngestService;
 import com.korleaguer.support.MutableClock;
 import jakarta.persistence.EntityManager;
@@ -84,18 +83,18 @@ class CacheWarmerTest {
 
     @Test
     void catchUpFinishedFillsHomeEveryPlayerAndOffSeasonCards() {
-        assertThat(cache(AppConfig.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
+        assertThat(cache(ResponseCaches.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
         List<PlayerSummary> players = queryService.players();
         assertThat(players).isNotEmpty();
         for (PlayerSummary player : players) {
-            assertThat(cache(AppConfig.PLAYER_CACHE).get(player.id())).as("player %d", player.id()).isNotNull();
+            assertThat(cache(ResponseCaches.PLAYER_CACHE).get(player.id())).as("player %d", player.id()).isNotNull();
         }
 
         // 비시즌 홈(웹)이 부르는 그대로: 명단 전원을 홈 응답의 순서대로, 7일
         HomeResponse home = queryService.home();
         assertThat(home.offseason()).isNotNull();
         String ids = home.offseason().playerIds().stream().map(String::valueOf).collect(Collectors.joining(","));
-        assertThat(cache(AppConfig.MY_CACHE).get(ids + "|7")).isNotNull();
+        assertThat(cache(ResponseCaches.MY_CACHE).get(ids + "|7")).isNotNull();
     }
 
     @Test
@@ -103,7 +102,7 @@ class CacheWarmerTest {
         // 따라잡기 끝(startFresh)에서 명단 전원의 카드를 7·14·30일마다 채워 둔다
         for (PlayerSummary player : queryService.players()) {
             for (int days : List.of(7, 14, 30)) {
-                assertThat(cache(AppConfig.CARD_CACHE).get(player.id() + "|" + days))
+                assertThat(cache(ResponseCaches.CARD_CACHE).get(player.id() + "|" + days))
                         .as("card %d|%d", player.id(), days).isNotNull();
             }
         }
@@ -146,7 +145,7 @@ class CacheWarmerTest {
         // 수집이 끝나면 그사이 쓴 것을 보고 바로 비운다(따라잡기를 기다리지 않는다)
         ingestService.catchUp(false);
 
-        assertThat(cache(AppConfig.MY_CACHE).get("1,2|7")).isNull();
+        assertThat(cache(ResponseCaches.MY_CACHE).get("1,2|7")).isNull();
         assertThat(myPlayers.find("1,2", 7)).isNotSameAs(first);
     }
 
@@ -162,8 +161,8 @@ class CacheWarmerTest {
         // 한국 날짜가 11-02로 바뀌면 비우고, 따라잡기 끝에서 홈·선수를 다시 채운다
         clock.set(Instant.parse("2026-11-01T15:00:00Z"));
         events.publishEvent(new CatchUpFinished());
-        assertThat(cache(AppConfig.MY_CACHE).get("1,2|7")).isNull();
-        assertThat(cache(AppConfig.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
+        assertThat(cache(ResponseCaches.MY_CACHE).get("1,2|7")).isNull();
+        assertThat(cache(ResponseCaches.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
     }
 
     @Test

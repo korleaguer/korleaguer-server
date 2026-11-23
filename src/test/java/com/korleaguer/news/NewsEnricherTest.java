@@ -1,6 +1,7 @@
 package com.korleaguer.news;
 
 import com.korleaguer.config.DataMode;
+import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
 import com.korleaguer.domain.NewsBlockedHost;

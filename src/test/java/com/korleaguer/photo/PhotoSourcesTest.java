@@ -1,11 +1,11 @@
 package com.korleaguer.photo;
 
-import com.korleaguer.support.PhotoFiles;
 import com.korleaguer.config.KorleaguerProperties;
-import com.korleaguer.ingest.RosterProperties;
+import com.korleaguer.config.RosterProperties;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.PhotoFiles;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
@@ -45,7 +45,7 @@ class PhotoSourcesTest {
         assertThatThrownBy(() -> sources(postings, true))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("roster/posting.yml posting.current 노시환")
-                .hasMessageContaining("src/main/resources/photos/kbo-si-hwan-roh-2025.jpg is missing")
+                .hasMessageContaining("core/src/main/resources/photos/kbo-si-hwan-roh-2025.jpg is missing")
                 .hasMessageContaining("tools/posting-photo cut");
     }
 
