@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
@@ -21,8 +21,8 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
-import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.support.KoreanTime;
+import com.korleaguer.support.MlbTime;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
  *       재활 경기를 보이며, 마이너에 있으면 큰 숫자·막대를 마이너 기록으로 채우고, FA·시즌 끝이면 시즌 합계(메이저·마이너)를
  *       준다. 상태·소식은 끝난 경기로만 정한다(진행 중 경기의 중간 기록으로 바뀌지 않게).</li>
  * </ul>
- * 카드는 선수·기간마다(AppConfig.CARD_CACHE), 응답은 선수 조합(ids 글자 그대로)과 days마다(AppConfig.MY_CACHE) 캐시한다.
+ * 카드는 선수·기간마다(ResponseCaches.CARD_CACHE), 응답은 선수 조합(ids 글자 그대로)과 days마다(ResponseCaches.MY_CACHE) 캐시한다.
  * 처음 보는 조합도 카드를 모으기만 하면 된다. 데이터나 날짜가 바뀔 때 비우고(ResponseCaches),
  * CacheWarmer가 명단 전원의 카드(7·14·30일)와 비시즌 홈의 명단 전원 조합을 미리 채워 둔다.
  */
@@ -121,7 +121,7 @@ public class MyPlayersService {
      * @param days 7, 14, 30 중 하나
      * @throws BadRequestException ids·days가 규칙에 맞지 않을 때(캐시하지 않는다)
      */
-    @Cacheable(cacheNames = AppConfig.MY_CACHE, key = "#ids + '|' + #days")
+    @Cacheable(cacheNames = ResponseCaches.MY_CACHE, key = "#ids + '|' + #days")
     public MyPlayersResponse find(String ids, int days) {
         List<Long> requested = parseIds(ids);
         checkDays(days);
@@ -149,13 +149,13 @@ public class MyPlayersService {
     }
 
     /**
-     * 선수 한 명의 카드(없는 선수면 빈 목록). 선수·기간마다 캐시한다(AppConfig.CARD_CACHE).
+     * 선수 한 명의 카드(없는 선수면 빈 목록). 선수·기간마다 캐시한다(ResponseCaches.CARD_CACHE).
      * 카드는 선수마다 따로 정해지므로(기간·상태·출전 줄·소식) 여럿을 함께 계산한 것과 같다.
      * 데이터·날짜가 바뀌면 다른 응답 캐시와 함께 비우고(ResponseCaches), CacheWarmer가 명단 전원을 미리 채운다.
      */
     public List<MyPlayersResponse.MyPlayer> card(long playerId, int days) {
         checkDays(days);
-        Cache cache = cacheManager.getCache(AppConfig.CARD_CACHE);
+        Cache cache = cacheManager.getCache(ResponseCaches.CARD_CACHE);
         if (cache == null) {
             return cards(List.of(playerId), days);
         }
@@ -172,7 +172,7 @@ public class MyPlayersService {
     private List<MyPlayersResponse.MyPlayer> cards(List<Long> requested, int days) {
         Instant now = clock.instant();
         LocalDate today = KoreanTime.kstDate(now);
-        LocalDate usToday = LocalDate.ofInstant(now, GameIngest.US_EASTERN);
+        LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
         int season = currentSeason.current();
         boolean statsAvailable = queryService.statsAvailable();
         List<RosterMember> members = members(requested);
@@ -512,7 +512,7 @@ public class MyPlayersService {
             return new CardStatuses.LastGame(minor.getGameDate(), MinorRecords.kstDate(minor), minor.getLevel());
         }
         if (majorStart != null) {
-            return new CardStatuses.LastGame(LocalDate.ofInstant(majorStart, GameIngest.US_EASTERN),
+            return new CardStatuses.LastGame(LocalDate.ofInstant(majorStart, MlbTime.US_EASTERN),
                     KoreanTime.kstDate(majorStart), "MLB");
         }
         return null;
@@ -566,7 +566,7 @@ public class MyPlayersService {
         Team team = member.majorTeam();
         List<GameLine> lines;
         if (stintStart != null && team != null) {
-            Instant start = stintStart.atStartOfDay(GameIngest.US_EASTERN).toInstant();
+            Instant start = stintStart.atStartOfDay(MlbTime.US_EASTERN).toInstant();
             if (start.isAfter(from)) {
                 from = start;
             }

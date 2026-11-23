@@ -15,6 +15,7 @@ import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameStatuses;
 import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
+import com.korleaguer.support.MlbTime;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -29,7 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.korleaguer.ingest.GameIngest.US_EASTERN;
+import static com.korleaguer.support.MlbTime.US_EASTERN;
 
 /**
  * 선수 × 경기 한 줄(GameLine)을 조립한다.

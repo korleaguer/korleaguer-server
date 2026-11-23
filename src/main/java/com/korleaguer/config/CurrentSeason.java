@@ -1,9 +1,8 @@
 package com.korleaguer.config;
 
-import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
-import com.korleaguer.ingest.GameIngest;
+import com.korleaguer.support.MlbTime;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -17,7 +16,7 @@ import java.time.MonthDay;
  * 그래서 개막일이 지나면 앱을 다시 띄우지 않아도 새 시즌으로 넘어간다.
  * <ul>
  *   <li>korleaguer.season에 값이 있으면 그 값(테스트·수동 고정용)</li>
- *   <li>샘플 모드면 샘플 데이터의 시즌(SampleMlbClient.SEASON). 샘플에는 그 시즌 경기만 있어서, 날짜가 지나도 화면이 비지 않게 한다</li>
+ *   <li>샘플 모드면 샘플 데이터의 시즌(DataMode.SAMPLE_SEASON). 샘플에는 그 시즌 경기만 있어서, 날짜가 지나도 화면이 비지 않게 한다</li>
  *   <li>없으면 미국 날짜(동부 시간) 오늘이 올해 정규시즌 개막일 이후(그날 포함)면 올해, 전이면 작년.
  *       개막일은 수집기가 MLB에서 받아 둔 season_dates를 본다(DB만 읽는다).</li>
  *   <li>올해 개막일을 아직 받지 못했으면 3월 20일을 개막일로 보고 정한다(MLB 개막은 보통 3월 말).</li>
@@ -41,7 +40,7 @@ public class CurrentSeason {
     public CurrentSeason(KorleaguerProperties properties, DataMode dataMode, SeasonDatesRepository seasonDates,
                          Clock clock) {
         this.fixed = properties.season() != null ? properties.season()
-                : dataMode == DataMode.SAMPLE ? Integer.valueOf(SampleMlbClient.SEASON) : null;
+                : dataMode == DataMode.SAMPLE ? Integer.valueOf(DataMode.SAMPLE_SEASON) : null;
         this.seasonDates = seasonDates;
         this.clock = clock;
     }
@@ -52,7 +51,7 @@ public class CurrentSeason {
             return fixed;
         }
         Instant now = clock.instant();
-        LocalDate usToday = LocalDate.ofInstant(now, GameIngest.US_EASTERN);
+        LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
         Decided last = decided;
         if (last != null && last.usToday().equals(usToday) && now.isBefore(last.expiresAt())) {
             return last.season();
@@ -72,8 +71,8 @@ public class CurrentSeason {
             return fixed;
         }
         Instant now = clock.instant();
-        LocalDate usDate = LocalDate.ofInstant(instant, GameIngest.US_EASTERN);
-        if (!instant.isBefore(now) || usDate.equals(LocalDate.ofInstant(now, GameIngest.US_EASTERN))) {
+        LocalDate usDate = LocalDate.ofInstant(instant, MlbTime.US_EASTERN);
+        if (!instant.isBefore(now) || usDate.equals(LocalDate.ofInstant(now, MlbTime.US_EASTERN))) {
             return current();
         }
         return decide(usDate, openingDay(usDate.getYear()));

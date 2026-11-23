@@ -1,8 +1,8 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
 import com.korleaguer.config.DataMode;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Batting;
@@ -61,7 +61,7 @@ public class RecordsService {
         this.clock = clock;
     }
 
-    @Cacheable(cacheNames = AppConfig.RECORDS_CACHE, key = "'all'")
+    @Cacheable(cacheNames = ResponseCaches.RECORDS_CACHE, key = "'all'")
     @Transactional(readOnly = true)
     public RecordsResponse records() {
         Instant now = clock.instant();

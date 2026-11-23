@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * 같은 경기에 나온 우리 선수(GET /api/players/{id}/same-games, 이슈 #217). DB만 읽는다.
  * 경기 기록(appearance)은 우리 선수 것만 있으므로, 한 경기에 기록이 둘 이상이면 우리 선수가 같이 나온 경기다.
  * 마이너 경기는 경기별 기록 표가 달라(minor_game_log) 넣지 않는다.
- * 응답은 선수마다 캐시한다(AppConfig.SAME_GAMES_CACHE, 데이터가 바뀌면 ResponseCaches가 비운다).
+ * 응답은 선수마다 캐시한다(ResponseCaches.SAME_GAMES_CACHE, 데이터가 바뀌면 ResponseCaches가 비운다).
  */
 @Service
 @Transactional(readOnly = true)
@@ -52,7 +52,7 @@ public class SameGamesService {
         this.currentSeason = currentSeason;
     }
 
-    @Cacheable(cacheNames = AppConfig.SAME_GAMES_CACHE, key = "#playerId")
+    @Cacheable(cacheNames = ResponseCaches.SAME_GAMES_CACHE, key = "#playerId")
     public SameGamesResponse find(long playerId) {
         if (!players.existsById(playerId)) {
             throw new PlayerNotFoundException(playerId);

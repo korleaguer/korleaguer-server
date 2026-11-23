@@ -5,10 +5,10 @@ import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.config.ResponseCachesCleared;
 import com.korleaguer.ingest.CatchUpFinished;
-import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
 import com.korleaguer.support.KoreanTime;
+import com.korleaguer.support.MlbTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -139,7 +139,7 @@ public class CacheWarmer {
 
     /** 모든 응답에 나오는, 날짜로 바뀌는 값: 한국 날짜(D-day, 최근 N일, 'N일째', 나이), 미국 동부 날짜(MLB 날짜, 개막까지 남은 날) */
     static String dateKey(Instant now) {
-        return KoreanTime.kstDate(now) + "|" + LocalDate.ofInstant(now, GameIngest.US_EASTERN);
+        return KoreanTime.kstDate(now) + "|" + LocalDate.ofInstant(now, MlbTime.US_EASTERN);
     }
 
     /** 홈에만 나오는, 시각으로 바뀌는 포스팅 값: 포스팅마다 상태·보이는지·진행 막대(PostingFinder.timeKey) */

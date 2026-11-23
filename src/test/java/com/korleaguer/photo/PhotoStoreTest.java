@@ -9,6 +9,7 @@ import com.korleaguer.news.HttpGetter;
 import com.korleaguer.news.PoliteFetcher;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.Hashes;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -205,7 +206,7 @@ class PhotoStoreTest {
 
             assertThat(photo).map(Photo::getContentType).contains("image/jpeg");
             assertThat(photo).map(Photo::getData).contains(edited);
-            assertThat(photo).map(Photo::getSha256).contains(PhotoStore.sha256(edited));
+            assertThat(photo).map(Photo::getSha256).contains(Hashes.sha256(edited));
             assertThat(store.refresh()).isZero();
         }
         assertThat(store(DataMode.MLB).load("mlb-673490-2024")).isEmpty(); // 원본은 더 받지 않는다
@@ -243,7 +244,7 @@ class PhotoStoreTest {
 
         store.load("mlb-808982");
         String first = lastSources.mlbPath(808982L);
-        assertThat(first).isEqualTo("/photos/mlb-808982?v=" + PhotoStore.sha256("face".getBytes(StandardCharsets.UTF_8)).substring(0, 8));
+        assertThat(first).isEqualTo("/photos/mlb-808982?v=" + Hashes.sha256("face".getBytes(StandardCharsets.UTF_8)).substring(0, 8));
 
         clock.advance(Duration.ofDays(8));
         reply(MLB, 200, "face2", Map.of("content-type", "image/webp"));

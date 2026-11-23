@@ -1,7 +1,7 @@
 package com.korleaguer.api;
 
-import com.korleaguer.config.AppConfig;
 import com.korleaguer.config.CurrentSeason;
+import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 /**
  * 두 선수 비교에 쓸 타자 시즌 성적 묶음(GET /api/players/{id}/compare, 이슈 #221). DB만 읽는다.
  * 시즌 성적은 홈 시즌 기록과 같은 계산(SeasonStats.hitter, 메이저 정규시즌), wRC+는 선수 페이지와 같은 저장 값(PlayerSaber)이다.
- * 응답은 선수마다 캐시한다(AppConfig.COMPARE_CACHE, 데이터가 바뀌면 ResponseCaches가 비운다).
+ * 응답은 선수마다 캐시한다(ResponseCaches.COMPARE_CACHE, 데이터가 바뀌면 ResponseCaches가 비운다).
  */
 @Service
 @Transactional(readOnly = true)
@@ -54,7 +54,7 @@ public class CompareService {
         this.clock = clock;
     }
 
-    @Cacheable(cacheNames = AppConfig.COMPARE_CACHE, key = "#playerId")
+    @Cacheable(cacheNames = ResponseCaches.COMPARE_CACHE, key = "#playerId")
     public CompareResponse find(long playerId) {
         if (!players.existsById(playerId)) {
             throw new PlayerNotFoundException(playerId);

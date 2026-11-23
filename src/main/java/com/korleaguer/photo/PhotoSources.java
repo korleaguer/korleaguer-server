@@ -5,6 +5,7 @@ import com.korleaguer.ingest.RosterProperties;
 import com.korleaguer.posting.PastPosting;
 import com.korleaguer.posting.PostingCase;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.Hashes;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -114,7 +115,7 @@ public class PhotoSources {
         this.sources = Collections.unmodifiableMap(all);
         all.forEach((key, source) -> {
             if (bundled(source)) {
-                hashes.put(key, PhotoStore.sha256(readResource(source.substring(BUNDLED.length()))));
+                hashes.put(key, Hashes.sha256(readResource(source.substring(BUNDLED.length()))));
             }
         });
     }
@@ -128,7 +129,7 @@ public class PhotoSources {
     }
 
     /** 저장된 사진의 본문 해시를 알려 준다(PhotoStore가 받거나 저장본을 확인할 때마다). 주소의 ?v=가 이 값을 따른다 */
-    void remember(String key, String sha256) {
+    public void remember(String key, String sha256) {
         if (sources.containsKey(key) && sha256 != null) {
             hashes.put(key, sha256);
         }

@@ -8,11 +8,11 @@ import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonType;
-import com.korleaguer.ingest.GameIngest;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameStatuses;
 import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
+import com.korleaguer.support.MlbTime;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -81,7 +81,7 @@ final class MinorRecords {
 
     /** 메이저 출전 한 번 → 소식 계산용 숫자. 날짜는 경기 시작의 미국 날짜다. */
     static FormFacts.GameStat stat(Appearance appearance) {
-        return stat(LocalDate.ofInstant(appearance.getGame().getStartTimeUtc(), GameIngest.US_EASTERN),
+        return stat(LocalDate.ofInstant(appearance.getGame().getStartTimeUtc(), MlbTime.US_EASTERN),
                 appearance.getBatting(), appearance.getPitching());
     }
 
