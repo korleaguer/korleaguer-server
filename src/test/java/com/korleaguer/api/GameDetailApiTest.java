@@ -186,8 +186,9 @@ class GameDetailApiTest {
 
     @Test
     void detailNotIngestedYetIsUnavailableAndTheApiDoesNotFetchIt() throws Exception {
-        // 수집이 받지 못한 경기(MLB 오류)는 저장된 것이 없다. API는 그 자리에서 받지 않고 '아직 없음'으로 답한다
-        assertThat(details.findByPlayerIdAndGamePk(1, BROKEN_GAME)).isEmpty();
+        // 수집이 받지 못한 경기(MLB 오류)에는 굳지 않은 '없음'만 남는다. API는 그 자리에서 받지 않고 '아직 없음'으로 답한다
+        assertThat(details.findByPlayerIdAndGamePk(1, BROKEN_GAME))
+                .hasValueSatisfying(row -> assertThat(row.isComplete()).isFalse());
         int before = fakes.mlbCalls();
 
         mockMvc.perform(get("/api/players/1/games/" + BROKEN_GAME))
@@ -195,7 +196,9 @@ class GameDetailApiTest {
                 .andExpect(jsonPath("$.available").value(false))
                 .andExpect(jsonPath("$.plays", hasSize(0)));
         assertThat(fakes.mlbCalls()).isEqualTo(before);
-        assertThat(details.findByPlayerIdAndGamePk(1, BROKEN_GAME)).isEmpty();
+        // API 호출로는 달라지지 않는다: 수집이 남긴 굳지 않은 '없음' 그대로
+        assertThat(details.findByPlayerIdAndGamePk(1, BROKEN_GAME))
+                .hasValueSatisfying(row -> assertThat(row.isComplete()).isFalse());
     }
 
     private long firstMinorGame(long playerId) throws Exception {

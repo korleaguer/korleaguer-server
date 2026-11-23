@@ -170,27 +170,29 @@ class GameDetailIngestTest {
         assertThat(detail(LEE, 7012).clips()).isTrue();
         assertThat(detail(KIM, 7012).available()).isTrue();
         assertThat(detail(KIM, 7012).plays()).isEmpty();
-        assertThat(details.findByPlayerIdAndGamePk(KIM, BROKEN_GAME)).isEmpty();
+        // 실패한 7010에는 '받아 봤음'(굳지 않은 없음)을 남긴다: RETRY_AFTER 동안 다시 묻지 않는다
+        assertThat(saved(KIM, BROKEN_GAME).isComplete()).isFalse();
+        assertThat(detail(KIM, BROKEN_GAME).available()).isFalse();
         assertThat(details.findByPlayerIdAndGamePk(KIM, 7002)).isEmpty();
-        assertThat(details.count()).isEqualTo(10);
+        assertThat(details.count()).isEqualTo(11);
 
         // MLB가 거절하면(403/429) 그 실행을 멈춘다
         client.forget();
         client.blocked = true;
         IngestLog blocked = ingestService.catchUp(false);
         assertThat(blocked.getStatus()).isEqualTo(IngestStatus.BLOCKED);
-        assertThat(client.playByPlayAsked).containsExactly(BROKEN_GAME);
+        assertThat(client.playByPlayAsked).containsExactly(7002L);
         client.blocked = false;
 
-        // 다음 실행: 실패했던 7010을 다시, 그리고 남은 7002·7001. 굳은 상세(7012 등)는 다시 받지 않는다.
+        // 다음 실행: 남은 7002·7001. 굳은 상세(7012 등)와 방금 실패한 7010(RETRY_AFTER 전)은 다시 받지 않는다.
         // 7001은 MLB에 타석별 기록이 없다(404): 영상 목록을 묻지 않고, 오래된 경기라 '없음'으로 굳혀 다시 묻지 않는다
         client.forget();
         client.broken.clear();
         client.missing.add(7001L);
         IngestLog second = ingestService.catchUp(false);
-        assertThat(client.playByPlayAsked).containsExactly(7010L, 7002L, 7001L);
-        assertThat(client.contentAsked).containsExactly(7010L, 7002L);
-        assertThat(second.getMessage()).contains("경기 상세 2개(경기 2개)");
+        assertThat(client.playByPlayAsked).containsExactly(7002L, 7001L);
+        assertThat(client.contentAsked).containsExactly(7002L);
+        assertThat(second.getMessage()).contains("경기 상세 1개(경기 1개)");
         assertThat(saved(KIM, 7001).isComplete()).isTrue();
         assertThat(detail(KIM, 7001).available()).isFalse();
         assertThat(details.count()).isEqualTo(13);
@@ -216,14 +218,17 @@ class GameDetailIngestTest {
         assertThat(client.contentAsked).isEmpty();
 
         // 8/11 02:30Z: 7020이 끝남 → 박스스코어와 같이 한 번 더 받지만 시작 하루가 안 지나 굳히지 않는다.
-        // 같은 실행의 채우기 단계는 굳힐 때가 아닌 상세를 또 받지 않는다
+        // 같은 실행의 채우기 단계는 굳힐 때가 아닌 상세를 또 받지 않는다.
+        // 실패했던 7010은 RETRY_AFTER(6시간)가 지나 이번 채우기에서 다시 받아 굳힌다
         client.forget();
         clock.set(Instant.parse("2026-08-11T02:30:00Z"));
         client.use(data(final7020(), Map.of(7020L, box(4, 2, 3, 5))));
         ingestService.catchUp(true);
-        assertThat(client.playByPlayAsked).containsExactly(7020L);
-        assertThat(client.contentAsked).containsExactly(7020L);
+        assertThat(client.playByPlayAsked).containsExactly(7020L, 7010L);
+        assertThat(client.contentAsked).containsExactly(7020L, 7010L);
         assertThat(saved(KIM, 7020).isComplete()).isFalse();
+        assertThat(saved(KIM, BROKEN_GAME).isComplete()).isTrue();
+        assertThat(detail(KIM, BROKEN_GAME).available()).isTrue();
         // 경기 갱신이 없는 실행(채우기만)도 아직 받지 않는다
         client.forget();
         clock.set(Instant.parse("2026-08-11T05:00:00Z"));

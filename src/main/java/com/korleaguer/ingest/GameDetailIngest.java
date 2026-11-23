@@ -47,13 +47,17 @@ import java.util.Optional;
  *   <li>받는 때: (1) 박스스코어를 받는 메이저 경기에서 같이(refresh. 진행 중 경기는 수집 때마다 갱신된다),
  *       (2) 빠졌거나 굳힐 때가 된 것을 최근 경기부터 조금씩(fill).</li>
  * </ul>
- * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 경기만 건너뛰고 다음 수집 때 다시 받는다.
+ * 403/429(MlbBlockedException)는 그대로 던져 그 실행을 멈추게 한다. 다른 오류는 그 경기만 건너뛴다.
+ * 채우기에서 실패한 경기는 '받아 봤음'(굳지 않은 available=false)을 남기고 RETRY_AFTER 뒤에 다시 받는다.
+ * 그러지 않으면 계속 실패하는 경기가 채우기 줄 맨 앞에 남아 실행마다 다시 묻고, 상한만큼 쌓이면 뒤 경기를 막는다.
  */
 @Component
 public class GameDetailIngest {
 
     /** 끝난 경기는 시작 뒤 이만큼 지나 받았으면 굳힌다(하이라이트가 다 올라온 뒤) */
     static final Duration COMPLETE_AFTER = Duration.ofDays(1);
+    /** 채우기가 굳지 않은 상세(받다 실패한 경기 포함)를 다시 받기까지. 계속 실패하는 경기를 실행마다 다시 묻지 않게 한다 */
+    static final Duration RETRY_AFTER = Duration.ofHours(6);
 
     private static final Logger log = LoggerFactory.getLogger(GameDetailIngest.class);
 
@@ -123,7 +127,9 @@ public class GameDetailIngest {
             } catch (MlbBlockedException e) {
                 throw e;
             } catch (MlbApiException e) {
-                log.warn("[mlb] game detail {} failed, will retry next ingest ({})", game.gamePk(), e.getMessage());
+                log.warn("[mlb] game detail {} failed, will retry in {} ({})", game.gamePk(), RETRY_AFTER,
+                        e.getMessage());
+                targets.forEach(p -> markTried(p, game.gamePk(), now));
             }
         }
         return saved == 0 ? "" : "경기 상세 " + saved + "개(경기 " + games + "개)";
@@ -165,7 +171,19 @@ public class GameDetailIngest {
     // 뒤에서 채울 때: 상세가 없거나, 굳지 않았는데 지금 받으면 굳는 경기만. 굳기 전 상세를 실행마다 다시 받지 않는다
     private boolean missingOrDue(Player player, long gamePk, Instant start, Instant now) {
         Optional<PlayerGameDetail> saved = details.findByPlayerIdAndGamePk(player.getId(), gamePk);
-        return saved.isEmpty() || (!saved.get().isComplete() && completesAt(start, now));
+        return saved.isEmpty() || (!saved.get().isComplete() && completesAt(start, now)
+                && !now.isBefore(saved.get().getFetchedAt().plus(RETRY_AFTER)));
+    }
+
+    // 받다 실패한 경기: 저장된 상세가 있으면 받은 시각만 지금으로, 없으면 굳지 않은 '없음'을 남긴다
+    private void markTried(Player player, long gamePk, Instant now) {
+        Optional<PlayerGameDetail> saved = details.findByPlayerIdAndGamePk(player.getId(), gamePk);
+        if (saved.isPresent()) {
+            saved.get().update(saved.get().getPayload(), false, now);
+            details.save(saved.get());
+        } else {
+            store(GameDetail.unavailable(player.getId(), gamePk, player.role().name()), false, now);
+        }
     }
 
     private int fetch(long gamePk, boolean major, boolean isFinal, Instant start, List<Player> targets, Instant now) {
