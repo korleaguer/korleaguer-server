@@ -34,7 +34,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 |---|---|
 | `KORLEAGUER_DATA_SOURCE` | `mlb`(기본) / `sample` |
 | `KORLEAGUER_ADMIN_TOKEN` | 관리용 엔드포인트 토큰. 없으면 관리용 엔드포인트는 전부 막힌다 |
-| `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트와 선수 페이지에서 시즌 받기만 MLB를 부른다 |
+| `KORLEAGUER_INGEST_SCHEDULE_ENABLED` | 자동 수집(12분마다 깨어나는 스케줄 + 앱 시작 때 따라잡기). 기본 `true`. `false`면 관리용 엔드포인트만 MLB를 부른다 |
 | `KORLEAGUER_OFFICIAL_PHOTOS` | `false`면 응답의 `photoUrl`을 모두 null로 둔다. 기본 `true`(MLB 공식 사진 주소) |
 | `KORLEAGUER_NEWS_ENABLED` | 포스팅 선수와 명단 선수 관련 기사 수집·요약(30분마다). 기본 `true`. 포스팅 선수는 협상 기간(시작 3일 전 ~ 마감 3일 뒤)에만, 명단 선수(국내 리그로 돌아간 선수 빼고)는 늘 최근 30일 기사를 모은다(이슈 #119). `false`여도 홈은 DB에 있는 기사를 보여 준다 |
 | `KORLEAGUER_NEWS_USER_AGENT` | 기사 피드를 받을 때 밝히는 이름. 기본 `korleaguer/0.1 (news headlines and summaries; personal, non-commercial)` |
@@ -54,7 +54,7 @@ KORLEAGUER_DATA_SOURCE=sample ./gradlew bootRun
 - **선수 정보·이동 기록(하루 한 번):** `people?personIds=…&hydrate=currentTeam` 1번(명단 전원), `transactions?playerId=…` 선수마다 1번, 마이너 경기별 기록 `people/{id}/stats?stats=gameLog&group=hitting,pitching&leagueListId=milb_all` 선수마다 1번(그 시즌 전체를 받아 `minor_game_log`를 통째로 바꾸고, 마이너 경기 수도 여기서 센다), 그 경기들의 시작 시각·점수·팀 지명 `schedule?gamePks=…&hydrate=team`(선수 화면 마이너 경기 줄, 40경기씩 묶어서. 끝나 점수를 받은 경기는 다시 묻지 않아 보통 선수마다 하루 0~1번), 마이너 팀 단계 `teams/{id}`(한 번 물으면 기억).
 - **시즌 백필(선수·시즌마다 한 번):** `people/{id}/stats?stats=gameLog&group=hitting|pitching&season=Y` 2번 + 그 선수의 지금 팀·뛴 팀 시즌 일정 `schedule?sportId=1&teamId=…&season=Y` 1번(여러 팀 한 번에) + 끝난 포스트시즌 경기 박스스코어(gameLog는 정규시즌만 준다). 다 받으면 선수·시즌별 "받았음" 표시(`player_season`)를 남기고 다시 받지 않는다.
   - 앱 시작 때, 그리고 명단에 새로 들어온 선수가 있으면 스케줄이 받는다.
-  - 선수 페이지(`GET /api/players/{id}`)를 열었는데 그 선수 시즌이 비어 있으면 그 자리에서 한 번 받는다. 최대 8초(`korleaguer.ingest.on-demand-timeout`)만 기다리고, 늦거나 실패하면 DB에 있는 것만 준다(받기는 뒤에서 이어지고 끝나면 캐시를 비운다).
+  - 선수 페이지(`GET /api/players/{id}`)는 그 선수 시즌이 비어 있어도 그 자리에서 받지 않는다(이슈 #231). DB에 있는 것만 주고 다음 스케줄 수집이 받는다.
 - **MLB 안 위치·시즌별 기록(하루 한 번, 시즌 중·비시즌 모두):** 리그 전체 `stats?stats=season|sabermetrics&group=hitting|pitching&season=Y&sportIds=1&playerPool=ALL&limit=2000` 묶음마다 2번(우리 선수에 투수가 없으면 타격만), `people/{id}/stats?stats=yearByYear` 선수마다 1번, 지난 시즌 지표 `people/{id}/stats?stats=sabermetrics&season=Y`는 선수·시즌마다 처음 한 번만. 아래 "MLB 안 위치와 지난 시즌 표".
 - **한국인 메이저리거 역대 기록(이슈 #177):** `people/{id}/stats?stats=yearByYear` 선수마다 1번. 명단 선수는 하루 한 번, 명단 밖 선수(`roster/korean-mlb.yml`, 은퇴·국내 복귀 24명)는 저장한 줄이 없을 때 서버가 켜져 있는 동안 한 번. 아래 "한국인 메이저리거 역대 기록".
 - **경기 상세(타석별 기록·하이라이트, 이슈 #229):** 우리 선수가 뛴 경기만 수집이 미리 받아 `player_game_detail`에 둔다(`ingest.GameDetailIngest`). 화면용 API는 저장된 것만 읽는다.
@@ -295,7 +295,7 @@ com.korleaguer
 ├── config   설정(korleaguer.*), 데이터 출처, 클라이언트 선택, CORS, 캐시, 뒤에서 도는 수집용 실행기
 ├── client   MLB 공식 API 호출(HttpMlbClient)과 샘플(SampleMlbClient), 응답 record
 ├── ingest   선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
-│            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 선수 페이지에서 시즌 받기(OnDemandSeason), DB 저장(IngestWriter)
+│            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 경기 상세 받기(GameDetailIngest), DB 저장(IngestWriter)
 ├── domain   JPA 엔티티와 리포지토리
 ├── api      컨트롤러, 응답 DTO, 조회 서비스, 시즌 성적 계산, 비시즌·포스팅 묶음(OffSeasonFinder·PostingFinder)
 ├── posting  포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
