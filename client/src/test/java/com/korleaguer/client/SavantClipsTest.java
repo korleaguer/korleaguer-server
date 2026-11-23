@@ -1,7 +1,8 @@
-package com.korleaguer.api;
+package com.korleaguer.client;
 
 import com.korleaguer.news.HttpGetter;
 import com.korleaguer.news.PoliteFetcher;
+import com.korleaguer.video.PlayVideoFinder;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -26,7 +27,7 @@ class SavantClipsTest {
     void findsTheClipOnTheVideoPage() {
         SavantClips clips = clips("<html><video><source src=\"" + MP4 + "\" type=\"video/mp4\"></video></html>");
 
-        SavantClips.Lookup lookup = clips.find(PLAY);
+        PlayVideoFinder.Lookup lookup = clips.find(PLAY);
 
         assertThat(lookup.answered()).isTrue();
         assertThat(lookup.mp4Url()).contains(MP4);
@@ -47,7 +48,7 @@ class SavantClipsTest {
     @Test
     void pageWithoutVideoIsAnsweredEmpty() {
         SavantClipsTest.this.asked.clear();
-        SavantClips.Lookup lookup = clips("<html><title>Baseball Savant Videos</title></html>").find(PLAY);
+        PlayVideoFinder.Lookup lookup = clips("<html><title>Baseball Savant Videos</title></html>").find(PLAY);
 
         assertThat(lookup.answered()).isTrue();
         assertThat(lookup.mp4Url()).isEmpty();
@@ -55,7 +56,7 @@ class SavantClipsTest {
 
     @Test
     void doesNotAskForSomethingThatIsNotAPlayId() {
-        SavantClips.Lookup lookup = clips("").find("../../admin");
+        PlayVideoFinder.Lookup lookup = clips("").find("../../admin");
 
         assertThat(lookup.mp4Url()).isEmpty();
         assertThat(asked).isEmpty();

@@ -1,5 +1,6 @@
 // api 모듈: 화면용 API. 컨트롤러, 화면 조립, 화면용 계산 규칙, 응답. DB만 읽는다.
-// core를 알고, client는 공 영상 주소(SavantClips) 하나로만 안다. batch를 모른다(ARCHITECTURE.md §3).
+// core만 안다. 요청 중에 밖을 부르는 단 하나의 예외(공 영상 주소)도 core의 video.PlayVideoFinder 인터페이스로만 안다
+// (구현은 client 모듈, ARCHITECTURE.md §3 '문 하나'). batch와 client를 모른다.
 // 실행 파일은 만들지 않고 라이브러리 jar만 만든다.
 plugins {
 	id 'java-library'
@@ -27,8 +28,6 @@ dependencyManagement {
 
 dependencies {
 	implementation project(':core')
-	// 요청 중에 밖을 부르는 단 하나의 예외: 공 하나 영상 주소(SavantClips, ARCHITECTURE.md §3 '문 하나')
-	implementation project(':client')
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	// 캐시 채우기 상태를 헬스 체크에 내보낸다

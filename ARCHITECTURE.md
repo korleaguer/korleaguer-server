@@ -29,16 +29,16 @@
 
 | 모듈 | 하는 일 | 바뀌는 이유 | 지금 패키지 |
 |---|---|---|---|
-| `core` | 엔티티, 리포지토리, DB 마이그레이션, 기본 야구 계산, 설정 값·상수, 응답 캐시 비우기 | 데이터 모양 | `domain`, `support`, `posting`, `config`, `photo`(사진 목록) |
-| `client` | 밖과 말하는 법(남의 서버를 부르는 코드): MLB 클라이언트, 기사 가져오기(robots·예절), Claude 요약, 사진 원본 받기 | 외부 API와 예절 | `client`, `news`(가져오기·요약) |
+| `core` | 엔티티, 리포지토리, DB 마이그레이션, 기본 야구 계산, 설정 값·상수, 응답 캐시 비우기 | 데이터 모양 | `domain`, `support`, `posting`, `config`, `photo`(사진 목록), `video`(공 영상 주소 문) |
+| `client` | 밖과 말하는 법(남의 서버를 부르는 코드): MLB 클라이언트, 기사 가져오기(robots·예절), Claude 요약, 사진 원본 받기 | 외부 API와 예절 | `client`(공 영상 주소 `SavantClips` 포함), `news`(가져오기·요약) |
 | `batch` | 수집: 받아서 바꾸고 저장하는 작업과 그 스케줄 | 무엇을 언제 받나 | `ingest`(사진 받기 `PhotoStore`, 기사 수집 `NewsCollector`·`NewsEnricher`·`NewsTagger`, 관리용 수집 엔드포인트 `AdminController` 포함) |
 | `api` | 컨트롤러, 화면 조립, 화면용 계산 규칙, 응답 | 화면 요구 | `api` |
 | `app` | 조립만(main, 실행 파일) | 배포 방식 | `ApiApplication`, `AppConfig`, 설정 파일(`application.properties`, `news/sources.yml`) |
 | `member` (앞으로) | 계정, 내 선수 저장, 댓글·반응, 알림 | 정책과 보안 | 없음 |
 
 ```
-app ──▶ api ──▶ core
- │       └────▶ client (문 하나로만)
+app ──▶ api ──▶ core ◀── client
+ │       (밖을 부르는 문 하나: core의 video.PlayVideoFinder, 구현은 client)
  └────▶ batch ──▶ core, client
 member(앞으로) ─▶ api, core
 ```
@@ -59,7 +59,7 @@ member(앞으로) ─▶ api, core
 밖(MLB, 언론사, AI)은 수집이 미리 부르고, 화면용 API는 DB에 있는 것만 읽는다. 받기 전이면 "아직 없음"으로 답한다.
 
 - **수집이 미리 받는 것**: 경기·선수 기록, 기사, 사진, 그리고 경기 상세(타석별 기록·하이라이트), 하이라이트 제목 번역, 리그 평균. 경기 상세(#229), 리그 평균(#233), 하이라이트 제목 번역(#237) 모두 수집이 받는다.
-- **요청 중에 밖을 불러도 되는 예외는 하나뿐이다.** `api`는 그 일을 하는 인터페이스 하나만 안다('문 하나').
+- **요청 중에 밖을 불러도 되는 예외는 하나뿐이다.** `api`는 그 일을 하는 인터페이스 하나만 안다('문 하나'). 그 인터페이스는 `core`의 `video.PlayVideoFinder`이고 구현(`client.SavantClips`)은 `client` 모듈에 있어, `api` 모듈은 `client`를 의존하지 않는다(컴파일러가 막는다, #245).
   - 공 하나 영상 주소(`SavantClips`): 공마다 한 번씩이라 미리 받으면 하루 수백 번이고 대부분 보지 않는다. 저장된 경기 상세에 나온 공 번호만 묻는다.
   - 선수 페이지를 열 때 그 선수 시즌을 그 자리에서 받던 안전망(`OnDemandSeason`)은 없앴다(#231). 선수 시즌이 아직 없으면 있는 것만 보여 주고 스케줄 수집이 받는다.
 - **예외를 새로 만들려면 세 가지를 모두 지킨다**: 기다리는 시간에 상한이 있다, 물을 수 있는 범위가 DB에 있는 것으로 묶여 있다(주소의 번호를 바꿔 아무것이나 부르게 두지 않는다), 한 번 받으면 저장하고 다시 받지 않는다. 사용자에게 이 문서 §4를 바꾸는 결정으로 묻는다.
@@ -163,7 +163,8 @@ member(앞으로) ─▶ api, core
 
 3단계 `batch`·`api`·`app` 가르기도 끝났다(#243). 그 전에 `api`가 수집을 알던 4건을 풀었다: 관리용 수집 엔드포인트(`AdminController`·`IngestLogResponse`·`AdminTokenInterceptor`)는 `batch`로, 사진 내주기는 `core`의 `photo.PhotoLoader` 인터페이스(구현은 `ingest.PhotoStore`)로, 비시즌 판단의 '우리 팀 경기가 있나'(DB만 읽음)는 `core`의 `domain.TrackedTeamGames`로.
 
-4. `api` → `client` 참조를 문 하나로 좁히기(지금 `SavantClips`만 남았다)
+4단계 '문 하나'도 끝났다(#245): 공 영상 주소를 찾는 일을 `core`의 `video.PlayVideoFinder`(메서드 하나, 공 번호 모양 `PLAY_ID`, 결과 `Lookup`)로 좁히고, 구현 `SavantClips`와 조립 `VideoConfig`는 `client`로 옮겼다. `api` 모듈은 이제 `core`만 의존한다. 사진 내주기의 `photo.PhotoLoader`(#243)와 같은 모양이다.
+
 5. `api` 안쪽을 주제 패키지로 나누기
 
 ### 지금 규칙과 다른 곳
@@ -175,7 +176,7 @@ member(앞으로) ─▶ api, core
 | `core`는 다른 모듈을 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다). 막던 3건은 시간대 상수 `support.MlbTime`, 샘플 시즌 `DataMode.SAMPLE_SEASON`, 해시 `support.Hashes`로 풀었다(#239) |
 | `client`는 `core`만 안다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #241) |
 | `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
-| `api` → `client`는 문 하나로만(공 영상 주소만) | 2곳, 모두 공 영상 주소(#241 뒤 import로 다시 셈): `SavantClips`가 `news.PoliteFetcher`를, 그 조립 `VideoConfig`가 `news.JdkHttpGetter`·`PoliteFetcher`를 쓴다. 4단계에서 인터페이스 하나로 좁힌다. `MlbContext`는 `core`로 옮겼다(#241) |
+| `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
 | 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 1건(#239 때 찾음): 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)는 저장본이 없거나 원본 주소가 바뀌었으면 그 자리에서 원본 사진 서버에서 받는다. 사진 주기 작업(6시간마다, 뜰 때 한 번)이 미리 받아 두므로 보통은 돌지 않는다. 동작을 바꾸는 일이라 구조 이동과 따로 정한다 |
 | 조회 안쪽 주제는 아래 방향으로만 | 16건(임시로 묶어 본 주제 기준) |
 | 순수 계산은 스프링 빈·리포지토리를 모른다 | 11건 |
@@ -184,7 +185,6 @@ member(앞으로) ─▶ api, core
 ### 아직 정하지 않은 것
 
 - `api` 안쪽 주제 패키지의 이름과 클래스 86개의 자리(임시 묶음만 있다).
-- '문 하나'의 인터페이스 모양.
 - 조회 안쪽 규칙을 검사할 도구(ArchUnit이 후보다. 모듈 경계는 Gradle이 막지만 모듈 안쪽은 못 막는다).
 - 엔드포인트별 응답 모양을 파일로 뽑아 두는 검사('그대로 품기'의 보완).
 - 수집과 API를 다른 프로세스로 뗄 때 캐시 비우기를 어떻게 알릴지(§3 규모의 목록).

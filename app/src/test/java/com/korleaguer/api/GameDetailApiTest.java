@@ -9,6 +9,7 @@ import com.korleaguer.domain.HighlightTitle;
 import com.korleaguer.domain.HighlightTitleRepository;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.ingest.GameDetailIngest;
+import com.korleaguer.video.PlayVideoFinder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -260,13 +261,10 @@ class GameDetailApiTest {
 
         @Bean
         @Primary
-        SavantClips fakeSavant(Fakes fakes) {
-            return new SavantClips(null) {
-                @Override
-                public Lookup find(String playId) {
-                    fakes.savantAsked.add(playId);
-                    return new Lookup(true, Optional.of(Fakes.CLIP));
-                }
+        PlayVideoFinder fakeSavant(Fakes fakes) {
+            return playId -> {
+                fakes.savantAsked.add(playId);
+                return new PlayVideoFinder.Lookup(true, Optional.of(Fakes.CLIP));
             };
         }
 
