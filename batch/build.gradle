@@ -1,0 +1,46 @@
+// batch 모듈(Java 패키지 com.korleaguer.ingest): 수집. 밖에서 받아 바꾸고 저장하는 작업과 그 스케줄, 관리용 수집 엔드포인트.
+// core와 client만 안다. api를 모른다(ARCHITECTURE.md §3). 실행 파일은 만들지 않고 라이브러리 jar만 만든다.
+plugins {
+	id 'java-library'
+	id 'io.spring.dependency-management'
+}
+
+group = 'com.korleaguer'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+// Spring Boot 플러그인은 실행 파일을 만드는 app에만 건다. 라이브러리 버전만 같은 BOM으로 맞춘다.
+dependencyManagement {
+	imports {
+		mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+	}
+}
+
+dependencies {
+	implementation project(':core')
+	implementation project(':client')
+	// 관리용 수집 엔드포인트(/admin/**, 토큰 검사)와 그 입력 검사
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Spring Boot 플러그인이 해 주던 것을 여기서는 직접 건다(core/build.gradle과 같다).
+// -parameters: 리포지토리 @Query의 이름 붙은 인자와 @RequestParam 이름을 메서드 인자 이름으로 잇는다.
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.compilerArgs.add('-parameters')
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

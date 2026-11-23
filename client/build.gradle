@@ -17,7 +17,7 @@ repositories {
 	mavenCentral()
 }
 
-// Spring Boot 플러그인은 실행 파일을 만드는 루트에만 건다. 라이브러리 버전만 같은 BOM으로 맞춘다.
+// Spring Boot 플러그인은 실행 파일을 만드는 app에만 건다. 라이브러리 버전만 같은 BOM으로 맞춘다.
 dependencyManagement {
 	imports {
 		mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
@@ -36,7 +36,7 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// Spring Boot 플러그인이 루트에서 해 주던 것을 여기서는 직접 건다(core/build.gradle과 같다).
+// Spring Boot 플러그인이 app에서 해 주던 것을 여기서는 직접 건다(core/build.gradle과 같다).
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.compilerArgs.add('-parameters')

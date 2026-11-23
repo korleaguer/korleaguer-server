@@ -1,4 +1,4 @@
-package com.korleaguer.api;
+package com.korleaguer.ingest;
 
 import com.korleaguer.config.KorleaguerProperties;
 import jakarta.servlet.http.HttpServletRequest;

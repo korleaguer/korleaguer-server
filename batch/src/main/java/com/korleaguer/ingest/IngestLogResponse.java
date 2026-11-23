@@ -1,4 +1,4 @@
-package com.korleaguer.api;
+package com.korleaguer.ingest;
 
 import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
