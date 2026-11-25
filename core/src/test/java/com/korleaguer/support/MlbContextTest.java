@@ -2,6 +2,8 @@ package com.korleaguer.support;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,5 +38,29 @@ class MlbContextTest {
     void englishTitlesAreFromMlbOutlets() {
         // when // then
         assertThat(MlbContext.mentions("Padres Interested In Si Hwan Roh")).isTrue();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "노시환 이미 마음 굳혔다, 한화 잔류 유력",
+            "노시환 100홈런의 의미 되짚어 보기",
+            "노시환이 말하는 야구의 재미 하나"})
+    @DisplayName("다른 말 끝에 붙은 '미'가 있는 국내 기사는 메이저리그 기사로 보지 않는다")
+    void miInsideAnotherWordIsNotAmerica(String title) {
+        // when // then
+        assertThat(MlbContext.mentions(title)).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "미 SI가 평가한 ‘한화 노시환’…“수비수로 어깨 강하지만 좌우 움직임 개선 필요”",
+            "노시환 향한 미 언론의 평가",
+            "\"노시환 관심\" 보도한 '미 매체'",
+            "노시환, 전미 야구팬이 주목",
+            "노시환 북미 진출 노린다"})
+    @DisplayName("미국을 뜻하는 '미'·'전미'·'북미'가 있는 제목은 메이저리그 기사로 본다")
+    void miAloneMeansAmerica(String title) {
+        // when // then
+        assertThat(MlbContext.mentions(title)).isTrue();
     }
 }
