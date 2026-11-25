@@ -141,7 +141,7 @@ member(앞으로) ─▶ api, core
 - **구조를 옮기는 PR은 동작을 바꾸지 않는다.** 기능 변경과 섞지 않는다. 클래스 이동과 내용 수정이 한 PR에 섞이면 리뷰할 수 없다.
 - **PR**: '리뷰 포인트'에 `구조: 따른 규칙 / 새로 생긴 경계 넘는 참조(없으면 없음)`을 한 줄 적는다.
 - **모듈을 새로 뗄 때 같이 고칠 곳**: `settings.gradle`의 `include`, 모듈 `build.gradle`(Spring Boot 플러그인을 걸지 않으므로 `-parameters`와 UTF-8을 직접 건다. `-parameters`가 없으면 리포지토리 `@Query`의 이름 붙은 인자를 못 이어 앱이 뜨다 실패한다), `Dockerfile`의 `COPY` 두 줄, `deploy.yml`의 배포하지 않는 경로 두 곳(`paths-ignore`, `IGNORED`), `ci.yml`의 테스트 보고서 경로. 패키지 이름은 바꾸지 않고 폴더만 옮긴다.
-- **테스트 자리**: 스프링 없이 도는 단위 테스트는 그 모듈로 옮긴다. 앱 전체를 띄우는 테스트(`@SpringBootTest`)와 여러 모듈이 같이 쓰는 테스트 도우미(`MutableClock`, `PhotoFiles`, `FakeHttp`, `MlbFixtures`)와 그것을 쓰는 테스트, 테스트 자원(`mlb/*.json`)을 쓰는 테스트는 `app`에 둔다.
+- **테스트 자리**: 스프링 없이 도는 단위 테스트는 그 모듈로 옮긴다. 앱 전체를 띄우는 테스트(`@SpringBootTest`)와 여러 모듈이 같이 쓰는 테스트 도우미(`MutableClock`, `PhotoFiles`, `FakeHttp`, `MlbFixtures`)와 그것을 쓰는 테스트, 테스트 자원(`mlb/*.json`)을 쓰는 테스트는 `app`에 둔다. 무엇을 어떻게 확인할지는 `TESTING.md`를 따른다.
 - **구조 검사**: 모듈 사이 경계는 Gradle(모듈 `build.gradle`의 의존성)이, `api` 안쪽 규칙은 `api/src/test/java/com/korleaguer/api/ApiArchitectureTest.java`가 막는다. 어기면 테스트가 바로 실패한다. 규칙을 새로 넣을 때 이미 어긴 곳이 많으면, ArchUnit의 얼리기(`FreezingArchRule`)로 그 목록만 두고 새로 생기는 것을 막은 뒤 나눠 고친다(#249~#257에서 그렇게 했고, 다 고친 뒤 얼리기 장치는 걷어 냈다).
 - **하위 에이전트에게 서버 일을 맡길 때**: 브리프에 "`ARCHITECTURE.md`를 먼저 읽고 따를 것"을 넣는다.
 
