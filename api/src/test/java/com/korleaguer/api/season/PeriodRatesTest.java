@@ -5,6 +5,7 @@ import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -17,6 +18,7 @@ class PeriodRatesTest {
     private static final LeagueEnv LEAGUE = new LeagueEnv(0.314, 0.117, 4.2);
 
     @Test
+    @DisplayName("타자의 기간 wRC+는 그 시즌 리그 평균과 견준다")
     void hitterWrcPlusUsesLeagueAverage() {
         // 4타수 2안타(2루타 1) 볼넷 1: wOBA .565 → 리그 .314 기준 272.7
         Appearance game = batted(BattingLine.atBats(4).runs(1).hits(2).doubles(1).rbi(1).walks(1).build());
@@ -24,6 +26,7 @@ class PeriodRatesTest {
     }
 
     @Test
+    @DisplayName("기간 wRC+는 0보다 낮거나 300보다 높게 나오지 않는다")
     void hitterWrcPlusIsClampedToZeroAndCap() {
         Appearance hitless = batted(BattingLine.atBats(4).strikeouts(2).build());
         assertThat(PeriodRates.wrcPlus(List.of(hitless), LEAGUE)).isEqualTo(0.0);
@@ -32,6 +35,7 @@ class PeriodRatesTest {
     }
 
     @Test
+    @DisplayName("2루타·3루타를 모르거나 타석이 없으면 기간 wRC+를 내지 않는다")
     void hitterWrcPlusIsNullWithoutDetailOrPlateAppearances() {
         // 2루타·3루타 칸이 없는 옛 기록
         Appearance old = batted(BattingLine.atBats(4).runs(1).hits(2).withoutExtraBases().rbi(1).walks(1)
@@ -92,6 +96,7 @@ class PeriodRatesTest {
     }
 
     @Test
+    @DisplayName("같은 기록도 타자가 잘 치는 마이너 리그에서는 wRC+가 낮다")
     void minorLinesAreMeasuredAgainstTheirOwnLevel() {
         // 같은 기록이라도 타자 친화 리그(wOBA .338)에서는 메이저(.314)보다 낮게 나온다
         Batting line = BattingLine.atBats(4).runs(1).hits(2).doubles(1).rbi(1).walks(1).build();

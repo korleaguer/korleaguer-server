@@ -3,6 +3,7 @@ package com.korleaguer.support;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Role;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GameSummaryTest {
 
     @Test
+    @DisplayName("타자 한 줄에는 타수·안타·2루타·홈런·타점·볼넷이 나온다")
     void hitterLine() {
         Batting batting = hitter(4, 2, 1, 0, 1, 2, 1, 0);
 
@@ -18,6 +20,7 @@ class GameSummaryTest {
     }
 
     @Test
+    @DisplayName("안타가 없으면 무안타라고 쓴다")
     void hitterWithoutHits() {
         Batting batting = hitter(3, 0, 0, 0, 0, 0, 1, 0);
 
@@ -25,6 +28,7 @@ class GameSummaryTest {
     }
 
     @Test
+    @DisplayName("3루타와 도루도 한 줄에 나온다")
     void hitterWithTripleAndSteal() {
         Batting batting = hitter(4, 3, 0, 1, 0, 2, 0, 1);
 

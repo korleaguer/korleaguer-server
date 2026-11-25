@@ -1,6 +1,7 @@
 package com.korleaguer.api.season;
 
 import com.korleaguer.domain.Batting;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,6 +34,7 @@ class RankingMinimumsTest {
     }
 
     @Test
+    @DisplayName("타석은 받은 값을 쓰고, 없으면 타수·볼넷·몸에 맞는 공·희생플라이로 계산한다")
     void plateAppearancesFallBackToComputedValue() {
         // 희생번트 1이 더해진 타석 6: 다른 칸에서 계산한 5가 아니라 준 값을 쓴다
         Batting known = BattingLine.atBats(4).hits(1).walks(1).strikeouts(1).plateAppearances(6).build();
