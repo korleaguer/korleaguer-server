@@ -5,29 +5,31 @@ import com.korleaguer.config.NewsProperties;
 import com.korleaguer.config.RosterProperties;
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import com.korleaguer.domain.NewsDestinationRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.news.PoliteFetcher;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.CommittedDbTest;
 import com.korleaguer.support.FakeHttp;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.korleaguer.support.FakeHttp.ok;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /** 관련 기사 모으기: 협상 기간에만, 이름이 든 제목만, 같은 기사는 한 번만, 큰 피드는 간격을 두고. (기사 내용은 지어낸 값) */
+@CommittedDbTest
 class NewsCollectorTest {
 
     // 한국 2026-11-11 10:00. 노시환 협상 기간(미국 11/2 08:00 ~ 12/1 17:00) 안이다.
@@ -37,20 +39,18 @@ class NewsCollectorTest {
 
     private final MutableClock clock = new MutableClock(NOV_11);
     private final FakeHttp http = new FakeHttp(clock);
-    private final NewsArticleRepository articles = mock(NewsArticleRepository.class);
+    @Autowired
+    private NewsArticleRepository articles;
+    @Autowired
+    private NewsDestinationRepository destinations;
     private final PlayerRepository players = mock(PlayerRepository.class);
     /** 명단 선수(기본은 없음). 명단 선수 테스트에서 채운다 */
     private RosterProperties roster = new RosterProperties(List.of());
-    private final List<NewsArticle> saved = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
-        when(articles.save(any(NewsArticle.class))).thenAnswer(inv -> {
-            saved.add(inv.getArgument(0));
-            return inv.getArgument(0);
-        });
-        when(articles.existsBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
-                .anyMatch(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1))));
+        destinations.deleteAllInBatch();
+        articles.deleteAllInBatch();
         http.on(NEWS + "/robots.txt", ok("User-agent: *\nDisallow: /search\n"))
                 .on(MLB + "/robots.txt", ok("User-agent: *\nDisallow: /search\nCrawl-delay: 1\n"));
     }
@@ -82,7 +82,7 @@ class NewsCollectorTest {
         int count = collector(source("뉴시스", NEWS + "/rss.xml")).collect();
 
         assertThat(count).isEqualTo(2);
-        assertThat(saved).extracting(NewsArticle::getSubject, NewsArticle::getTitle, NewsArticle::getUrl,
+        assertThat(saved()).extracting(NewsArticle::getSubject, NewsArticle::getTitle, NewsArticle::getUrl,
                         NewsArticle::getPublisher, NewsArticle::getPublishedAt)
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple("노시환", "노시환, 30개 구단과 협상 시작", NEWS + "/view/1",
@@ -100,7 +100,7 @@ class NewsCollectorTest {
                 MLB + "/players/si-hwan-roh/feed", "UTC", "노시환", null, null);
 
         assertThat(collector(playerFeed).collect()).isEqualTo(1);
-        assertThat(saved).extracting(NewsArticle::getTitle).containsExactly("NL West Notes: Padres, Giants");
+        assertThat(saved()).extracting(NewsArticle::getTitle).containsExactly("NL West Notes: Padres, Giants");
     }
 
     @Test
@@ -111,7 +111,7 @@ class NewsCollectorTest {
         assertThat(collector.collect()).isEqualTo(1);
         clock.advance(Duration.ofMinutes(30));
         assertThat(collector.collect()).isZero();
-        assertThat(saved).hasSize(1);
+        assertThat(saved()).hasSize(1);
     }
 
     @Test
@@ -137,7 +137,7 @@ class NewsCollectorTest {
 
         collector(source("뉴시스", NEWS + "/rss.xml")).collect();
 
-        assertThat(saved).extracting(NewsArticle::getUrl, NewsArticle::getPublishedAt)
+        assertThat(saved()).extracting(NewsArticle::getUrl, NewsArticle::getPublishedAt)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple(NEWS + "/view/future", NOV_11));
     }
 
@@ -160,7 +160,7 @@ class NewsCollectorTest {
         collector(new NewsProperties.Source("마이데일리", NEWS + "/lead.xml", null, null, null, "lead"),
                 source("다른 곳", NEWS + "/plain.xml")).collect();
 
-        assertThat(saved).extracting(NewsArticle::getUrl, NewsArticle::getLeadText).containsExactly(
+        assertThat(saved()).extracting(NewsArticle::getUrl, NewsArticle::getLeadText).containsExactly(
                 org.assertj.core.groups.Tuple.tuple(NEWS + "/view/1", "노시환이 협상을 시작했다."),
                 org.assertj.core.groups.Tuple.tuple(NEWS + "/view/2", null));
     }
@@ -169,27 +169,21 @@ class NewsCollectorTest {
     void anArticleSavedBeforeLeadsGetsItsLeadFromTheFeed() {
         NewsArticle old = new NewsArticle("노시환", NEWS + "/view/5", NewsUrls.sha256(NEWS + "/view/5"), "노시환 MLB 소식",
                 "마이데일리", Instant.parse("2026-11-10T00:00:00Z"), Instant.parse("2026-11-10T00:10:00Z"));
-        saved.add(old);
-        when(articles.findBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
-                .filter(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1)))
-                .findFirst());
+        articles.save(old);
         http.on(NEWS + "/lead.xml", ok("<rss version=\"2.0\"><channel><title>t</title><item><title>노시환 MLB 소식</title>"
                 + "<link>" + NEWS + "/view/5</link><description>노시환이 협상을 시작했다.</description></item></channel></rss>"));
 
         int count = collector(new NewsProperties.Source("마이데일리", NEWS + "/lead.xml", null, null, null, "lead")).collect();
 
         assertThat(count).isZero();
-        assertThat(old.getLeadText()).isEqualTo("노시환이 협상을 시작했다.");
+        assertThat(stored(old).getLeadText()).isEqualTo("노시환이 협상을 시작했다.");
     }
 
     @Test
     void feedPhotosAreSavedAndFilledIntoOlderArticles() {
         NewsArticle old = new NewsArticle("노시환", NEWS + "/view/8", NewsUrls.sha256(NEWS + "/view/8"), "노시환 옛 MLB 소식",
                 "연합뉴스", Instant.parse("2026-11-10T00:00:00Z"), Instant.parse("2026-11-10T00:10:00Z"));
-        saved.add(old);
-        when(articles.findBySubjectAndUrlHash(anyString(), anyString())).thenAnswer(inv -> saved.stream()
-                .filter(a -> a.getSubject().equals(inv.getArgument(0)) && a.getUrlHash().equals(inv.getArgument(1)))
-                .findFirst());
+        articles.save(old);
         http.on(NEWS + "/photo.xml", ok("<rss version=\"2.0\"><channel><title>t</title>"
                 + "<item><title>노시환 새 MLB 소식</title><link>" + NEWS + "/view/9</link>"
                 + "<enclosure url=\"http://img.example.kr/9.jpg\" type=\"image/jpeg\"/></item>"
@@ -199,8 +193,8 @@ class NewsCollectorTest {
 
         collector(new NewsProperties.Source("연합뉴스", NEWS + "/photo.xml", null, null, null, "lead")).collect();
 
-        assertThat(old.getImageUrl()).isEqualTo("https://img.example.kr/8.jpg");
-        assertThat(saved).filteredOn(a -> a.getUrl().endsWith("/view/9")).extracting(NewsArticle::getImageUrl)
+        assertThat(stored(old).getImageUrl()).isEqualTo("https://img.example.kr/8.jpg");
+        assertThat(saved()).filteredOn(a -> a.getUrl().endsWith("/view/9")).extracting(NewsArticle::getImageUrl)
                 .containsExactly("https://img.example.kr/9.jpg");
     }
 
@@ -218,7 +212,7 @@ class NewsCollectorTest {
                 postings(), roster, players, plain, ai, articles, DataMode.MLB, clock);
 
         assertThat(collector.collect()).isEqualTo(1);
-        assertThat(saved).extracting(NewsArticle::getPublisher).containsExactly("앞부분");
+        assertThat(saved()).extracting(NewsArticle::getPublisher).containsExactly("앞부분");
         assertThat(http.urls()).doesNotContain(site + "/ai.xml");
     }
 
@@ -242,7 +236,7 @@ class NewsCollectorTest {
 
         // 국내 리그로 돌아간 고우석은 모으지 않고, 30일보다 오래된 기사는 버린다
         assertThat(count).isEqualTo(2);
-        assertThat(saved).extracting(NewsArticle::getSubject, NewsArticle::getUrl).containsExactly(
+        assertThat(saved()).extracting(NewsArticle::getSubject, NewsArticle::getUrl).containsExactly(
                 org.assertj.core.groups.Tuple.tuple("김혜성", NEWS + "/view/1"),
                 org.assertj.core.groups.Tuple.tuple("김혜성", NEWS + "/view/2"));
     }
@@ -268,7 +262,7 @@ class NewsCollectorTest {
 
         collector(source("뉴시스", NEWS + "/rss.xml")).collect();
 
-        assertThat(saved).extracting(NewsArticle::getUrl).containsExactly(NEWS + "/view/2", NEWS + "/view/3");
+        assertThat(saved()).extracting(NewsArticle::getUrl).containsExactly(NEWS + "/view/2", NEWS + "/view/3");
     }
 
     @Test
@@ -278,6 +272,15 @@ class NewsCollectorTest {
         assertThat(NewsCollector.mentions("SI HWAN ROH drawing interest", names)).isTrue();
         assertThat(NewsCollector.mentions("한화 노시환이 미국으로", names)).isTrue();
         assertThat(NewsCollector.mentions("Roh family news", names)).isFalse();
+    }
+
+    /** DB에 저장된 기사 전부(저장한 순) */
+    private List<NewsArticle> saved() {
+        return articles.findAll(Sort.by("id"));
+    }
+
+    private NewsArticle stored(NewsArticle article) {
+        return articles.findById(article.getId()).orElseThrow();
     }
 
     private NewsCollector collector(NewsProperties.Source... sources) {

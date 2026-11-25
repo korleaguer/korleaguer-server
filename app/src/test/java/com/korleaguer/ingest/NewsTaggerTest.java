@@ -11,13 +11,12 @@ import com.korleaguer.news.DestinationTagger;
 import com.korleaguer.news.Summarizer;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import com.korleaguer.support.CommittedDbTest;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,9 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 기사마다 행선지로 거론된 구단 고르기(NewsTagger): 고를 기사, 다시 고르기, 실패 처리, 홈이 셀 거론 */
-@SpringBootTest
-@ActiveProfiles("test")
-@Transactional
+@CommittedDbTest
 class NewsTaggerTest {
 
     private static final Instant NOW = Instant.parse("2026-11-12T10:00:00Z");
@@ -45,6 +42,12 @@ class NewsTaggerTest {
     private NewsDestinationRepository destinations;
     @Autowired
     private PlatformTransactionManager transactions;
+
+    @BeforeEach
+    void emptyTables() {
+        destinations.deleteAllInBatch();
+        articles.deleteAllInBatch();
+    }
 
     /** 제목에 따라 정해 둔 답을 주는 분류기. 부른 제목과 선수 처지를 적어 둔다 */
     private static final class FakeTagger implements DestinationTagger {
@@ -145,8 +148,11 @@ class NewsTaggerTest {
         NewsArticle article = article("요약 포기한 기사", "2026-11-12T01:00:00Z", false, 3);
         FakeTagger fake = new FakeTagger(Map.of());
         tagger(fake).tag();
-        article.enriched(null, null, "늦게 붙은 요약.", "claude-haiku-5-5/v4", NOW.plusSeconds(60));
-        articles.save(article);
+        // 구단을 고른 뒤의 기사를 다시 읽어 요약을 붙인다(처음 저장한 객체를 쓰면 고른 표시가 지워진다)
+        NewsArticle tagged = articles.findById(article.getId()).orElseThrow();
+        assertThat(tagged.getDestinationsAt()).isNotNull();
+        tagged.enriched(null, null, "늦게 붙은 요약.", "claude-haiku-5-5/v4", NOW.plusSeconds(60));
+        articles.save(tagged);
 
         tagger(fake).tag();
 
