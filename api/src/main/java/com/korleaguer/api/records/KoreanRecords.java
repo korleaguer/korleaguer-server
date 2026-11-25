@@ -74,8 +74,8 @@ final class KoreanRecords {
     record SeasonLine(int season, KoreanMlbSeason.Counts counts) {
     }
 
-    /** 이번 시즌 경기 한 줄(한국 날짜, 그 경기 개수 기록) */
-    record GameLine(LocalDate dateKst, KoreanMlbSeason.Counts counts) {
+    /** 이번 시즌 경기 한 줄(경기 번호, 한국 날짜, 그 경기 개수 기록) */
+    record GameLine(long gameId, LocalDate dateKst, KoreanMlbSeason.Counts counts) {
     }
 
     /**
@@ -258,7 +258,7 @@ final class KoreanRecords {
                         int value = totals.get(senior.mlbId()).get(stat);
                         if (value > 0 && cumulative <= value && value < after) {
                             result.add(new RecordPassed(person.playerId(), person.mlbId(), person.nameKo(),
-                                    person.photoUrl(), stat.key, stat.label, stat.label, game.dateKst(),
+                                    person.photoUrl(), stat.key, stat.label, stat.label, game.gameId(), game.dateKst(),
                                     senior.nameKo(), value));
                         }
                     }

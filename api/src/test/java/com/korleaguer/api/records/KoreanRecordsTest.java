@@ -149,6 +149,19 @@ class KoreanRecordsTest {
     }
 
     @Test
+    @DisplayName("더블헤더 두 번째 경기에서 넘었으면 두 번째 경기가 넘은 경기다")
+    void doubleHeaderKeepsTheGameThatCrossed() {
+        // when
+        // 지난 시즌까지 187안타. 첫 경기 +33 = 220(최희섭과 같음), 둘째 경기 +1 = 221(최희섭 220을 넘음)
+        RecordsResponse records = build(Map.of(LEE.mlbId(), List.of(
+                game(11, "2026-06-18", 33), game(12, "2026-06-18", 1))));
+
+        // then
+        assertThat(records.passed()).extracting(RecordPassed::passedNameKo, RecordPassed::gameId)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("최희섭", 12L));
+    }
+
+    @Test
     @DisplayName("오늘 경기까지 더한 기록이 더 많으면 그 값을 통산에 쓴다")
     void todaysGamesCountBeforeTheDailySeasonLineArrives() {
         // when
@@ -202,7 +215,11 @@ class KoreanRecordsTest {
     }
 
     private static KoreanRecords.GameLine game(String date, int hits) {
-        return new KoreanRecords.GameLine(LocalDate.parse(date), hitting(1, hits, 0));
+        return game(1, date, hits);
+    }
+
+    private static KoreanRecords.GameLine game(long gameId, String date, int hits) {
+        return new KoreanRecords.GameLine(gameId, LocalDate.parse(date), hitting(1, hits, 0));
     }
 
     private static RecordCategory category(RecordsResponse records, String key) {
