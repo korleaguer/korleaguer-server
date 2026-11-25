@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.ingest.GameDetailIngest;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,9 +41,13 @@ class GameDetailVideosOffTest {
     private GameDetailIngest gameDetailIngest;
 
     @Test
+    @DisplayName("영상을 끄면 타석 기록은 남고 하이라이트와 공 영상은 나오지 않는다")
     void noVideosWhenSwitchedOff() throws Exception {
+        // given
         // 수집은 스위치와 상관없이 받아 두고(다시 켜면 바로 보이게), 읽을 때 비운다
         gameDetailIngest.fill(1000);
+
+        // when // then
         mockMvc.perform(get("/api/players/1/games/1001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.plays", hasSize(4)))

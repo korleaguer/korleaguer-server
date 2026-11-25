@@ -7,6 +7,7 @@ import com.korleaguer.api.game.GameDetailService;
 import com.korleaguer.api.web.BaseballController;
 import com.korleaguer.api.web.NewsController;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -35,9 +36,12 @@ class HeadExistsTest {
             new NewsController(newsPages, mock(NewsListFinder.class))).build();
 
     @Test
+    @DisplayName("선수 주소에 HEAD로 물으면 선수 화면을 만들지 않고 있는지만 답한다")
     void playerHeadOnlyChecksThatThePlayerExists() throws Exception {
+        // given
         when(queries.playerExists(1)).thenReturn(true);
 
+        // when // then
         mockMvc.perform(head("/api/players/1")).andExpect(status().isOk());
         mockMvc.perform(head("/api/players/2")).andExpect(status().isNotFound());
 
@@ -45,9 +49,12 @@ class HeadExistsTest {
     }
 
     @Test
+    @DisplayName("기사 주소에 HEAD로 물으면 기사 화면을 만들지 않고 있는지만 답한다")
     void newsHeadOnlyChecksThatTheArticleIsShown() throws Exception {
+        // given
         when(newsPages.exists(1)).thenReturn(true);
 
+        // when // then
         mockMvc.perform(head("/api/news/1")).andExpect(status().isOk());
         mockMvc.perform(head("/api/news/2")).andExpect(status().isNotFound());
 

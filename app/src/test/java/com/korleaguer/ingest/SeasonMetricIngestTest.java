@@ -10,6 +10,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -69,16 +70,21 @@ class SeasonMetricIngestTest {
     }
 
     @Test
+    @DisplayName("앱이 뜰 때의 따라잡기만으로는 시즌 지표를 받지 않는다")
     @Order(1)
     void startupCatchUpDoesNotFetchMetrics() {
+        // when // then
         assertThat(metrics.count()).isZero();
     }
 
     @Test
+    @DisplayName("비시즌 따라잡기를 하면 여섯 명의 시즌 합계와 지표가 저장된다")
     @Order(2)
     void offSeasonCatchUpStoresTotalsAndMetrics() {
+        // when
         IngestLog log = ingestService.catchUp(false, true);
 
+        // then
         assertThat(log.getMessage()).contains("시즌 지표 6명");
         PlayerSeasonMetric lee = metric("이정후", 2026, PlayerSeasonMetric.Group.HITTING);
         assertThat(lee.getPlateAppearances()).isEqualTo(579);
@@ -100,34 +106,45 @@ class SeasonMetricIngestTest {
     }
 
     @Test
+    @DisplayName("같은 날 다시 따라잡으면 시즌 지표를 또 묻지 않는다")
     @Order(3)
     void sameDayIsNotAskedAgain() {
+        // given
         long before = client.requestCount();
 
+        // when
         IngestLog log = ingestService.catchUp(false, true);
 
+        // then
         assertThat(client.requestCount()).isEqualTo(before);
         assertThat(log.getMessage()).doesNotContain("시즌 지표");
     }
 
     @Test
+    @DisplayName("다음 날이 되면 시즌 지표를 다시 받는다")
     @Order(4)
     void nextDayAsksAgain() {
+        // given
         clock.set(START.plus(Duration.ofDays(1)));
 
+        // when
         IngestLog log = ingestService.catchUp(false, true);
 
+        // then
         assertThat(log.getMessage()).contains("시즌 지표 6명");
         assertThat(metric("송성문", 2026, PlayerSeasonMetric.Group.HITTING).getFetchedAt()).isEqualTo(clock.instant());
     }
 
     @Test
+    @DisplayName("비시즌 홈은 시즌 지표로 선수를 판정해 잘한 순으로 늘어놓는다")
     @Order(5)
     void offSeasonHomeJudgesWithTheMetrics() {
+        // when
         // 샘플 지표: 이정후 579타석 wRC+ 101.8, 송성문 154타석 wRC+ 57.9, 김하성 앞 시즌 주전·147타석,
         // 고우석·배지환은 마이너가 더 많다. 김혜성은 샘플 마이너 경기가 2경기뿐이라 출전이 적었던 시즌이다.
         List<SeasonReport> report = queryService.home().offseason().report();
 
+        // then
         assertThat(report).extracting(r -> tierOf(report, r.playerId()))
                 .isSortedAccordingTo(Comparator.naturalOrder());
         assertThat(tierOf(report, id("이정후"))).isEqualTo(SeasonTier.SOLID);

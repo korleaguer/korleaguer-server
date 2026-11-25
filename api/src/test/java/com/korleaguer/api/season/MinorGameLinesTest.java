@@ -15,6 +15,7 @@ import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Role;
 import com.korleaguer.support.GameSummary;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
@@ -47,27 +48,35 @@ public class MinorGameLinesTest {
     private static final Pitching RELIEF_WIN = new Pitching(4, 1, 1, 0, 1, 3, 0, 22, 1, 0, 0);
 
     @Test
+    @DisplayName("최근 경기가 먼저 나오고 같은 날이면 늦게 시작한 경기가 앞에 온다")
     void newestGameFirstAndDoubleHeaderByStartTime() {
+        // given
         MinorGameLog first = game(1, LocalDate.of(2026, 9, 18));
         MinorGameLog early = game(2, LocalDate.of(2026, 9, 20));
         early.updateSchedule(finalGame("2026-09-20T17:05:00Z", 3, 1));
         MinorGameLog late = game(3, LocalDate.of(2026, 9, 20));
         late.updateSchedule(finalGame("2026-09-20T23:05:00Z", 2, 5));
 
+        // when
         List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(first, late, early), NAMES);
 
+        // then
         assertThat(lines).extracting(MinorGameLine::gamePk).containsExactly(3L, 2L, 1L);
     }
 
     @Test
+    @DisplayName("일정을 받으면 시작 시각과 점수를 채우고 이김과 비김을 가린다")
     void scheduleFillsStartTimeScoresAndResult() {
+        // given
         MinorGameLog won = game(1, LocalDate.of(2026, 9, 20));
         won.updateSchedule(finalGame("2026-09-21T00:05:00Z", 7, 4));
         MinorGameLog tied = game(2, LocalDate.of(2026, 9, 19));
         tied.updateSchedule(finalGame("2026-09-20T00:05:00Z", 3, 3));
 
+        // when
         List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(won, tied), NAMES);
 
+        // then
         MinorGameLine line = lines.getFirst();
         assertThat(line.startTimeKst()).isEqualTo(OffsetDateTime.parse("2026-09-21T09:05:00+09:00"));
         assertThat(line.teamScore()).isEqualTo(7);
@@ -77,12 +86,16 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("일정이 없으면 시작 시각을 다음 날 오전 8시로 어림하고 점수를 비운다")
     void withoutScheduleTheTimeIsGuessedAndResultComesFromTheGameLog() {
+        // given
         // 일정을 아직 받지 못한 경기: 공식 날짜 다음 날 08:00(한국), 점수는 null, 승패는 경기별 기록(win=false)
         MinorGameLog game = game(1, LocalDate.of(2026, 9, 20));
 
+        // when
         MinorGameLine line = MinorRecords.gameLines(Role.HITTER, List.of(game), NAMES).getFirst();
 
+        // then
         assertThat(line.startTimeKst()).isEqualTo(OffsetDateTime.parse("2026-09-21T08:00:00+09:00"));
         assertThat(line.teamScore()).isNull();
         assertThat(line.opponentScore()).isNull();
@@ -90,7 +103,9 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("연기됐거나 진행 중인 경기는 승패를 비워 둔다")
     void gameNotStartedOrInProgressHasNoResult() {
+        // given
         MinorGameLog postponed = game(1, LocalDate.of(2026, 9, 20));
         postponed.updateSchedule(new MinorGameSchedule(Instant.parse("2026-09-20T23:05:00Z"), "postponed", 0, 0,
                 null, null));
@@ -98,8 +113,10 @@ public class MinorGameLinesTest {
         live.updateSchedule(new MinorGameSchedule(Instant.parse("2026-09-19T23:05:00Z"), "in_progress", 2, 1,
                 null, null));
 
+        // when
         List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(postponed, live), NAMES);
 
+        // then
         assertThat(lines.get(0).teamScore()).isNull();
         assertThat(lines.get(0).result()).isNull();
         assertThat(lines.get(1).teamScore()).isEqualTo(2);
@@ -107,7 +124,9 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("일정을 찾지 못한 경기는 기록의 승패를 쓰고 중단된 경기는 비워 둔다")
     void unknownStateFallsBackToTheGameLogButSuspendedHasNoResult() {
+        // given
         // 일정을 물었지만 응답에 없던 경기: 시각은 어림, 승패는 경기별 기록(win=false)
         MinorGameLog notFound = game(1, LocalDate.of(2026, 9, 20));
         notFound.updateSchedule(MinorGameSchedule.notFound());
@@ -116,8 +135,10 @@ public class MinorGameLinesTest {
         suspended.updateSchedule(new MinorGameSchedule(Instant.parse("2026-09-19T23:05:00Z"), "suspended", 1, 1,
                 null, null));
 
+        // when
         List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(notFound, suspended), NAMES);
 
+        // then
         assertThat(lines.get(0).startTimeKst()).isEqualTo(OffsetDateTime.parse("2026-09-21T08:00:00+09:00"));
         assertThat(lines.get(0).teamScore()).isNull();
         assertThat(lines.get(0).teamKo()).isEqualTo("오클라호마시티");
@@ -126,15 +147,19 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("마이너 팀 이름은 한국어 지명, 영어 지명, 영어 팀 이름 순으로 쓴다")
     void koreanCityNameThenEnglishPlaceThenEnglishName() {
+        // given
         MinorGameLog known = game(1, LocalDate.of(2026, 9, 20));
         MinorGameLog placeOnly = game(2, LocalDate.of(2026, 5, 2));
         placeOnly.updateTeamIds(DSL_LAD_BAUTISTA, 999_999L);
         placeOnly.updateSchedule(new MinorGameSchedule(Instant.parse("2026-05-02T23:05:00Z"), "final", 1, 2,
                 "DSL LAD Bautista", null));
 
+        // when
         List<MinorGameLine> lines = MinorRecords.gameLines(Role.HITTER, List.of(known, placeOnly), NAMES);
 
+        // then
         assertThat(lines.get(0).teamId()).isEqualTo(OKLAHOMA_CITY);
         assertThat(lines.get(0).teamKo()).isEqualTo("오클라호마시티");
         assertThat(lines.get(0).opponentId()).isEqualTo(ALBUQUERQUE);
@@ -144,26 +169,34 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("하이싱글A 경기는 단계 이름을 한국어로 보인다")
     void levelNames() {
+        // given
         MinorGameLog game = game(1, LocalDate.of(2026, 9, 20));
         game.updateGame(game.getGameDate(), "A+", game.getTeamName(), game.getOpponentName(), true, true);
 
+        // when
         MinorGameLine line = MinorRecords.gameLines(Role.HITTER, List.of(game), NAMES).getFirst();
 
+        // then
         assertThat(line.level()).isEqualTo("A+");
         assertThat(line.levelKo()).isEqualTo("하이싱글A");
         assertThat(line.home()).isTrue();
     }
 
     @Test
+    @DisplayName("마이너 경기도 메이저와 같은 한 줄 기록과 숫자로 보인다")
     void summaryAndNumbersFollowTheMajorLeagueRules() {
+        // given
         MinorGameLog game = game(1, LocalDate.of(2026, 9, 20));
         game.updateBatting(TWO_HITS);
         game.updatePitching(RELIEF_WIN, 0, 0);
 
+        // when
         MinorGameLine hitter = MinorRecords.gameLines(Role.HITTER, List.of(game), NAMES).getFirst();
         MinorGameLine pitcher = MinorRecords.gameLines(Role.PITCHER, List.of(game), NAMES).getFirst();
 
+        // then
         // 메이저 줄과 같은 문장(GameSummary)·같은 숫자 모양(GameLineAssembler)
         assertThat(hitter.summary()).isEqualTo("4타수 2안타(2루타 1) 1홈런 3타점 1볼넷");
         assertThat(hitter.summary()).isEqualTo(GameSummary.played(Role.HITTER, TWO_HITS, null));
@@ -176,14 +209,20 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("마이너 경기가 없으면 경기 줄도 없다")
     void noMinorGamesIsAnEmptyList() {
+        // when // then
         assertThat(MinorRecords.gameLines(Role.HITTER, List.of(), NAMES)).isEmpty();
     }
 
     @Test
+    @DisplayName("팀 이름표에 트리플A와 더블A가 30팀씩 있고 겹치는 팀이 없다")
     void teamListHasEveryTripleAAndDoubleATeam() {
+        // given
         Map<String, Long> byLevel = TEAMS.teams().stream()
                 .collect(Collectors.groupingBy(MinorTeamProperties.Team::level, Collectors.counting()));
+
+        // when // then
         // 트리플A·더블A는 30팀 모두라 수를 지킨다. 하위 단계는 새 팀이 보이면 더해 가므로(yml 머리 설명·README) 수는 정하지
         // 않고 아는 단계 약어인지만 본다(이슈 #191 리뷰)
         assertThat(byLevel).containsEntry("AAA", 30L).containsEntry("AA", 30L);
@@ -202,7 +241,9 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("우리 선수가 뛴 하위 단계 경기는 두 팀 모두 한국어 이름이 있다")
     void realLowerLevelGamesAreKoreanOnBothSides() {
+        // given
         // 명단 6명의 2024~2026 하위 단계 경기 23경기(MLB 마이너 gameLog, 11-19)의 우리 팀·상대 팀. 하위 단계는 리그 단위로
         // 넣어서 두 팀 모두 한국어다(우리 팀만 넣으면 '주피터 vs Fort Myers'처럼 한 줄에 섞인다, 이슈 #191 리뷰)
         long[][] games = {
@@ -212,6 +253,8 @@ public class MinorGameLinesTest {
                 {479, 509}, {479, 507}, {479, 450},  // 고우석 2025 주피터 vs 포트마이어스·세인트루시·데이토나
                 {554, 499}, {554, 584},              // 고우석 2025 벌로이트 vs 랜싱·포트웨인
                 {582, 499}, {582, 456}, {582, 584}}; // 고우석 2025 웨스트미시간 vs 랜싱·그레이트레이크스·포트웨인
+
+        // when // then
         for (long[] game : games) {
             assertThat(NAMES.name(game[0], null, null)).as("team %d", game[0]).isNotNull();
             assertThat(NAMES.name(game[1], null, null)).as("opponent %d", game[1]).isNotNull();
@@ -222,7 +265,9 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("메이저 선수 구단의 하위 단계 팀도 한국어 이름과 단계로 보인다")
     void rehabTeamsOfMajorLeaguersAreInTheList() {
+        // when // then
         // 지금(11-19) 메이저에 있는 명단 선수 구단의 하위 단계 팀(재활 경기를 하는 곳). 아직 기록에 안 나온 리그지만 미리 리그째
         // 넣어 두어 재활 경기가 생겨도 표를 고치지 않는다(이슈 #191 리뷰): 이정후 샌프란시스코, 김혜성 다저스, 송성문 샌디에이고
         assertThat(NAMES.moveName(408L, "ACL Giants")).isEqualTo("ACL 자이언츠(루키)");
@@ -239,11 +284,14 @@ public class MinorGameLinesTest {
     }
 
     @Test
+    @DisplayName("같은 팀이 두 번 적혀 있으면 이름표를 만들 때 예외를 던진다")
     void duplicateTeamFailsAtStartup() {
+        // given
         MinorTeamProperties twice = new MinorTeamProperties(List.of(
                 new MinorTeamProperties.Team(238L, "AAA", "오클라호마시티", null),
                 new MinorTeamProperties.Team(238L, "AAA", "오클라호마", null)));
 
+        // when // then
         assertThatThrownBy(() -> new MinorTeamNames(twice)).isInstanceOf(IllegalStateException.class);
     }
 

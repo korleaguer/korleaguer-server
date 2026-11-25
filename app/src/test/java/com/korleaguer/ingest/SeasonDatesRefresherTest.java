@@ -9,6 +9,7 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -61,110 +62,157 @@ class SeasonDatesRefresherTest {
     }
 
     @Test
+    @DisplayName("개막 전에는 올해 날짜만 하루 한 번 받는다")
     void asksOnlyThisYearOncePerUtcDayBeforeOpeningDay() {
+        // when // then
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
         assertThat(asked).containsExactly(2027);
         verify(writer).saveSeasonDates(2027, SEASON_2027, NOW);
         // 새 개막일을 바로 쓰도록 지금 시즌이 기억한 값을 버린다.
         verify(currentSeason).forget();
 
+        // given
         // 같은 날(UTC) 다시 돌면 묻지 않는다.
         clock.advance(Duration.ofHours(10));
+
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).hasSize(1);
 
+        // given
         // 다음 날(UTC): 개막 전에는 MLB가 날짜를 바꿀 수 있어 다시 받는다.
         when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, NOW.toString())));
         clock.set(Instant.parse("2027-01-16T00:00:00Z"));
+
+        // when
         refresher.refresh();
+
+        // then
         assertThat(asked).containsExactly(2027, 2027);
     }
 
     @Test
+    @DisplayName("정규시즌이 이어지는 동안에는 시즌 날짜를 묻지 않는다")
     void noRequestsDuringTheRegularSeason() {
+        // given
         // 2026-07-01: 올해(2026) 개막일이 지났고 정규시즌(9/27까지)이 이어진다. 날짜는 오래전에 받았다.
         clock.set(Instant.parse("2026-07-01T12:00:00Z"));
         when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, "2026-01-02T00:00:00Z")));
 
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
+
+        // given
         // 정규시즌 마지막 날(미국 날짜)까지는 묻지 않는다.
         clock.set(Instant.parse("2026-09-27T23:00:00Z"));
+
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).isEmpty();
     }
 
     @Test
+    @DisplayName("정규시즌이 끝나면 내년 날짜를 하루 한 번 받고 지금 시즌은 그대로 둔다")
     void asksNextYearOncePerUtcDayAfterTheRegularSeason() {
+        // given
         // 2026-11-10: 올해 정규시즌이 끝났다. 비시즌 홈의 '개막까지 남은 날'에 쓰려고 내년(2027) 날짜를 받는다.
         clock.set(Instant.parse("2026-11-10T03:00:00Z"));
         when(seasonDates.findById(2026)).thenReturn(Optional.of(fetchedAt(2026, "2026-01-02T00:00:00Z")));
 
+        // when // then
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
         verify(writer).saveSeasonDates(eq(2027), eq(SEASON_2027), any());
         // 내년 날짜는 지금 시즌을 바꾸지 못하니 기억한 시즌을 버리지 않는다.
         verify(currentSeason, never()).forget();
 
+        // given
         // 같은 날(UTC) 다시 돌면 묻지 않는다.
         clock.set(Instant.parse("2026-11-10T20:00:00Z"));
+
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).containsExactly(2027);
 
+        // given
         // 다음 날(UTC): 어제 받은 값이라 다시 받는다(MLB가 날짜를 바꿀 수 있다).
         when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, "2026-11-10T03:00:00Z")));
         clock.set(Instant.parse("2026-11-11T03:00:00Z"));
+
+        // when // then
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
         assertThat(asked).containsExactly(2027, 2027);
     }
 
     @Test
+    @DisplayName("오늘 받은 시즌 날짜는 앱을 다시 띄워도 묻지 않는다")
     void yearFetchedTodayIsNotAskedAfterRestart() {
+        // given
         // 앱을 다시 띄운 상황: 2027은 오늘(UTC) 이미 받았다.
         when(seasonDates.findById(2027)).thenReturn(Optional.of(fetchedAt(2027, "2027-01-15T00:30:00Z")));
 
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).isEmpty();
     }
 
     @Test
+    @DisplayName("아직 발표되지 않은 해는 저장하지 않고 그날 다시 묻지 않는다")
     void unannouncedYearIsNotSavedAndNotAskedAgainToday() {
+        // given
         client = client(List.of(SEASON_2026));
         refresher = new SeasonDatesRefresher(client, seasonDates, writer, currentSeason, clock);
 
+        // when // then
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 발표 전 2027");
         verify(writer, never()).saveSeasonDates(eq(2027), any(), any());
 
+        // given
         clock.advance(Duration.ofHours(1));
+
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).containsExactly(2027);
     }
 
     @Test
+    @DisplayName("시즌 날짜를 받지 못하면 다음 실행에서 다시 묻는다")
     void failureIsAskedAgainNextRun() {
+        // given
         failYears = Set.of(2027);
 
+        // when // then
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 실패 2027");
         verify(writer, never()).saveSeasonDates(anyInt(), any(), any());
 
+        // given
         // 다음 실행(12분 뒤) 다시 묻는다.
         failYears = Set.of();
         clock.advance(Duration.ofMinutes(12));
+
+        // when // then
         assertThat(refresher.refresh()).isEqualTo("시즌 날짜 2027");
         assertThat(asked).containsExactly(2027, 2027);
     }
 
     @Test
+    @DisplayName("MLB가 요청을 막으면 아무것도 저장하지 않고 멈춘다")
     void blockedStopsTheRun() {
+        // given
         blockYears = Set.of(2027);
 
+        // when // then
         assertThatThrownBy(() -> refresher.refresh()).isInstanceOf(MlbBlockedException.class);
         assertThat(asked).containsExactly(2027);
         verify(writer, never()).saveSeasonDates(anyInt(), any(), any());
     }
 
     @Test
+    @DisplayName("시즌을 고정해 두면 시즌 날짜를 묻지 않는다")
     void fixedSeasonNeedsNoDates() {
+        // given
         when(currentSeason.isFixed()).thenReturn(true);
 
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(asked).isEmpty();
     }

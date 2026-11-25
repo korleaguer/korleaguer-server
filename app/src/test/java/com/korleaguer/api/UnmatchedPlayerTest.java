@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,7 +30,9 @@ class UnmatchedPlayerTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("MLB에 없는 선수의 화면에는 명단 값만 나오고 MLB에서 받는 값은 빈다")
     void playerPageHasRosterValuesOnly() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.player.nameKo").value("모르는선수"))
                 .andExpect(jsonPath("$.player.nameEn").value(nullValue()))
@@ -46,7 +49,9 @@ class UnmatchedPlayerTest {
     }
 
     @Test
+    @DisplayName("MLB에 없는 선수도 목록에 사진 주소가 나오고 나이와 등번호는 빈다")
     void listHasPhotoButNoAgeOrJersey() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players"))
                 .andExpect(jsonPath("$[0].nameKo").value("모르는선수"))
                 .andExpect(jsonPath("$[0].photoUrl").exists())

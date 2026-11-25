@@ -1,5 +1,6 @@
 package com.korleaguer.client;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,12 +16,15 @@ class MlbMinorGameLogTest {
     private static final MlbGameLogSplit.Sport TRIPLE_A = new MlbGameLogSplit.Sport(11L, "AAA");
 
     @Test
+    @DisplayName("마이너 경기 기록은 정규시즌 경기만 남기고 센다")
     void keepsOnlyRegularSeasonGames() {
+        // when
         MlbMinorGameLog log = new MlbMinorGameLog(
                 List.of(split(1, "R"), split(2, "F"), split(3, "D"), split(4, "L"), split(5, "W"), split(6, "S"),
                         split(7, null)),
                 List.of(split(8, "D"), split(9, "R")));
 
+        // then
         assertThat(log.hitting()).extracting(MlbGameLogSplit::gamePk).containsExactly(1L);
         assertThat(log.pitching()).extracting(MlbGameLogSplit::gamePk).containsExactly(9L);
         // 마이너 경기 수(홈 '주로 마이너' 판단)도 정규시즌만 센다
@@ -28,9 +32,12 @@ class MlbMinorGameLogTest {
     }
 
     @Test
+    @DisplayName("정규시즌뿐인 기록은 그대로 두고 기록이 없으면 빈 기록이 된다")
     void regularSeasonOnlyLogIsUnchanged() {
+        // given
         List<MlbGameLogSplit> hitting = List.of(split(1, "R"), split(2, "R"));
 
+        // when // then
         assertThat(new MlbMinorGameLog(hitting, null).hitting()).isEqualTo(hitting);
         assertThat(new MlbMinorGameLog(null, null)).isEqualTo(MlbMinorGameLog.NONE);
     }

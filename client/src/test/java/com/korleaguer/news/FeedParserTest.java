@@ -1,5 +1,6 @@
 package com.korleaguer.news;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -16,7 +17,9 @@ class FeedParserTest {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     @Test
+    @DisplayName("RSS 기사는 제목·링크·발행 시각·첫머리·사진을 읽고, 링크가 없거나 이상하면 버린다")
     void rssItemKeepsTitleLinkDateAndLead() {
+        // given
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"
@@ -40,15 +43,19 @@ class FeedParserTest {
                 </rss>
                 """;
 
+        // when
         List<FeedParser.Item> items = FeedParser.parse(bytes(xml), SEOUL);
 
+        // then
         assertThat(items).containsExactly(new FeedParser.Item("노시환, 협상 시작 \"좋은 소식 기다린다\"",
                 "https://news.example.kr/view/1001", Instant.parse("2026-11-11T02:10:23Z"), "본문 전체가 여기 있다",
                 "https://img.example.kr/1.jpg"));
     }
 
     @Test
+    @DisplayName("사진은 첨부·미디어·본문 그림에서 찾아 https로 맞추고, 소리 파일은 쓰지 않는다")
     void picturesComeFromEnclosureMediaOrTheFirstImgAndBecomeHttps() {
+        // given
         String xml = """
                 <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>t</title>
                   <item><title>가</title><link>https://n.example.kr/1</link><enclosure url="https://img.example.kr/1.jpg" type="image/jpeg"/></item>
@@ -59,13 +66,16 @@ class FeedParserTest {
                 </channel></rss>
                 """;
 
+        // when // then
         assertThat(FeedParser.parse(bytes(xml), SEOUL)).extracting(FeedParser.Item::imageUrl).containsExactly(
                 "https://img.example.kr/1.jpg", "https://img.example.kr/2.png", "https://img.example.kr/3.webp",
                 "https://img.example.kr/4.jpg?w=600", null);
     }
 
     @Test
+    @DisplayName("뉴스 사이트맵도 피드처럼 읽고, 발행 시각이 없으면 수정 시각을 쓴다")
     void aNewsSitemapIsReadLikeAFeed() {
+        // given
         String xml = """
                 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
                         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
@@ -80,6 +90,7 @@ class FeedParserTest {
                 </urlset>
                 """;
 
+        // when // then
         assertThat(FeedParser.parse(bytes(xml), SEOUL)).containsExactly(
                 new FeedParser.Item("노시환, 협상 시작", "https://n.example.kr/view/1", Instant.parse("2026-11-11T00:00:00Z"), null,
                         "https://img.example.kr/1.jpg"),
@@ -87,7 +98,9 @@ class FeedParserTest {
     }
 
     @Test
+    @DisplayName("본문만 있는 기사의 첫머리는 사진 설명과 기자 이름을 빼고 문장 끝에서 끊는다")
     void leadComesFromTheBodyWithoutPhotosOrByline() {
+        // given
         // 마이데일리 꼴: description 없이 content:encoded에 사진과 본문 전체
         String xml = """
                 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>t</title>
@@ -98,8 +111,10 @@ class FeedParserTest {
                 </channel></rss>
                 """;
 
+        // when
         String lead = FeedParser.parse(bytes(xml), SEOUL).getFirst().lead();
 
+        // then
         assertThat(lead).startsWith("“메이저리그에서 뛰고 싶다.” 노시환이 포스팅 협상을 시작했다.")
                 .doesNotContain("홍길동", "img", "게티이미지")
                 .endsWith(".");
@@ -107,7 +122,9 @@ class FeedParserTest {
     }
 
     @Test
+    @DisplayName("Atom 기사는 본문 링크와 발행 시각을 쓰고, 발행 시각이 없으면 수정 시각을 쓴다")
     void atomEntryUsesAlternateLinkAndPublished() {
+        // given
         String xml = """
                 <feed xmlns="http://www.w3.org/2005/Atom">
                   <title>예시</title>
@@ -126,8 +143,10 @@ class FeedParserTest {
                 </feed>
                 """;
 
+        // when
         List<FeedParser.Item> items = FeedParser.parse(bytes(xml), SEOUL);
 
+        // then
         assertThat(items).containsExactly(
                 new FeedParser.Item("Padres Interested In Si-Hwan Roh", "https://example.com/2026/11/roh.html",
                         Instant.parse("2026-11-11T00:00:00Z")),
@@ -136,7 +155,9 @@ class FeedParserTest {
     }
 
     @Test
+    @DisplayName("시간대 없는 발행 시각은 그 언론사 시간대로 읽고, 날짜가 없으면 비워 둔다")
     void dateWithoutZoneUsesTheSourceZone() {
+        // given
         String xml = """
                 <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel>
                   <item><title>시간대 없는 날짜</title><link>https://news.example.kr/2</link>
@@ -145,14 +166,18 @@ class FeedParserTest {
                 </channel></rss>
                 """;
 
+        // when
         List<FeedParser.Item> items = FeedParser.parse(bytes(xml), SEOUL);
 
+        // then
         assertThat(items).extracting(FeedParser.Item::publishedAt)
                 .containsExactly(Instant.parse("2026-11-11T02:27:26Z"), null);
     }
 
     @Test
+    @DisplayName("흔히 쓰는 날짜 모양 다섯 가지를 읽고, 어제 같은 말은 비워 둔다")
     void readsCommonDateShapes() {
+        // when // then
         assertThat(FeedParser.FeedDates.parse("Sun, 01 Nov 2026 21:40:49 +0000", SEOUL))
                 .isEqualTo(Instant.parse("2026-11-01T21:40:49Z"));
         assertThat(FeedParser.FeedDates.parse("Wed, 11 Nov 2026 11:10:23 GMT", SEOUL))
@@ -167,31 +192,40 @@ class FeedParserTest {
     }
 
     @Test
+    @DisplayName("제목은 태그를 떼고 특수 문자를 되살리며, 길면 자르고 비었으면 비워 둔다")
     void titleLosesTagsAndEntitiesAndIsCapped() {
+        // when // then
         assertThat(FeedParser.Texts.title("<b>굵은</b>&nbsp;제목 &#39;따옴표&#39; &amp; 끝")).isEqualTo("굵은 제목 '따옴표' & 끝");
         assertThat(FeedParser.Texts.title("  ")).isNull();
         assertThat(FeedParser.Texts.title("가".repeat(400))).hasSize(FeedParser.MAX_TITLE);
     }
 
     @Test
+    @DisplayName("외부 파일을 끌어오라는 XML이 와도 그 파일 내용이 제목에 섞이지 않는다")
     void externalEntitiesAreNeverResolved() {
+        // given
         String xml = """
                 <?xml version="1.0"?>
                 <!DOCTYPE rss [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
                 <rss version="2.0"><channel><item><title>&xxe;</title><link>https://x.example/1</link></item></channel></rss>
                 """;
 
+        // when
         List<FeedParser.Item> items;
         try {
             items = FeedParser.parse(bytes(xml), SEOUL);
         } catch (IllegalArgumentException rejected) {
             return; // 읽기를 거절한 것도 안전하다
         }
+
+        // then
         assertThat(items).noneMatch(item -> item.title().contains("root"));
     }
 
     @Test
+    @DisplayName("XML이 아닌 응답은 피드로 읽지 않고 오류를 낸다")
     void notXmlIsRejected() {
+        // when // then
         assertThatThrownBy(() -> FeedParser.parse(bytes("<html><body>차단됨"), SEOUL))
                 .isInstanceOf(IllegalArgumentException.class);
     }

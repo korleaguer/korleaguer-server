@@ -6,6 +6,7 @@ import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -84,7 +85,9 @@ class DeclaredFreeAgentTest {
     }
 
     @Test
+    @DisplayName("FA를 선언한 선수는 단계 없이 마지막으로 뛴 팀으로 보인다")
     void declaredFreeAgentHasNoLevel() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players"))
                 .andExpect(jsonPath("$[0].freeAgent").value(false))
                 .andExpect(jsonPath("$[0].level").value("MLB"))

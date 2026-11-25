@@ -1,6 +1,7 @@
 package com.korleaguer.api;
 
 import com.korleaguer.support.PhotoFiles;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -53,7 +54,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("최근 경기가 없으면 홈이 마지막 경기일 기록과 시즌 순위를 준다")
     void homeIsNotEmptyAfterSampleIngest() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dataMode").value("sample"))
@@ -123,7 +126,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("비시즌 홈은 선수별 시즌 성적표와 MLB 안 위치를 준다")
     void offSeasonHomeCarriesSeasonReports() throws Exception {
+        // when // then
         // 지표를 아직 받지 않았어도(앱 시작 때 따라잡기는 받지 않는다) 경기별 기록의 양으로 성적표를 만든다
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
@@ -152,7 +157,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("홈 타자 순위에 시즌 타수와 출루율·장타율·OPS가 나온다")
     void hitterSeasonTotals() throws Exception {
+        // when // then
         // 이정후: 12타수 5안타(2루타 2, 홈런 1) 2볼넷 → .417 / .500 / .833 / 1.333
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.hitters[?(@.nameKo == '이정후')].atBats").value(contains(12)))
@@ -162,7 +169,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("선수 목록이 이름·포지션·소속팀·나이·등번호를 준다")
     void playersList() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(6)))
@@ -185,7 +194,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("마이너에 있는 선수는 목록에 마이너 팀과 소속 MLB 구단이 함께 나온다")
     void playersListHasLevel() throws Exception {
+        // when // then
         // 샘플 MLB 데이터(sample/mlb.json): 고우석만 마이너(St. Paul Saints, 트리플A), 나머지는 메이저
         mockMvc.perform(get("/api/players"))
                 .andExpect(jsonPath("$[0].level").value("MLB"))
@@ -199,7 +210,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("선수 페이지 이동 기록은 한국어로 최신순이고 없으면 빈 목록이다")
     void playerPageMoves() throws Exception {
+        // when // then
         // 고우석: 상태 변경 줄(roster status changed)은 빠지고 최신순 4줄
         mockMvc.perform(get("/api/players/5"))
                 // 선수 페이지도 목록과 같이 지금 단계를 준다.
@@ -236,7 +249,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("선수 페이지가 MLB 선수 정보의 영문 이름·출생지·소속팀·포지션을 준다")
     void playerInfoComesFromMlbPeople() throws Exception {
+        // when // then
         // 샘플 MLB 선수 정보: 출생지 Nagoya, Japan(birthCity, birthCountry), 주 포지션 CF
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(status().isOk())
@@ -249,7 +264,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("선수 페이지가 키·몸무게·투타·데뷔 연도와 KBO 시절 사진을 준다")
     void playerProfile() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.player.photoUrl").value(JUNG_HOO_PHOTO))
                 .andExpect(jsonPath("$.player.mlbUrl").value("https://www.mlb.com/player/808982"))
@@ -268,7 +285,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("선수 페이지가 언제 만든 데이터인지 시각을 준다")
     void playerPageSaysWhenItWasMade() throws Exception {
+        // when // then
         // 홈·내 선수와 같은 꼴(UTC, 초 단위): 웹이 시즌 성적 제목 옆에 '기준 …'으로 보인다(이슈 #184)
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(status().isOk())
@@ -279,7 +298,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("등번호 없는 투수는 등번호만 비고 나이·키·몸무게는 나온다")
     void pitcherProfileWithoutJersey() throws Exception {
+        // when // then
         // 고우석: 등번호(primaryNumber) 없음, 키 5' 11", 몸무게 198
         mockMvc.perform(get("/api/players/5"))
                 .andExpect(jsonPath("$.player.birthDate").value("1998-08-06"))
@@ -297,7 +318,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("투수 페이지는 타격 칸 없이 세이브와 뛴 기간의 경기만 준다")
     void pitcherPage() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.player.nameKo").value("고우석"))
@@ -314,7 +337,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("출전한 두 경기 사이에 빠진 경기는 결장으로 나온다")
     void absenceBetweenAppearances() throws Exception {
+        // when // then
         // 배지환: 5001 출전, 5002 결장, 5003 출전
         mockMvc.perform(get("/api/players/6"))
                 .andExpect(jsonPath("$.games", hasSize(3)))
@@ -324,7 +349,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("경기마다 선발·교체가 나오고 결장한 경기는 비어 있다")
     void lineupPerGame() throws Exception {
+        // when // then
         // 김혜성: 2003 결장(null), 2002 선발, 2001 교체(타순 901)
         mockMvc.perform(get("/api/players/2"))
                 .andExpect(jsonPath("$.games[*].gameId").value(contains(2003, 2002, 2001)))
@@ -334,7 +361,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("타자 페이지 경기마다 타석·2루타·3루타·삼진까지 나온다")
     void playerPageGameBattingDetails() throws Exception {
+        // when // then
         // 타격 흐름 그래프(웹이 경기별 누적 wRC+를 계산)에 쓰는 칸. 이정후 9/26(1003): 5타석 4타수 2안타(2루타 1, 홈런 1)
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.games[0].gameId").value(1003))
@@ -348,7 +377,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("타자 페이지가 MLB 안 위치와 시즌 표를 주고 4타석뿐이면 위치를 비운다")
     void hitterPageHasLeaguePositionSeasonsAndNews() throws Exception {
+        // when // then
         // 샘플 리그(우리 선수 2026 MLB 값 + 지어낸 선수)와 견준 이정후. 실제 MLB 전체로는 40·59·60·20이다.
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.saber.season").value(2026))
@@ -386,7 +417,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("투수 페이지가 시즌 지표와 시즌 표를 주고 4이닝뿐이면 위치를 비운다")
     void pitcherPageHasLeaguePositionAndSeasons() throws Exception {
+        // when // then
         // 고우석 4이닝: K% 5/22, BB% 2/22. 10이닝 미만이라 위치는 null
         mockMvc.perform(get("/api/players/5"))
                 .andExpect(jsonPath("$.saber.inningsOuts").value(12))
@@ -411,7 +444,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("마이너 경기가 상대·점수·기록과 함께 최신순으로 나오고 없으면 빈 목록이다")
     void playerPageHasMinorGamesNewestFirst() throws Exception {
+        // when // then
         // 고우석: 샘플 마이너 등판 12경기(9/9 ~ 9/20, 지어낸 값). 일정은 PlayerRefresher가 경기 번호로 묶어 받았다.
         // 맨 위 9/20 경기: 세인트폴 원정, 상대 아이오와, 6:4 승, 미국 저녁 7시 5분 = 한국 다음 날 08:05
         mockMvc.perform(get("/api/players/5"))
@@ -457,14 +492,18 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("없는 선수를 열면 404와 선수를 찾지 못했다는 오류를 준다")
     void unknownPlayerIs404() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("player not found"));
     }
 
     @Test
+    @DisplayName("선수가 있는지만 물으면 본문 없이 200이나 404, 숫자가 아니면 400을 준다")
     void headAnswersOnlyWhetherThePlayerExists() throws Exception {
+        // when // then
         // 웹이 선수 화면을 열 때마다 먼저 묻는다. 본문 없이 상태만(있으면 200, 없으면 404)
         mockMvc.perform(head("/api/players/1"))
                 .andExpect(status().isOk())
@@ -477,7 +516,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("관리 토큰이 없으면 수집을 403으로 막고 있으면 수집을 마친다")
     void adminNeedsToken() throws Exception {
+        // when // then
         mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26"))
                 .andExpect(status().isForbidden());
 
@@ -489,7 +530,9 @@ class ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("로컬 웹 주소에서 온 요청은 열고 다른 주소에서 온 요청은 403으로 막는다")
     void corsAllowsLocalWebOnly() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players").header("Origin", "http://localhost:3000"))
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
         // 같은 주소의 HEAD(있는지만 묻기)도 GET처럼 연다. 막으면 개발 중 브라우저에서 부른 HEAD가 403이 된다

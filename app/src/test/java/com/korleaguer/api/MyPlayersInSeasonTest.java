@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,7 +40,9 @@ class MyPlayersInSeasonTest {
     }
 
     @Test
+    @DisplayName("시즌 중에는 내 선수 기간이 오늘까지다")
     void windowEndsToday() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/my").param("ids", "1").param("days", "14"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isFallback").value(false))
@@ -54,7 +57,9 @@ class MyPlayersInSeasonTest {
     }
 
     @Test
+    @DisplayName("시즌 첫 홈런을 친 경기에 화제 문구가 붙고 결장 경기에는 없다")
     void buzzComesWithCardGames() throws Exception {
+        // when // then
         // 이정후 1003: 올 시즌 첫 홈런. 같은 규칙이라 홈 recent.buzz와 같은 문구다(결장 줄 김혜성에는 없다)
         mockMvc.perform(get("/api/my").param("ids", "1,2").param("days", "14"))
                 .andExpect(status().isOk())
@@ -63,7 +68,9 @@ class MyPlayersInSeasonTest {
     }
 
     @Test
+    @DisplayName("결장 경기는 숫자 없이 보이고 기간 성적에 들지 않으며 연속 안타를 끊지 않는다")
     void absenceLineHasNoNumbers() throws Exception {
+        // when // then
         // 김혜성: 2001 3타수 무안타, 2002 4타수 3안타, 2003 결장
         // 시즌 중에는 구단이 경기하는데 본인이 빠져도 기간을 당기지 않고 결장 줄을 그대로 보인다.
         // → 기간 2경기 7타수 3안타(.429). 결장은 연속 기록을 끊지 않고, 2001 무안타에서 멈춰 연속 1경기

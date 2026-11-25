@@ -1,5 +1,6 @@
 package com.korleaguer.domain;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,7 +29,9 @@ class NewsArticleRepositoryTest {
     private NewsArticleRepository news;
 
     @Test
+    @DisplayName("옛 방식으로 요약했고 다시 해 볼 수 있는 기사만 최근 순으로 고른다")
     void outdatedSummariesAreTheOnesFromAnotherPromptThatCanStillBeRedone() {
+        // given
         summarized("https://a.example/1", "마이데일리", "claude-haiku-5-5", "2026-11-10T00:00:00Z"); // 옛 판
         summarized("https://a.example/2", "마이데일리", null, "2026-11-09T00:00:00Z"); // 판을 적지 않은 요약
         summarized("https://a.example/3", "마이데일리", CURRENT, "2026-11-08T00:00:00Z"); // 지금 판
@@ -41,13 +44,17 @@ class NewsArticleRepositoryTest {
         news.save(new NewsArticle("노시환", "https://a.example/7", "h7", "노시환 소식", "마이데일리",
                 Instant.parse("2026-11-11T00:00:00Z"), Instant.parse("2026-11-11T00:10:00Z"))); // 아직 요약 없음
 
+        // when
         List<NewsArticle> found = news.findOutdatedSummaries(List.of("마이데일리"), CURRENT, 3, SINCE, PageRequest.of(0, 10));
 
+        // then
         assertThat(found).extracting(NewsArticle::getUrl).containsExactly("https://a.example/1", "https://a.example/2");
     }
 
     @Test
+    @DisplayName("요약이 없고 세 번 실패하지 않은 기사를 최근 순으로 고른다")
     void articlesToSummarizeHaveNoSummaryAndCanStillBeTried() {
+        // given
         saved("노시환", "https://c.example/1", SINCE); // 딱 기준 시각
         saved("노시환", "https://c.example/2", SINCE.plusSeconds(60));
         saved("노시환", "https://c.example/3", SINCE.minusSeconds(1)); // 너무 오래됨
@@ -56,16 +63,22 @@ class NewsArticleRepositoryTest {
         failed("https://c.example/6", 3); // 세 번 실패
         otherPublisher("https://c.example/7");
 
+        // when
         List<NewsArticle> found = news.findToEnrich(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 10));
 
+        // then
         assertThat(found).extracting(NewsArticle::getUrl)
                 .containsExactly("https://c.example/5", "https://c.example/2", "https://c.example/1");
+
+        // when // then
         assertThat(news.findToEnrich(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 1)))
                 .extracting(NewsArticle::getUrl).containsExactly("https://c.example/5");
     }
 
     @Test
+    @DisplayName("앞부분이나 사진이 없고 아직 읽어 보지 않은 기사만 최근 순으로 고른다")
     void articlesWhosePageIsStillNeededMissTheLeadOrThePhotoAndWereNeverRead() {
+        // given
         saved("노시환", "https://d.example/1", SINCE); // 앞부분도 사진도 없음, 딱 기준 시각
         preview("https://d.example/2", "앞부분", null); // 사진만 없음
         preview("https://d.example/3", null, "https://img.example/3.jpg"); // 앞부분만 없음
@@ -77,14 +90,18 @@ class NewsArticleRepositoryTest {
         failed("https://d.example/7", 3); // 세 번 실패
         otherPublisher("https://d.example/8");
 
+        // when
         List<NewsArticle> found = news.findNeedingPage(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 10));
 
+        // then
         assertThat(found).extracting(NewsArticle::getUrl)
                 .containsExactly("https://d.example/3", "https://d.example/2", "https://d.example/1"); // 최근 순, 같으면 나중 것부터
     }
 
     @Test
+    @DisplayName("그 선수의 기사를 기간 양 끝까지 포함해 먼저 낸 순으로 찾는다")
     void publishedBetweenIsThatPlayersArticlesInTheRangeWithBothEndsInPublishingOrder() {
+        // given
         // SameArticles는 정확히 NEAR 떨어진 기사도 같은 글로 볼 수 있어 범위의 양 끝도 읽어야 한다
         Instant from = Instant.parse("2026-11-10T00:00:00Z");
         Instant to = Instant.parse("2026-11-14T00:00:00Z");
@@ -95,8 +112,10 @@ class NewsArticleRepositoryTest {
         saved("이정후", "https://b.example/5", Instant.parse("2026-11-12T00:00:00Z")); // 다른 선수
         saved("노시환", "https://b.example/6", to.plusSeconds(1)); // 범위 뒤
 
+        // when
         List<NewsArticle> found = news.findPublishedBetween("노시환", from, to);
 
+        // then
         assertThat(found).extracting(NewsArticle::getUrl)
                 .containsExactly("https://b.example/3", "https://b.example/4", "https://b.example/2");
     }

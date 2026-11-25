@@ -12,6 +12,7 @@ import com.korleaguer.domain.IngestStatus;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonRepository;
 import com.korleaguer.domain.SeasonDatesRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -30,7 +31,9 @@ import static org.mockito.Mockito.when;
 class IngestServiceLockTest {
 
     @Test
+    @DisplayName("수집이 도는 중에는 새 수집을 막고 끝나면 다시 돈다")
     void secondIngestIsRejectedWhileFirstIsRunning() throws Exception {
+        // given
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         // 선수 정보를 받는 중에 멈춰 서는 가짜 수집기
@@ -58,12 +61,18 @@ class IngestServiceLockTest {
         first.start();
         assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
 
+        // when // then
         assertThatThrownBy(() -> service.ingestSeason(2026)).isInstanceOf(IngestAlreadyRunningException.class);
 
+        // given
         release.countDown();
         first.join(5_000);
+
+        // when
         // 앞의 수집이 끝나면 다시 돌 수 있다.
         IngestLog next = service.ingestSeason(2026);
+
+        // then
         assertThat(next.getStatus()).isEqualTo(IngestStatus.SUCCESS);
     }
 }

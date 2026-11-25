@@ -1,5 +1,6 @@
 package com.korleaguer.config;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -9,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DataChangesTest {
 
     @ParameterizedTest
+    @DisplayName("SQL마다 모든 응답을 바꾸는지, 홈만 바꾸는지, 아무것도 안 바꾸는지 가른다")
     @CsvSource(delimiter = ';', textBlock = """
             insert into game (game_pk,status_state) values (?,?); ALL
             update appearance set hits=? where id=?; ALL
@@ -32,18 +34,23 @@ class DataChangesTest {
             update flyway_schema_history set success=?; NONE
             """)
     void sortsWritesByTheResponsesTheyChange(String sql, DataChanges.Scope expected) {
+        // when // then
         assertThat(DataChanges.scopeOf(sql)).isEqualTo(expected);
     }
 
     @ParameterizedTest
+    @DisplayName("SQL을 살피면 글자는 그대로 돌려주고, 바뀌는 쪽의 변경 번호만 올린다")
     @CsvSource(delimiter = ';', textBlock = """
             update game set status_state=? where game_pk=?; 1; 0
             insert into news_article (title) values (?); 0; 1
             select * from game; 0; 0
             """)
     void inspectReturnsTheSqlAndBumpsTheMatchingVersion(String sql, long all, long home) {
+        // given
         long allBefore = DataChanges.version();
         long homeBefore = DataChanges.homeVersion();
+
+        // when // then
         assertThat(new DataChanges().inspect(sql)).isEqualTo(sql);
         assertThat(DataChanges.version() - allBefore).isEqualTo(all);
         assertThat(DataChanges.homeVersion() - homeBefore).isEqualTo(home);

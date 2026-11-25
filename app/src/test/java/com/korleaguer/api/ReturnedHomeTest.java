@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -76,7 +77,9 @@ class ReturnedHomeTest {
     }
 
     @Test
+    @DisplayName("국내로 돌아간 선수는 내 선수에 KBO 소속과 시즌 합계로 나온다")
     void returnedPlayerIsKboNotFreeAgent() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/my").param("ids", "1,2").param("days", "7"))
                 .andExpect(jsonPath("$.players[0].player.nameKo").value("가선수"))
                 .andExpect(jsonPath("$.players[0].player.returnedKo").value("LG 트윈스"))
@@ -93,7 +96,9 @@ class ReturnedHomeTest {
     }
 
     @Test
+    @DisplayName("선수 목록과 선수 화면에 돌아간 국내 팀 이름이 나온다")
     void listAndPlayerPageCarryTheReturnedTeam() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players"))
                 .andExpect(jsonPath("$[0].returnedKo").value("LG 트윈스"))
                 .andExpect(jsonPath("$[1].returnedKo").value(nullValue()));
