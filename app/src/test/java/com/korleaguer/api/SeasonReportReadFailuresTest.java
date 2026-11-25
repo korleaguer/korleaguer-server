@@ -143,7 +143,7 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
-    @DisplayName("조회가 모두 되면 성적표와 포스팅 카드에 기사·거론 구단이 모두 나온다")
+    @DisplayName("조회가 모두 되면 성적표에 세부 기록·기사·거론 구단이, 포스팅 카드에 기사·거론 구단이 나온다")
     void everyPartIsThereWhenNothingFails() throws Exception {
         // when // then
         mockMvc.perform(get("/api/home"))
