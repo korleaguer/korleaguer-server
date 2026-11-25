@@ -73,7 +73,7 @@ class NewsEnricherTest {
 
     @Test
     void onlyRecentArticlesOfTheConfiguredPublishersAreSummarized() {
-        Instant oldest = NOV_11.minus(NewsEnricher.OLDEST);
+        Instant oldest = NOV_11.minus(java.time.Duration.ofDays(45));
         NewsArticle inTime = articles.save(new NewsArticle("노시환", MLB + "/2026/11/roh.html", "in", "Roh On Time",
                 "MLB Trade Rumors", oldest, NOV_11));
         NewsArticle tooOld = articles.save(new NewsArticle("노시환", MLB + "/2026/11/too-old.html", "old", "Roh Too Old",

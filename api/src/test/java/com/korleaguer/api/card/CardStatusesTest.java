@@ -69,6 +69,11 @@ class CardStatusesTest {
         assertThat(day3.status().days()).isEqualTo(3);
         assertThat(day3.start()).isEqualTo(CardStatuses.Start.RETURNED);
 
+        // 그날 포함 7일째까지 보이고 8일째부터 사라진다
+        assertThat(CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 8, 9))).status().kind())
+                .isEqualTo("RETURNED");
+        assertThat(CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 8, 10))).status()).isNull();
+
         CardStatuses.Resolved day18 = CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 8, 20)));
         assertThat(day18.status()).isNull();
         assertThat(day18.stintStart()).isEqualTo(LocalDate.of(2026, 8, 3));
@@ -112,6 +117,23 @@ class CardStatusesTest {
         assertThat(resolved.status().kind()).isEqualTo("CALLED_UP");
         assertThat(resolved.status().days()).isEqualTo(4);
         assertThat(resolved.start()).isEqualTo(CardStatuses.Start.CALLED_UP);
+        // 그날 포함 7일째까지 보이고 8일째부터 사라진다
+        assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 13))).status().kind())
+                .isEqualTo("CALLED_UP");
+        assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 14))).status()).isNull();
+    }
+
+    @Test
+    void aCallUpCountsFromOpeningDayOn() {
+        Player go = player(Level.MLB, null, false);
+        List<PlayerMove> dayBefore = newestFirst(
+                move(go, "2026-03-25", "SE", "Minnesota Twins selected the contract of RHP Woo-Suk Go.", Level.MLB));
+        List<PlayerMove> openingDay = newestFirst(
+                move(go, "2026-03-26", "SE", "Minnesota Twins selected the contract of RHP Woo-Suk Go.", Level.MLB));
+
+        assertThat(CardStatuses.resolve(go, dayBefore, null, null, on(LocalDate.of(2026, 3, 27))).status()).isNull();
+        assertThat(CardStatuses.resolve(go, openingDay, null, null, on(LocalDate.of(2026, 3, 27))).status().kind())
+                .isEqualTo("CALLED_UP");
     }
 
     @Test
@@ -168,6 +190,14 @@ class CardStatusesTest {
         assertThat(over.status().kind()).isEqualTo("SEASON_OVER");
         assertThat(over.status().days()).isNull();
         assertThat(over.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 9, 28));
+
+        // 딱 3일 전 경기까지는 시즌 끝이 아니고 4일 전이면 시즌 끝이다
+        assertThat(CardStatuses.resolve(lee, List.of(),
+                new CardStatuses.LastGame(LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 3), "MLB"), null,
+                afterSeason(today, false)).status()).isNull();
+        assertThat(CardStatuses.resolve(lee, List.of(),
+                new CardStatuses.LastGame(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), "MLB"), null,
+                afterSeason(today, false)).status().kind()).isEqualTo("SEASON_OVER");
 
         // 포스트시즌을 뛰는 선수(이틀 전 경기)는 평소대로 둔다
         CardStatuses.Resolved playoffs = CardStatuses.resolve(lee, List.of(),

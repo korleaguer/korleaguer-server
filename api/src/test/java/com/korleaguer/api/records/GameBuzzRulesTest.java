@@ -126,7 +126,7 @@ class GameBuzzRulesTest {
         });
         // 9경기뿐이면 아직 비교하지 않는다
         List<GameBuzzRules.Game> early = new ArrayList<>(List.of(bat(4, 1, 1, 1, 0, 0, 4)));
-        early.addAll(season(7, big));
+        early.addAll(season(8, big));
         assertThat(find(early, false, false)).isEmpty();
         // 앞에 더 큰 경기가 있으면 아니다
         List<GameBuzzRules.Game> beaten = new ArrayList<>(List.of(bat(5, 4, 2, 4, 0, 0, 10)));
@@ -141,6 +141,21 @@ class GameBuzzRulesTest {
         games.addAll(season(12, bat(4, 1, 1, 1, 0, 0, 4)));
         // 마지막 경기 점수 5 = 루타 4 + 타점 1이라 6 미만이고, 홈런도 처음이 아니다
         assertThat(find(games, false, false)).isEmpty();
+    }
+
+    @Test
+    void seasonBestChangesExactlyAtTheBars() {
+        // 홈런 없는 경기라 '첫 홈런'과 겹치지 않는다. 루타 4 + 타점 2 = 6점
+        GameBuzzRules.Game six = bat(4, 3, 0, 2, 0, 0, 4);
+        assertThat(find(season(10, six), false, false)).get().extracting(GameBuzz::kind).isEqualTo(GameBuzz.SEASON_BEST);
+        // 루타 4 + 타점 1 + 볼넷 1(0.5) = 5.5점
+        assertThat(find(season(10, bat(4, 3, 0, 1, 1, 0, 4)), false, false)).isEmpty();
+        // 앞 경기가 9개면 아직 비교하지 않는다
+        assertThat(find(season(9, six), false, false)).isEmpty();
+        // 앞에 같은 점수가 있으면 최고가 아니다
+        List<GameBuzzRules.Game> tied = new ArrayList<>(List.of(bat(4, 3, 0, 2, 0, 0, 4)));
+        tied.addAll(season(10, six));
+        assertThat(find(tied, false, false)).isEmpty();
     }
 
     @Test
