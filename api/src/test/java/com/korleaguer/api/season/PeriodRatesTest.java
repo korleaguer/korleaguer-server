@@ -19,25 +19,26 @@ class PeriodRatesTest {
     @Test
     void hitterWrcPlusUsesLeagueAverage() {
         // 4타수 2안타(2루타 1) 볼넷 1: wOBA .565 → 리그 .314 기준 272.7
-        Appearance game = batted(new Batting(4, 1, 2, 1, 0, 0, 1, 1, 0, 0, 0, 0, 5, 3));
+        Appearance game = batted(BattingLine.atBats(4).runs(1).hits(2).doubles(1).rbi(1).walks(1).build());
         assertThat(PeriodRates.wrcPlus(List.of(game), LEAGUE)).isEqualTo(272.7);
     }
 
     @Test
     void hitterWrcPlusIsClampedToZeroAndCap() {
-        Appearance hitless = batted(new Batting(4, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 4, 0));
+        Appearance hitless = batted(BattingLine.atBats(4).strikeouts(2).build());
         assertThat(PeriodRates.wrcPlus(List.of(hitless), LEAGUE)).isEqualTo(0.0);
-        Appearance slam = batted(new Batting(4, 4, 4, 0, 0, 4, 4, 0, 0, 0, 0, 0, 4, 16));
+        Appearance slam = batted(BattingLine.atBats(4).runs(4).hits(4).homeRuns(4).rbi(4).build());
         assertThat(PeriodRates.wrcPlus(List.of(slam), LEAGUE)).isEqualTo(300.0);
     }
 
     @Test
     void hitterWrcPlusIsNullWithoutDetailOrPlateAppearances() {
         // 2루타·3루타 칸이 없는 옛 기록
-        Appearance old = batted(new Batting(4, 1, 2, null, null, 0, 1, 1, 0, 0, 0, 0, 5, 3));
+        Appearance old = batted(BattingLine.atBats(4).runs(1).hits(2).withoutExtraBases().rbi(1).walks(1)
+                .totalBases(3).build());
         assertThat(PeriodRates.wrcPlus(List.of(old), LEAGUE)).isNull();
         assertThat(PeriodRates.wrcPlus(List.of(), LEAGUE)).isNull();
-        Appearance empty = batted(new Batting(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        Appearance empty = batted(BattingLine.atBats(0).build());
         assertThat(PeriodRates.wrcPlus(List.of(empty), LEAGUE)).isNull();
     }
 
@@ -93,7 +94,7 @@ class PeriodRatesTest {
     @Test
     void minorLinesAreMeasuredAgainstTheirOwnLevel() {
         // 같은 기록이라도 타자 친화 리그(wOBA .338)에서는 메이저(.314)보다 낮게 나온다
-        Batting line = new Batting(4, 1, 2, 1, 0, 0, 1, 1, 0, 0, 0, 0, 5, 3);
+        Batting line = BattingLine.atBats(4).runs(1).hits(2).doubles(1).rbi(1).walks(1).build();
         Double inMajors = PeriodRates.wrcPlusOf(List.of(line), LEAGUE);
         Double inTripleA = PeriodRates.wrcPlusOf(List.of(line), new LeagueEnv(0.338, 0.13, 4.8));
         assertThat(inTripleA).isLessThan(inMajors);

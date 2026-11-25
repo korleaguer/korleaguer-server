@@ -11,7 +11,7 @@ class GameSummaryTest {
 
     @Test
     void hitterLine() {
-        Batting batting = new Batting(4, 2, 2, 1, 0, 1, 2, 1, 0, 0, 0, 0, 5, 6);
+        Batting batting = hitter(4, 2, 1, 0, 1, 2, 1, 0);
 
         assertThat(GameSummary.played(Role.HITTER, batting, null))
                 .isEqualTo("4타수 2안타(2루타 1) 1홈런 2타점 1볼넷");
@@ -19,14 +19,14 @@ class GameSummaryTest {
 
     @Test
     void hitterWithoutHits() {
-        Batting batting = new Batting(3, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 4, 0);
+        Batting batting = hitter(3, 0, 0, 0, 0, 0, 1, 0);
 
         assertThat(GameSummary.hitting(batting)).isEqualTo("3타수 무안타 1볼넷");
     }
 
     @Test
     void hitterWithTripleAndSteal() {
-        Batting batting = new Batting(4, 2, 3, 0, 1, 0, 2, 0, 1, 0, 1, 0, 4, 5);
+        Batting batting = hitter(4, 3, 0, 1, 0, 2, 0, 1);
 
         assertThat(GameSummary.hitting(batting)).isEqualTo("4타수 3안타(3루타 1) 2타점 1도루");
     }
@@ -63,5 +63,12 @@ class GameSummaryTest {
         assertThat(GameSummary.notPlayed("final", false)).isEqualTo("기록 없음");
         assertThat(GameSummary.notPlayed("scheduled", true)).isEqualTo("경기 전");
         assertThat(GameSummary.notPlayed("postponed", true)).isEqualTo("연기");
+    }
+
+    /** 타수·안타·2루타·3루타·홈런·타점·볼넷·도루. 문구에 쓰지 않는 칸은 0이다 */
+    private static Batting hitter(int atBats, int hits, int doubles, int triples, int homeRuns, int rbi, int walks,
+                                  int stolenBases) {
+        return new Batting(atBats, 0, hits, doubles, triples, homeRuns, rbi, walks, 0, 0, stolenBases, 0,
+                atBats + walks, hits + doubles + 2 * triples + 3 * homeRuns);
     }
 }

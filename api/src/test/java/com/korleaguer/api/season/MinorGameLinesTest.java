@@ -42,7 +42,8 @@ public class MinorGameLinesTest {
     private static final long OKLAHOMA_CITY = 238L;
     private static final long ALBUQUERQUE = 342L;
     private static final long DSL_LAD_BAUTISTA = 611L; // 루키 도미니칸 서머 리그: 표에 없다
-    private static final Batting TWO_HITS = new Batting(4, 1, 2, 1, 0, 1, 3, 1, 1, 0, 0, 0, 5, 6);
+    private static final Batting TWO_HITS = BattingLine.atBats(4).runs(1).hits(2).doubles(1).homeRuns(1)
+            .rbi(3).walks(1).strikeouts(1).build();
     private static final Pitching RELIEF_WIN = new Pitching(4, 1, 1, 0, 1, 3, 0, 22, 1, 0, 0);
 
     @Test
