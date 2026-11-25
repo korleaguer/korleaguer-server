@@ -2,6 +2,7 @@ package com.korleaguer.api.offseason;
 
 import com.korleaguer.api.article.LinkedTeamsCounter;
 import com.korleaguer.api.article.PostingSummary;
+import com.korleaguer.api.season.OptionalReads;
 
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.NewsProperties;
@@ -19,6 +20,7 @@ import com.korleaguer.support.PhotoFiles;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -622,7 +624,8 @@ class PostingFinderTest {
     void nothingToShowIsNull() {
         // given
         PostingFinder finder = new PostingFinder(new Postings(new PostingProperties(List.of(), List.of())), news,
-                new LinkedTeamsCounter(news, destinations, NEWS), photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS);
+                new LinkedTeamsCounter(news, destinations, NEWS), photos(new Postings(new PostingProperties(List.of(), List.of())), true), NEWS,
+                new OptionalReads(mock(PlatformTransactionManager.class)));
 
         // when // then
         assertThat(finder.find(Instant.parse("2026-11-11T01:00:00Z"))).isNull();
@@ -634,7 +637,8 @@ class PostingFinderTest {
 
     private PostingFinder finder(PostingProperties.Current current, boolean officialPhotos) {
         Postings postings = postings(current);
-        return new PostingFinder(postings, news, new LinkedTeamsCounter(news, destinations, NEWS), photos(postings, officialPhotos), NEWS);
+        return new PostingFinder(postings, news, new LinkedTeamsCounter(news, destinations, NEWS), photos(postings, officialPhotos), NEWS,
+                new OptionalReads(mock(PlatformTransactionManager.class)));
     }
 
     private static Postings postings(PostingProperties.Current current) {
