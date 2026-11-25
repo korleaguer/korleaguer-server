@@ -3,6 +3,8 @@ package com.korleaguer.api.season;
 import com.korleaguer.api.season.SeasonVerdict.Line;
 import com.korleaguer.domain.Role;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
@@ -110,6 +112,69 @@ class SeasonVerdictTest {
         assertThat(SeasonVerdict.regularBefore(false, 2026,
                 List.of(new Line(2025, 100, 0, 60.0, -1.0), new Line(2024, 600, 0, 115.0, 3.0)))).isTrue();
         assertThat(SeasonVerdict.regularBefore(true, 2026, List.of(new Line(2025, 180, 30, 80.0, 3.0)))).isTrue();
+    }
+
+    @ParameterizedTest(name = "{0}타석 wRC+ {1} WAR {2} → {3}")
+    @CsvSource({
+            // 좋은 타격은 wRC+ 110부터, 다 뛴 시즌은 300타석부터
+            "300, 110, 0, GOOD", "300, 109.9, 0, SOLID", "299, 110, 0, SHORT_GOOD",
+            // 어느 정도 뛴 시즌은 150타석부터
+            "150, 110, 0, SHORT_GOOD", "149, 110, 0, SHORT",
+            // 타격이 평균이어도 WAR 2.5부터는 좋은 시즌
+            "300, 100, 2.5, GOOD", "300, 100, 2.49, SOLID",
+            // 아쉬운 시즌은 wRC+ 80 미만이거나 WAR -0.3 미만(150타석부터)
+            "300, 80, 0, SOLID", "300, 79.9, 0, POOR", "150, 79.9, 0, POOR", "149, 79.9, 0, SHORT",
+            "300, 100, -0.3, SOLID", "300, 100, -0.31, POOR"})
+    void hitterTierChangesExactlyAtTheBars(double plateAppearances, double wrcPlus, double war, SeasonTier expected) {
+        assertThat(hitter(new Line(2026, plateAppearances, 0, wrcPlus, war), 0)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest(name = "{0}이닝 선발 {1} ERA- {2} → {3}")
+    @CsvSource({
+            // 선발 10경기부터는 100이닝, 그 아래는 40이닝이 다 뛴 시즌. 좋은 투구는 ERA- 90 이하
+            "100, 10, 90, GOOD", "100, 10, 90.1, SOLID", "99.9, 10, 90, SHORT_GOOD",
+            "40, 9, 90, GOOD", "39.9, 9, 90, SHORT_GOOD",
+            // 어느 정도 뛴 시즌은 30이닝부터
+            "30, 0, 90, SHORT_GOOD", "29.9, 0, 90, SHORT",
+            // 아쉬운 시즌은 ERA- 120부터(30이닝부터)
+            "100, 10, 119.9, SOLID", "100, 10, 120, POOR", "30, 0, 120, POOR", "29.9, 0, 120, SHORT"})
+    void pitcherTierChangesExactlyAtTheBars(double innings, int starts, double eraMinus, SeasonTier expected) {
+        assertThat(SeasonVerdict.judge(Role.PITCHER, new Line(2026, innings, starts, eraMinus, 0.0), 0, List.of()))
+                .isEqualTo(expected);
+    }
+
+    @Test
+    void fiveStartsMakeAStarterOnlyInTheShort2020Season() {
+        // 2020년 선발 5경기: 다 뛴 기준이 100 × 60/162 = 37이닝이라 20이닝은 짧은 시즌
+        assertThat(pitcher(2020, 20, 5)).isEqualTo(SeasonTier.SHORT_GOOD);
+        // 선발 4경기면 구원 기준 40 × 60/162 = 15이닝이라 다 뛴 시즌
+        assertThat(pitcher(2020, 20, 4)).isEqualTo(SeasonTier.GOOD);
+        // 다른 해에는 선발 5경기도 구원 기준 40이닝
+        assertThat(pitcher(2021, 40, 5)).isEqualTo(SeasonTier.GOOD);
+    }
+
+    @Test
+    void minorsNeedsMoreMinorThanMajorPlayingTime() {
+        assertThat(hitter(new Line(2026, 100, 0, 100.0, 0.0), 100)).isEqualTo(SeasonTier.SHORT);
+        assertThat(hitter(new Line(2026, 100, 0, 100.0, 0.0), 101)).isEqualTo(SeasonTier.MINORS);
+    }
+
+    @Test
+    void regularBeforeChangesExactlyAtTheBars() {
+        // 600타석당 WAR 2.5부터
+        assertThat(SeasonVerdict.regularBefore(false, 2026, List.of(new Line(2025, 600, 0, 100.0, 2.5)))).isTrue();
+        assertThat(SeasonVerdict.regularBefore(false, 2026, List.of(new Line(2025, 600, 0, 100.0, 2.49)))).isFalse();
+        // 200타석·40이닝 이상인 시즌만
+        assertThat(SeasonVerdict.regularBefore(false, 2026, List.of(new Line(2025, 200, 0, 100.0, 1.0)))).isTrue();
+        assertThat(SeasonVerdict.regularBefore(false, 2026, List.of(new Line(2025, 199, 0, 100.0, 1.0)))).isFalse();
+        assertThat(SeasonVerdict.regularBefore(true, 2026, List.of(new Line(2025, 40, 0, 100.0, 1.0)))).isTrue();
+        assertThat(SeasonVerdict.regularBefore(true, 2026, List.of(new Line(2025, 39.9, 0, 100.0, 1.0)))).isFalse();
+        // 3년 전까지
+        assertThat(SeasonVerdict.regularBefore(false, 2026, List.of(new Line(2023, 600, 0, 100.0, 5.0)))).isTrue();
+    }
+
+    private static SeasonTier pitcher(int season, double innings, int starts) {
+        return SeasonVerdict.judge(Role.PITCHER, new Line(season, innings, starts, 85.0, 0.0), 0, List.of());
     }
 
     private static SeasonTier hitter(Line current, double tripleAPlateAppearances, Line... previous) {

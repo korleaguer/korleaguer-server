@@ -263,14 +263,31 @@ class SeasonReportsTest {
 
     @Test
     void wrcPlusWords() {
-        assertThat(SeasonReports.hittingWords(135.0)).isEqualTo("리그 상위급 타격");
+        assertThat(SeasonReports.hittingWords(130.0)).isEqualTo("리그 상위급 타격");
+        assertThat(SeasonReports.hittingWords(129.9)).isEqualTo("평균보다 좋은 타격");
         assertThat(SeasonReports.hittingWords(110.0)).isEqualTo("평균보다 좋은 타격");
-        assertThat(SeasonReports.hittingWords(101.8)).isEqualTo("타격은 리그 평균");
-        assertThat(SeasonReports.hittingWords(85.0)).isEqualTo("타격은 평균보다 조금 아래");
-        assertThat(SeasonReports.hittingWords(70.0)).isNull();
+        assertThat(SeasonReports.hittingWords(109.9)).isEqualTo("타격은 리그 평균");
+        assertThat(SeasonReports.hittingWords(90.0)).isEqualTo("타격은 리그 평균");
+        assertThat(SeasonReports.hittingWords(89.9)).isEqualTo("타격은 평균보다 조금 아래");
+        assertThat(SeasonReports.hittingWords(80.0)).isEqualTo("타격은 평균보다 조금 아래");
+        assertThat(SeasonReports.hittingWords(79.9)).isNull();
         assertThat(SeasonReports.hittingWords(null)).isNull();
         assertThat(SeasonReports.avgText(0.316)).isEqualTo(".316");
         assertThat(SeasonReports.avgText(1.0)).isEqualTo("1.000");
+    }
+
+    @Test
+    void eraMinusWords() {
+        // 낮을수록 좋다
+        assertThat(SeasonReports.pitchingWords(70.0)).isEqualTo("리그 상위급 투구");
+        assertThat(SeasonReports.pitchingWords(70.1)).isEqualTo("평균보다 좋은 투구");
+        assertThat(SeasonReports.pitchingWords(90.0)).isEqualTo("평균보다 좋은 투구");
+        assertThat(SeasonReports.pitchingWords(90.1)).isEqualTo("투구는 리그 평균");
+        assertThat(SeasonReports.pitchingWords(110.0)).isEqualTo("투구는 리그 평균");
+        assertThat(SeasonReports.pitchingWords(110.1)).isEqualTo("투구는 평균보다 조금 아래");
+        assertThat(SeasonReports.pitchingWords(119.9)).isEqualTo("투구는 평균보다 조금 아래");
+        assertThat(SeasonReports.pitchingWords(120.0)).isNull();
+        assertThat(SeasonReports.pitchingWords(null)).isNull();
     }
 
     @Test

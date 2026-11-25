@@ -64,6 +64,57 @@ class FormFactsTest {
     }
 
     @Test
+    void justBelowEveryHitterBarThereIsNoFact() {
+        // 4경기 연속 안타(기준 5)
+        assertThat(hitterFact(hitter(new int[][]{{4, 0}, {4, 1}, {4, 1}, {4, 1}, {4, 1}}))).isNull();
+        // 3경기 연속 무안타(기준 4)
+        assertThat(hitterFact(hitter(new int[][]{{4, 1}, {4, 0}, {4, 0}, {4, 0}}))).isNull();
+        // 멀티히트 2번(기준 3)
+        assertThat(hitterFact(hitter(new int[][]{{4, 2}, {4, 0}, {4, 2}, {4, 0}}))).isNull();
+        // 홈런 1개(기준 2)
+        assertThat(hitterFact(List.of(stat(0, 4, 1, 1), stat(1, 4, 0, 0)))).isNull();
+    }
+
+    @Test
+    void aGameWithTwoPlateAppearancesCountsInTheHitlessRun() {
+        // 2타석 무안타는 세고 1타석 무안타는 세지 않는다
+        assertThat(hitterFact(hitter(new int[][]{{4, 1}, {4, 0}, {2, 0}, {4, 0}, {4, 0}})).text())
+                .isEqualTo("4경기 연속 무안타");
+        assertThat(hitterFact(hitter(new int[][]{{4, 1}, {4, 0}, {1, 0}, {4, 0}, {4, 0}}))).isNull();
+    }
+
+    @Test
+    void onlyTheLastTenGamesCountAsRecent() {
+        // 11경기: 홈런 둘 중 하나가 11경기 전이면 최근 10경기는 홈런 1개
+        List<GameStat> eleven = new ArrayList<>();
+        for (int i = 0; i < 11; i++) {
+            eleven.add(stat(i, 4, i % 2 == 0 && i < 10 ? 1 : 0, i == 0 || i == 4 ? 1 : 0));
+        }
+        assertThat(hitterFact(eleven)).isNull();
+        assertThat(hitterFact(eleven.subList(0, 10)).text()).isEqualTo("최근 10경기 2홈런");
+    }
+
+    @Test
+    void justBelowEveryPitcherBarThereIsNoFact() {
+        // 2번 연속 무실점(기준 3)
+        assertThat(pitcherFact(pitcher(1, 0, 0))).isNull();
+        // 5번 중 3번 무실점(기준 4), 2번 실점(기준 3)
+        assertThat(pitcherFact(pitcher(0, 1, 0, 1, 0))).isNull();
+        // 3번 등판은 모두 실점해도 최근 등판 소식이 없고(4번부터) 4번이면 있다
+        assertThat(pitcherFact(pitcher(1, 1, 1))).isNull();
+        assertThat(pitcherFact(pitcher(0, 1, 1, 1)).text()).isEqualTo("최근 4번 등판 중 3번 실점");
+    }
+
+    @Test
+    void seasonBestStartsAtFiveGamesForHittersAndThreeOutingsForPitchers() {
+        assertThat(FormFacts.seasonBest(List.of(hitter(new int[][]{{4, 1}, {4, 1}, {4, 1}, {4, 1}, {4, 0}})), false)).isNull();
+        assertThat(FormFacts.seasonBest(List.of(hitter(new int[][]{{4, 1}, {4, 1}, {4, 1}, {4, 1}, {4, 1}})), false).text())
+                .isEqualTo("시즌 최장 5경기 연속 안타");
+        assertThat(FormFacts.seasonBest(List.of(pitcher(0, 0, 1)), true)).isNull();
+        assertThat(FormFacts.seasonBest(List.of(pitcher(0, 0, 0)), true).text()).isEqualTo("시즌 최장 3번 연속 무실점 등판");
+    }
+
+    @Test
     void nothingNotableMeansNoFact() {
         List<GameStat> games = hitter(new int[][]{{4, 1}, {4, 0}, {4, 1}, {4, 0}});
         assertThat(FormFacts.hitter(games, games, "", CardStatuses.Start.OTHER)).isNull();
@@ -123,6 +174,14 @@ class FormFactsTest {
         CardPlay play = FormFacts.pitcherPlay(games, today);
         assertThat(play.appearances14()).isEqualTo(2);
         assertThat(play.daysSinceLast()).isEqualTo(2);
+    }
+
+    private static CardFact hitterFact(List<GameStat> games) {
+        return FormFacts.hitter(games, games, "", CardStatuses.Start.OTHER);
+    }
+
+    private static CardFact pitcherFact(List<GameStat> games) {
+        return FormFacts.pitcher(games, games, "", CardStatuses.Start.OTHER);
     }
 
     /** {타수, 안타} 목록 → 하루씩 이어진 타자 경기(타석 = 타수, 볼넷만 고른 경기는 0타수 1타석) */
