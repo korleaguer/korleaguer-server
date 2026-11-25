@@ -14,6 +14,7 @@ import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeasonLevel;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -74,17 +75,23 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
+    @DisplayName("팀 합계로 리그 평균을 내고 타석이나 아웃이 없으면 비운다")
     void addsTeamTotalsIntoLeagueAverages() {
+        // given
         // 두 팀: 타석 1,000·득점 120, 아웃 2,700·자책 450 → 타석당 0.120, 평균자책점 4.50
         List<MlbGameLogSplit> hitting = List.of(team(hitting(400, 100, 20, 2, 12, 40, 5, 3, 450, 50)),
                 team(hitting(480, 120, 25, 3, 15, 50, 6, 4, 550, 70)));
         List<MlbGameLogSplit> pitching = List.of(team(pitching(1350, 200)), team(pitching(1350, 250)));
 
+        // when
         LeagueAverage.Values values = LeagueAverageRefresher.fromTotals(hitting, pitching);
 
+        // then
         assertThat(values.runsPerPa()).isCloseTo(0.120, within(1e-9));
         assertThat(values.era()).isCloseTo(4.50, within(1e-9));
         assertThat(values.woba()).isBetween(0.30, 0.36);
+
+        // when // then
         // 타석이나 아웃이 없으면 값이 없다
         assertThat(LeagueAverageRefresher.fromTotals(List.of(), pitching)).isNull();
         assertThat(LeagueAverageRefresher.fromTotals(hitting, List.of())).isNull();
@@ -92,33 +99,45 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
+    @DisplayName("기록이 있는 시즌마다 MLB와 뛴 마이너 단계를 받고 지금 시즌 MLB는 늘 받는다")
     void neededCombinationsComeFromOurRecords() {
+        // given
         // 메이저 기록 2024·2026, 마이너 2025(트리플A)·2026(트리플A·루키). 단계를 모르는 경기와 평균을 두지 않는 단계도 있다
         when(appearances.findSeasons()).thenReturn(List.of(2024, 2026));
         when(minorGameLogs.findSeasonLevels()).thenReturn(List.of(new MinorSeasonLevel(2025, 2025, "AAA"),
                 new MinorSeasonLevel(2026, 2026, "AAA"), new MinorSeasonLevel(2026, 2026, "ROK"),
                 new MinorSeasonLevel(2023, 2023, null), new MinorSeasonLevel(2026, 2026, "WIN")));
 
+        // when // then
         // 새 시즌부터, 같은 시즌은 메이저부터 단계 순. MLB는 기록(메이저든 마이너든)이 있는 시즌마다 받는다
         assertThat(refresher.needed(2026)).containsExactly(key(2026, MLB), key(2026, "AAA"), key(2026, "ROK"),
                 key(2025, MLB), key(2025, "AAA"), key(2024, MLB), key(2023, MLB));
+
+        // given
         // 기록이 하나도 없어도 지금 시즌의 MLB는 받는다(내 선수 카드·비시즌 홈이 묻는다)
         when(appearances.findSeasons()).thenReturn(List.of());
         when(minorGameLogs.findSeasonLevels()).thenReturn(List.of());
+
+        // when // then
         assertThat(refresher.needed(2027)).containsExactly(key(2027, MLB));
     }
 
     @Test
+    @DisplayName("마이너 경기 날짜의 해가 시즌과 다르면 두 해의 평균을 모두 받는다")
     void minorGameYearIsAlsoNeeded() {
+        // given
         // 내 선수 카드는 마이너 경기의 공식 날짜 연도로 묻는다. 시즌과 다르면 둘 다 받는다
         when(minorGameLogs.findSeasonLevels()).thenReturn(List.of(new MinorSeasonLevel(2026, 2027, "AA")));
 
+        // when // then
         assertThat(refresher.needed(2026)).containsExactly(key(2027, MLB), key(2027, "AA"), key(2026, MLB),
                 key(2026, "AA"));
     }
 
     @Test
+    @DisplayName("없는 평균을 타격과 투구로 한 번씩 받고 비시즌에는 더 받지 않는다")
     void fetchesMissingRowsWithTwoRequestsEach() {
+        // when // then
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 3개");
 
         assertThat(asked).containsExactly("2026 1 hitting", "2026 1 pitching", "2026 11 hitting", "2026 11 pitching",
@@ -131,27 +150,44 @@ class LeagueAverageRefresherTest {
         assertThat(tripleA.values().runsPerPa()).isCloseTo(81 / 550.0, within(1e-12));
         assertThat(tripleA.values().era()).isCloseTo(261 * 27.0 / 1350, within(1e-12));
 
+        // when // then
         // 다 있으면 비시즌에는 더 받지 않는다. 날이 바뀌어도 마찬가지다
         assertThat(refresher.refresh(false)).isEmpty();
+
+        // given
         clock.advance(Duration.ofDays(3));
+
+        // when // then
         assertThat(refresher.refresh(false)).isEmpty();
         assertThat(asked).hasSize(6);
     }
 
     @Test
+    @DisplayName("시즌 중에는 지금 시즌 평균을 하루 한 번만 다시 받는다")
     void inSeasonRefreshesTheCurrentSeasonOncePerUtcDay() {
+        // given
         clock.set(Instant.parse("2026-07-01T05:00:00Z"));
+
+        // when
         refresher.refresh(true);
+
+        // then
         assertThat(asked).hasSize(6);
         double before = rows.getFirst().values().woba();
 
+        // given
         // 같은 날(UTC) 다시 돌면 묻지 않는다
         clock.set(Instant.parse("2026-07-01T23:50:00Z"));
+
+        // when // then
         assertThat(refresher.refresh(true)).isEmpty();
         assertThat(asked).hasSize(6);
 
+        // given
         // 다음 날(UTC): 지금 시즌 줄을 모두 다시 받아 덮어쓴다(줄 수는 그대로)
         clock.set(Instant.parse("2026-07-02T00:10:00Z"));
+
+        // when // then
         assertThat(refresher.refresh(true)).isEqualTo("리그 평균 3개");
         assertThat(asked).hasSize(12);
         assertThat(rows).hasSize(3);
@@ -160,18 +196,23 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
+    @DisplayName("비시즌에는 오래전에 받은 지금 시즌 평균도 다시 받지 않는다")
     void offSeasonKeepsTheCurrentSeasonRows() {
+        // given
         // 지금 시즌 줄을 오래전에 받았어도 비시즌이면 다시 받지 않는다(끝난 시즌 값은 바뀌지 않는다)
         rows.add(row(2026, MLB, "2026-09-30T08:00:00Z"));
         rows.add(row(2026, "AAA", "2026-09-30T08:00:00Z"));
         rows.add(row(2026, "AA", "2026-09-30T08:00:00Z"));
 
+        // when // then
         assertThat(refresher.refresh(false)).isEmpty();
         assertThat(asked).isEmpty();
     }
 
     @Test
+    @DisplayName("지난 시즌 평균은 새 시즌 중에도 다시 받지 않는다")
     void pastSeasonRowsAreNeverFetchedAgain() {
+        // given
         // 지금 시즌이 2027로 넘어갔다. 2026 줄은 시즌 중에도 다시 받지 않고, 2027 줄만 받는다
         when(currentSeason.current()).thenReturn(2027);
         clock.set(Instant.parse("2027-04-10T05:00:00Z"));
@@ -179,50 +220,71 @@ class LeagueAverageRefresherTest {
         rows.add(row(2026, "AAA", "2026-09-30T08:00:00Z"));
         rows.add(row(2026, "AA", "2026-09-30T08:00:00Z"));
 
+        // when // then
         assertThat(refresher.refresh(true)).isEqualTo("리그 평균 1개");
         assertThat(asked).containsExactly("2027 1 hitting", "2027 1 pitching");
 
+        // given
         clock.advance(Duration.ofDays(1));
+
+        // when
         refresher.refresh(true);
+
+        // then
         assertThat(asked).containsExactly("2027 1 hitting", "2027 1 pitching", "2027 1 hitting", "2027 1 pitching");
     }
 
     @Test
+    @DisplayName("못 받은 단계는 건너뛰고 쉬는 시간이 지나면 그것만 다시 받는다")
     void failedCombinationIsSkippedAndRetriedAfterAWhile() {
+        // given
         failing.add("2026 11 hitting");
 
+        // when // then
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 2개, 실패 1개");
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB, "AA");
 
+        // given
         // 바로 다음 수집: 방금 실패한 조합은 RETRY_AFTER 동안 다시 묻지 않는다(계속 실패하는 조합을 12분마다 묻지 않게)
         failing.clear();
         asked.clear();
+
+        // when // then
         assertThat(refresher.refresh(false)).isEmpty();
         assertThat(asked).isEmpty();
 
+        // given
         // RETRY_AFTER 뒤: 못 받은 트리플A만 다시 묻는다
         clock.set(NOW.plus(LeagueAverageRefresher.RETRY_AFTER));
+
+        // when // then
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 1개");
         assertThat(asked).containsExactly("2026 11 hitting", "2026 11 pitching");
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB, "AA", "AAA");
     }
 
     @Test
+    @DisplayName("다시 받다 실패하면 저장된 평균을 그대로 둔다")
     void failedRefreshKeepsTheStoredRow() {
+        // given
         clock.set(Instant.parse("2026-07-02T00:10:00Z"));
         LeagueAverage major = row(2026, MLB, "2026-07-01T05:00:00Z");
         rows.add(major);
         failing.add("2026 1 pitching");
 
+        // when // then
         assertThat(refresher.refresh(true)).isEqualTo("리그 평균 2개, 실패 1개");
         assertThat(major.getFetchedAt()).isEqualTo(Instant.parse("2026-07-01T05:00:00Z"));
         assertThat(major.values()).isEqualTo(new LeagueAverage.Values(0.31, 0.12, 4.2));
     }
 
     @Test
+    @DisplayName("MLB가 거절하면 앞서 받은 평균만 남기고 더 묻지 않는다")
     void blockedStopsTheRun() {
+        // given
         blocked.add("2026 11 hitting");
 
+        // when // then
         assertThatThrownBy(() -> refresher.refresh(false)).isInstanceOf(MlbBlockedException.class);
         // 앞서 받은 MLB 줄은 저장돼 있고, 뒤 조합(더블A)은 묻지 않았다
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB);
@@ -230,33 +292,45 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
+    @DisplayName("빈 합계는 저장하지 않고 다음 날 다시 묻는다")
     void emptyTotalsAreNotSavedAndNotAskedAgainToday() {
+        // given
         // 개막 전·샘플 모드처럼 합계가 비어 오는 조합
         empty.add("2026 12");
 
+        // when // then
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 2개");
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB, "AAA");
 
+        // given
         // 같은 날(UTC)에는 다시 묻지 않는다
         asked.clear();
         clock.advance(Duration.ofHours(5));
+
+        // when // then
         assertThat(refresher.refresh(false)).isEmpty();
         assertThat(asked).isEmpty();
 
+        // given
         // 다음 날 다시 묻고, 값이 나오면 저장한다
         empty.clear();
         clock.advance(Duration.ofDays(1));
+
+        // when // then
         assertThat(refresher.refresh(false)).isEqualTo("리그 평균 1개");
         assertThat(asked).containsExactly("2026 12 hitting", "2026 12 pitching");
         assertThat(rows).extracting(LeagueAverage::getLevel).containsExactly(MLB, "AAA", "AA");
     }
 
     @Test
+    @DisplayName("샘플 데이터에는 팀 합계가 없어 리그 평균을 저장하지 않는다")
     void sampleClientHasNoTotalsSoNothingIsSaved() {
+        // given
         // 샘플 클라이언트는 팀 합계를 주지 않는다. 저장하지 않으므로 화면 계산은 표준값을 쓴다(샘플 모드의 테스트 기대값이 그대로다)
         SampleMlbClient sample = new SampleMlbClient(SampleMlbClient.Data.empty());
         refresher = new LeagueAverageRefresher(sample, averages, appearances, minorGameLogs, currentSeason, clock);
 
+        // when // then
         assertThat(refresher.refresh(true)).isEmpty();
         assertThat(rows).isEmpty();
         assertThat(sample.requestCount()).isZero();

@@ -26,6 +26,7 @@ import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
@@ -79,9 +80,12 @@ class IngestWriterProfileTest {
     }
 
     @Test
+    @DisplayName("선수 정보를 받으면 프로필과 지금 팀 이름이 경고 없이 저장된다")
     void profileFieldsAreSaved() {
+        // when
         save(person("1998-08-20", new MlbTeam(137L, "San Francisco Giants", null, null, null)));
 
+        // then
         assertThat(player.getNameEn()).isEqualTo("Jung Hoo Lee");
         assertThat(player.getPosition()).isEqualTo("Right Fielder"); // MLB 약어 RF → 영어 이름
         assertThat(player.getBirthPlace()).isEqualTo("Seoul, Republic of Korea");
@@ -97,9 +101,12 @@ class IngestWriterProfileTest {
     }
 
     @Test
+    @DisplayName("마이너 팀 선수는 그 팀의 메이저 구단을 소속으로 저장한다")
     void minorLeagueTeamMeansItsMlbClub() {
+        // when
         save(person("1998-08-20", new MlbTeam(1960L, "St. Paul Saints", null, null, 142L)));
 
+        // then
         ArgumentCaptor<Affiliation> saved = ArgumentCaptor.forClass(Affiliation.class);
         verify(affiliations).save(saved.capture());
         Team team = saved.getValue().getTeam();
@@ -109,13 +116,17 @@ class IngestWriterProfileTest {
     }
 
     @Test
+    @DisplayName("팀이 없어지면 마지막 소속을 지우지 않고 끝난 날을 남긴다")
     void noTeamKeepsLastTeamAsEnded() {
+        // given
         // FA가 되어도 소속 줄을 지우지 않는다. 끝난 날만 남기고 팀(마지막 소속)은 그대로 둔다.
         Affiliation current = new Affiliation(player, new Team(137L), TODAY.minusDays(30));
         when(affiliations.findByPlayer(player)).thenReturn(Optional.of(current));
 
+        // when
         save(person("1998-08-20", null));
 
+        // then
         verify(affiliations, never()).delete(any());
         assertThat(current.isEnded()).isTrue();
         assertThat(current.getEndDate()).isEqualTo(TODAY);
@@ -124,28 +135,36 @@ class IngestWriterProfileTest {
     }
 
     @Test
+    @DisplayName("새 팀이 생기면 끝난 소속을 새 팀의 지금 소속으로 다시 쓴다")
     void teamAgainReopensEndedAffiliation() {
+        // given
         // FA였다가 다른 구단과 계약하면 같은 줄이 다시 지금 소속이 된다(선수마다 한 줄).
         Affiliation ended = new Affiliation(player, new Team(137L), TODAY.minusDays(30));
         ended.end(TODAY.minusDays(3));
         when(affiliations.findByPlayer(player)).thenReturn(Optional.of(ended));
 
+        // when
         save(person("1998-08-20", new MlbTeam(135L, "San Diego Padres", null, null, null)));
 
+        // then
         verify(affiliations, never()).save(any());
         assertThat(ended.isEnded()).isFalse();
         assertThat(ended.getTeam().getMlbTeamId()).isEqualTo(135L);
     }
 
     @Test
+    @DisplayName("팀도 소속 기록도 없으면 마지막으로 뛴 팀을 끝난 소속으로 남긴다")
     void noTeamAndNoAffiliationKeepsLastPlayedTeam() {
+        // given
         // 소속 줄이 없는데(처음부터 FA 등) 뛴 기록이 있으면 마지막으로 뛴 경기의 팀을 끝난 소속으로 남긴다.
         Appearance last = new Appearance(player, new Game(7001L));
         last.update(new Team(144L), null, null);
         when(appearances.findFirstByPlayerOrderByGameStartTimeUtcDesc(player)).thenReturn(Optional.of(last));
 
+        // when
         save(person("1998-08-20", null));
 
+        // then
         ArgumentCaptor<Affiliation> saved = ArgumentCaptor.forClass(Affiliation.class);
         verify(affiliations).save(saved.capture());
         assertThat(saved.getValue().getTeam().getMlbTeamId()).isEqualTo(144L);
@@ -153,9 +172,12 @@ class IngestWriterProfileTest {
     }
 
     @Test
+    @DisplayName("읽을 수 없는 생년월일은 비워 두고 경고를 한 번 남긴다")
     void unreadableBirthDateIsLeftEmptyWithOneWarning() {
+        // when
         save(person("sometime in 1998", null));
 
+        // then
         assertThat(player.getBirthDate()).isNull();
         assertThat(player.getHeight()).isEqualTo("6' 0\"");
         assertThat(logs.list).filteredOn(event -> event.getLevel() == Level.WARN).singleElement().satisfies(event ->
@@ -163,9 +185,12 @@ class IngestWriterProfileTest {
     }
 
     @Test
+    @DisplayName("생년월일이 없으면 경고 없이 비워 둔다")
     void missingBirthDateIsLeftEmptyWithoutWarning() {
+        // when
         save(person(null, null));
 
+        // then
         assertThat(player.getBirthDate()).isNull();
         assertThat(logs.list).noneMatch(event -> event.getLevel() == Level.WARN);
     }

@@ -13,6 +13,7 @@ import com.korleaguer.posting.Postings;
 import com.korleaguer.support.Hashes;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -72,15 +73,19 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("사진은 원본에서 한 번만 받고 그 뒤에는 저장해 둔 것을 준다")
     void refreshFetchesOnceThenRequestsServeTheStoredCopy() {
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp", "etag", "\"v1\""));
         PhotoStore store = store(DataMode.MLB);
 
+        // when
         store.refresh();
         Optional<Photo> first = store.load("mlb-808982");
         Optional<Photo> second = store.load("mlb-808982");
         store.refresh(); // 이미 받았고 7일이 안 지났다: 원본을 부르지 않는다
 
+        // then
         assertThat(first).map(Photo::getContentType).contains("image/webp");
         assertThat(second).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("face");
         assertThat(requested.stream().filter(MLB::equals)).hasSize(1);
@@ -88,27 +93,36 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("robots.txt 요청을 403으로 거절한 사진 서버에서도 골라 둔 선수 사진은 받는다")
     void robotsForbiddenImageServerStillServesTheChosenPhoto() {
+        // given
         reply(KBO, 200, "heroes", Map.of("content-type", "image/jpeg"));
         PhotoStore store = storeWithPostingSeasonPhoto("https://img.example.kr/{season}/{kboId}.jpg");
 
+        // when
         store.refresh();
 
+        // then
         assertThat(store.load("kbo-67341-2023")).isPresent();
     }
 
     @Test
+    @DisplayName("사진이 아직 없어도 화면 요청은 원본을 부르지 않는다")
     void requestsNeverCallTheSourceEvenWhenThePhotoIsMissing() {
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
 
+        // when // then
         assertThat(store.load("mlb-808982")).isEmpty(); // 아직 받지 않았다: 화면은 이름 첫 글자 원
         assertThat(requested).isEmpty(); // 화면 요청은 DB만 읽는다
         assertThat(saved).isEmpty();
     }
 
     @Test
+    @DisplayName("사진 주소가 바뀌면 새 사진을 받을 때까지 옛 사진을 준다")
     void changedSourceKeepsServingTheOldCopyUntilRefreshFetchesTheNewOne() {
+        // given
         Photo row = new Photo("mlb-808982");
         row.replace("https://img.example.com/old/808982", "image/webp", "old".getBytes(StandardCharsets.UTF_8),
                 Hashes.sha256("old".getBytes(StandardCharsets.UTF_8)), null, null, clock.instant());
@@ -116,33 +130,44 @@ class PhotoStoreTest {
         reply(MLB, 200, "new", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
 
+        // when // then
         assertThat(store.load("mlb-808982")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("old");
         assertThat(requested).isEmpty();
 
+        // when
         store.refresh();
 
+        // then
         assertThat(store.load("mlb-808982")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("new");
         assertThat(saved.get("mlb-808982").getSourceUrl()).isEqualTo(MLB);
     }
 
     @Test
+    @DisplayName("한 선수의 사진이 원본에 없어도 다른 선수 사진은 받는다")
     void oneMissingPhotoAtTheSourceDoesNotStopTheOtherPhotos() {
+        // given
         reply(MLB, 404, "", Map.of()); // 이정후 사진 주소만 틀렸다
         reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
 
+        // when // then
         assertThat(store.refresh()).isEqualTo(1); // 같은 사진 서버를 쉬게 하지 않아 김혜성 사진은 받는다
         assertThat(store.load("mlb-808982")).isEmpty();
         assertThat(store.load("mlb-808975")).isPresent();
 
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp")); // 주소를 고친 다음 주기
         clock.advance(Duration.ofMinutes(10));
+
+        // when // then
         assertThat(store.refresh()).isEqualTo(1);
         assertThat(store.load("mlb-808982")).isPresent();
     }
 
     @Test
+    @DisplayName("사진 받기에 실패하면 저장된 사진을 지키고 나중에 빠진 사진을 받는다")
     void failedFetchKeepsTheStoredCopyAndALaterRunFillsTheMissingPhoto() {
+        // given
         Photo row = new Photo("mlb-808975");
         row.replace("https://img.example.com/old/808975", "image/webp", "kim".getBytes(StandardCharsets.UTF_8),
                 Hashes.sha256("kim".getBytes(StandardCharsets.UTF_8)), null, null, clock.instant());
@@ -151,56 +176,81 @@ class PhotoStoreTest {
         reply(MLB_NO_VALIDATORS, 500, "", Map.of());
         PhotoStore store = store(DataMode.MLB);
 
+        // when // then
         assertThat(store.refresh()).isZero(); // 원본이 실패: 이정후는 아직 없고, 김혜성은 옛 저장본을 지킨다
         assertThat(store.load("mlb-808982")).isEmpty();
         assertThat(store.load("mlb-808975")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("kim");
 
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
         reply(MLB_NO_VALIDATORS, 200, "kim2", Map.of("content-type", "image/webp"));
         clock.advance(Duration.ofMinutes(10));
+
+        // when
         store.refresh(); // 실패한 사이트는 아직 쉬는 중: 원본을 부르지 않는다
+
+        // then
         assertThat(store.load("mlb-808982")).isEmpty();
 
+        // given
         clock.advance(Duration.ofMinutes(30));
+
+        // when // then
         assertThat(store.refresh()).isEqualTo(2); // 쉬는 시간이 지난 다음 주기에 빠진 사진과 바뀐 주소의 사진을 받는다
         assertThat(store.load("mlb-808982")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("face");
         assertThat(store.load("mlb-808975")).map(p -> new String(p.getData(), StandardCharsets.UTF_8)).contains("kim2");
     }
 
     @Test
+    @DisplayName("목록에 없는 사진을 달라고 하면 원본을 부르지 않고 빈 결과를 준다")
     void unknownKeysAreNeverFetched() {
+        // when // then
         assertThat(store(DataMode.MLB).load("mlb-1")).isEmpty();
         assertThat(requested).isEmpty();
     }
 
     @Test
+    @DisplayName("샘플 모드에서는 사진을 받지 않는다")
     void sampleModeNeverFetches() {
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.SAMPLE);
 
+        // when // then
         assertThat(store.load("mlb-808982")).isEmpty();
         assertThat(store.refresh()).isZero();
         assertThat(requested).isEmpty();
     }
 
     @Test
+    @DisplayName("7일이 지나면 바뀌었는지만 묻고 같은 사진이면 다시 쓰지 않는다")
     void recheckAfterSevenDaysUsesConditionalHeadersAndKeepsTheCopyWhenUnchanged() {
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp", "etag", "\"v1\"",
                 "last-modified", "Wed, 11 Nov 2026 01:00:00 GMT"));
         reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
+
+        // when // then
         assertThat(store.refresh()).isEqualTo(2);
+
+        // given
         int before = requested.size();
         Instant kimFetched = saved.get("mlb-808975").getFetchedAt();
 
         clock.advance(Duration.ofDays(3));
+
+        // when // then
         assertThat(store.refresh()).isZero();
         assertThat(requested).hasSize(before); // 7일 전에는 묻지도 않는다
 
+        // given
         reply(MLB, 304, "", Map.of());
         reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp")); // 확인값이 없는 서버: 받아도 같으면 다시 쓰지 않는다
         clock.advance(Duration.ofDays(5));
         Instant askedFrom = clock.instant();
+
+        // when // then
         assertThat(store.refresh()).isZero();
 
         int mlbAsk = requested.lastIndexOf(MLB);
@@ -212,21 +262,28 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("원본 사진이 바뀌면 저장해 둔 사진도 새것으로 바뀐다")
     void changedPhotoReplacesTheCopy() {
+        // given
         reply(MLB, 200, "old", Map.of("content-type", "image/webp", "etag", "\"v1\""));
         PhotoStore store = store(DataMode.MLB);
         store.refresh();
 
         reply(MLB, 200, "new", Map.of("content-type", "image/webp", "etag", "\"v2\""));
         clock.advance(Duration.ofDays(8));
+
+        // when
         store.refresh();
 
+        // then
         assertThat(new String(saved.get("mlb-808982").getData(), StandardCharsets.UTF_8)).isEqualTo("new");
         assertThat(saved.get("mlb-808982").getEtag()).isEqualTo("\"v2\"");
     }
 
     @Test
+    @DisplayName("지난 시즌 사진은 한 번 받으면 원본이 바뀌어도 다시 묻지 않는다")
     void seasonPhotoIsFetchedOnceAndNeverAskedAgain() {
+        // given
         String past = "https://kbo.example/2023/67341.jpg";
         reply("https://kbo.example/robots.txt", 404, "", Map.of());
         reply(past, 200, "heroes", Map.of("content-type", "image/jpeg"));
@@ -238,8 +295,11 @@ class PhotoStoreTest {
         // 원본이 다른 팀 사진으로 바뀌어도, 7일이 아니라 한 해가 지나도 다시 묻지 않는다
         reply(past, 200, "giants", Map.of("content-type", "image/jpeg"));
         clock.advance(Duration.ofDays(400));
+
+        // when
         store.refresh();
 
+        // then
         assertThat(requested.stream().skip(before).filter(past::equals)).isEmpty();
         assertThat(new String(saved.get("kbo-67341-2023").getData(), StandardCharsets.UTF_8)).isEqualTo("heroes");
         assertThat(PhotoSources.seasonFixed("kbo-67341-2023")).isTrue();
@@ -248,7 +308,9 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("포스팅 선수 사진은 우리 편집본을 주고 원본은 받지 않는다")
     void postingPlayerPhotoIsOurEditedFileUnderTheSeasonName() throws Exception {
+        // given
         String original = "https://img.example.kr/player/69737.png";
         reply(original, 200, "naver", Map.of("content-type", "image/png"));
         byte[] edited;
@@ -256,6 +318,7 @@ class PhotoStoreTest {
             edited = in.readAllBytes();
         }
 
+        // when // then
         for (DataMode mode : List.of(DataMode.MLB, DataMode.SAMPLE)) { // 우리 파일이라 샘플 모드에서도 준다
             PhotoStore store = storeWithPostingPlayer(original, mode);
             Optional<Photo> photo = store.load("kbo-si-hwan-roh-2026");
@@ -271,7 +334,9 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("지난 포스팅 선수 사진은 우리 편집본을 주고 원본은 받지 않는다")
     void pastPostingPhotoIsOurEditedFileAndNeverFetched() throws Exception {
+        // given
         String original = "https://archive.example/web/2024/673490.jpg";
         reply(original, 200, "padres", Map.of("content-type", "image/jpeg"));
         byte[] edited;
@@ -279,6 +344,7 @@ class PhotoStoreTest {
             edited = in.readAllBytes();
         }
 
+        // when // then
         for (DataMode mode : List.of(DataMode.MLB, DataMode.SAMPLE)) { // 우리 파일이라 샘플 모드에서도 준다
             PhotoStore store = storeWithPastPhoto(original, mode);
             Optional<Photo> photo = store.load("posting-673490-2024");
@@ -294,7 +360,9 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("과거 소속팀 사진은 우리 편집본을 주고 KBO 원본은 받지 않는다")
     void pastTeamPhotoIsOurEditedPngAndNeverFetched() throws Exception {
+        // given
         reply("https://kbo.example/robots.txt", 404, "", Map.of());
         reply("https://kbo.example/2023/67341.jpg", 200, "heroes", Map.of("content-type", "image/jpeg"));
         byte[] edited;
@@ -302,6 +370,7 @@ class PhotoStoreTest {
             edited = in.readAllBytes();
         }
 
+        // when // then
         for (DataMode mode : List.of(DataMode.MLB, DataMode.SAMPLE)) { // 우리 파일이라 샘플 모드에서도 준다
             PhotoStore store = storeWithCareerPhoto(mode);
             Optional<Photo> photo = store.load("career-67341-2023");
@@ -316,23 +385,35 @@ class PhotoStoreTest {
     }
 
     @Test
+    @DisplayName("사진을 받으면 주소에 버전이 붙고 사진이 바뀌면 버전도 바뀐다")
     void pathGetsAContentVersionOnceThePhotoIsStoredAndChangesWhenTheContentChanges() {
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
+
+        // when // then
         assertThat(lastSources.mlbPath(808982L)).isEqualTo("/photos/mlb-808982"); // 아직 받지 못했다: 버전 없음
 
+        // when
         store.refresh();
+
+        // then
         String first = lastSources.mlbPath(808982L);
         assertThat(first).isEqualTo("/photos/mlb-808982?v=" + Hashes.sha256("face".getBytes(StandardCharsets.UTF_8)).substring(0, 8));
 
+        // given
         clock.advance(Duration.ofDays(8));
         reply(MLB, 200, "face2", Map.of("content-type", "image/webp"));
+
+        // when // then
         assertThat(store.refresh()).isEqualTo(1);
         assertThat(lastSources.mlbPath(808982L)).isNotEqualTo(first).contains("?v=");
     }
 
     @Test
+    @DisplayName("목록에서 빠진 사진만 지우고 공식 사진을 끄면 아무것도 지우지 않는다")
     void refreshRemovesRowsNotInTheListButKeepsEverythingWhenTheListIsEmpty() {
+        // given
         reply(MLB, 200, "face", Map.of("content-type", "image/webp"));
         reply(MLB_NO_VALIDATORS, 200, "kim", Map.of("content-type", "image/webp"));
         PhotoStore store = store(DataMode.MLB);
@@ -341,21 +422,32 @@ class PhotoStoreTest {
         old.replace("https://img.example.kr/old.png", "image/png", new byte[]{1}, "ff00ff00ff", null, null, clock.instant());
         saved.put("kbo-si-hwan-roh", old);
 
+        // when
         store.refresh();
 
+        // then
         assertThat(saved).containsOnlyKeys("mlb-808982", "mlb-808975"); // 목록에서 빠진 옛 이름 행만 지운다
 
+        // given
         // 공식 사진을 끄면 목록이 비므로 아무것도 지우지 않고, 다시 켜도 받은 사진을 또 받지 않는다
         PhotoStore off = storeWithOfficialPhotos(false);
+
+        // when // then
         assertThat(off.refresh()).isZero();
         assertThat(saved).containsOnlyKeys("mlb-808982", "mlb-808975");
+
+        // given
         int asked = requested.size();
+
+        // when // then
         assertThat(store(DataMode.MLB).refresh()).isZero();
         assertThat(requested).hasSize(asked);
     }
 
     @Test
+    @DisplayName("공식 사진을 켰는데 목록이 비면 저장된 사진을 지우지 않는다")
     void unlistedRowsAreKeptWhenTheSwitchIsOnButTheListCameOutEmpty() {
+        // given
         Photo row = new Photo("mlb-808982");
         row.replace(MLB, "image/webp", new byte[]{1}, "abcdef0123456789", null, null, clock.instant());
         saved.put("mlb-808982", row);
@@ -363,32 +455,44 @@ class PhotoStoreTest {
                 new Postings(new PostingProperties(List.of(), List.of())),
                 new KorleaguerProperties(null, null, null, null, new KorleaguerProperties.Images(true, null, null), null));
 
+        // when // then
         assertThat(empty.listUsable()).isFalse(); // 켰는데 0개: 비정상
+
+        // when
         new PhotoStore(empty, repository, fetcher(), DataMode.MLB, clock).refresh();
 
+        // then
         assertThat(saved).containsKey("mlb-808982");
     }
 
     @Test
+    @DisplayName("저장해 둔 사진은 새로 받기 전에도 주소에 버전이 붙는다")
     void storedHashesGiveTheAddressAVersionFromTheStart() {
+        // given
         Photo row = new Photo("mlb-808982");
         row.replace(MLB, "image/webp", new byte[]{1}, "abcdef0123456789", null, null, clock.instant());
         when(repository.findAllHashes()).thenReturn(List.<Object[]>of(new Object[]{"mlb-808982", "abcdef0123456789"}));
         PhotoStore store = store(DataMode.MLB);
 
+        // when
         store.rememberStoredHashes();
 
+        // then
         assertThat(lastSources.mlbPath(808982L)).isEqualTo("/photos/mlb-808982?v=abcdef01");
         assertThat(lastSources.mlbPath(808975L)).isEqualTo("/photos/mlb-808975"); // 저장본이 없으면 버전 없음
     }
 
     @Test
+    @DisplayName("이미지가 아닌 응답은 저장하지 않는다")
     void notAnImageIsIgnored() {
+        // given
         reply(MLB, 200, "<html>blocked</html>", Map.of("content-type", "text/html"));
         PhotoStore store = store(DataMode.MLB);
 
+        // when
         store.refresh();
 
+        // then
         assertThat(store.load("mlb-808982")).isEmpty();
         assertThat(saved).isEmpty();
     }
@@ -423,7 +527,7 @@ class PhotoStoreTest {
         return new PhotoStore(sources, repository, fetcher(), DataMode.MLB, clock);
     }
 
-    /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
+    /** 지난 포스팅 선수 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
     private PhotoStore storeWithPastPhoto(String photoUrl, DataMode mode) {
         PostingProperties.Past kim = new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4,
                 28_000_000L, null, 64300L, 673490L, 2024, photoUrl, null);
@@ -444,7 +548,7 @@ class PhotoStoreTest {
         return new PhotoStore(sources, repository, fetcher(), mode, clock);
     }
 
-    /** MLB 사진을 적지 않은 지난 포스팅 선배 한 명(이정후, 2023 포스팅)의 그 시즌 KBO 사진만 있는 사진 목록 */
+    /** MLB 사진을 적지 않은 지난 포스팅 선수 한 명(이정후, 2023 포스팅)의 그 시즌 KBO 사진만 있는 사진 목록 */
     private PhotoStore storeWithPostingSeasonPhoto(String kboPhotoTemplate) {
         PostingProperties.Past lee = new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6,
                 113_000_000L, null, 67341L, null, null, null, null);

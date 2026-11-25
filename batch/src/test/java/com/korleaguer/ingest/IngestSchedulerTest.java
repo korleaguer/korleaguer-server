@@ -1,5 +1,6 @@
 package com.korleaguer.ingest;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -11,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IngestSchedulerTest {
 
     @ParameterizedTest
+    @DisplayName("경기 갱신은 한국 시간 1시부터 16시까지 늘, 그 밖에는 정각에만 한다")
     @CsvSource(textBlock = """
             2026-09-26T16:00:00Z, true
             2026-09-26T16:36:00Z, true
@@ -22,6 +24,7 @@ class IngestSchedulerTest {
             2026-09-26T15:48:00Z, false
             """)
     void gameTimeFollowsKoreanHours(String utc, boolean expected) {
+        // when // then
         // 16:00Z = 한국 01:00, 07:00Z = 한국 16:00
         assertThat(IngestScheduler.gameTime(Instant.parse(utc))).isEqualTo(expected);
     }

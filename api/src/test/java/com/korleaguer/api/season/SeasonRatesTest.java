@@ -7,6 +7,7 @@ import com.korleaguer.api.season.SeasonVerdict.Line;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Role;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -31,98 +32,140 @@ class SeasonRatesTest {
     private static final Map<String, LeagueEnv> LEAGUES = Map.of("MLB", MLB, "AAA", AAA, "AA", AA);
 
     @Test
+    @DisplayName("메이저 타자의 시즌 wRC+는 공식 값을 반올림해 쓴다")
     void majorHitterUsesTheOfficialSeasonWrcPlus() {
+        // given
         // 이정후: 공식 시즌 wRC+ 101.8(구장 보정 포함)을 반올림한다. 달 막대를 시즌 하나로 합친 값과 같다
         List<GameDay> majors = hitGames(null, OPENING, 143, 539, 149, 31, 10, 29);
 
+        // when
         Rates rates = SeasonRates.of(hitter(new Line(2026, 579, 0, 101.8, 0.97), majors, List.of()), false, LEAGUES);
 
+        // then
         assertThat(rates).isEqualTo(new Rates(102, null, null));
     }
 
     @Test
+    @DisplayName("공식 wRC+가 없으면 메이저 타자의 경기 기록을 메이저 평균과 견준다")
     void majorHitterWithoutTheOfficialValueIsMeasuredAgainstTheMlbAverage() {
+        // given
         // 지표를 아직 받지 못했다: 400타수 110안타 2루타 20 홈런 12 볼넷 40 → wOBA .332, MLB 평균(.315) 대비 112
         List<GameDay> majors = hitGames(null, OPENING, 110, 400, 110, 20, 12, 40);
 
+        // when // then
         assertThat(SeasonRates.of(hitter(null, majors, List.of()), false, LEAGUES).wrcPlus()).isEqualTo(112);
         assertThat(SeasonRates.of(hitter(new Line(2026, 440, 0, null, null), majors, List.of()), false, LEAGUES)
                 .wrcPlus()).isEqualTo(112);
     }
 
     @Test
+    @DisplayName("메이저 50타석이 안 되면 시즌 wRC+를 내지 않는다")
     void fewPlateAppearancesGiveNoSeasonWrcPlus() {
+        // given
         // 배지환 메이저 4타석 wRC+ 249.4는 시즌 숫자로 쓰지 않는다(50타석 미만). 경기별 기록도 같은 선
         List<GameDay> fourGames = hitGames(null, LocalDate.of(2026, 8, 10), 4, 2, 1, 0, 0, 2);
+
+        // when // then
         assertThat(SeasonRates.of(hitter(new Line(2026, 4, 0, 249.4, 0.09), fourGames, List.of()), false, LEAGUES))
                 .isEqualTo(new Rates(null, null, null));
 
+        // given
         List<GameDay> justEnough = hitGames(null, OPENING, 13, 46, 12, 2, 1, 4);
         List<GameDay> oneShort = hitGames(null, OPENING, 13, 45, 12, 2, 1, 4);
+
+        // when // then
         assertThat(SeasonRates.of(hitter(null, justEnough, List.of()), false, LEAGUES).wrcPlus()).isNotNull();
         assertThat(SeasonRates.of(hitter(null, oneShort, List.of()), false, LEAGUES).wrcPlus()).isNull();
     }
 
     @Test
+    @DisplayName("트리플A에서 보낸 시즌의 wRC+는 트리플A 리그 평균과 견준다")
     void minorSeasonIsMeasuredAgainstItsOwnLeague() {
+        // given
         // 김혜성 트리플A처럼: 85경기 328타수 86안타(.262) 2루타 12 홈런 3 볼넷 34 → wOBA .296.
         // 트리플A 평균(.338)과 견주면 76이고, MLB 표준값과 견주면 91로 실제보다 좋아 보인다. 메이저 공식 값(83)은 쓰지 않는다
         List<GameDay> majors = hitGames(null, OPENING, 43, 116, 30, 3, 1, 12);
         List<GameDay> minors = hitGames("AAA", LocalDate.of(2026, 5, 29), 85, 328, 86, 12, 3, 34);
         Input input = hitter(new Line(2026, 131, 0, 83.0, 0.35), majors, minors);
 
+        // when // then
         assertThat(SeasonRates.of(input, true, LEAGUES)).isEqualTo(new Rates(76, null, "트리플A"));
         assertThat(SeasonRates.of(input, true, Map.of()).wrcPlus()).isEqualTo(91);
     }
 
     @Test
+    @DisplayName("더블A와 트리플A를 섞어 뛰면 타석 비중으로 섞은 리그 평균과 견준다")
     void mixedMinorLevelsBlendTheLeagueAveragesByPlateAppearances() {
+        // given
         // 트리플A 200타석 + 더블A 100타석 → 리그 평균을 2:1로 섞는다. 트리플A로만 재면 109, 더블A로만 재면 113
         List<GameDay> minors = new ArrayList<>();
         minors.addAll(hitGames("AAA", LocalDate.of(2026, 4, 1), 50, 180, 50, 10, 5, 20));
         minors.addAll(hitGames("AA", LocalDate.of(2026, 6, 1), 25, 90, 30, 5, 3, 10));
 
+        // when
         Rates rates = SeasonRates.of(hitter(null, List.of(), minors), true, LEAGUES);
 
+        // then
         assertThat(rates).isEqualTo(new Rates(110, null, "마이너"));
     }
 
     @Test
+    @DisplayName("메이저 카드라도 메이저 경기가 없으면 마이너 합계로 wRC+를 낸다")
     void cardWithoutMajorGamesUsesTheMinorTotalsLikeTheWebNumbersBox() {
+        // given
         // 메이저 경기 없이 더블A만 뛰었으면 성적표 level은 MLB여도 웹 숫자 칸은 마이너 합계다
         List<GameDay> minors = hitGames("AA", LocalDate.of(2026, 5, 1), 35, 120, 36, 6, 2, 12);
 
+        // when // then
         assertThat(SeasonRates.of(hitter(null, List.of(), minors), false, LEAGUES))
                 .isEqualTo(new Rates(103, null, "더블A"));
     }
 
     @Test
+    @DisplayName("단계를 모르는 마이너 경기가 섞이거나 그뿐이면 단계 이름이 마이너다")
     void unknownMinorLevelMixedInMakesTheLevelNameMinors() {
+        // given
         // 단계를 모르는 마이너 경기(level null)는 표준값으로 재므로, 트리플A와 섞이면 '트리플A'가 아니라 '마이너'다
         // (MinorRecords.levelKo와 같은 규칙, 이슈 #179 리뷰). 마이너 목록의 null 단계는 메이저가 아니라 '모름'이다
         List<GameDay> tripleA = hitGames("AAA", LocalDate.of(2026, 5, 1), 30, 100, 30, 5, 2, 10);
         List<GameDay> withUnknown = new ArrayList<>(tripleA);
         withUnknown.addAll(hitGames(null, LocalDate.of(2026, 7, 1), 10, 30, 8, 1, 0, 3));
 
+        // when // then
         assertThat(SeasonRates.of(hitter(null, List.of(), tripleA), true, LEAGUES).statLevelKo()).isEqualTo("트리플A");
+
+        // when
         Rates mixed = SeasonRates.of(hitter(null, List.of(), withUnknown), true, LEAGUES);
+
+        // then
         assertThat(mixed.wrcPlus()).isNotNull();
         assertThat(mixed.statLevelKo()).isEqualTo("마이너");
+
+        // given
         // 모두 모르면 MinorRecords.levelKo(null)과 같이 '마이너'
         List<GameDay> unknownOnly = hitGames(null, LocalDate.of(2026, 7, 1), 20, 70, 20, 3, 1, 7);
+
+        // when // then
         assertThat(SeasonRates.of(hitter(null, List.of(), unknownOnly), true, LEAGUES).statLevelKo())
                 .isEqualTo("마이너");
     }
 
     @Test
+    @DisplayName("메이저 경기 기록이 없어도 공식 값이 있으면 마이너 합계 대신 공식 값을 쓴다")
     void mlbCardWithTheOfficialValueButNoMajorGamesYetKeepsTheOfficialValue() {
+        // given
         // 공식 지표는 받았는데 경기별 메이저 기록이 아직 없고 재활 마이너 경기만 있는 MLB 카드: 마이너 합계가 아니라 공식 값을
         // 쓰고 단계 이름은 없다. 같은 카드의 saber가 MLB 공식 값이다(이슈 #179 리뷰)
         List<GameDay> rehab = hitGames("AAA", LocalDate.of(2026, 6, 1), 15, 55, 20, 4, 2, 6);
+
+        // when // then
         assertThat(SeasonRates.of(hitter(new Line(2026, 579, 0, 101.8, 0.97), List.of(), rehab), false, LEAGUES))
                 .isEqualTo(new Rates(102, null, null));
 
+        // given
         List<GameDay> rehabPitching = pitchGames("AAA", LocalDate.of(2026, 6, 1), 5, 30, 2);
+
+        // when // then
         assertThat(SeasonRates.of(pitcher(new Line(2026, 60, 0, 80.0, 1.0), List.of(), rehabPitching), false,
                 LEAGUES)).isEqualTo(new Rates(null, 125, null));
 
@@ -132,19 +175,28 @@ class SeasonRatesTest {
     }
 
     @Test
+    @DisplayName("마이너에서 40타석이나 9이닝뿐이면 숫자도 단계 이름도 없다")
     void fewMinorGamesGiveNeitherNumberNorLevelName() {
+        // given
         // 트리플A 10경기 40타석, 9이닝: 숫자가 없으면 그 앞에 붙일 단계 이름도 없다
         List<GameDay> hitting = hitGames("AAA", LocalDate.of(2026, 9, 1), 10, 36, 10, 2, 1, 4);
+
+        // when // then
         assertThat(SeasonRates.of(hitter(null, List.of(), hitting), true, LEAGUES))
                 .isEqualTo(new Rates(null, null, null));
 
+        // given
         List<GameDay> pitching = pitchGames("AAA", LocalDate.of(2026, 9, 1), 9, 27, 3);
+
+        // when // then
         assertThat(SeasonRates.of(pitcher(null, List.of(), pitching), true, LEAGUES))
                 .isEqualTo(new Rates(null, null, null));
     }
 
     @Test
+    @DisplayName("마이너 단계를 오간 투수의 ERA+는 이닝 비중으로 섞은 리그 평균과 견준다")
     void minorPitcherBlendsLeagueEraByOuts() {
+        // given
         // 고우석: 더블A 13⅔이닝 1자책 + 트리플A 37이닝 21자책 = 50⅔이닝 평균자책점 3.91.
         // 리그 평균자책점을 이닝 비중으로 섞으면 4.95 → ERA+ 127(표준값 4.20이면 107)
         List<GameDay> minors = new ArrayList<>();
@@ -153,40 +205,58 @@ class SeasonRatesTest {
         List<GameDay> majors = pitchGames(null, LocalDate.of(2026, 7, 10), 4, 12, 4);
         Input input = pitcher(new Line(2026, 4, 0, 216.1, -0.14), majors, minors);
 
+        // when // then
         assertThat(SeasonRates.of(input, true, LEAGUES)).isEqualTo(new Rates(null, 127, "마이너"));
         assertThat(SeasonRates.of(input, true, Map.of()).eraPlus()).isEqualTo(107);
     }
 
     @Test
+    @DisplayName("메이저 투수의 ERA+는 공식 ERA-로 내고 4이닝뿐이면 내지 않는다")
     void majorPitcherUsesTheOfficialEraMinusAndFewInningsGiveNothing() {
+        // given
         // 공식 ERA- 80 → ERA+ 125(10000 ÷ ERA-, 달별 기록과 같은 식). 고우석 메이저 4이닝(ERA- 216.1)은 10이닝 미만이라 null
         List<GameDay> majors = pitchGames(null, OPENING.plusDays(1), 30, 180, 20);
+
+        // when // then
         assertThat(SeasonRates.of(pitcher(new Line(2026, 60, 0, 80.0, 1.0), majors, List.of()), false, LEAGUES))
                 .isEqualTo(new Rates(null, 125, null));
 
+        // given
         List<GameDay> fourGames = pitchGames(null, LocalDate.of(2026, 7, 10), 4, 12, 4);
+
+        // when // then
         assertThat(SeasonRates.of(pitcher(new Line(2026, 4, 0, 216.1, -0.14), fourGames, List.of()), false, LEAGUES)
                 .eraPlus()).isNull();
     }
 
     @Test
+    @DisplayName("공식 ERA-가 없으면 투수의 경기 기록을 메이저 평균과 견줘 ERA+를 낸다")
     void pitcherWithoutEraMinusIsMeasuredFromTheGames() {
+        // given
         // ERA-를 아직 받지 못했다: 40이닝 16자책(3.60) vs MLB 평균 4.17 → 116
         List<GameDay> majors = pitchGames(null, OPENING.plusDays(1), 20, 120, 16);
 
+        // when // then
         assertThat(SeasonRates.of(pitcher(null, majors, List.of()), false, LEAGUES).eraPlus()).isEqualTo(116);
         assertThat(SeasonRates.of(pitcher(new Line(2026, 40, 0, null, null), majors, List.of()), false, LEAGUES)
                 .eraPlus()).isEqualTo(116);
     }
 
     @Test
+    @DisplayName("자책점이 없는 투수의 시즌 ERA+는 상한값이 된다")
     void scorelessPitcherGetsTheCap() {
+        // given
         // 무자책이면 300(달별 기록과 같은 상한). 공식 ERA- 0도 무자책이다
         List<GameDay> scoreless = pitchGames("AAA", LocalDate.of(2026, 6, 1), 10, 30, 0);
+
+        // when // then
         assertThat(SeasonRates.of(pitcher(null, List.of(), scoreless), true, LEAGUES).eraPlus())
                 .isEqualTo(SeasonMonths.ERA_PLUS_CAP);
 
+        // given
         List<GameDay> majors = pitchGames(null, OPENING.plusDays(1), 12, 36, 0);
+
+        // when // then
         assertThat(SeasonRates.of(pitcher(new Line(2026, 12, 0, 0.0, 0.5), majors, List.of()), false, LEAGUES)
                 .eraPlus()).isEqualTo(SeasonMonths.ERA_PLUS_CAP);
     }

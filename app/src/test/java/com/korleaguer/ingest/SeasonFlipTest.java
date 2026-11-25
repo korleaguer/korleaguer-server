@@ -9,6 +9,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonRepository;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -88,11 +89,16 @@ class SeasonFlipTest {
     }
 
     @Test
+    @DisplayName("앱을 다시 띄우지 않아도 개막일에 새 시즌으로 넘어간다")
     void movesToTheNewSeasonOnOpeningDayWithoutRestart() {
+        // given
         assertThat(currentSeason.isFixed()).isFalse();
 
+        // when
         // 비시즌: 올해(2026) 날짜를 받고 2026 시즌을 받는다. 내년 날짜는 아직 묻지 않는다.
         ingestService.catchUp(false, false);
+
+        // then
         Player go = players.findByMlbIdIsNotNull().getFirst();
         assertThat(seasonDates.findById(2026)).isPresent();
         assertThat(seasonDates.findById(2027)).isEmpty();
@@ -101,26 +107,45 @@ class SeasonFlipTest {
         assertThat(minorSeasons.find(go.getId(), 2026)).isPresent();
         assertThat(queries.home().season()).isEqualTo(2026);
 
+        // given
         // 해가 바뀌면 그해(2027) 날짜를 받는다. 개막 전이라 아직 2026 시즌이다.
         clock.set(NEW_YEAR);
+
+        // when
         ingestService.catchUp(false, false);
+
+        // then
         assertThat(seasonDates.findById(2027)).get()
                 .extracting(d -> d.getRegularSeasonStart()).isEqualTo(LocalDate.of(2027, 3, 25));
         assertThat(currentSeason.current()).isEqualTo(2026);
         assertThat(playerSeasons.exists(go.getId(), 2027)).isFalse();
 
+        // given
         // 개막 전날 밤: 선수 정보는 이 UTC 날짜에 2026 시즌으로 받는다.
         clock.set(OPENING_EVE);
+
+        // when // then
         assertThat(currentSeason.current()).isEqualTo(2026);
+
+        // when
         ingestService.catchUp(false, false);
+
+        // then
         assertThat(playerSeasons.exists(go.getId(), 2027)).isFalse();
         assertThat(minorSeasons.find(go.getId(), 2027)).isEmpty();
 
+        // given
         // 개막일(같은 UTC 날짜): 다시 띄우지 않아도 2027이 된다. 선수 정보는 오늘 이미 받았으니
         // 마이너 경기 수만 2027로 받고(minorsOnly), 2027 시즌을 백필한다.
         clock.set(OPENING_DAY);
+
+        // when // then
         assertThat(currentSeason.current()).isEqualTo(2027);
+
+        // when
         ingestService.catchUp(false, false);
+
+        // then
         assertThat(playerSeasons.exists(go.getId(), 2027)).isTrue();
         assertThat(minorSeasons.find(go.getId(), 2027)).isPresent();
         assertThat(queries.home().season()).isEqualTo(2027);

@@ -9,6 +9,7 @@ import com.korleaguer.domain.PlayerMove;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -90,8 +91,10 @@ class PlayerMovesIngestTest {
     }
 
     @Test
+    @DisplayName("앱이 뜨면 선수가 지금 뛰는 단계와 이동 기록을 모두 저장한다")
     @Order(1)
     void startupSavesLevelsAndAllMoves() {
+        // when // then
         Player go = players.findByNameKo("고우석").orElseThrow();
         assertThat(go.getLevel()).isEqualTo(Level.MINORS);
         assertThat(go.getLevelTeamName()).isEqualTo("St. Paul Saints");
@@ -115,25 +118,33 @@ class PlayerMovesIngestTest {
     }
 
     @Test
+    @DisplayName("같은 날 다시 수집하면 MLB에 묻지 않는다")
     @Order(2)
     void sameDayIsNotAskedAgain() {
+        // given
         long before = client.requestCount();
 
+        // when
         IngestLog log = ingestService.catchUp(false);
 
+        // then
         assertThat(client.requestCount()).isEqualTo(before);
         assertThat(log.getMessage()).isEqualTo("할 일 없음");
     }
 
     @Test
+    @DisplayName("다음 날 다시 받으면 이동 기록은 늘지 않고 고친 내용으로 바뀐다")
     @Order(3)
     void nextDayUpsertsByMlbId() {
+        // given
         clock.set(START.plus(Duration.ofDays(1)));
         client.suffix = " (edited)";
         long before = client.requestCount();
 
+        // when
         IngestLog log = ingestService.catchUp(false);
 
+        // then
         // 선수 정보 1회(6명 한 번에) + 이동 기록 6회 + 마이너 경기 수 6회. 마이너 팀 단계는 어제 물어 기억하므로
         // 다시 묻지 않는다. 시즌은 이미 받았으므로 다시 받지 않는다.
         // MLB 안 위치(하루 한 번): 리그 전체 타격·투구 4회 + yearByYear 6회. 지난 시즌 지표는 어제 물었으므로 다시 묻지 않는다.

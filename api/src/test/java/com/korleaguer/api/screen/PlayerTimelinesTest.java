@@ -3,6 +3,7 @@ package com.korleaguer.api.screen;
 import com.korleaguer.api.player.MoveEntry;
 
 import com.korleaguer.domain.Level;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -25,16 +26,20 @@ class PlayerTimelinesTest {
     private static final LocalDate TO = LocalDate.of(2026, 11, 19);
 
     @Test
+    @DisplayName("이정후는 메이저 시즌 중에 두 번 다쳐 부상 구간이 둘이다")
     void leeJungHooIsInjuredTwiceAroundAMajorSeason() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2026-05-22", "SC", "부상자 명단 등재", "샌프란시스코", Level.MLB),
                 move("2026-05-29", "SC", "부상자 명단 해제", "샌프란시스코", Level.MLB),
                 move("2026-09-21", "SC", "부상자 명단 등재", "샌프란시스코", Level.MLB),
                 move("2026-09-29", "SC", "부상자 명단 해제", "샌프란시스코", Level.MLB));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-03-26", "샌프란시스코", null, null));
 
+        // then
         assertThat(spans(segments)).containsExactly(
                 tuple(MLB, "2026-03-01", "2026-05-21"),
                 tuple(INJURED, "2026-05-22", "2026-05-28"),
@@ -45,16 +50,20 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("김혜성은 두 번 내려갔다 올라와 마이너와 메이저 구간이 번갈아 나온다")
     void kimHyeSeongGoesDownAndUpTwice() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2026-03-22", "OPT", "마이너 강등(옵션)", "오클라호마시티(트리플A)", Level.MINORS),
                 move("2026-04-05", "CU", "메이저 콜업", "LA 다저스", Level.MLB),
                 move("2026-05-29", "OPT", "마이너 강등(옵션)", "오클라호마시티(트리플A)", Level.MINORS),
                 move("2026-09-28", "CU", "메이저 콜업", "LA 다저스", Level.MLB));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-04-05", "LA 다저스", "2026-03-27", "트리플A"));
 
+        // then
         assertThat(spans(segments)).containsExactly(
                 tuple(MINORS, "2026-03-01", "2026-04-04"),
                 tuple(MLB, "2026-04-05", "2026-05-28"),
@@ -67,7 +76,9 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("김하성은 재활 경기를 뛰어도 해제 전날까지 부상 구간이다")
     void kimHaSeongStartsInjuredAndRehabAssignmentsKeepTheInjury() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2025-12-15", "SFA", "계약", "애틀랜타", Level.MLB), // 기간 밖
                 move("2026-03-25", "SC", "부상자 명단 등재", "애틀랜타", Level.MLB),
@@ -80,9 +91,11 @@ class PlayerTimelinesTest {
                 move("2026-08-03", "SC", "부상자 명단 해제", "애틀랜타", Level.MLB),
                 move("2026-10-29", "DFA", "FA 선언", "애틀랜타", Level.MLB));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-03-26", "애틀랜타", "2026-04-29", "더블A"));
 
+        // then
         // 재활 경기(마이너)를 뛰어도 부상 구간이고, 구간 끝은 해제일 전날이다
         assertThat(spans(segments)).containsExactly(
                 tuple(INJURED, "2026-03-01", "2026-05-10"),
@@ -94,7 +107,9 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("송성문은 부상자 명단에서 해제된 날 바로 마이너 구간으로 넘어간다")
     void songSeongMunLeavesTheInjuredListStraightIntoTheMinors() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2025-12-22", "SFA", "계약", "샌디에이고", Level.MLB),
                 move("2026-03-25", "SC", "부상자 명단 등재", "샌디에이고", Level.MLB),
@@ -108,9 +123,11 @@ class PlayerTimelinesTest {
                 move("2026-08-24", "OPT", "마이너 강등(옵션)", "엘패소(트리플A)", Level.MINORS),
                 move("2026-08-30", "CU", "메이저 콜업", "샌디에이고", Level.MLB));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-04-25", "샌디에이고", "2026-03-27", "트리플A"));
 
+        // then
         assertThat(spans(segments)).containsExactly(
                 tuple(INJURED, "2026-03-01", "2026-04-15"),
                 tuple(MINORS, "2026-04-16", "2026-04-24"),
@@ -122,7 +139,9 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("고우석은 마이너 팀을 옮겨도 한 구간이고 FA 선언 뒤 팀이 없다")
     void goWooSeokMergesMinorStopsAndEndsWithoutATeam() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2026-04-08", "ASG", "팀 배정", "이리(더블A)", Level.MINORS),
                 move("2026-05-08", "ASG", "팀 배정", "톨레도(트리플A)", Level.MINORS),
@@ -135,9 +154,11 @@ class PlayerTimelinesTest {
                 move("2026-08-30", "DFA", "FA 선언", "세인트폴(트리플A)", Level.MINORS),
                 move("2026-08-30", "OUT", "마이너 이관(아웃라이트)", "세인트폴(트리플A)", Level.MINORS));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-07-07", "미네소타", "2026-03-29", "트리플A"));
 
+        // then
         // 마이너 안에서 팀·단계가 바뀌어도 한 구간이다. 같은 날 방출·FA 선언이 이관보다 나중이라 팀 없음이 이긴다
         assertThat(spans(segments)).containsExactly(
                 tuple(MINORS, "2026-03-01", "2026-07-06"),
@@ -150,7 +171,9 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("배지환은 방출 뒤 메이저에 갔다가 마이너로 내려가 다치고 FA가 된다")
     void baeJiHwanReturnsAfterBeingReleasedAndEndsInjuredThenFreeAgent() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2026-01-08", "OUT", "마이너 이관(아웃라이트)", "시러큐스(트리플A)", Level.MINORS), // 기간 밖
                 move("2026-08-04", "REL", "방출", "시러큐스(트리플A)", Level.MINORS),
@@ -162,9 +185,11 @@ class PlayerTimelinesTest {
                 move("2026-09-01", "SC", "부상자 명단 이동", "내슈빌(트리플A)", Level.MINORS),
                 move("2026-11-02", "DFA", "FA 선언", "내슈빌(트리플A)", Level.MINORS));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-08-09", "밀워키", "2026-03-28", "트리플A"));
 
+        // then
         assertThat(spans(segments)).containsExactly(
                 tuple(MINORS, "2026-03-01", "2026-08-03"),
                 tuple(NO_TEAM, "2026-08-04", "2026-08-08"),
@@ -178,14 +203,18 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("띠 구간은 시작부터 끝까지 빈 날 없이 이어진다")
     void segmentsCoverTheWholeBandWithoutGaps() {
+        // given
         List<MoveEntry> moves = List.of(
                 move("2026-05-22", "SC", "부상자 명단 등재", "샌프란시스코", Level.MLB),
                 move("2026-05-29", "SC", "부상자 명단 해제", "샌프란시스코", Level.MLB));
 
+        // when
         List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
                 firstGames("2026-03-26", "샌프란시스코", null, null));
 
+        // then
         assertThat(segments.getFirst().from()).isEqualTo(FROM);
         assertThat(segments.getLast().to()).isEqualTo(TO);
         for (int i = 1; i < segments.size(); i++) {
@@ -195,7 +224,9 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("경기도 상태를 바꾸는 이동도 없거나 끝 날이 시작보다 앞서면 구간이 없다")
     void noRecordsOrAnEmptyBandGiveNoSegments() {
+        // when // then
         // 그 시즌 경기도 상태를 바꾸는 이동도 없다(없는 시즌)
         assertThat(PlayerTimelines.segments(List.of(), FROM, TO, PlayerTimelines.FirstGames.NONE)).isEmpty();
         assertThat(PlayerTimelines.segments(List.of(move("2026-08-05", "TR", "트레이드", "미네소타", Level.MLB)), FROM, TO,
@@ -206,9 +237,13 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("첫 경기가 첫 이동보다 먼저면 그 경기로, 아니면 이동으로 시작 상태를 정한다")
     void aGameBeforeTheFirstMoveSetsTheStartingStateOtherwiseTheMoveDoes() {
+        // given
         // 마이너 경기가 첫 이동(콜업)보다 먼저면 마이너에서 시작, 첫 이동이 먼저면 그 이동 직전 상태를 거슬러 둔다
         List<MoveEntry> upMove = List.of(move("2026-06-10", "CU", "메이저 콜업", "시애틀", Level.MLB));
+
+        // when // then
         assertThat(spans(PlayerTimelines.segments(upMove, FROM, TO, firstGames(null, null, "2026-04-01", "더블A"))))
                 .containsExactly(tuple(MINORS, "2026-03-01", "2026-06-09"), tuple(MLB, "2026-06-10", "2026-11-19"));
         assertThat(spans(PlayerTimelines.segments(upMove, FROM, TO, firstGames(null, null, "2026-07-01", "더블A"))))

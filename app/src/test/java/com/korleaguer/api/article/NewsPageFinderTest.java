@@ -9,6 +9,7 @@ import com.korleaguer.photo.PhotoSources;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
 import com.korleaguer.support.PhotoFiles;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -55,7 +56,9 @@ class NewsPageFinderTest {
     private final NewsPageFinder finder = new NewsPageFinder(news, postings, photos, NEWS);
 
     @Test
+    @DisplayName("기사 페이지를 열면 기사 제목·요약·사진과 선수 사진이 함께 나온다")
     void articleComesWithItsSummaryPhotoAndThePlayerPhoto() {
+        // given
         NewsArticle mlbtr = article(7L, "노시환", "Roh Posted", "MLB Trade Rumors", "2026-11-10T03:00:00Z");
         mlbtr.enriched("https://mlbtr.example/roh.jpg", "노시환 포스팅 공시", "한화가 노시환을 포스팅했다.\n마감은 12월 1일이다.",
                 "claude-haiku-5-5", Instant.parse("2026-11-10T03:30:00Z"));
@@ -63,8 +66,10 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(mlbtr));
         stored(mlbtr);
 
+        // when
         NewsPageResponse page = finder.find(7L);
 
+        // then
         assertThat(page.id()).isEqualTo(7L);
         assertThat(page.player()).isEqualTo("노시환");
         // 홈 포스팅 카드와 같은 사진(현 소속 KBO 구단 공식 사진의 흰 바탕 편집본)
@@ -82,7 +87,9 @@ class NewsPageFinderTest {
     }
 
     @Test
+    @DisplayName("같은 글을 실은 다른 언론사를 낸 순서로 한 번씩만 보여 준다")
     void alsoByListsTheOtherOutletsThatRanThisArticleInPublishingOrder() {
+        // given
         // 이 기사(1번)를 스포츠조선·조선일보가 실었다. 뺀 언론사(뉴시스)·주인공이 아닌 사본은 목록처럼 넣지 않는다(이슈 #180)
         String title = "'307억 포기' 노시환이 MLB 유격수?";
         NewsArticle current = article(1L, "노시환", title, "마이데일리", "2026-11-12T00:50:00Z");
@@ -96,14 +103,18 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(sportsAgain, chosun, offTopic, sports, dropped, current));
         stored(current, dropped, sports, offTopic, chosun, sportsAgain);
 
+        // when
         NewsPageResponse page = finder.find(1L);
 
+        // then
         assertThat(page.alsoBy()).containsExactly("스포츠조선", "조선일보"); // 낸 순, 두 번 실은 스포츠조선은 한 번
         assertThat(page.more()).isEmpty(); // 사본은 '다른 기사'에도 넣지 않는다
     }
 
     @Test
+    @DisplayName("오래된 기사를 열면 그 기사가 나온 앞뒤 기간에서 같은 글을 찾는다")
     void anOldArticleReadsAroundItselfNotTheLatestArticles() {
+        // given
         // 뉴스 탭을 넘겨 연 오래된 기사: 최근 기사에는 사본이 없다. 이 기사 앞뒤 NEAR에서 찾는다(이슈 #180)
         NewsArticle old = article(1L, "노시환", "노시환 MLB 포스팅 공시", "마이데일리", "2026-11-02T00:00:00Z");
         NewsArticle copy = article(2L, "노시환", "노시환 MLB 포스팅 공시", "스포츠조선", "2026-11-02T01:00:00Z");
@@ -112,8 +123,10 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(latest));
         stored(old, copy, latest);
 
+        // when
         NewsPageResponse page = finder.find(1L);
 
+        // then
         assertThat(page.alsoBy()).containsExactly("스포츠조선");
         assertThat(page.more()).extracting(PostingSummary.Headline::id).containsExactly(3L);
         Instant at = old.getPublishedAt();
@@ -121,7 +134,9 @@ class NewsPageFinderTest {
     }
 
     @Test
+    @DisplayName("다른 사본을 거쳐 이어진 같은 글도 함께 묶고 '다른 기사' 목록에서 뺀다")
     void aCopyLinkedThroughAnotherCopyCountsLikeTheListAndStaysOutOfMore() {
+        // given
         // 목록은 이어 주는 기사(B)로 A와 NEAR 넘게 떨어진 C까지 한 줄로 묶는다. 기사 페이지도 넓혀 읽어 같게 센다.
         // 최근 기사에는 C만 있어 C가 따로 묶여도, A의 묶음에 든 C는 '다른 기사'에 넣지 않는다
         String title = "노시환 MLB 포스팅 공시";
@@ -133,15 +148,19 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(other, c));
         stored(a, b, c, other);
 
+        // when
         NewsPageResponse page = finder.find(1L);
 
+        // then
         assertThat(SameArticles.group(List.of(a, b, c)).getFirst().alsoBy()).containsExactly("스포츠조선", "조선일보");
         assertThat(page.alsoBy()).containsExactly("스포츠조선", "조선일보"); // 목록 한 줄과 같다
         assertThat(page.more()).extracting(PostingSummary.Headline::id).containsExactly(4L);
     }
 
     @Test
+    @DisplayName("같은 제목의 기사가 끝없이 이어지면 정해진 횟수까지만 찾고 멈춘다")
     void readingAroundStopsAtTheLimitForAnEndlessChain() {
+        // given
         // 같은 제목이 36시간마다 이어진다(연재 등). 읽을 때마다 하나씩 더 닿지만 MAX_SAME_READS번에서 멈춘다
         List<NewsArticle> chain = new ArrayList<>();
         Instant start = Instant.parse("2026-10-01T00:00:00Z");
@@ -156,14 +175,18 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("김혜성"), any())).thenReturn(chain.reversed());
         stored(chain.toArray(NewsArticle[]::new));
 
+        // when
         NewsPageResponse page = finder.find(1L);
 
+        // then
         assertThat(page.alsoBy()).containsExactly("스포츠조선");
         verify(news, times(NewsPageFinder.MAX_SAME_READS)).findPublishedBetween(eq("김혜성"), any(), any());
     }
 
     @Test
+    @DisplayName("대표가 아닌 사본을 열면 대표 언론사를 넣고 자기 언론사는 뺀다")
     void aCopyThatIsNotTheLeadCountsTheLeadOutletAndLeavesOutItsOwn() {
+        // given
         // 목록에는 요약이 붙은 스포츠조선 기사가 대표로 보이지만 옛 링크로 마이데일리 사본을 열 수도 있다
         String title = "노시환 MLB 포스팅 공시";
         NewsArticle first = article(1L, "노시환", title, "마이데일리", "2026-11-12T00:50:00Z");
@@ -175,12 +198,15 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(late, lead, first));
         stored(first, lead, late);
 
+        // when // then
         assertThat(finder.find(2L).alsoBy()).containsExactly("마이데일리", "조선일보"); // 대표: 목록 한 줄과 같다
         assertThat(finder.find(1L).alsoBy()).containsExactly("스포츠조선", "조선일보");
     }
 
     @Test
+    @DisplayName("'다른 기사' 목록에는 지금 수집하는 언론사의 최근 기사 다섯 건이 나온다")
     void moreIsTheLatestFiveOthersFromKeptPublishers() {
+        // given
         List<NewsArticle> latest = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
             // 1번은 이 기사, 2번은 뺀 언론사(뉴시스)
@@ -191,14 +217,18 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(latest);
         stored(latest.toArray(NewsArticle[]::new));
 
+        // when
         NewsPageResponse page = finder.find(1L);
 
+        // then
         assertThat(page.more()).extracting(PostingSummary.Headline::id).containsExactly(0L, 3L, 4L, 5L, 6L);
         assertThat(page.more().getFirst().title()).isEqualTo("노시환 MLB 소식 0");
     }
 
     @Test
+    @DisplayName("'다른 기사' 목록에서 이 글의 사본은 빼고 서로 같은 글은 한 줄로 묶는다")
     void moreLeavesOutCopiesOfThisArticleAndFoldsCopiesIntoOneLine() {
+        // given
         // 1번(이 기사)과 0번은 언론사만 다른 같은 글, 2·3번도 같은 글이다(이슈 #113)
         NewsArticle original = article(0L, "노시환", "노시환이 유격수? 美 소문", "MLB Trade Rumors", "2026-11-12T00:50:00Z");
         NewsArticle current = article(1L, "노시환", "노시환이 유격수? 美 소문", "마이데일리", "2026-11-12T02:00:00Z");
@@ -209,8 +239,10 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(aCopy, a, current, original, b));
         stored(aCopy, a, current, original, b);
 
+        // when
         NewsPageResponse page = finder.find(1L);
 
+        // then
         assertThat(page.alsoBy()).containsExactly("MLB Trade Rumors");
         assertThat(page.more()).extracting(PostingSummary.Headline::id).containsExactly(2L, 4L);
         assertThat(page.more().getFirst().alsoBy()).containsExactly("MLB Trade Rumors");
@@ -218,7 +250,9 @@ class NewsPageFinderTest {
     }
 
     @Test
+    @DisplayName("최근 목록에 없는 기사를 열어도 그 사본은 '다른 기사' 목록에 없다")
     void anOldArticleStillHidesItsCopiesFromMore() {
+        // given
         // 이 기사가 최근 목록(MORE * 4건) 밖이어도(기사가 몰린 날) 하루 뒤 같은 글을 실은 최근 기사는 '다른 기사'에 넣지 않는다
         NewsArticle old = article(9L, "노시환", "노시환이 유격수? 美 소문", "마이데일리", "2026-11-11T00:00:00Z");
         NewsArticle copy = article(10L, "노시환", "노시환이 유격수? 美 소문", "MLB Trade Rumors", "2026-11-12T00:00:00Z");
@@ -226,29 +260,37 @@ class NewsPageFinderTest {
         when(news.findLatest(eq("노시환"), any())).thenReturn(List.of(copy));
         stored(old, copy);
 
+        // when
         NewsPageResponse page = finder.find(9L);
 
+        // then
         assertThat(page.more()).isEmpty();
         assertThat(page.alsoBy()).containsExactly("MLB Trade Rumors");
     }
 
     @Test
+    @DisplayName("없는 번호이거나 수집을 그만둔 언론사의 기사는 찾을 수 없다")
     void unknownIdOrDroppedPublisherIsNotFound() {
+        // given
         when(news.findById(1L)).thenReturn(Optional.empty());
         when(news.findById(2L)).thenReturn(Optional.of(article(2L, "노시환", "노시환 MLB 소식", "뉴시스", "2026-11-10T03:00:00Z")));
 
+        // when // then
         assertThatThrownBy(() -> finder.find(1L)).isInstanceOf(NewsNotFoundException.class);
         assertThatThrownBy(() -> finder.find(2L)).isInstanceOf(NewsNotFoundException.class);
     }
 
     @Test
+    @DisplayName("기사가 있는지 확인할 때는 그 기사 한 건만 읽는다")
     void existsReadsOnlyTheArticleItself() {
+        // given
         // HEAD /api/news/{id}: find와 같은 기준(없는 번호·뺀 언론사면 없음)으로 기사 한 줄만 읽는다. 웹이 기사 화면을 열 때마다
         // 부르므로 같은 기사 묶음(findPublishedBetween)·다른 기사(findLatest)는 찾지 않는다
         when(news.findById(1L)).thenReturn(Optional.of(article(1L, "노시환", "노시환 MLB 소식", "마이데일리", "2026-11-10T03:00:00Z")));
         when(news.findById(2L)).thenReturn(Optional.of(article(2L, "노시환", "노시환 MLB 소식", "뉴시스", "2026-11-10T03:00:00Z")));
         when(news.findById(3L)).thenReturn(Optional.empty());
 
+        // when // then
         assertThat(finder.exists(1L)).isTrue();
         assertThat(finder.exists(2L)).isFalse(); // 뺀 언론사
         assertThat(finder.exists(3L)).isFalse(); // 없는 번호
@@ -260,15 +302,19 @@ class NewsPageFinderTest {
     }
 
     @Test
+    @DisplayName("이번 겨울 포스팅 선수가 아니면 선수 사진은 비고 기사 첫머리는 나온다")
     void playerOutsideThisWintersPostingsHasNoPhoto() {
+        // given
         NewsArticle old = article(3L, "김혜성", "김혜성 소식", "마이데일리", "2026-11-10T03:00:00Z");
         old.setLeadText("김혜성이 다저스와 계약했다.");
         when(news.findById(3L)).thenReturn(Optional.of(old));
         when(news.findLatest(eq("김혜성"), any())).thenReturn(List.of(old));
         stored(old);
 
+        // when
         NewsPageResponse page = finder.find(3L);
 
+        // then
         assertThat(page.playerPhotoUrl()).isNull();
         assertThat(page.summary()).isNull();
         assertThat(page.lead()).isEqualTo("김혜성이 다저스와 계약했다.");

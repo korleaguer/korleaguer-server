@@ -12,6 +12,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -36,7 +37,9 @@ class UnknownSeasonTypeGameTest {
     private static final Instant TO = Instant.parse("2026-10-31T00:00:00Z");
 
     @Test
+    @DisplayName("경기 종류를 모르는 경기는 뛰었든 결장이든 경기 줄에서 빠진다")
     void gamesWithoutSeasonTypeHaveNoLine() {
+        // given
         Player player = new Player("고우석");
         ReflectionTestUtils.setField(player, "id", 5L);
         AppearanceRepository appearances = mock(AppearanceRepository.class);
@@ -51,8 +54,10 @@ class UnknownSeasonTypeGameTest {
         GameLineAssembler assembler = new GameLineAssembler(games, appearances, mock(PlayerMoveRepository.class),
                 mock(RosterProfiles.class), mock(CurrentSeason.class));
 
+        // when
         List<GameLine> lines = assembler.lines(List.of(new RosterMember(player, MIN, false)), FROM, TO, false);
 
+        // then
         // 7201·7001은 뛴 경기, 7002는 결장. 종류가 빈 7999(뛴 경기)·7998(팀 경기)은 줄이 없다
         assertThat(lines).extracting(GameLine::gameId).containsExactly(7201L, 7002L, 7001L);
         assertThat(lines).extracting(GameLine::played).containsExactly(true, false, true);

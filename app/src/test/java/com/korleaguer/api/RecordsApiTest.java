@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,7 +43,9 @@ class RecordsApiTest {
     }
 
     @Test
+    @DisplayName("시즌 기록을 더해 한국인 통산 순위와 다음에 넘을 기록을 보여 준다")
     void ranksTheRosterPlayersFromTheirSeasonLines() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/records"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dataMode").value("sample"))
@@ -65,7 +68,7 @@ class RecordsApiTest {
                 .andExpect(jsonPath("$.next[?(@.nameKo == '이정후' && @.category == 'hits')].targetNameKo").value("김하성"))
                 .andExpect(jsonPath("$.next[?(@.nameKo == '이정후' && @.category == 'hits')].toPass").value(44))
                 .andExpect(jsonPath("$.next[?(@.nameKo == '이정후' && @.category == 'hits')].rankAfter").value(1))
-                // 샘플에는 현역이 아닌 타자가 없어 넘은 선배가 없다
+                // 샘플에는 현역이 아닌 타자가 없어 넘은 선수가 없다
                 .andExpect(jsonPath("$.passed", hasSize(0)))
                 .andExpect(jsonPath("$.singleSeason[0].key").value("hits"))
                 .andExpect(jsonPath("$.singleSeason[0].rows[0].nameKo").value("이정후"))

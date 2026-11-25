@@ -5,6 +5,7 @@ import com.korleaguer.api.article.SameArticles;
 import com.korleaguer.api.article.LinkedTeamsCounter;
 import com.korleaguer.api.article.PostingSummary;
 import com.korleaguer.api.article.SameArticles;
+import com.korleaguer.api.season.OptionalReads;
 
 import com.korleaguer.config.NewsProperties;
 import com.korleaguer.domain.NewsArticle;
@@ -32,6 +33,8 @@ import java.util.Set;
 /**
  * 홈의 포스팅 묶음(PostingSummary)을 만든다. posting.yml(Postings)과 DB의 관련 기사만 읽는다.
  * 비시즌일 때만 부른다(BaseballQueryService). 포스팅 선수도 지난 기록도 없으면 null이다.
+ * 기사와 거론 구단은 실패해도 되는 조회라 선수마다 OptionalReads로 따로 읽는다(이슈 #281). 실패하면 그 부분만 비고
+ * 포스팅 카드(상태·마감)와 홈의 나머지는 그대로 나온다.
  */
 @Component
 public class PostingFinder {
@@ -45,16 +48,18 @@ public class PostingFinder {
     private final NewsArticleRepository news;
     private final LinkedTeamsCounter linkedTeams;
     private final PhotoSources photos;
+    private final OptionalReads reads;
     /** 지금 news/sources.yml에 있는 언론사. 뺀 언론사(이용약관으로 뺀 뉴시스 등)의 예전 기사는 보이지 않는다 */
     private final Set<String> publishers;
     /** 영어 MLB 매체. 국내 기사만 제목이 MLB 이야기인지 본다(MlbContext) */
     private final Set<String> aiPublishers;
 
     public PostingFinder(Postings postings, NewsArticleRepository news, LinkedTeamsCounter linkedTeams,
-                         PhotoSources photos, NewsProperties newsProperties) {
+                         PhotoSources photos, NewsProperties newsProperties, OptionalReads reads) {
         this.postings = postings;
         this.news = news;
         this.photos = photos;
+        this.reads = reads;
         this.publishers = newsProperties.publishers();
         this.linkedTeams = linkedTeams;
         this.aiPublishers = newsProperties.aiPublishers();
@@ -141,13 +146,16 @@ public class PostingFinder {
         Integer daysLeft = open
                 ? (int) ChronoUnit.DAYS.between(KoreanTime.kstDate(now), KoreanTime.kstDate(p.deadline()))
                 : null;
-        List<PostingSummary.Headline> headlines = headlines(p.nameKo()).stream()
-                .map(g -> PostingSummary.Headline.of(g))
-                .toList();
+        List<PostingSummary.Headline> headlines = reads.read("posting news for " + p.nameKo(),
+                () -> headlines(p.nameKo()).stream()
+                        .map(g -> PostingSummary.Headline.of(g))
+                        .toList(), List.of());
+        PostingSummary.LinkedTeams linked = reads.read("posting linked teams for " + p.nameKo(),
+                () -> linkedTeams.count(p.nameKo(), now, this::kept, null), LinkedTeamsCounter.none());
         return new PostingSummary.Player(p.nameKo(), p.kboTeam(), p.positionKo(), p.birthYear(),
                 photos.postingPath(p), status,
                 p.windowOpens(), p.deadline(), daysLeft, elapsedRatio(p, now), deal(p.result()), headlines,
-                linkedTeams.count(p.nameKo(), now, this::kept, null));
+                linked);
     }
 
     static String status(PostingCase p, Instant now) {

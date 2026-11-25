@@ -2,6 +2,7 @@ package com.korleaguer.api.season;
 
 import com.korleaguer.domain.LeagueAverage;
 import com.korleaguer.domain.LeagueAverageRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -25,24 +26,33 @@ class LeagueEnvironmentsTest {
     private final LeagueEnvironments leagues = new LeagueEnvironments(averages);
 
     @Test
+    @DisplayName("저장된 리그 평균이 있으면 그 값을 그대로 쓴다")
     void readsTheStoredRowAsIs() {
+        // given
         when(averages.findBySeasonAndLevel(anyInt(), anyString())).thenReturn(Optional.empty());
         when(averages.findBySeasonAndLevel(2026, "AAA")).thenReturn(Optional.of(row(2026, "AAA", 0.3382, 0.138, 4.99)));
 
+        // when // then
         assertThat(leagues.get(2026, "AAA")).isEqualTo(new LeagueEnv(0.3382, 0.138, 4.99));
     }
 
     @Test
+    @DisplayName("저장된 리그 평균이 없으면 표준값을 쓰고 모르는 단계는 뺀다")
     void missingRowFallsBackToTheStandardValues() {
+        // given
         when(averages.findBySeasonAndLevel(anyInt(), anyString())).thenReturn(Optional.empty());
         when(averages.findBySeasonAndLevel(2026, "AAA")).thenReturn(Optional.of(row(2026, "AAA", 0.3382, 0.138, 4.99)));
 
+        // when
         Map<String, LeagueEnv> envs = leagues.of(2026, Set.of("AAA", "AA", "XYZ"));
 
+        // then
         assertThat(envs.get("AAA").era()).isEqualTo(4.99);
         // 줄이 없는 더블A는 표준값 그 객체(내 선수 카드가 '못 받음'을 이 객체로 가린다), 모르는 단계는 넣지 않는다
         assertThat(envs.get("AA")).isSameAs(LeagueEnv.STANDARD);
         assertThat(envs).doesNotContainKey("XYZ");
+
+        // when // then
         // 다른 시즌의 줄을 대신 쓰지 않는다
         assertThat(leagues.get(2025, "AAA")).isSameAs(LeagueEnv.STANDARD);
     }

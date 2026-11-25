@@ -4,6 +4,7 @@ import com.korleaguer.api.screen.PlayerTimelineService;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -51,7 +52,9 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("모든 선수의 소속 띠가 목록 순서대로, 3월 1일부터 오늘까지 끊김 없이 나온다")
     void givesEverySamplePlayerAContinuousBandInPlayerListOrder() throws Exception {
+        // when // then
         String body = mockMvc.perform(get("/api/players/timeline"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.season").value(2026))
@@ -89,10 +92,14 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("콜업되거나 마이너로 이관된 날에 소속 띠가 바뀌고 이동은 날짜순이다")
     void segmentsAndMovesFollowTheMovesOnThePlayerPage() throws Exception {
+        // when
         // 샘플 선수 5: 3월 24일 강등 → 9월 20일 콜업 → 10월 6일 이관. 이동은 선수 화면 moves와 같고 날짜 오름차순
         JsonNode five = json.readTree(mockMvc.perform(get("/api/players/timeline")).andReturn().getResponse()
                 .getContentAsString(StandardCharsets.UTF_8)).get("players").get(4);
+
+        // then
         assertThat(five.get("playerId").asLong()).isEqualTo(5);
         assertThat(five.get("moves")).extracting(m -> m.get("date").asText())
                 .containsExactly("2026-03-24", "2026-09-20", "2026-10-02", "2026-10-06");
@@ -103,14 +110,20 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("이동 연표의 리그 단계와 wRC+·ERA+는 홈 비시즌 성적표와 같다")
     void seasonNumbersMatchTheOffSeasonReportOnHome() throws Exception {
+        // given
         // 11월이라 홈은 비시즌 성적표를 준다. 같은 선수·시즌의 wRC+·ERA+·단계는 그 성적표와 같은 값이다
         JsonNode home = json.readTree(mockMvc.perform(get("/api/home")).andReturn().getResponse()
                 .getContentAsString(StandardCharsets.UTF_8));
         JsonNode reports = home.get("offseason").get("report");
         assertThat(reports).isNotEmpty();
+
+        // when
         JsonNode players = json.readTree(mockMvc.perform(get("/api/players/timeline")).andReturn().getResponse()
                 .getContentAsString(StandardCharsets.UTF_8)).get("players");
+
+        // then
         for (JsonNode report : reports) {
             JsonNode stat = null;
             for (JsonNode player : players) {
@@ -126,7 +139,9 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("기록이 없는 시즌을 열면 선수는 나오고 소속 띠·이동·성적은 빈다")
     void aSeasonWithoutRecordsIsStillOkWithEmptyBands() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/timeline").param("season", "2019"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.season").value(2019))
@@ -141,7 +156,9 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("지난 시즌을 열면 기간이 이듬해 2월 말에서 끝난다")
     void aPastSeasonEndsAtTheNextFebruary() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/timeline").param("season", "2025"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.from").value("2025-03-01"))
@@ -150,7 +167,9 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("시즌에 숫자가 아닌 값이나 99999를 넣으면 HTTP 400으로 답한다")
     void aSeasonThatIsNotANumberIsBadRequest() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/timeline").param("season", "abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid parameter: season"));
@@ -159,7 +178,9 @@ class PlayerTimelineApiTest {
     }
 
     @Test
+    @DisplayName("같은 시즌을 다시 열면 만들어 둔 결과를 주고 다른 시즌은 따로 만든다")
     void theSameSeasonIsAnsweredFromTheCache() {
+        // when // then
         assertThat(timelines.timeline(2026)).isSameAs(timelines.timeline(2026));
         assertThat(timelines.timeline(2025)).isNotSameAs(timelines.timeline(2026));
     }

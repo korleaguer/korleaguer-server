@@ -1,5 +1,6 @@
 package com.korleaguer.posting;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
@@ -17,9 +18,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PostingsTest {
 
     @Test
+    @DisplayName("포스팅 파일에 노시환과 지난 포스팅 아홉 명의 값이 들어 있다")
     void realFileHasRohAndTheNineSignedPostings() throws IOException {
+        // when
         Postings postings = new Postings(load());
 
+        // then
         PostingCase roh = postings.current().getFirst();
         assertThat(roh.nameKo()).isEqualTo("노시환");
         assertThat(roh.searchNames()).first().isEqualTo("노시환");
@@ -64,7 +68,9 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("지난 포스팅에 사진을 적으면 MLB 선수 번호와 올바른 연도가 있어야 한다")
     void historyPhotoNeedsMlbIdAndSeason() {
+        // when // then
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(), List.of(
                 new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4, 1L, null, null,
                         null, 2024, "https://archive.example/kim.jpg", null)))))
@@ -77,7 +83,9 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("사진 이름을 만들 값이 빠진 채로는 사진을 적지 못한다")
     void recordsRefuseAPhotoTheyCannotName() {
+        // when // then
         // yml을 거치지 않고 만들어도(테스트·다른 코드) 사진 주소를 만들 값이 없으면 바로 막는다
         assertThatThrownBy(() -> new PostingCase("노시환", "si-hwan-roh", "한화 이글스", "3루수", 2000, List.of(),
                 Instant.parse("2026-11-02T13:00:00Z"), Instant.parse("2026-12-01T22:00:00Z"), null, null,
@@ -95,7 +103,9 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("지금 포스팅 사진에는 연도와 규칙에 맞는 영문 이름이 있어야 한다")
     void currentPhotoNeedsASeasonAndASlugThatFitsThePhotoName() {
+        // when // then
         // 사진 이름 kbo-{slug}-{photo-season}: 시즌이 없으면 사진을 바꿔도 주소가 그대로라 하루 동안 옛 사진이 남는다
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto("si-hwan-roh", null)), List.of())))
                 .hasMessageContaining("posting.current 노시환: photo-season (year of the photo) is required when photo-url is set");
@@ -103,21 +113,28 @@ class PostingsTest {
                 .hasMessageContaining("posting.current 노시환: photo-season must be a year between 1990 and 2100: 26");
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto(null, 2026)), List.of())))
                 .hasMessageContaining("posting.current 노시환: slug is required when photo-url is set");
+
+        // given
         // api·웹의 사진 이름 규칙('kbo-' 뒤 40자)에 '-2026'까지 들어가게 35자까지
         String longest = "a".repeat(35);
+
+        // when // then
         assertThat(new Postings(new PostingProperties(List.of(withPhoto(longest, 2026)), List.of()))
                 .current().getFirst().slug()).isEqualTo(longest);
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto(longest + "a", 2026)), List.of())))
                 .hasMessageContaining("slug must start with a lowercase letter");
-        // 숫자로 시작하면 지난 선배의 시즌 사진 이름(kbo-{KBO 선수 번호}-{시즌})과 겹칠 수 있다
+        // 숫자로 시작하면 지난 포스팅 선수의 시즌 사진 이름(kbo-{KBO 선수 번호}-{시즌})과 겹칠 수 있다
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto("69737", 2026)), List.of())))
                 .hasMessageContaining("slug must start with a lowercase letter");
     }
 
     @Test
+    @DisplayName("지난 포스팅마다 합의한 날의 환율이 들어 있다")
     void realFileHasTheExchangeRateOfEachAgreementDay() throws IOException {
+        // when
         Postings postings = new Postings(load());
 
+        // then
         // ECB 기준 환율(KRW ÷ USD) 합의일 값. 보장액 × 환율 = 당시 보도된 원화 규모(이정후 약 1,480억, 김광현 약 93억)
         assertThat(postings.history()).extracting(p -> p.nameKo(), p -> p.result().krwPerUsd())
                 .containsExactly(
@@ -135,7 +152,9 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("환율은 1달러당 원화 값만 받고 적지 않으면 비워 둔다")
     void exchangeRateMustBeWonPerDollar() {
+        // when // then
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(current(List.of(),
                 "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00",
                 new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 4, 1L, 0.00068))), List.of())))
@@ -145,16 +164,22 @@ class PostingsTest {
                         null, null, 13098.9)))))
                 .hasMessageContaining("posting.history 이정후: krw-per-usd must be won per dollar");
 
+        // when
         Postings ok = new Postings(new PostingProperties(List.of(current(List.of(),
                 "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00",
                 new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 4, 1L, null))), List.of()));
+
+        // then
         assertThat(ok.current().getFirst().result().krwPerUsd()).isNull(); // 적지 않으면 화면은 달러만
     }
 
     @Test
+    @DisplayName("포스팅 기사는 시작 사흘 전부터 마감 사흘 뒤까지 지켜본다")
     void newsIsWatchedFromThreeDaysBeforeOpeningToThreeDaysAfterDeadline() throws IOException {
+        // given
         Postings postings = new Postings(load());
 
+        // when // then
         assertThat(postings.newsWatch(Instant.parse("2026-10-30T13:00:00Z"))).hasSize(1);
         assertThat(postings.newsWatch(Instant.parse("2026-10-30T12:59:00Z"))).isEmpty();
         assertThat(postings.newsWatch(Instant.parse("2026-12-04T22:00:00Z"))).hasSize(1);
@@ -162,16 +187,21 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("한글 이름은 늘 검색하고 겹치는 이름은 한 번만 쓴다")
     void koreanNameIsAlwaysSearchedAndDuplicatesDrop() {
+        // when
         Postings postings = new Postings(new PostingProperties(List.of(current(
                 List.of("Si-Hwan Roh", "노시환", " ", "Si-Hwan Roh"), "2026-11-02T08:00:00-05:00",
                 "2026-12-01T17:00:00-05:00", null)), List.of()));
 
+        // then
         assertThat(postings.current().getFirst().searchNames()).containsExactly("노시환", "Si-Hwan Roh");
     }
 
     @Test
+    @DisplayName("포스팅 시작·마감 시각이 빠지거나 잘못되면 무엇이 틀렸는지 말하며 막는다")
     void missingOrBrokenTimesFailAtStartup() {
+        // when // then
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(current(List.of(),
                 "2026-11-02T08:00:00-05:00", null, null)), List.of())))
                 .hasMessageContaining("posting.current 노시환: deadline is required");
@@ -184,7 +214,9 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("포스팅 결과의 구단, 계약 기간, 종류가 잘못되면 막는다")
     void signedResultNeedsAKnownTeamAndTheDealNumbers() {
+        // when // then
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(current(List.of(),
                 "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00",
                 new PostingProperties.Result("SIGNED", "XYZ", "2026-11-28", 4, 1L, null))), List.of())))
@@ -200,7 +232,9 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("지난 포스팅의 합의일이 마감보다 늦으면 막는다")
     void pastAgreementCannotComeAfterTheDeadline() {
+        // when // then
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(), List.of(
                 new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2024-01-04", 6, 1L, null, null, null, null, null, null)))))
                 .hasMessageContaining("posting.history 이정후: agreed-on must not be after deadline");

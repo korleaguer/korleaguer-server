@@ -14,6 +14,7 @@ import com.korleaguer.domain.LeagueAverage;
 import com.korleaguer.domain.LeagueAverageRepository;
 import com.korleaguer.ingest.IngestService;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -104,8 +105,10 @@ class LeagueAverageApiTest {
     }
 
     @Test
+    @DisplayName("서버를 켜면 화면에 필요한 시즌과 리그 단계(MLB·AAA)의 평균만 받아 둔다")
     @Order(1)
     void startupCatchUpStoresTheCombinationsTheScreensAsk() {
+        // when // then
         // 샘플 데이터: 메이저 기록은 2026, 마이너 경기는 2026 트리플A뿐이다. 조합마다 타격·투구 한 번씩 물었다
         assertThat(averages.findAll()).extracting(row -> row.getSeason() + " " + row.getLevel())
                 .containsExactlyInAnyOrder("2026 MLB", "2026 AAA");
@@ -118,11 +121,14 @@ class LeagueAverageApiTest {
     }
 
     @Test
+    @DisplayName("화면은 저장된 리그 평균을 쓰고 MLB에 묻지 않는다")
     @Order(2)
     void screensReadTheStoredValuesWithoutCallingMlb() throws Exception {
+        // given
         long requests = client.requestCount();
         LeagueAverage.Values tripleA = averages.findBySeasonAndLevel(2026, "AAA").orElseThrow().values();
 
+        // when // then
         assertThat(leagues.get(2026, "AAA"))
                 .isEqualTo(new LeagueEnv(tripleA.woba(), tripleA.runsPerPa(), tripleA.era()));
         // 서버를 다시 띄운 것처럼 새로 만든(메모리가 빈) 객체도 DB 값을 그대로 쓴다
@@ -132,41 +138,57 @@ class LeagueAverageApiTest {
         // 받지 않은 조합은 표준값
         assertThat(leagues.get(2025, "MLB")).isSameAs(LeagueEnv.STANDARD);
 
+        // when
         mockMvc.perform(get("/api/home"));
         mockMvc.perform(get("/api/players/timeline"));
         mockMvc.perform(get("/api/players/timeline").param("season", "2025"));
         mockMvc.perform(get("/api/my").param("ids", "1,2,3,4,5,6").param("days", "30"));
+
+        // then
         assertThat(client.requestCount()).isEqualTo(requests);
         assertThat(TOTALS_CALLS.get()).isEqualTo(4);
     }
 
     @Test
+    @DisplayName("비시즌에는 하루 뒤 다시 수집해도 리그 평균을 새로 받지 않는다")
     @Order(3)
     void offSeasonCatchUpDoesNotFetchAgain() {
-        ingestService.catchUp(false, true);
-        clock.set(START.plus(Duration.ofDays(1)));
+        // when
         ingestService.catchUp(false, true);
 
+        // given
+        clock.set(START.plus(Duration.ofDays(1)));
+
+        // when
+        ingestService.catchUp(false, true);
+
+        // then
         assertThat(TOTALS_CALLS.get()).isEqualTo(4);
         assertThat(averages.findBySeasonAndLevel(2026, "MLB").orElseThrow().getFetchedAt()).isEqualTo(START);
     }
 
     @Test
+    @DisplayName("없던 리그 평균을 다음 수집이 받으면 ERA+와 wRC+도 따라 바뀐다")
     @Order(4)
     void numbersFollowTheStoredAveragesAfterTheNextIngest() throws Exception {
+        // given
         // 줄이 없으면 표준값(평균자책점 4.20, wOBA .310)으로 계산하고 MLB는 부르지 않는다
         averages.deleteAll();
         responseCaches.clearAll("시험: 리그 평균 줄을 지움");
         long requests = client.requestCount();
+
+        // when // then
         // 고우석(메이저 5아웃 2자책 = 평균자책점 10.80): 4.20 ÷ 10.80 = 38.9
         assertThat(majorEraPlus()).isEqualTo(38.9);
         int tripleAStandard = minorWrcPlus();
         assertThat(client.requestCount()).isEqualTo(requests);
         assertThat(averages.count()).isZero();
 
+        // when
         // 다음 수집이 없는 줄을 받는다. 리그 평균만 바뀌어도 응답 캐시가 비워져(DataChanges) 숫자가 저장된 평균을 따른다
         IngestLog log = ingestService.catchUp(false, true);
 
+        // then
         assertThat(log.getMessage()).isEqualTo("리그 평균 2개");
         assertThat(log.getRequestsUsed()).isEqualTo(4);
         // 메이저 리그 평균자책점 641 × 27 ÷ 4,320 = 4.00625 → 37.1

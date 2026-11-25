@@ -13,6 +13,7 @@ import com.korleaguer.ingest.IngestService;
 import com.korleaguer.support.MutableClock;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -89,7 +90,9 @@ class CacheWarmerTest {
     }
 
     @Test
+    @DisplayName("수집이 끝나면 홈과 선수 전원, 비시즌 내 선수 캐시가 채워진다")
     void catchUpFinishedFillsHomeEveryPlayerAndOffSeasonCards() {
+        // when // then
         assertThat(cache(ResponseCaches.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
         List<PlayerSummary> players = queryService.players();
         assertThat(players).isNotEmpty();
@@ -105,7 +108,9 @@ class CacheWarmerTest {
     }
 
     @Test
+    @DisplayName("처음 보는 선수 조합도 미리 만든 카드를 요청한 순서대로 모아 준다")
     void anyCombinationIsAssembledFromCachedCards() {
+        // when // then
         // 따라잡기 끝(startFresh)에서 명단 전원의 카드를 7·14·30일마다 채워 둔다
         for (PlayerSummary player : queryService.players()) {
             for (int days : List.of(7, 14, 30)) {
@@ -114,66 +119,102 @@ class CacheWarmerTest {
             }
         }
 
+        // when
         // 처음 보는 조합(순서도 바꿈)은 그 카드들을 요청한 순서대로 모은 것이다
         MyPlayersResponse combo = myPlayers.find("3,1", 14);
+
+        // then
         assertThat(combo.players()).hasSize(2);
         assertThat(combo.players().get(0)).isSameAs(myPlayers.card(3, 14).getFirst());
         assertThat(combo.players().get(1)).isSameAs(myPlayers.card(1, 14).getFirst());
+
+        // when // then
         // 없는 선수는 빈 카드로 두고 건너뛴다
         assertThat(myPlayers.card(999, 14)).isEmpty();
         assertThat(myPlayers.find("999,3", 14).players()).containsExactly(combo.players().get(0));
     }
 
     @Test
+    @DisplayName("응답에 나오는 데이터가 바뀌기 전에는 내 선수 응답을 다시 만들지 않는다")
     void cachesStayUntilTheDatabaseActuallyChanges() {
+        // given
         MyPlayersResponse first = myPlayers.find("1,2", 7);
+
+        // when // then
         assertThat(myPlayers.find("1,2", 7)).isSameAs(first);
         // 기간이 다르면 따로 둔다
         assertThat(myPlayers.find("1,2", 14)).isNotSameAs(first);
 
+        // when // then
         // 아무것도 쓰지 않았으면 그대로 둔다(12분마다 따라잡기가 할 일 없이 끝나는 경우)
         assertThat(responseCaches.clearIfDataChanged("확인")).isFalse();
+
+        // when
         events.publishEvent(new CatchUpFinished());
+
+        // then
         assertThat(myPlayers.find("1,2", 7)).isSameAs(first);
 
+        // given
         // 응답에 나오는 표에 쓰면(Hibernate가 보내는 UPDATE) 다음 확인 때 비운다. 실제 행은 바꾸지 않는다.
         transactions.executeWithoutResult(status ->
                 entityManager.createNativeQuery("update team set name_en = name_en where 1 = 0").executeUpdate());
+
+        // when
         events.publishEvent(new CatchUpFinished());
+
+        // then
         assertThat(myPlayers.find("1,2", 7)).isNotSameAs(first);
     }
 
     @Test
+    @DisplayName("그사이 데이터가 바뀌었으면 수집이 끝나자마자 내 선수 캐시를 비운다")
     void ingestClearsCachesWhenSomethingWasWritten() {
+        // given
         MyPlayersResponse first = myPlayers.find("1,2", 7);
         transactions.executeWithoutResult(status ->
                 entityManager.createNativeQuery("update team set name_en = name_en where 1 = 0").executeUpdate());
 
+        // when
         // 수집이 끝나면 그사이 쓴 것을 보고 바로 비운다(따라잡기를 기다리지 않는다)
         ingestService.catchUp(false);
 
+        // then
         assertThat(cache(ResponseCaches.MY_CACHE).get("1,2|7")).isNull();
         assertThat(myPlayers.find("1,2", 7)).isNotSameAs(first);
     }
 
     @Test
+    @DisplayName("한국 날짜가 바뀌면 내 선수 캐시를 비우고 홈 캐시는 채워 둔다")
     void newKoreanDateClearsCaches() {
+        // given
         MyPlayersResponse first = myPlayers.find("1,2", 7);
 
         // 같은 날 한국 23:50: 그대로
         clock.set(Instant.parse("2026-11-01T14:50:00Z"));
+
+        // when
         events.publishEvent(new CatchUpFinished());
+
+        // then
         assertThat(myPlayers.find("1,2", 7)).isSameAs(first);
 
+        // given
         // 한국 날짜가 11-02로 바뀌면 비우고, 따라잡기 끝에서 홈·선수를 다시 채운다
         clock.set(Instant.parse("2026-11-01T15:00:00Z"));
+
+        // when
         events.publishEvent(new CatchUpFinished());
+
+        // then
         assertThat(cache(ResponseCaches.MY_CACHE).get("1,2|7")).isNull();
         assertThat(cache(ResponseCaches.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();
     }
 
     @Test
+    @DisplayName("기사가 바뀌면 홈과 선수 페이지는 다시 만들고 내 선수는 그대로 둔다")
     void newHeadlineClearsOnlyHomeAndPlayerPages() {
+        // given
         MyPlayersResponse my = myPlayers.find("1,2", 7);
         PlayerPageResponse player = queryService.player(1L);
         HomeResponse home = queryService.home();
@@ -181,15 +222,20 @@ class CacheWarmerTest {
         // 기사(news_article)는 홈과 선수 페이지(그 선수 기사, 이슈 #133)에만 나온다. 실제 행은 바꾸지 않는다.
         transactions.executeWithoutResult(status ->
                 entityManager.createNativeQuery("update news_article set title = title where 1 = 0").executeUpdate());
+
+        // when
         events.publishEvent(new CatchUpFinished());
 
+        // then
         assertThat(queryService.home()).isNotSameAs(home);
         assertThat(queryService.player(1L)).isNotSameAs(player);
         assertThat(myPlayers.find("1,2", 7)).isSameAs(my);
     }
 
     @Test
+    @DisplayName("기사와 포스팅 상태가 함께 바뀌어도 선수 페이지를 다시 만든다")
     void postingStatusChangeDoesNotSwallowANewHeadline() {
+        // given
         clock.set(Instant.parse("2026-11-02T12:50:00Z"));
         events.publishEvent(new CatchUpFinished());
         PlayerPageResponse player = queryService.player(1L);
@@ -198,28 +244,41 @@ class CacheWarmerTest {
         transactions.executeWithoutResult(status ->
                 entityManager.createNativeQuery("update news_article set title = title where 1 = 0").executeUpdate());
         clock.set(Instant.parse("2026-11-02T13:10:00Z"));
+
+        // when
         events.publishEvent(new CatchUpFinished());
 
+        // then
         assertThat(queryService.player(1L)).isNotSameAs(player);
     }
 
     @Test
+    @DisplayName("선수 페이지의 기준 시각은 다시 만들 때까지 처음 계산한 때로 남는다")
     void playerPageKeepsTheTimeItWasMadeWhileCached() {
+        // when // then
         // 따라잡기 끝(startFresh)에서 START에 채워 둔 응답이다
         assertThat(queryService.player(1L).generatedAt()).isEqualTo(START);
 
+        // given
         // 캐시에서 주는 동안은 시계가 가도 처음 계산한 시각 그대로다(화면 '기준 …'이 숫자를 계산한 때를 가리킨다)
         clock.advance(Duration.ofSeconds(95).plusMillis(700));
+
+        // when // then
         assertThat(queryService.player(1L).generatedAt()).isEqualTo(START);
 
+        // given
         // 비우고 다시 만들면 그때 시각이고, 홈·내 선수처럼 초 단위로 자른다
         responseCaches.clearAll("테스트");
+
+        // when // then
         assertThat(queryService.player(1L).generatedAt()).isEqualTo(START.plusSeconds(95));
         assertThat(queryService.home().generatedAt()).isEqualTo(START.plusSeconds(95));
     }
 
     @Test
+    @DisplayName("포스팅 협상이 시작되면 홈은 다시 만들고 내 선수는 그대로 둔다")
     void postingStatusChangeClearsOnlyHome() {
+        // given
         // 노시환 협상 시작(미국 11/2 08:00 = 13:00Z, 한국 11/2 22:00) 10분 전
         clock.set(Instant.parse("2026-11-02T12:50:00Z"));
         events.publishEvent(new CatchUpFinished());
@@ -228,8 +287,11 @@ class CacheWarmerTest {
 
         // 같은 한국·미국 날짜에 협상이 시작됐다(UPCOMING → NEGOTIATING): 홈만 다시 만든다
         clock.set(Instant.parse("2026-11-02T13:10:00Z"));
+
+        // when
         events.publishEvent(new CatchUpFinished());
 
+        // then
         assertThat(queryService.home()).isNotSameAs(home);
         assertThat(myPlayers.find("1,2", 7)).isSameAs(my);
     }

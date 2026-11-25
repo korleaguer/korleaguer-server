@@ -6,6 +6,7 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -18,7 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SeasonStatsTest {
 
     @Test
+    @DisplayName("아웃 수를 모르는 등판의 자책점은 평균자책점에 넣지 않는다")
     void eraIgnoresGamesWithUnknownOuts() {
+        // given
         Player player = new Player("고우석");
         ReflectionTestUtils.setField(player, "id", 5L);
         Team team = new Team(142L);
@@ -28,8 +31,10 @@ class SeasonStatsTest {
         // 아웃 수를 모르는 경기의 자책점 2점은 평균자책점에 넣지 않는다.
         Appearance unknownOuts = pitched(player, team, 2L, new Pitching(null, 2, 2, 2, 1, 0, 0, 21, 0, 1, 0));
 
+        // when
         PitcherSeason season = SeasonStats.pitcher(player, null, null, team, List.of(known, unknownOuts), 0);
 
+        // then
         assertThat(season.games()).isEqualTo(2);
         assertThat(season.outs()).isEqualTo(3);
         assertThat(season.era()).isEqualTo(0.0);
@@ -38,7 +43,9 @@ class SeasonStatsTest {
     }
 
     @Test
+    @DisplayName("연속 안타는 타수 없는 경기를 건너뛰고 무안타 경기에서 끊긴다")
     void hitStreakSkipsGamesWithoutAtBats() {
+        // given
         // 오래된 순으로 넣는다: 1안타, 4타수 무안타, 1안타, 타격 기록 없음, 볼넷만(0타수 0안타), 2안타
         // 최신부터 2안타 → (건너뜀) → (건너뜀) → 1안타 → 무안타에서 멈춤 = 2
         List<Appearance> games = List.of(
@@ -49,23 +56,31 @@ class SeasonStatsTest {
                 batted(5, batting(0, 0)),
                 batted(6, batting(4, 2)));
 
+        // when // then
         assertThat(SeasonStats.hitStreak(games)).isEqualTo(2);
         assertThat(SeasonStats.hitStreak(List.of())).isZero();
     }
 
     @Test
+    @DisplayName("연속 무실점은 실점했거나 실점을 모르면 끊기고 안 던진 출전은 건너뛴다")
     void scorelessStreakStopsAtRunsOrUnknown() {
+        // given
         // 오래된 순으로 넣는다. 최신부터 센다.
         List<Appearance> scorelessThenRun = List.of(
                 pitchedOn(1, runs(1)), pitchedOn(2, runs(0)), pitchedOn(3, runs(0)));
         List<Appearance> unknownRuns = List.of(
                 pitchedOn(1, runs(0)), pitchedOn(2, runs(null)), pitchedOn(3, runs(0)));
 
+        // when // then
         assertThat(SeasonStats.scorelessStreak(scorelessThenRun)).isEqualTo(2);
         assertThat(SeasonStats.scorelessStreak(unknownRuns)).isEqualTo(1);
+
+        // given
         // 투구 기록 없는 출전(대주자 등)은 건너뛴다.
         List<Appearance> pinchRunner = List.of(
                 pitchedOn(1, runs(1)), pitchedOn(2, runs(0)), pitchedOn(3, null), pitchedOn(4, runs(0)));
+
+        // when // then
         assertThat(SeasonStats.scorelessStreak(pinchRunner)).isEqualTo(2);
     }
 

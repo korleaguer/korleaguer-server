@@ -10,6 +10,7 @@ import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorGameSchedule;
 import com.korleaguer.domain.PlayerRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,7 +49,9 @@ class MinorScheduleIngestTest {
     private MinorGameLogRepository minorGameLogs;
 
     @Test
+    @DisplayName("점수까지 받은 마이너 경기는 다시 묻지 않고 기록을 통째로 바꿔도 일정이 남는다")
     void finishedGamesAreAskedOnceAndKeptWhenTheGameLogIsReplaced() {
+        // given
         long lee = players.findByNameKo("이정후").orElseThrow().getId();
         MlbMinorGameLog log = new MlbMinorGameLog(List.of(
                 split(900L, "2026-09-10", OKC, ISOTOPES, true, true),
@@ -58,10 +61,14 @@ class MinorScheduleIngestTest {
                 split(904L, "2026-09-21", OKC, CHIHUAHUAS, false, null),
                 split(905L, "2026-09-21", null, CHIHUAHUAS, null, null)), List.of());
 
+        // when
         // 처음: 모두 일정을 모른다(오래된 900도 한 번은 묻는다)
         List<Long> asked = writer.saveMinorGameLog(lee, SEASON, log, NOW);
+
+        // then
         assertThat(asked).containsExactly(900L, 901L, 902L, 903L, 904L, 905L);
 
+        // when
         // 901: 끝남(오클라호마시티 홈 5:3), 902: 끝남(원정 2:6, 같은 번호의 연기 줄이 뒤에 또 왔다: 끝난 줄을 쓴다),
         // 903: 경기 중, 900·904: 응답에 없음, 905: 선수 팀을 모른다(팀 번호·홈 여부 없음)
         int saved = writer.saveMinorSchedule(lee, SEASON, asked, List.of(
@@ -70,6 +77,8 @@ class MinorScheduleIngestTest {
                 game(902L, "2026-09-20T01:05:00Z", "Final", "Postponed", OKC, null, CHIHUAHUAS, null),
                 game(903L, "2026-09-22T01:35:00Z", "Live", "In Progress", OKC, 1, CHIHUAHUAS, 0),
                 game(905L, "2026-09-22T01:05:00Z", "Final", "Final", OKC, 4, CHIHUAHUAS, 2)));
+
+        // then
         assertThat(saved).isEqualTo(4);
 
         Map<Long, MinorGameSchedule> stored = schedules(lee);
@@ -84,6 +93,7 @@ class MinorScheduleIngestTest {
         assertThat(stored.get(905L)).isEqualTo(new MinorGameSchedule(Instant.parse("2026-09-22T01:05:00Z"), "final",
                 null, null, null, null));
 
+        // when // then
         // 다음 날 같은 기록을 다시 받아 통째로 바꿔도 받아 둔 일정은 그대로다. 다시 묻는 것은 끝나 점수를 받지 못한 최근 경기뿐이다
         // (오래된 900은 응답에 없었으니 더 묻지 않는다)
         assertThat(writer.saveMinorGameLog(lee, SEASON, log, NOW.plusSeconds(86_400)))
@@ -94,6 +104,7 @@ class MinorScheduleIngestTest {
         assertThat(first.getTeamId()).isEqualTo(238L);
         assertThat(first.getOpponentId()).isEqualTo(342L);
 
+        // when // then
         // 열흘 뒤에는 끝나지 않은 경기도 더 묻지 않는다
         assertThat(writer.saveMinorGameLog(lee, SEASON, log, NOW.plusSeconds(10 * 86_400))).isEmpty();
     }

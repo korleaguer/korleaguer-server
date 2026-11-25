@@ -105,13 +105,16 @@ public class RecordsService {
         Map<Long, List<KoreanRecords.GameLine>> games = new HashMap<>();
         if (!activeIds.isEmpty()) {
             appearances.findSeason(activeIds, season, REGULAR).stream()
-                    .sorted(Comparator.comparing((Appearance a) -> a.getGame().getStartTimeUtc()))
+                    // 시작 시각이 같으면 경기 번호로 순서를 고정한다(GameBuzzFinder와 같다. 넘은 경기가 흔들리지 않게)
+                    .sorted(Comparator.comparing((Appearance a) -> a.getGame().getStartTimeUtc())
+                            .thenComparing(a -> a.getGame().getGamePk()))
                     .forEach(a -> {
                         Long mlbId = a.getPlayer().getMlbId();
                         KoreanRecords.Person person = mlbId == null ? null : people.get(mlbId);
                         if (person != null) {
                             games.computeIfAbsent(mlbId, id -> new ArrayList<>()).add(new KoreanRecords.GameLine(
-                                    KoreanTime.kstDate(a.getGame().getStartTimeUtc()), counts(a, person.group())));
+                                    a.getGame().getGamePk(), KoreanTime.kstDate(a.getGame().getStartTimeUtc()),
+                                    counts(a, person.group())));
                         }
                     });
         }

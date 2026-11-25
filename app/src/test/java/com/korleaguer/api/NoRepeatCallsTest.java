@@ -2,6 +2,7 @@ package com.korleaguer.api;
 
 import com.korleaguer.client.MlbClient;
 import com.korleaguer.domain.PlayerSeasonRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,9 +50,12 @@ class NoRepeatCallsTest {
     }
 
     @Test
+    @DisplayName("홈·선수 목록·선수·내 선수 화면을 다시 열어도 MLB 요청이 늘지 않는다")
     void screensReadTheDbOnly() throws Exception {
+        // given
         long before = client.requestCount();
 
+        // when // then
         for (int i = 0; i < 2; i++) {
             mockMvc.perform(get("/api/home")).andExpect(status().isOk());
             mockMvc.perform(get("/api/players")).andExpect(status().isOk());
@@ -65,11 +69,14 @@ class NoRepeatCallsTest {
     }
 
     @Test
+    @DisplayName("시즌 기록을 아직 못 받은 선수의 화면을 열어도 MLB에 새로 요청하지 않는다")
     void playerPageDoesNotFetchAMissingSeason() throws Exception {
+        // given
         // 김혜성(id 2)의 이번 시즌 "받았음" 표시를 지워 아직 받지 않은 상태로 만든다.
         seasons.delete(seasons.find(2L, 2026).orElseThrow());
         long before = client.requestCount();
 
+        // when // then
         // DB에 있는 것만 보여 주고 MLB를 부르지 않는다. "받았음" 표시도 그대로 없다(다음 스케줄 수집이 받는다)
         mockMvc.perform(get("/api/players/2")).andExpect(status().isOk());
 

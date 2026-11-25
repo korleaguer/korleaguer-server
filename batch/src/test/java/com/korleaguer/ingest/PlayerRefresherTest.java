@@ -16,6 +16,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.SeasonDatesRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -119,7 +120,9 @@ class PlayerRefresherTest {
     }
 
     @Test
+    @DisplayName("팀이 메이저인지 마이너인지 알아내고 한 번 물은 팀은 다시 묻지 않는다")
     void levelFromTeamSportId() {
+        // when // then
         assertThat(refresher.levelOf(142L)).isEqualTo(Level.MLB);      // MLB 구단은 묻지 않는다
         assertThat(refresher.levelOf(1960L)).isEqualTo(Level.MINORS);  // sport 11 = 트리플A
         assertThat(refresher.levelOf(4124L)).isEqualTo(Level.MINORS);  // sport 12 = 더블A
@@ -128,28 +131,41 @@ class PlayerRefresherTest {
         assertThat(refresher.levelOf(null)).isNull();
         assertThat(askedTeams).containsExactly(1960L, 4124L, 1171L, 9999L);
 
+        // when
         // 한 번 물은 팀은 기억한다(모르는 팀도).
         refresher.levelOf(1960L);
         refresher.levelOf(1171L);
         refresher.levelOf(9999L);
+
+        // then
         assertThat(askedTeams).hasSize(4);
     }
 
     @Test
+    @DisplayName("팀 정보를 받지 못하면 기억하지 않고 다음에 다시 묻는다")
     void failedTeamLookupIsNotRemembered() {
+        // given
         failTeams = Set.of(1960L);
+
+        // when // then
         assertThat(refresher.levelOf(1960L)).isNull();
 
+        // given
         failTeams = Set.of();
+
+        // when // then
         assertThat(refresher.levelOf(1960L)).isEqualTo(Level.MINORS);
         assertThat(askedTeams).containsExactly(1960L, 1960L);
     }
 
     @Test
+    @DisplayName("선수 정보는 한 번에 묻고 이동 기록 속 팀의 메이저·마이너 구분까지 저장한다")
     @SuppressWarnings("unchecked")
     void savesPeopleInOneRequestWithMovesAndTeamLevels() {
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(result.checked()).isEqualTo(2);
         assertThat(result.blocked()).isFalse();
         // 선수 정보는 한 번에, 이동 기록은 선수마다
@@ -166,42 +182,55 @@ class PlayerRefresherTest {
     }
 
     @Test
+    @DisplayName("오늘 확인한 선수는 건너뛰고 강제로 받으면 모두 확인한다")
     void checkedTodayIsSkippedUnlessForced() {
+        // given
         go.updateLevel(Level.MINORS, "St. Paul Saints", NOW.minusSeconds(3600));                  // 오늘(UTC) 확인함
         lee.updateLevel(Level.MLB, "San Francisco Giants", Instant.parse("2026-11-09T23:00:00Z")); // 어제
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(result.checked()).isEqualTo(1);
         assertThat(askedPeople).singleElement().satisfies(ids -> assertThat(ids).containsExactly(808982L));
         verify(writer, never()).savePlayer(eq(5L), any(), any(), any(), any(), any(), any());
 
+        // when // then
         assertThat(refresher.refresh(true).checked()).isEqualTo(2);
     }
 
     @Test
+    @DisplayName("오늘 모두 받았으면 아무것도 묻지 않는다")
     void nothingToDoMakesNoRequest() {
+        // given
         go.updateLevel(Level.MINORS, "St. Paul Saints", NOW);
         lee.updateLevel(Level.MLB, "San Francisco Giants", NOW);
         when(minorSeasons.findPlayerIdsFetchedSince(2026, TODAY.atStartOfDay(ZoneOffset.UTC).toInstant()))
                 .thenReturn(List.of(1L, 5L));
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(client.requestCount()).isZero();
         assertThat(result.describe()).isEmpty();
     }
 
     @Test
+    @DisplayName("선수 정보는 받았고 마이너 경기 기록만 없으면 그것만 묻는다")
     void minorGamesOnlyWhenPlayerCheckedButMinorsNotFetchedToday() {
+        // given
         // 배포 직후처럼 선수 정보는 오늘 받았는데 고우석의 마이너 경기 수는 오늘 것이 없다
         go.updateLevel(Level.MINORS, "St. Paul Saints", NOW);
         lee.updateLevel(Level.MLB, "San Francisco Giants", NOW);
         when(minorSeasons.findPlayerIdsFetchedSince(2026, TODAY.atStartOfDay(ZoneOffset.UTC).toInstant()))
                 .thenReturn(List.of(1L));
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(askedPeople).isEmpty();
         assertThat(askedRanges).isEmpty();
         assertThat(client.requestCount()).isEqualTo(1);
@@ -211,12 +240,16 @@ class PlayerRefresherTest {
     }
 
     @Test
+    @DisplayName("점수를 아직 모르는 마이너 경기의 일정만 한 번에 묻는다")
     void asksScheduleOnlyForMinorGamesWithoutFinalScores() {
+        // given
         // 저장이 돌려준 경기(아직 점수를 모르는 고우석 경기 둘)만 한 번에 묻는다. 이정후는 물을 경기가 없다
         when(writer.saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L, 12L));
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(askedGames).containsExactly(List.of(11L, 12L));
         verify(writer).saveMinorSchedule(eq(5L), eq(2026), eq(List.of(11L, 12L)), any());
         verify(writer, never()).saveMinorSchedule(eq(1L), anyInt(), any(), any());
@@ -224,12 +257,16 @@ class PlayerRefresherTest {
     }
 
     @Test
+    @DisplayName("마이너 경기 일정을 받지 못해도 멈추지 않고 모든 선수를 확인한다")
     void failedScheduleKeepsTheGameLogAndGoesOn() {
+        // given
         when(writer.saveMinorGameLog(anyLong(), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L));
         failGames = true;
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(askedGames).hasSize(2); // 두 선수 모두 물었고, 실패해도 멈추지 않는다
         verify(writer, never()).saveMinorSchedule(anyLong(), anyInt(), any(), any());
         assertThat(result.checked()).isEqualTo(2);
@@ -237,11 +274,15 @@ class PlayerRefresherTest {
     }
 
     @Test
+    @DisplayName("MLB가 요청을 막으면 선수를 저장하지 않고 멈춘다")
     void blockedStopsTheRun() {
+        // given
         blockPeople = true;
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(result.blocked()).isTrue();
         assertThat(result.checked()).isZero();
         assertThat(client.requestCount()).isEqualTo(1); // 이동 기록은 묻지 않는다
@@ -250,12 +291,16 @@ class PlayerRefresherTest {
     }
 
     @Test
+    @DisplayName("정보를 찾지 못한 선수는 건너뛰고 나머지 선수를 이어서 확인한다")
     void unknownPersonIsSkippedAndOthersContinue() {
+        // given
         Player stranger = player(7L, "모르는선수", 111111L);
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of(stranger, go));
 
+        // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
+        // then
         assertThat(result.failed()).isEqualTo(1);
         assertThat(result.checked()).isEqualTo(1);
         assertThat(result.describe()).contains("실패 1명");

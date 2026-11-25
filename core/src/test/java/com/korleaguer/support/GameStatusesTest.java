@@ -1,5 +1,6 @@
 package com.korleaguer.support;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -9,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GameStatusesTest {
 
     @ParameterizedTest
+    @DisplayName("MLB 경기 상태를 웹이 쓰는 값으로 바꾸고, 처음 보는 상태는 그 이름을 쓴다")
     @CsvSource(delimiter = '|', nullValues = "NULL", textBlock = """
             Final   | F    | Final                | final
             Final   | O    | Game Over            | final
@@ -28,6 +30,7 @@ class GameStatusesTest {
             NULL    | NULL | NULL                 | unknown
             """)
     void mapsMlbStatus(String abstractState, String codedState, String detailedState, String expected) {
+        // when // then
         assertThat(GameStatuses.of(abstractState, codedState, detailedState)).isEqualTo(expected);
     }
 }

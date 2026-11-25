@@ -8,6 +8,7 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.SeasonType;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -70,8 +71,10 @@ class SameGamesApiTest {
     }
 
     @Test
+    @DisplayName("두 선수가 모두 기록을 남긴 경기만 빠짐없이 같은 경기로 묶인다")
     @Transactional
     void pairsAreExactlyTheGamesWhereBothPlayersHaveARecord() throws Exception {
+        // given
         List<Long> ids = players.findAll(Sort.by("id")).stream().map(Player::getId).toList();
         // 기대값: 경기 기록에서 직접 센다(선수 → 그 선수가 나온 정규시즌·포스트시즌 경기)
         Map<Long, Set<Long>> gamesOf = new HashMap<>();
@@ -80,6 +83,7 @@ class SameGamesApiTest {
             gamesOf.computeIfAbsent(a.getPlayer().getId(), id -> new HashSet<>()).add(a.getGame().getGamePk());
         }
 
+        // when // then
         int pairsSeen = 0;
         for (long me : ids) {
             JsonNode pairs = sameGames(me).get("pairs");
@@ -127,11 +131,14 @@ class SameGamesApiTest {
             }
         }
         // 짝은 양쪽에서 한 번씩 보인다
+        assertThat(pairsSeen).as("샘플에는 같이 나온 짝이 있다").isPositive();
         assertThat(pairsSeen % 2).isZero();
     }
 
     @Test
+    @DisplayName("없는 선수의 같은 경기를 요청하면 404로 답한다")
     void anUnknownPlayerIs404() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/999999/same-games")).andExpect(status().isNotFound());
     }
 }

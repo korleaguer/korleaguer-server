@@ -10,8 +10,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.function.Supplier;
 
 /**
- * 실패해도 되는 조회(시즌 성적표의 재료·MLB 안 위치·겨울 기사·거론 구단 등)를 새 읽기 전용 트랜잭션에서 따로 돌리고,
- * 실패하면 경고만 남기고 대신할 값(fallback)을 준다.
+ * 실패해도 되는 조회(시즌 성적표의 재료·MLB 안 위치·겨울 기사·거론 구단, 포스팅 선수의 기사·거론 구단 등)를
+ * 새 읽기 전용 트랜잭션에서 따로 돌리고, 실패하면 경고만 남기고 대신할 값(fallback)을 준다.
  * <p>
  * 왜 따로 돌리나(이슈 #179 리뷰): 홈·선수 화면 조회(BaseballQueryService)는 바깥 @Transactional(readOnly = true) 안에서
  * 저장소를 부른다. 같은 트랜잭션 안에서 조회가 실패하면 Hibernate(JPA 예외)나 저장소의 트랜잭션 처리(참여 중 실패)가 바깥
@@ -28,13 +28,13 @@ import java.util.function.Supplier;
  * 새 트랜잭션의 EntityManager는 query가 끝나면 닫힌다. 지연 로딩이 필요한 값은 query 안에서 꺼내 돌려준다.
  */
 @Component
-class OptionalReads {
+public class OptionalReads {
 
     private static final Logger log = LoggerFactory.getLogger(OptionalReads.class);
 
     private final TransactionTemplate separate;
 
-    OptionalReads(PlatformTransactionManager transactions) {
+    public OptionalReads(PlatformTransactionManager transactions) {
         TransactionTemplate template = new TransactionTemplate(transactions);
         template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         template.setReadOnly(true);
@@ -42,7 +42,7 @@ class OptionalReads {
     }
 
     /** query를 새 읽기 전용 트랜잭션에서 돌린 값. 조회·연결·커밋 가운데 무엇이 실패하든 경고만 남기고 fallback */
-    <T> T read(String what, Supplier<T> query, T fallback) {
+    public <T> T read(String what, Supplier<T> query, T fallback) {
         try {
             return separate.execute(status -> query.get());
         } catch (RuntimeException e) {

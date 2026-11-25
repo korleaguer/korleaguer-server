@@ -13,6 +13,7 @@ import com.korleaguer.domain.IngestStatus;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.domain.PlayerRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -78,12 +79,17 @@ class HighlightTitleCatchUpTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("받은 경기의 영상 제목을 번역해 두고 화면 요청은 번역기를 부르지 않는다")
     void catchUpTranslatesTitlesOfIngestedDetailsAndTheApiOnlyReadsThem() throws Exception {
+        // given
         Player lee = players.findByNameKo("이정후").orElseThrow();
         // 앱 시작 때 따라잡기는 경기 상세를 10경기까지만 받는다. 남은 상세를 모두 받고 따라잡기를 한 번 더 돈다
         gameDetailIngest.fill(1000);
+
+        // when
         ingestService.catchUp(false);
 
+        // then
         // 이정후의 모든 경기 상세에 같은 제목이 있다: 한 번만 옮기고, 이정후 이름을 넘긴다
         assertThat(details.count()).isGreaterThan(10);
         assertThat(translator.asked).containsExactly(TITLE);
@@ -94,6 +100,7 @@ class HighlightTitleCatchUpTest {
         assertThat(ingestLogs.findAll()).anySatisfy(
                 log -> assertThat(log.getMessage()).contains("하이라이트 제목 번역 1개"));
 
+        // when // then
         // 화면용 API는 저장된 번역을 붙인다. 화면 요청으로는 번역기를 부르지 않는다
         mockMvc.perform(get("/api/players/" + lee.getId() + "/games/1001"))
                 .andExpect(status().isOk())
@@ -101,26 +108,39 @@ class HighlightTitleCatchUpTest {
                 .andExpect(jsonPath("$.highlights[0].titleKo").value("옮긴 제목 1"));
         assertThat(translator.asked).hasSize(1);
 
+        // when
         // 할 일이 없는 스케줄 실행은 기록을 남기지 않는다
         IngestLog idle = ingestService.catchUp(false);
+
+        // then
         assertThat(idle.getMessage()).isEqualTo("할 일 없음");
         assertThat(ingestLogs.findById(idle.getId())).isEmpty();
         assertThat(translator.asked).hasSize(1);
 
+        // given
         // MLB를 부르지 않았어도 제목을 옮긴 실행은 기록을 남긴다(MLB 요청 0번)
         String later = "Jung Hoo Lee's RBI single";
         highlightTitleIngest.offer(new GameDetail(lee.getId(), 1001, "HITTER", true, true, List.of(),
                 List.of(new GameDetail.GameHighlight(later, null, 20, null, null, null))), lee);
+
+        // when
         IngestLog run = ingestService.catchUp(false);
+
+        // then
         assertThat(run.getMessage()).isEqualTo("하이라이트 제목 번역 1개");
         assertThat(run.getRequestsUsed()).isZero();
         assertThat(ingestLogs.findById(run.getId())).isPresent();
 
+        // given
         // 번역기가 답하지 못해도 따라잡기는 성공으로 끝난다(번역은 부가 기능)
         translator.fail = true;
         highlightTitleIngest.offer(new GameDetail(lee.getId(), 1001, "HITTER", true, true, List.of(),
                 List.of(new GameDetail.GameHighlight("Jung Hoo Lee's sliding catch", null, 20, null, null, null))), lee);
+
+        // when
         IngestLog failed = ingestService.catchUp(false);
+
+        // then
         assertThat(failed.getStatus()).isEqualTo(IngestStatus.SUCCESS);
         assertThat(failed.getMessage()).isEqualTo("할 일 없음");
         assertThat(translator.asked).hasSize(3);

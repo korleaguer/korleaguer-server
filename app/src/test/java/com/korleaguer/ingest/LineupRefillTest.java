@@ -11,6 +11,7 @@ import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Lineup;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -114,23 +115,33 @@ class LineupRefillTest {
     }
 
     @Test
+    @DisplayName("뒤늦게 기록이 생긴 선수가 있으면 이미 채운 경기의 선발·교체를 다시 채운다")
     void newAppearanceInCheckedGameIsFilledAgain() {
+        // when // then
         // 앱 시작 때: 이정후 gameLog 실패. 김하성 기록으로 7001을 박스스코어 한 번에 채우고 "채워 봤음"으로 둔다.
         assertThat(client.takeBoxscoresAsked()).containsExactly(7001L);
         assertThat(line(KIM_ID).getLineup()).isEqualTo(Lineup.STARTER);
         assertThat(games.findById(7001L).orElseThrow().isLineupsChecked()).isTrue();
         assertThat(appearances.findByPlayersAndGames(List.of(LEE_ID), List.of(7001L))).isEmpty();
 
+        // given
         // 다음 따라잡기: 이정후 시즌을 받아 7001에 새 기록이 생긴다. 선발·교체를 모르므로 7001을 다시 채운다.
         client.failing.clear();
+
+        // when
         ingestService.catchUp(false);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactly(7001L);
         assertThat(line(LEE_ID).getLineup()).isEqualTo(Lineup.SUB);
         assertThat(line(LEE_ID).getBatting().atBats()).isEqualTo(1); // 기록은 gameLog 그대로
         assertThat(line(KIM_ID).getLineup()).isEqualTo(Lineup.STARTER);
 
+        // when
         // 다 채웠으니 다시 받지 않는다.
         ingestService.catchUp(false);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).isEmpty();
     }
 

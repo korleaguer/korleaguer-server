@@ -8,6 +8,7 @@ import com.korleaguer.config.CatchUpFinished;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -78,16 +79,26 @@ class OffSeasonLookAheadTest {
     }
 
     @Test
+    @DisplayName("비시즌에는 앞 일정을 하루 한 번 받고 포스트시즌 경기가 다가오면 시즌 중이 된다")
     void offSeasonLooksAheadOncePerDayAndComesBackForPostseason() {
+        // given
         List<Object> published = new ArrayList<>();
         IngestScheduler scheduler = new IngestScheduler(ingestService, published::add, clock);
 
         // 10/1 00:00Z: 앞뒤 3일에 DB 경기가 없어 비시즌이다. 그사이 MLB 일정에 7201이 잡혔다.
         clock.set(Instant.parse("2026-10-01T00:00:00Z"));
         client.use(data(List.of(scheduled7201()), Map.of()));
+
+        // when // then
         assertThat(ingestService.inSeason(clock.instant())).isFalse();
+
+        // given
         client.takeSchedulesAsked();
+
+        // when
         scheduler.tick();
+
+        // then
         // 따라잡기가 끝났다고 알린다(화면용 응답을 캐시에 미리 채운다).
         assertThat(published).containsExactly(new CatchUpFinished());
         // 앞으로 7일 일정(미국 날짜 9/30~10/7)을 한 번 받아 7201을 DB에 넣는다.
@@ -96,24 +107,41 @@ class OffSeasonLookAheadTest {
         assertThat(client.takeBoxscoresAsked()).containsExactly(7001L);
         assertThat(games.findById(7201L)).isPresent();
 
+        // given
         // 같은 날(UTC) 다시 깨어나면 앞 일정을 또 받지 않는다(비시즌에는 하루 1번).
         clock.set(Instant.parse("2026-10-01T05:00:00Z"));
+
+        // when
         scheduler.tick();
+
+        // then
         assertThat(client.takeSchedulesAsked()).isEmpty();
 
+        // given
         // 10/2 00:00Z: DB의 7201이 앞뒤 3일 안에 들어 시즌 중으로 돌아온다.
         // 앞 일정 대신 경기 갱신(마지막으로 끝난 경기 9/26부터 오늘까지)을 받는다.
         clock.set(Instant.parse("2026-10-02T00:00:00Z"));
+
+        // when // then
         assertThat(ingestService.inSeason(clock.instant())).isTrue();
+
+        // when
         scheduler.tick();
+
+        // then
         assertThat(client.takeSchedulesAsked()).containsExactly("2026-09-26~2026-10-01");
         assertThat(client.takeBoxscoresAsked()).isEmpty();
 
+        // given
         // 10/5 02:00Z: 7201이 끝났다. 경기 갱신에서 박스스코어를 받아 기록이 들어온다.
         clock.set(Instant.parse("2026-10-05T02:00:00Z"));
         client.use(data(List.of(final7201()), Map.of(7201L, boxscore(NYM, ATL, true, 673490, "300",
                 hittingStat(4, 2), null, List.of(1L), 1, 3))));
+
+        // when
         scheduler.tick();
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactly(7201L);
         assertThat(games.findById(7201L).orElseThrow().getStatusState()).isEqualTo("final");
         assertThat(appearances.findByPlayersAndGames(List.of(1L), List.of(7201L))).hasSize(1);

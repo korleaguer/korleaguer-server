@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,7 +26,9 @@ class PhotosOffTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("공식 사진을 끄면 홈·선수 목록·선수 화면의 사진 주소가 모두 빈다")
     void noPhotoUrlAnywhere() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.recent.lines[*].photoUrl").value(contains(
                         nullValue(), nullValue(), nullValue(), nullValue(), nullValue(), nullValue())))
@@ -42,7 +45,9 @@ class PhotosOffTest {
     }
 
     @Test
+    @DisplayName("공식 사진을 꺼도 MLB 선수 페이지 링크와 국내 경력은 그대로 나온다")
     void mlbLinkDoesNotDependOnPhotoSetting() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.player.mlbUrl").value("https://www.mlb.com/player/808982"))
                 .andExpect(jsonPath("$.player.careerKo").value("넥센·키움 히어로즈 (2017–2023)"));

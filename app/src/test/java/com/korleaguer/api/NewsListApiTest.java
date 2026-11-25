@@ -10,6 +10,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -66,7 +67,9 @@ class NewsListApiTest {
     private int seq;
 
     @Test
+    @DisplayName("선수 고르기에는 보이는 기사가 있는 선수만 포스팅 선수부터 나온다")
     void playersAreThoseWithArticlesPostingFirstThenRosterOrder() throws Exception {
+        // given
         save("김하성", "김하성 FA 소식", "마이데일리", T0);
         save("이정후", "이정후 새 타격코치", "마이데일리", T0.minusSeconds(60));
         save("노시환", "노시환 MLB 포스팅 공시", "마이데일리", T0.minusSeconds(120));
@@ -74,6 +77,7 @@ class NewsListApiTest {
         save("김혜성", "김혜성 다저스 소식", "없는 언론사", T0);
         offTopic(save("배지환", "배지환이 잠깐 나온 기사", "마이데일리", T0));
 
+        // when // then
         mockMvc.perform(get("/api/news"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players.length()").value(3))
@@ -93,10 +97,13 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("선수를 고르면 그 선수 기사만 나온다")
     void onePlayerKeepsOnlyThatPlayersArticles() throws Exception {
+        // given
         save("김하성", "김하성 FA 소식", "마이데일리", T0);
         save("이정후", "이정후 새 타격코치", "마이데일리", T0.minusSeconds(60));
 
+        // when // then
         mockMvc.perform(get("/api/news").param("player", "이정후"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.player").value("이정후"))
@@ -106,18 +113,24 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("포스팅 선수의 국내 기사는 메이저리그 이야기만 나온다")
     void postingPlayersDomesticArticlesMustBeAboutMlb() throws Exception {
+        // given
         save("노시환", "노시환 MLB 포스팅 공시", "마이데일리", T0);
         save("노시환", "한화 노시환 연봉 협상", "마이데일리", T0.minusSeconds(60)); // KBO 이야기
         save("노시환", "Roh Posted", "MLB Trade Rumors", T0.minusSeconds(120)); // 영어 매체는 그대로
 
+        // when
         JsonNode page = page("노시환", null);
 
+        // then
         assertThat(titles(page)).containsExactly("노시환 MLB 포스팅 공시", "Roh Posted");
     }
 
     @Test
+    @DisplayName("선수의 최신 기사 시각은 목록에 보이는 기사로만 정한다")
     void latestAtIsTheNewestArticleThatTheListShows() throws Exception {
+        // given
         save("이정후", "이정후 새 타격코치", "마이데일리", T0.minusSeconds(600));
         save("이정후", "이정후 연봉 이야기", "마이데일리", T0);
         offTopic(save("이정후", "이정후가 잠깐 나온 기사", "마이데일리", T0.plusSeconds(600))); // 주인공 아님: 세지 않는다
@@ -125,6 +138,7 @@ class NewsListApiTest {
         save("노시환", "한화 노시환 연봉 협상", "마이데일리", T0.plusSeconds(600)); // 포스팅 선수의 KBO 기사: 세지 않는다
         save("노시환", "노시환 MLB 포스팅 공시", "마이데일리", T0.minusSeconds(60));
 
+        // when // then
         mockMvc.perform(get("/api/news"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players[0].nameKo").value("노시환"))
@@ -134,20 +148,26 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("두 선수에게 같이 실린 기사는 두 이름을 단 한 줄로 나온다")
     void theSameArticleUnderTwoPlayersIsOneRowWithBothNames() throws Exception {
+        // given
         save("김혜성", "다저스 김혜성·김하성 맞대결", "마이데일리", T0);
         save("김하성", "다저스 김혜성·김하성 맞대결", "마이데일리", T0);
         save("김하성", "김하성 FA 소식", "스포츠조선", T0.minusSeconds(3600));
 
+        // when
         JsonNode page = page(null, null);
 
+        // then
         assertThat(titles(page)).containsExactly("다저스 김혜성·김하성 맞대결", "김하성 FA 소식");
         JsonNode who = page.get("items").get(0).get("who");
         assertThat(List.of(who.get(0).asString(), who.get(1).asString())).containsExactlyInAnyOrder("김혜성", "김하성");
     }
 
     @Test
+    @DisplayName("끝까지 넘겨 보면 같은 글은 한 줄로 묶이고 기사마다 한 번만 나온다")
     void pagingThroughEverythingShowsEachArticleOnce() throws Exception {
+        // given
         // 이정후 기사 130건(10분 간격). 여러 건은 다른 언론사가 3분 먼저 같은 제목으로 냈다(한 줄로 묶이고 그 언론사가 대표).
         // 기사는 모두 170건 남짓이라 한 번에 읽는 수(BATCH 100)와 한 쪽 줄 수(PAGE 20)의 경계 여러 곳에 같은 기사 쌍이 걸친다.
         // 그래도 묶음이 두 쪽에 나뉘어 보이거나 빠지지 않아야 한다
@@ -169,6 +189,8 @@ class NewsListApiTest {
         int withCopies = 0;
         String before = null;
         int pages = 0;
+
+        // when // then
         do {
             JsonNode page = page("이정후", before);
             assertThat(page.get("items").size()).isLessThanOrEqualTo(NewsListFinder.PAGE);
@@ -193,7 +215,9 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("쪽이 나뉘는 시각에 걸친 같은 글 묶음은 다음 쪽에 한 줄로 나온다")
     void aCopyNewerThanTheCursorStaysWithItsGroupOnTheNextPage() throws Exception {
+        // given
         // 1~20번째 줄: 10분 간격 기사 20건. 커서는 20번째 줄(190분 전)이다
         for (int i = 0; i < 20; i++) {
             save("이정후", "이정후 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i)));
@@ -213,10 +237,16 @@ class NewsListApiTest {
         news.save(bridge);
         assertThat(o1.getId()).isNotNull();
 
+        // when
         JsonNode first = page("이정후", null);
+
+        // then
         assertThat(first.get("items").size()).isEqualTo(20);
+
+        // when
         JsonNode second = page("이정후", first.get("next").asString());
 
+        // then
         assertThat(titles(second)).containsExactly("이정후 타격코치 영입", "샌프란시스코 외야 정리");
         JsonNode coach = second.get("items").get(0);
         assertThat(coach.get("publisher").asString()).isEqualTo("MLB Trade Rumors"); // 요약이 붙은 사본이 대표
@@ -227,10 +257,13 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("메이저리그 기사가 없는 포스팅 선수는 고르기 목록에 없다")
     void postingPlayerWithOnlyDomesticKboArticlesIsNotAChoice() throws Exception {
+        // given
         save("노시환", "한화 노시환 연봉 협상", "마이데일리", T0); // MLB 이야기가 아니다
         save("이정후", "이정후 새 타격코치", "마이데일리", T0);
 
+        // when // then
         mockMvc.perform(get("/api/news"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players.length()").value(1))
@@ -238,7 +271,9 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("검색은 제목과 한국어 제목만 보고 요약은 보지 않는다")
     void searchLooksAtTitleAndKoreanTitleOnly() throws Exception {
+        // given
         save("이정후", "이정후 새 타격코치", "마이데일리", T0);
         save("이정후", "이정후 계약 소식", "마이데일리", T0.minusSeconds(60));
         NewsArticle english = save("이정후", "Lee extension talk", "MLB Trade Rumors", T0.minusSeconds(120));
@@ -249,8 +284,11 @@ class NewsListApiTest {
         news.save(bySummary);
         save("김하성", "김하성 FA 계약 임박", "마이데일리", T0.minusSeconds(240));
 
+        // when
         // 요약에만 있는 기사(이정후 겨울 훈련)는 나오지 않는다: 목록에 제목만 보여 왜 나왔는지 알 수 없다(이슈 #161)
         JsonNode all = page(null, null, "계약");
+
+        // then
         assertThat(titles(all)).containsExactly("이정후 계약 소식", "Lee extension talk", "김하성 FA 계약 임박");
         assertThat(all.get("query").asString()).isEqualTo("계약");
         // 검색할 때도 많이 나온 말을 검색어와 상관없이 준다(알약을 눌러 거른 채로도 줄이 보이게, 이슈 #165). 여기는 3번 넘게 나온 말이 '계약'뿐
@@ -258,6 +296,7 @@ class NewsListApiTest {
         assertThat(all.get("topics").get(0).get("word").asString()).isEqualTo("계약");
         assertThat(all.get("topics").get(0).get("count").asInt()).isEqualTo(3);
 
+        // when // then
         // 선수 거르기와 함께
         assertThat(titles(page("이정후", null, " 계약 "))).containsExactly("이정후 계약 소식", "Lee extension talk");
         // 영어도 대소문자 상관없이
@@ -265,23 +304,36 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("검색어의 %와 _는 글자 그대로 찾는다")
     void searchTreatsWildcardsAsLetters() throws Exception {
+        // given
         save("이정후", "이정후 출루율 30% 돌파", "마이데일리", T0);
         save("이정후", "이정후 새 타격코치", "마이데일리", T0.minusSeconds(60));
 
+        // when // then
         assertThat(titles(page(null, null, "%"))).containsExactly("이정후 출루율 30% 돌파");
         assertThat(titles(page(null, null, "_"))).isEmpty();
     }
 
     @Test
+    @DisplayName("검색 결과를 다음 쪽까지 넘겨도 같은 기사가 되풀이되지 않는다")
     void searchPagesThroughWithoutRepeats() throws Exception {
+        // given
         for (int i = 0; i < 25; i++) {
             save("이정후", "이정후 FA 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i)));
             save("이정후", "이정후 다른 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i + 5)));
         }
+
+        // when
         JsonNode first = page(null, null, "fa");
+
+        // then
         assertThat(first.get("items").size()).isEqualTo(NewsListFinder.PAGE);
+
+        // when
         JsonNode second = page(null, first.get("next").asString(), "fa");
+
+        // then
         List<String> seen = new ArrayList<>(titles(first));
         seen.addAll(titles(second));
         assertThat(seen).hasSize(25).doesNotHaveDuplicates().allMatch(t -> t.contains("FA"));
@@ -289,7 +341,9 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("최근 기사에 세 번 이상 나온 말이 자주 나온 말 버튼에 많은 순으로 나온다")
     void topicsAreWordsThatRecentArticlesMentionOften() throws Exception {
+        // given
         for (int i = 0; i < 4; i++) {
             save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minusSeconds(60L * i));
         }
@@ -299,20 +353,29 @@ class NewsListApiTest {
         save("이정후", "메츠 관심 " + 1, "마이데일리", T0.minusSeconds(1200));
         save("이정후", "메츠 관심 " + 2, "마이데일리", T0.minusSeconds(1260)); // 2번뿐: 빠진다
 
+        // when
         JsonNode all = page(null, null, null);
+
+        // then
         assertThat(all.get("topics").size()).isEqualTo(2);
         assertThat(all.get("topics").get(0).get("word").asString()).isEqualTo("FA");
         assertThat(all.get("topics").get(0).get("count").asInt()).isEqualTo(4);
         assertThat(all.get("topics").get(1).get("word").asString()).isEqualTo("다저스");
         assertThat(all.get("topics").get(1).get("count").asInt()).isEqualTo(3);
+
+        // when
         // 선수로 거르면 그 선수 기사에서만 센다
         JsonNode kim = page("김하성", null, null);
+
+        // then
         assertThat(kim.get("topics").size()).isEqualTo(1);
         assertThat(kim.get("topics").get(0).get("word").asString()).isEqualTo("FA");
     }
 
     @Test
+    @DisplayName("영어 검색어는 낱말이 통째로 같아야, 한글 검색어는 일부만 있어도 찾는다")
     void latinWordsMatchWholeWordsOnly() throws Exception {
+        // given
         save("김하성", "김하성 FA 시장 1위", "마이데일리", T0);
         save("김혜성", "다저스, 김혜성 DFA 처리할 수도", "마이데일리", T0.minusSeconds(60)); // DFA(양도지명)는 FA가 아니다
         save("이정후", "Fans love Lee", "MLB Trade Rumors", T0.minusSeconds(120)); // fans 속 fa도 아니다
@@ -320,47 +383,68 @@ class NewsListApiTest {
             save("김하성", "김하성 FA 소식 " + i, "마이데일리", T0.minusSeconds(180 + 60L * i));
         }
 
+        // when // then
         assertThat(titles(page(null, null, "FA"))).containsExactly("김하성 FA 시장 1위", "김하성 FA 소식 0", "김하성 FA 소식 1");
+
+        // when
         JsonNode first = page(null, null, null);
+
+        // then
         assertThat(first.get("topics").get(0).get("word").asString()).isEqualTo("FA");
         assertThat(first.get("topics").get(0).get("count").asInt()).isEqualTo(3);
+
+        // when // then
         // 한글 말은 글자 포함 그대로
         assertThat(titles(page(null, null, "처리"))).containsExactly("다저스, 김혜성 DFA 처리할 수도");
     }
 
     @Test
+    @DisplayName("한 구단의 두 이름이 함께 나와도 자주 나온 말 버튼은 하나만 나온다")
     void oneTeamTakesOneTopicEvenWithTwoNames() throws Exception {
+        // given
         for (int i = 0; i < 4; i++) {
             save("이정후", "샌프란시스코 자이언츠 이정후 소식 " + i, "마이데일리", T0.minusSeconds(60L * i));
         }
         save("이정후", "샌프란시스코 이야기", "마이데일리", T0.minusSeconds(600));
 
+        // when
         // 전체 보기로 본다(이정후를 고르면 그 선수의 지금 구단이라 둘 다 빠진다, ownTeamIsNotATopicForThatPlayer)
         JsonNode page = page(null, null, null);
+
+        // then
         List<String> words = new ArrayList<>();
         page.get("topics").forEach(t -> words.add(t.get("word").asString()));
         assertThat(words).contains("샌프란시스코").doesNotContain("자이언츠");
     }
 
     @Test
+    @DisplayName("검색 중에도 많이 나온 말이 첫 쪽에 나오고 다음 쪽에는 없다")
     void topicsStayWhileSearching() throws Exception {
+        // given
         for (int i = 0; i < 3; i++) {
             save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minusSeconds(60L * i));
             save("김하성", "김하성 영입 경쟁 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
         }
 
+        // when
         JsonNode searching = page("김하성", null, "FA");
+
+        // then
         assertThat(titles(searching)).hasSize(3);
         List<String> words = new ArrayList<>();
         searching.get("topics").forEach(t -> words.add(t.get("word").asString()));
         // 검색어(FA)와 상관없이 그 선수의 최근 기사에서 센다. 같은 수면 정해 둔 순서(WORDS)
         assertThat(words).containsExactly("FA", "영입");
+
+        // when // then
         // 다음 쪽에는 주지 않는다
         assertThat(page("김하성", "2026-11-14T11:00:00Z_1", "FA").get("topics")).isEmpty();
     }
 
     @Test
+    @DisplayName("자주 나온 말의 숫자는 오래된 기사까지 센 검색 결과 줄 수와 같다")
     void topicCountIsTheNumberOfSearchRowsBeyondRecentArticles() throws Exception {
+        // given
         // 최근 TOPIC_ROWS건: 그중 FA가 3건. 그보다 오래된 FA 기사 5건은 말을 고를 때는 안 보지만 검색에는 나온다
         for (int i = 0; i < NewsListFinder.TOPIC_ROWS; i++) {
             String title = i < 3 ? "김하성 FA 최근 소식 " + i : "김하성 겨울 소식 " + i;
@@ -370,18 +454,27 @@ class NewsListApiTest {
             save("김하성", "김하성 FA 지난 소식 " + i, "마이데일리", T0.minus(Duration.ofDays(30 + i)));
         }
 
+        // when
         JsonNode first = page("김하성", null, null);
+
+        // then
         assertThat(first.get("topics").get(0).get("word").asString()).isEqualTo("FA");
         // 숫자는 알약을 눌렀을 때 나오는 줄 수(최근 3건만 세면 3이었다)
         assertThat(first.get("topics").get(0).get("count").asInt()).isEqualTo(8);
+
+        // when
         JsonNode searched = page("김하성", null, "FA");
+
+        // then
         assertThat(titles(searched)).hasSize(8);
         // 알약을 눌러 연 검색의 줄 수도 같은 8(이슈 #183)
         assertThat(queryCount(searched)).isEqualTo(8);
     }
 
     @Test
+    @DisplayName("검색 결과 수는 끝까지 넘긴 줄 수와 같고 첫 쪽에만 나온다")
     void queryCountIsTheNumberOfSearchRowsOnTheFirstPageOnly() throws Exception {
+        // given
         // FA 기사 25건(앞 2건은 다른 언론사도 같은 제목으로 실어 사본이 있다: 줄은 그대로 25), 다른 기사 25건
         for (int i = 0; i < 25; i++) {
             save("이정후", "이정후 FA 소식 " + i, "마이데일리", T0.minus(Duration.ofMinutes(10L * i)));
@@ -390,23 +483,34 @@ class NewsListApiTest {
         save("이정후", "이정후 FA 소식 0", "스포츠조선", T0.plusSeconds(60));
         save("이정후", "이정후 FA 소식 1", "스포츠조선", T0.minus(Duration.ofMinutes(9)));
 
+        // when
         JsonNode first = page(null, null, "FA");
+
+        // then
         assertThat(first.get("items").size()).isEqualTo(NewsListFinder.PAGE);
         assertThat(queryCount(first)).isEqualTo(25);
+
+        // when
         JsonNode second = page(null, first.get("next").asString(), "FA");
+
+        // then
         // 끝까지 넘겨 본 줄 수와 같다
         assertThat(titles(first).size() + titles(second).size()).isEqualTo(25);
         assertThat(second.hasNonNull("next")).isFalse();
         // 둘째 쪽에는 없다(웹은 첫 쪽 값을 그대로 둔다)
         assertThat(second.has("queryCount")).isTrue();
         assertThat(queryCount(second)).isNull();
+
+        // when // then
         // 검색어가 없으면 없다
         assertThat(queryCount(page(null, null, null))).isNull();
         assertThat(queryCount(page(null, null, "  "))).isNull();
     }
 
     @Test
+    @DisplayName("선수를 고르면 검색 결과 수는 그 선수 기사만 세고 자주 나온 말 숫자와 같다")
     void queryCountInAPlayerScopeCountsThatPlayersRowsLikeThePill() throws Exception {
+        // given
         for (int i = 0; i < 4; i++) {
             save("김하성", "김하성 FA 시장 " + i, "마이데일리", T0.minusSeconds(60L * i));
         }
@@ -416,14 +520,23 @@ class NewsListApiTest {
             save("이정후", "이정후 FA 이야기 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
         }
 
+        // when
         // 선수를 고르면 그 선수 기사만 센다
         JsonNode kim = page("김하성", null, "FA");
+
+        // then
         assertThat(titles(kim)).hasSize(4);
         assertThat(queryCount(kim)).isEqualTo(4).isEqualTo(topicCount(page("김하성", null, null), "FA"));
+
+        // when
         // 전체 보기는 두 선수 기사 모두. 알약을 누른 채로 받은 첫 쪽의 알약 숫자와도 같다(같은 셈)
         JsonNode all = page(null, null, "FA");
+
+        // then
         assertThat(titles(all)).hasSize(7);
         assertThat(queryCount(all)).isEqualTo(7).isEqualTo(topicCount(all, "FA"));
+
+        // when // then
         // 대소문자는 가리지 않는다(검색과 같다)
         assertThat(queryCount(page(null, null, "fa"))).isEqualTo(7);
         // 알약에 없는 말도 센다
@@ -431,7 +544,9 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("자주 나온 말은 최근 횟수가 아니라 보이는 숫자가 큰 순으로 놓인다")
     void topicsAreOrderedByShownCount() throws Exception {
+        // given
         // 최근엔 '영입'이 더 많지만(4 대 3), 전체로 세면 'FA'가 더 많다(3 + 오래된 3 = 6). 보이는 숫자 순으로 FA가 앞
         for (int i = 0; i < 4; i++) {
             save("김하성", "김하성 영입 경쟁 " + i, "마이데일리", T0.minus(Duration.ofMinutes(i)));
@@ -446,13 +561,18 @@ class NewsListApiTest {
             save("김하성", "김하성 FA 지난 소식 " + i, "마이데일리", T0.minus(Duration.ofDays(30 + i)));
         }
 
+        // when
         List<String> shown = new ArrayList<>();
         page("김하성", null, null).get("topics").forEach(t -> shown.add(t.get("word").asString() + " " + t.get("count").asInt()));
+
+        // then
         assertThat(shown).containsExactly("FA 6", "영입 4");
     }
 
     @Test
+    @DisplayName("선수를 고르면 그 선수의 지금 구단은 자주 나온 말에서 빠진다")
     void ownTeamIsNotATopicForThatPlayer() throws Exception {
+        // given
         inDodgers(null);
         for (int i = 0; i < 4; i++) {
             save("김혜성", "다저스 김혜성 이야기 " + i, "마이데일리", T0.minusSeconds(60L * i));
@@ -461,25 +581,37 @@ class NewsListApiTest {
             save("김혜성", "김혜성 트레이드설 " + i, "마이데일리", T0.minusSeconds(600 + 60L * i));
         }
 
+        // when
         // 그 선수 기사에선 지금 구단(다저스)을 세지 않는다: 거의 모든 기사에 나와 눌러도 걸러지지 않는다
         JsonNode kimPage = page("김혜성", null, null);
+
+        // then
         assertThat(kimPage.get("topics").size()).isEqualTo(1);
         assertThat(kimPage.get("topics").get(0).get("word").asString()).isEqualTo("트레이드");
+
+        // when
         // 전체 보기에선 그대로 센다(어느 선수 이야기인지 고르는 바로가기)
         List<String> words = new ArrayList<>();
         page(null, null, null).get("topics").forEach(t -> words.add(t.get("word").asString()));
+
+        // then
         assertThat(words).containsExactly("다저스", "트레이드");
     }
 
     @Test
+    @DisplayName("FA 선수를 고르면 마지막 구단도 자주 나온 말에 남는다")
     void lastTeamStaysATopicForAFreeAgent() throws Exception {
+        // given
         inDodgers(LocalDate.of(2026, 11, 1));
         for (int i = 0; i < 3; i++) {
             save("김혜성", "다저스 김혜성 복귀설 " + i, "마이데일리", T0.minusSeconds(60L * i));
         }
 
+        // when
         // FA면 마지막 구단도 행선지 후보라 뺄 까닭이 없다
         JsonNode kimPage = page("김혜성", null, null);
+
+        // then
         assertThat(kimPage.get("topics").size()).isEqualTo(1);
         assertThat(kimPage.get("topics").get(0).get("word").asString()).isEqualTo("다저스");
     }
@@ -503,26 +635,35 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("31자 검색어로 물으면 HTTP 400을 준다")
     void tooLongQueryIsBadRequest() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/news").param("q", "가".repeat(31)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
+    @DisplayName("같은 글을 실은 다른 언론사가 한 줄에 함께 나온다")
     void copiesShowOtherPublishers() throws Exception {
+        // given
         save("이정후", "이정후 새 타격코치", "마이데일리", T0);
         save("이정후", "이정후 새 타격코치", "스포츠조선", T0.plusSeconds(600));
 
+        // when
         JsonNode item = page("이정후", null).get("items").get(0);
 
+        // then
         assertThat(item.get("publisher").asString()).isEqualTo("마이데일리");
         assertThat(item.get("alsoBy").get(0).asString()).isEqualTo("스포츠조선");
     }
 
     @Test
+    @DisplayName("없는 선수를 고르면 기사 없는 빈 쪽을 준다")
     void unknownPlayerIsAnEmptyPage() throws Exception {
+        // given
         save("이정후", "이정후 새 타격코치", "마이데일리", T0);
 
+        // when // then
         mockMvc.perform(get("/api/news").param("player", "없는선수"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.player").doesNotExist())
@@ -532,7 +673,9 @@ class NewsListApiTest {
     }
 
     @Test
+    @DisplayName("형식이 잘못된 다음 쪽 커서로 물으면 HTTP 400을 준다")
     void malformedCursorIsBadRequest() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/news").param("before", "어제"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/news").param("before", "2026-11-14T12:00:00Z_abc"))

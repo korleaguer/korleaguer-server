@@ -16,6 +16,7 @@ import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonDatesRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -49,7 +50,9 @@ class SeasonReportFinderSaberTest {
             new OptionalReads(mock(PlatformTransactionManager.class)));
 
     @Test
+    @DisplayName("MLB 안 위치는 선수의 타자·투수 역할에 맞는 기록에서만 가져온다")
     void eachPlayerGetsTheRowOfHisOwnRoleLikeThePlayerPage() {
+        // given
         Player lee = player(1, Role.HITTER);
         Player go = player(5, Role.PITCHER);
         PlayerLeaguePosition leeHitting = hitting(lee, new PlayerLeaguePosition.Hitting(579, 101.8, 0.97, 1.25, 0.68,
@@ -61,8 +64,10 @@ class SeasonReportFinderSaberTest {
                 -0.14, 464, null, null, null, null));
         when(positions.findSeason(any(), eq(2026))).thenReturn(List.of(leeHitting, leePitching, goPitching));
 
+        // when
         Map<Long, PlayerSaber> sabers = finder.sabers(List.of(member(lee), member(go)), 2026);
 
+        // then
         assertThat(sabers).containsOnlyKeys(1L, 5L);
         assertThat(sabers.get(1L)).isEqualTo(PlayerSaber.of(leeHitting));
         PlayerSaber.Hitter hitter = (PlayerSaber.Hitter) sabers.get(1L);
@@ -76,16 +81,23 @@ class SeasonReportFinderSaberTest {
     }
 
     @Test
+    @DisplayName("MLB 기록이 비어 있거나 읽지 못하면 그 선수의 MLB 안 위치가 없다")
     void playersWithoutAnMlbRecordOrUnreadableRowsHaveNoSaber() {
+        // given
         Player bae = player(6, Role.HITTER);
         // 그날 리그 기록에 없으면(마이너에만 있음) 줄은 '받았음' 표시로 남고 값은 비어 있다
         PlayerLeaguePosition empty = new PlayerLeaguePosition(bae, 2026, PlayerSeasonMetric.Group.HITTING);
         empty.update((PlayerLeaguePosition.Hitting) null, NOW);
         when(positions.findSeason(any(), eq(2026))).thenReturn(List.of(empty));
+
+        // when // then
         assertThat(finder.sabers(List.of(member(bae)), 2026)).isEmpty();
 
+        // given
         // 못 읽으면 위치만 빠진다(성적표는 그대로)
         when(positions.findSeason(any(), eq(2026))).thenThrow(new IllegalStateException("db unavailable"));
+
+        // when // then
         assertThat(finder.sabers(List.of(member(bae)), 2026)).isEmpty();
     }
 

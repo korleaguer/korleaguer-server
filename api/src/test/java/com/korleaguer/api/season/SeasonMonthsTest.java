@@ -9,6 +9,7 @@ import com.korleaguer.api.season.SeasonVerdict.Line;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Role;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -29,7 +30,9 @@ class SeasonMonthsTest {
     private static final LocalDate LAST_DAY = LocalDate.of(2026, 9, 27);
 
     @Test
+    @DisplayName("메이저 풀시즌은 4~9월이 모두 메이저 칸이고 잘 친 6월만 강조된다")
     void fullMajorSeasonShowsEveryMonthAndOnlyTheBigMonthIsHot() {
+        // given
         // 이정후: 3월 말 경기는 4월 칸. 짧은 부상자 명단 두 번은 경기가 있어 칸에 안 보인다
         List<GameDay> majors = new ArrayList<>();
         majors.addAll(hitGames(null, OPENING, 29, 103, 31));
@@ -43,8 +46,10 @@ class SeasonMonthsTest {
                 move("2026-05-29", "SC", "San Francisco Giants activated RF Jung Hoo Lee from the 10-day injured list."),
                 move("2026-09-21", "SC", "San Francisco Giants placed RF Jung Hoo Lee on the 10-day injured list."));
 
+        // when
         List<Month> months = SeasonMonths.build(hitter(majors, List.of(), moves));
 
+        // then
         // 6월만 wRC+ 130 이상(8홈런·12볼넷)이라 주황
         assertThat(months).extracting(Month::month, Month::kind, Month::games, Month::avg, Month::few, Month::hot)
                 .containsExactly(
@@ -63,44 +68,57 @@ class SeasonMonthsTest {
     }
 
     @Test
+    @DisplayName("홈런·볼넷 많은 .240의 달이 단타뿐인 .301의 달보다 wRC+가 높다")
     void wrcPlusSeesWalksAndPowerThatAverageMisses() {
+        // given
         // 배지환 6월처럼: 타율 .240이어도 볼넷·홈런이 많으면 wRC+는 평균(100) 위. 타율 .301에 단타뿐인 달은 평균 아래
         List<GameDay> majors = new ArrayList<>();
         majors.addAll(hitGames(null, LocalDate.of(2026, 4, 1), 29, 103, 31));
         majors.addAll(hitGames(null, LocalDate.of(2026, 6, 1), 26, 96, 23, 8, 20));
 
+        // when
         List<Month> months = SeasonMonths.build(hitter(majors, List.of(), List.of()));
 
+        // then
         assertThat(months.get(0)).extracting(Month::avg, Month::wrcPlus, Month::hot).containsExactly(0.301, 69, false);
         assertThat(months.get(2)).extracting(Month::avg, Month::wrcPlus, Month::hot).containsExactly(0.24, 144, true);
     }
 
     @Test
+    @DisplayName("마이너에서 뛴 달의 wRC+는 그 단계 리그 평균과 견준다")
     void minorMonthsAreMeasuredAgainstTheirOwnLeague() {
+        // given
         // 같은 트리플A 기록도 타고 리그(2026 트리플A wOBA .338)와 비교하면 MLB 표준값과 비교할 때보다 낮다
         List<GameDay> minors = hitGames("AAA", LocalDate.of(2026, 7, 1), 20, 72, 21, 2, 8);
         Input input = hitter(List.of(), minors, List.of());
 
+        // when
         int standard = SeasonMonths.build(input).get(3).wrcPlus();
         int tripleA = SeasonMonths.build(input, Map.of("AAA", new LeagueEnv(0.338, 0.138, 4.99)))
                 .get(3).wrcPlus();
 
+        // then
         assertThat(tripleA).isLessThan(standard);
         assertThat(tripleA).isBetween(90, 110);
     }
 
     @Test
+    @DisplayName("메이저에서 한 달만 뛰면 그 달 wRC+가 공식 시즌 wRC+와 같다")
     void majorMonthsFollowTheOfficialSeasonWrcPlus() {
+        // given
         // 공식 시즌 wRC+(구장 보정 포함)가 120이면, 한 달만 뛴 선수의 그 달 wRC+도 120이다
         List<GameDay> majors = hitGames(null, LocalDate.of(2026, 5, 1), 25, 90, 25, 3, 10);
         Input input = new Input(1, Role.HITTER, 2026, OPENING, LAST_DAY, false, new Line(2026, 100, 0, 120.0, 1.0),
                 List.of(), majors, List.of(), List.of());
 
+        // when // then
         assertThat(SeasonMonths.build(input).get(1).wrcPlus()).isEqualTo(120);
     }
 
     @Test
+    @DisplayName("재활 경기는 달 기록에서 빠지고 부상으로 거의 못 뛴 달은 부상 칸이 된다")
     void rehabGamesAreLeftOutAndRehabMonthsAreInjured() {
+        // given
         // 김하성: 개막일 부상자 명단 → 4월 말 재활 → 5월 11일 복귀, 7월 4일 다시 부상 → 재활 13경기 → 8월 3일 복귀
         List<GameDay> majors = new ArrayList<>();
         majors.addAll(hitGames(null, LocalDate.of(2026, 5, 11), 12, 42, 4));
@@ -128,8 +146,10 @@ class SeasonMonthsTest {
                         + "Gwinnett Stripers."),
                 move("2026-08-03", "SC", "Atlanta Braves activated SS Ha-Seong Kim from the 10-day injured list."));
 
+        // when
         List<Month> months = SeasonMonths.build(hitter(majors, minors, moves));
 
+        // then
         // 5월: 재활 8경기(트리플A)는 빼고 메이저 12경기만. 8월 8경기는 경기 적은 달
         assertThat(months).extracting(Month::month, Month::kind, Month::games, Month::avg, Month::few)
                 .containsExactly(
@@ -142,7 +162,9 @@ class SeasonMonthsTest {
     }
 
     @Test
+    @DisplayName("투수의 달은 가장 많이 던진 단계로 적고 FA 선언 뒤 달은 FA 칸이 된다")
     void pitcherClimbsLevelsThenEndsAsFreeAgent() {
+        // given
         // 고우석: 더블A → 트리플A → 7월 트레이드 뒤 메이저 4등판 → 트리플A → 8월 30일 아웃라이트·FA 선언
         List<GameDay> majors = pitchGames(null, LocalDate.of(2026, 7, 8), 4, 12, 4);
         List<GameDay> minors = new ArrayList<>();
@@ -169,9 +191,12 @@ class SeasonMonthsTest {
         // 2026 리그 평균자책점: MLB 4.17, 트리플A 4.99, 더블A 4.85
         Map<String, LeagueEnv> leagues = Map.of("MLB", new LeagueEnv(0.314, 0.118, 4.17),
                 "AAA", new LeagueEnv(0.338, 0.138, 4.99), "AA", new LeagueEnv(0.331, 0.137, 4.85));
+
+        // when
         List<Month> months = SeasonMonths.build(new Input(808970, Role.PITCHER, 2026, OPENING, LAST_DAY, false, null,
                 List.of(), majors, minors, moves), leagues);
 
+        // then
         // ERA+: 무자책 달은 300(최대), 1.46은 4.99/1.46 = 342라 300에서 자른다
         assertThat(months).extracting(Month::month, Month::kind, Month::levelKo, Month::games, Month::era,
                         Month::eraPlus, Month::few)
@@ -190,7 +215,9 @@ class SeasonMonthsTest {
     }
 
     @Test
+    @DisplayName("메이저와 마이너 경기 수가 같은 달은 메이저, 마이너 부상 뒤 달은 부상 칸이다")
     void tiedMonthGoesToMajorsAndMinorInjuryEndsTheSeason() {
+        // given
         // 배지환: 트리플A → 8월 방출·밀워키 계약·콜업(4경기) → 지명 할당·아웃라이트 → 8월 25일 마이너 부상자 명단
         List<GameDay> minors = new ArrayList<>();
         minors.addAll(hitGames("AAA", LocalDate.of(2026, 4, 1), 21, 86, 27));
@@ -212,8 +239,10 @@ class SeasonMonthsTest {
                 move("2026-09-01", "SC", "Nashville Sounds transferred CF Ji Hwan Bae from the 7-day injured list "
                         + "to the full-season injured list."));
 
+        // when
         List<Month> months = SeasonMonths.build(hitter(majors, minors, moves));
 
+        // then
         // 8월: 메이저 4경기 = 트리플A 4경기 → 메이저 칸(4경기 .500은 경기 적은 달)
         assertThat(months).extracting(Month::month, Month::kind, Month::levelKo, Month::games, Month::avg, Month::few)
                 .containsExactly(
@@ -226,21 +255,27 @@ class SeasonMonthsTest {
     }
 
     @Test
+    @DisplayName("마이너 부상자 명단 해제 기록이 없어도 그 뒤 경기를 보통 경기로 센다")
     void minorInjuredListWithoutActivationStillCountsGames() {
+        // given
         // 마이너 부상자 명단은 해제 기록이 없을 때가 많다. 재활 배정이 없으면 그 뒤 경기도 보통 경기다
         List<GameDay> minors = hitGames("AAA", LocalDate.of(2026, 5, 10), 18, 70, 20);
         List<Move> moves = List.of(
                 move("2026-05-01", "SC", "Oklahoma City Comets placed 2B Hyeseong Kim on the 7-day injured list."));
 
+        // when
         List<Month> months = SeasonMonths.build(hitter(List.of(), minors, moves));
 
+        // then
         assertThat(months.get(1)).extracting(Month::month, Month::kind, Month::levelKo, Month::games)
                 .containsExactly(5, Kind.MINORS, "트리플A", 18);
         assertThat(months.get(0).kind()).isEqualTo(Kind.NONE);
     }
 
     @Test
+    @DisplayName("재활 배정된 달은 부상 칸이고 재활 배정 없는 새 부상 뒤 경기는 보통 경기다")
     void rehabFollowsTheCurrentInjuryStint() {
+        // given
         // 같은 날 등재 + 재활 배정이면 재활이다. 60일 명단으로 옮겨도 재활은 이어진다.
         // 해제 기록 없이 끝난 부상 뒤 새 등재(재활 배정 없음)의 마이너 경기는 보통 경기다
         List<GameDay> minors = new ArrayList<>();
@@ -253,22 +288,28 @@ class SeasonMonthsTest {
                         + "60-day injured list."),
                 move("2026-06-01", "SC", "Tacoma Rainiers placed 2B A on the 7-day injured list."));
 
+        // when
         List<Month> months = SeasonMonths.build(hitter(List.of(), minors, moves));
 
+        // then
         assertThat(months.get(0).kind()).isEqualTo(Kind.INJURED);
         assertThat(months.get(2)).extracting(Month::kind, Month::games).containsExactly(Kind.MINORS, 15);
     }
 
     @Test
+    @DisplayName("며칠뿐인 3월과 10월 경기는 4월과 9월 칸에 합친다")
     void shortFirstAndLastMonthsJoinTheirNeighbours() {
+        // given
         // 3월 26일 개막(3월 6일치)은 4월 칸, 10월 2일 끝(10월 2일치)은 9월 칸
         LocalDate lastDay = LocalDate.of(2026, 10, 2);
         List<GameDay> majors = List.of(hitGames(null, LocalDate.of(2026, 3, 27), 1, 4, 2).getFirst(),
                 hitGames(null, LocalDate.of(2026, 10, 1), 1, 4, 1).getFirst());
 
+        // when
         List<Month> months = SeasonMonths.build(new Input(1, Role.HITTER, 2026, OPENING, lastDay, false, null,
                 List.of(), majors, List.of(), List.of()));
 
+        // then
         assertThat(months).extracting(Month::month).containsExactly(4, 5, 6, 7, 8, 9);
         assertThat(months.getFirst()).extracting(Month::games, Month::avg).containsExactly(1, 0.5);
         assertThat(months.getLast()).extracting(Month::games, Month::avg).containsExactly(1, 0.25);

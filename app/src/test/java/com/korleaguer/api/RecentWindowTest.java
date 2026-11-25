@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,7 +40,9 @@ class RecentWindowTest {
     }
 
     @Test
+    @DisplayName("마지막 경기 직후 홈을 열면 최근 24시간 경기와 화제 문구가 나온다")
     void showsLast24Hours() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.recent.isFallback").value(false))
                 .andExpect(jsonPath("$.recent.dateKst").value("2026-09-27"))

@@ -19,6 +19,7 @@ import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Lineup;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -215,58 +216,99 @@ class GameIngestTest {
     }
 
     @Test
+    @DisplayName("진행 중 경기는 수집할 때마다, 끝난 경기는 하루 한 번 받다가 3일 뒤 멈춘다")
     void liveEveryTimeFinalsOncePerDayThenSettled() {
+        // when // then
         // 앱 시작 때 시즌 백필: gameLog 기록(3타수 1안타), 7001은 끝났지만 시작한 지 3일이 안 돼 굳지 않았다.
         assertThat(stored(7001).isSettled()).isFalse();
         assertThat(line(7001).getBatting().atBats()).isEqualTo(3);
         assertThat(ingestService.inSeason(clock.instant())).isTrue();
 
+        // given
         // 8/10 18:00Z: 끝난 7001을 처음 한 번 받는다(기록·점수 정정). 경기 전인 7002는 받지 않는다.
         client.use(data(scheduled7002(), Map.of(7001L, box(4, 2, 2, 5))));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactly(7001L);
         assertThat(line(7001).getBatting().hits()).isEqualTo(2);
         assertThat(line(7001).getLineup()).isEqualTo(Lineup.STARTER); // 박스스코어를 받을 때 선발·교체도 채운다
         assertThat(stored(7001).getHomeScore()).isEqualTo(5);
 
+        // given
         // 8/10 23:40Z: 7002 진행 중 → 깨어날 때마다 받는다. 7001은 오늘 이미 받았다.
         clock.set(Instant.parse("2026-08-10T23:40:00Z"));
         client.use(data(live7002(), Map.of(7001L, box(4, 2, 2, 5), 7002L, box(2, 1, 1, 0))));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactly(7002L);
         assertThat(stored(7002).getStatusState()).isEqualTo("in_progress");
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactly(7002L);
 
+        // given
         // 8/11 02:30Z(UTC 다음 날): 7002가 끝남 → 한 번 더, 7001은 하루 한 번 다시 확인
         clock.set(Instant.parse("2026-08-11T02:30:00Z"));
         client.use(data(final7002(), Map.of(7001L, box(4, 2, 2, 5), 7002L, box(4, 2, 3, 5))));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactlyInAnyOrder(7001L, 7002L);
         assertThat(stored(7002).getStatusState()).isEqualTo("final");
         assertThat(line(7002).getBatting().atBats()).isEqualTo(4);
 
+        // given
         // 같은 날 다시 깨어나면 받지 않는다.
         clock.set(Instant.parse("2026-08-11T05:00:00Z"));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).isEmpty();
 
+        // given
         // 8/13 00:00Z: 7001은 시작한 지 3일이 지나 마지막으로 받고 settled, 7002는 아직
         clock.set(Instant.parse("2026-08-13T00:00:00Z"));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactlyInAnyOrder(7001L, 7002L);
         assertThat(stored(7001).isSettled()).isTrue();
         assertThat(stored(7002).isSettled()).isFalse();
 
+        // given
         // 8/14 00:00Z: settled인 7001은 받지 않는다.
         clock.set(Instant.parse("2026-08-14T00:00:00Z"));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).containsExactly(7002L);
         assertThat(stored(7002).isSettled()).isTrue();
 
+        // given
         // 8/15: 받을 것 없음. 앞뒤 3일에 경기가 없으니 비시즌으로 본다.
         clock.set(Instant.parse("2026-08-15T00:00:00Z"));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeBoxscoresAsked()).isEmpty();
         assertThat(ingestService.inSeason(clock.instant())).isFalse();
     }

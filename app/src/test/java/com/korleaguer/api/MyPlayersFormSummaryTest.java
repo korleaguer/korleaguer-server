@@ -3,6 +3,7 @@ package com.korleaguer.api;
 import com.korleaguer.domain.MinorGameLog;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.PlayerRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -67,7 +68,9 @@ class MyPlayersFormSummaryTest {
     }
 
     @Test
+    @DisplayName("마이너 선수 카드는 최근 마이너 경기로 성적과 한 줄 요약을 보여 준다")
     void minorLeaguerCardUsesMinorGames() throws Exception {
+        // when // then
         // 마이너 경기는 미국 저녁 경기(샘플 일정 19:05 동부)라 한국 날짜로 다음 날이다. 최근 7일(9/21 ~ 9/27)에는
         // 9월 20일(미국) 등판 하나만 든다. 시작 시각은 선수 화면 마이너 경기 줄과 같은 일정 시각이다(이슈 #183).
         mockMvc.perform(get("/api/my").param("ids", "5").param("days", "7"))
@@ -90,7 +93,9 @@ class MyPlayersFormSummaryTest {
     }
 
     @Test
+    @DisplayName("메이저 선수 카드는 상태 표시 없이 최근 출전 기록을 보여 준다")
     void majorLeaguerCardHasPlayLineAndNoBadge() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/my").param("ids", "1").param("days", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players[0].status").doesNotExist())
@@ -101,9 +106,15 @@ class MyPlayersFormSummaryTest {
     }
 
     @Test
+    @DisplayName("트리플A 등판 12번이 투구 기록 12줄로 저장된다")
     void minorGameLogIsStoredOncePerGame() {
+        // given
         long go = players.findByNameKo("고우석").orElseThrow().getId();
+
+        // when
         List<MinorGameLog> logs = minorGameLogs.findSeason(List.of(go), 2026);
+
+        // then
         assertThat(logs).hasSize(12);
         assertThat(logs).allSatisfy(log -> {
             assertThat(log.getLevel()).isEqualTo("AAA");

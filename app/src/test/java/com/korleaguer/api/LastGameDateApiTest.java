@@ -7,6 +7,7 @@ import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -114,8 +115,12 @@ class LastGameDateApiTest {
     }
 
     @Test
+    @DisplayName("내 선수 카드의 마지막 경기 날짜는 경기 시작 시각의 한국 날짜다")
     void lastGameDateIsTheKoreanDateOfTheStartTime() throws Exception {
+        // when
         JsonNode my = get("/api/my?ids=1,2,3,4&days=7");
+
+        // then
         JsonNode ga = my.get("players").get(0).get("status");
         JsonNode na = my.get("players").get(1).get("status");
         JsonNode da = my.get("players").get(2).get("status");
@@ -140,12 +145,15 @@ class LastGameDateApiTest {
     }
 
     @Test
+    @DisplayName("마지막 경기 날짜가 경기 달력에서 그 경기가 놓인 날과 같다")
     void lastGameDateIsTheDayTheCalendarShowsThatGame() throws Exception {
+        // when
         // 선수 화면 경기 달력은 경기 줄 startTimeKst의 날짜로 칸을 정한다(+09:00 시각이라 앞 10글자)
         JsonNode my = get("/api/my?ids=1,4&days=7");
         String gaCalendar = get("/api/players/1").get("games").get(0).get("startTimeKst").asString();
         String raCalendar = get("/api/players/4").get("minorGames").get(0).get("startTimeKst").asString();
 
+        // then
         assertThat(gaCalendar).startsWith(my.get("players").get(0).get("status").get("lastGameDate").asString());
         assertThat(raCalendar).startsWith(my.get("players").get(1).get("status").get("lastGameDate").asString());
     }

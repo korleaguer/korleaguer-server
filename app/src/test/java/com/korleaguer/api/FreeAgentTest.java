@@ -7,6 +7,7 @@ import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.ingest.IngestService;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -124,7 +125,9 @@ class FreeAgentTest {
     }
 
     @Test
+    @DisplayName("FA가 된 선수는 마지막 팀으로 남고 그 팀 경기를 결장으로 세지 않는다")
     void freeAgentKeepsLastTeamWithoutAbsences() throws Exception {
+        // when // then
         // 9/28: 처음부터 FA인 송성문도 시즌 기록의 마지막 팀(SD)으로 홈 시즌 성적에 나온다(타율순: 김하성, 송성문, 이정후).
         // 마지막 경기일(한국 9/27) 줄: 이정후 출전, 김하성 결장(ATL 소속). 송성문은 SD 경기를 결장으로 보지 않는다.
         mockMvc.perform(get("/api/home"))
@@ -138,11 +141,15 @@ class FreeAgentTest {
                 .andExpect(jsonPath("$.games[0].gameId").value(7002))
                 .andExpect(jsonPath("$.games[0].played").value(false));
 
+        // given
         // 11/10: 김하성이 FA가 됐다.
         client.freeAgents.add(673490L);
         clock.set(Instant.parse("2026-11-10T03:00:00Z"));
+
+        // when
         ingestService.catchUp(false);
 
+        // then
         // 홈 시즌 성적에 마지막 소속(ATL)으로 남고, ATL 경기는 더 이상 결장 줄을 만들지 않는다.
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.hitters", hasSize(3)))

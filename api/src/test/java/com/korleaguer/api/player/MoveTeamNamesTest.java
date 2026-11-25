@@ -8,6 +8,7 @@ import com.korleaguer.config.MinorTeamProperties;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMove;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -34,24 +35,31 @@ class MoveTeamNamesTest {
     private long nextId = 1;
 
     @Test
+    @DisplayName("트리플A와 더블A 팀은 한국어 지명에 단계를 붙인다")
     void tripleAAndDoubleATeamsGetTheKoreanPlaceAndTheLevel() {
+        // when
         List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
                 rehab("2026-07-17", GWINNETT, "Gwinnett Stripers"),
                 rehab("2026-04-28", COLUMBUS_DOUBLE_A, "Columbus Clingstones")), NAMES);
 
+        // then
         assertThat(moves).extracting(MoveEntry::toTeam).containsExactly("귀넷(트리플A)", "콜럼버스(더블A)");
         // MLB 구단은 지금처럼 한국어 구단 이름
         assertThat(moves).extracting(MoveEntry::fromTeam).containsOnly("애틀랜타");
     }
 
     @Test
+    @DisplayName("이름이 같은 콜럼버스 두 팀을 단계로 가린다")
     void theLevelTellsTheTwoColumbusTeamsApart() {
+        // when // then
         assertThat(NAMES.moveName(COLUMBUS_TRIPLE_A, "Columbus Clippers")).isEqualTo("콜럼버스(트리플A)");
         assertThat(NAMES.moveName(COLUMBUS_DOUBLE_A, "Columbus Clingstones")).isEqualTo("콜럼버스(더블A)");
     }
 
     @Test
+    @DisplayName("하위 단계 재활 팀도 한국어 이름에 단계를 붙인다")
     void lowerLevelRehabTeamsGetTheKoreanPlaceAndTheLevel() {
+        // when
         // 운영(11-19) 명단 6명의 이동 기록에서 영어로 남았던 하위 단계 팀 6곳(모두 재활 경기 배정, 이슈 #191)
         List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
                 rehabFrom("2026-07-13", "Atlanta Braves", ATLANTA, "Ha-Seong Kim", 464L, "FCL Braves"),
@@ -62,6 +70,7 @@ class MoveTeamNamesTest {
                 rehabFrom("2025-04-04", "Pensacola Blue Wahoos", 4124L, "Woo-Suk Go", 554L, "Beloit Sky Carp")),
                 NAMES);
 
+        // then
         assertThat(moves).extracting(MoveEntry::toTeam).containsExactly(
                 "FCL 브레이브스(루키)", "웨스트미시간(하이싱글A)", "브레이든턴(싱글A)", "주피터(싱글A)", "FCL 말린스(루키)",
                 "벌로이트(하이싱글A)");
@@ -71,7 +80,9 @@ class MoveTeamNamesTest {
     }
 
     @Test
+    @DisplayName("이름표에 없는 팀은 영어 이름을 그대로 보인다")
     void teamsNotInTheListKeepTheEnglishName() {
+        // when
         // 이름표에 넣지 않은 루키 도미니칸 서머 리그 팀(DSL Marlins)·국가대표(Korea)는 표에 없다.
         // 이름을 지어내지 않고 MLB가 준 이름 그대로
         List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
@@ -81,30 +92,38 @@ class MoveTeamNamesTest {
                 move("2025-02-05", "ASG", "RHP Woo-Suk Go assigned to Korea.", null, null, 1171L, "Korea", null)),
                 NAMES);
 
+        // then
         assertThat(moves).extracting(MoveEntry::toTeam).containsExactly("DSL Marlins", "Korea");
         // 보낸 쪽이 표에 있는 더블A 팀이면 그쪽은 한국어 지명과 단계, 팀이 없는 줄은 null 그대로
         assertThat(moves).extracting(MoveEntry::fromTeam).containsExactly("펜서콜라(더블A)", null);
     }
 
     @Test
+    @DisplayName("메이저 구단은 한국어 구단 이름으로 보인다")
     void majorLeagueClubsKeepTheirKoreanClubName() {
+        // when
         List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
                 move("2025-09-01", "CLW", "Atlanta Braves claimed SS Ha-Seong Kim off waivers from Tampa Bay Rays.",
                         139L, "Tampa Bay Rays", ATLANTA, "Atlanta Braves", Level.MLB)), NAMES);
 
+        // then
         assertThat(moves.getFirst().fromTeam()).isEqualTo("탬파베이");
         assertThat(moves.getFirst().toTeam()).isEqualTo("애틀랜타");
     }
 
     @Test
+    @DisplayName("경기 줄의 마이너 팀 이름에는 단계를 붙이지 않는다")
     void gameLinesKeepThePlaceWithoutTheLevel() {
+        // when // then
         // 경기 줄은 단계 칸(levelKo)이 따로 있어 이름에는 붙이지 않는다
         assertThat(NAMES.name(GWINNETT, null, "Gwinnett Stripers")).isEqualTo("귀넷");
         assertThat(NAMES.name(COLUMBUS_DOUBLE_A, "Columbus", "Columbus Clingstones")).isEqualTo("콜럼버스");
     }
 
     @Test
+    @DisplayName("루키 리그 경기는 우리 팀과 상대 팀을 모두 한국어로 보인다")
     void rookieGameLinesAreKoreanOnBothSides() {
+        // when // then
         // 김하성 2026 루키 재활 경기(운영 minorGames): FCL 브레이브스 vs FCL 트윈스·FCL 레드삭스. 우리 팀만 한국어가 되고
         // 상대가 영어로 남아 한 줄에 섞이지 않게 리그(플로리다 컴플렉스 리그) 팀이 모두 이름표에 있다.
         // MLB 일정의 지명(franchiseName)이 'FCL Braves'다
@@ -114,18 +133,24 @@ class MoveTeamNamesTest {
     }
 
     @Test
+    @DisplayName("모르는 단계가 적힌 팀이 있으면 이름표를 만들 때 예외를 던진다")
     void unknownLevelFailsAtStartup() {
+        // given
         MinorTeamProperties typo = new MinorTeamProperties(List.of(
                 new MinorTeamProperties.Team(GWINNETT, "AAAA", "귀넷", "Gwinnett Stripers")));
 
+        // when // then
         assertThatThrownBy(() -> new MinorTeamNames(typo)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
+    @DisplayName("단계가 없는 팀은 지명만 보인다")
     void teamWithoutALevelHasNoSuffix() {
+        // given
         MinorTeamNames names = new MinorTeamNames(new MinorTeamProperties(List.of(
                 new MinorTeamProperties.Team(GWINNETT, null, "귀넷", "Gwinnett Stripers"))));
 
+        // when // then
         assertThat(names.moveName(GWINNETT, "Gwinnett Stripers")).isEqualTo("귀넷");
     }
 
