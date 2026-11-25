@@ -8,6 +8,7 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.TrackedTeamGames;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -43,57 +44,80 @@ class OffSeasonFinderTest {
     }
 
     @Test
+    @DisplayName("우리 선수 구단이 이번 주에 경기했으면 비시즌이 아니다")
     void ourTeamsPlayedThisWeekSoInSeason() {
+        // given
         when(trackedTeams.hasRecentGames(NOV_11, OffSeasonFinder.QUIET_DAYS)).thenReturn(true);
 
+        // when // then
         assertThat(finder.find(roster(1L, 2L), NOV_11)).isNull();
     }
 
     @Test
+    @DisplayName("비시즌이면 다음 시즌 개막일까지 남은 날을 센다")
     void offSeasonCountsDaysToNextOpeningDay() {
+        // given
         when(seasonDates.findById(2027)).thenReturn(Optional.of(dates(2027, "2027-03-25", "2027-09-26")));
 
+        // when // then
         assertThat(finder.find(roster(1L, 2L, 3L), NOV_11)).isEqualTo(
                 new OffSeason(2026, 2027, LocalDate.parse("2027-03-25"), 134, List.of(1L, 2L, 3L), List.of()));
     }
 
     @Test
+    @DisplayName("다음 개막일이 아직 없으면 개막일과 남은 날을 비워 둔다")
     void unannouncedOpeningDayStaysEmpty() {
+        // when
         OffSeason off = finder.find(roster(1L), NOV_11);
 
+        // then
         assertThat(off.nextSeason()).isEqualTo(2027);
         assertThat(off.nextOpeningDay()).isNull();
         assertThat(off.daysToOpening()).isNull();
     }
 
     @Test
+    @DisplayName("정규시즌 기간에는 일주일 동안 구단 경기가 없어도 비시즌이 아니다")
     void quietWeekInsideTheRegularSeasonIsStillInSeason() {
+        // when // then
         // 7월: 우리 선수가 모두 부상·마이너라 일주일 동안 구단 경기가 없어도 시즌이 끝난 게 아니다
         assertThat(finder.find(roster(1L), Instant.parse("2026-07-15T12:00:00Z"))).isNull();
     }
 
     @Test
+    @DisplayName("포스트시즌 중이라도 우리 선수 구단 경기가 일주일 없으면 비시즌이다")
     void eliminatedFromThePostseasonIsOffSeason() {
+        // given
         // 10/20: 포스트시즌은 이어지지만 우리 선수 구단 경기가 일주일 없다(모두 탈락)
         when(seasonDates.findById(2027)).thenReturn(Optional.of(dates(2027, "2027-03-25", "2027-09-26")));
 
+        // when
         OffSeason off = finder.find(roster(1L), Instant.parse("2026-10-20T12:00:00Z"));
 
+        // then
         assertThat(off.season()).isEqualTo(2026);
         assertThat(off.daysToOpening()).isEqualTo(156);
     }
 
     @Test
+    @DisplayName("개막 전날은 하루 남은 비시즌이고 개막일에는 시즌 중이다")
     void dayBeforeOpeningIsOneDayLeftAndOpeningDayStartsTheSeason() {
+        // given
         when(seasonDates.findById(2027)).thenReturn(Optional.of(dates(2027, "2027-03-25", "2027-09-26")));
 
+        // when
         // 개막 전날(미국 날짜): 지금 시즌은 아직 2026이다
         OffSeason off = finder.find(roster(1L), Instant.parse("2027-03-24T13:00:00Z"));
+
+        // then
         assertThat(off.nextOpeningDay()).isEqualTo(LocalDate.parse("2027-03-25"));
         assertThat(off.daysToOpening()).isEqualTo(1);
 
+        // given
         // 개막일(미국 날짜)이 되면 지금 시즌이 2027로 넘어가고 정규시즌 기간이라, 첫 경기 전이어도 시즌 중이다
         when(currentSeason.current()).thenReturn(2027);
+
+        // when // then
         assertThat(finder.find(roster(1L), Instant.parse("2027-03-25T13:00:00Z"))).isNull();
     }
 

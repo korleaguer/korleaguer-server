@@ -12,6 +12,7 @@ import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.ResponseCaches;
 import com.korleaguer.posting.PostingProperties;
 import com.korleaguer.posting.Postings;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,14 +43,18 @@ class WarmEndpointTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("자동 수집이 꺼진 곳에서는 미리 채우기가 끝났다고 답한다")
     void readyWhenWarmingIsOff() throws Exception {
+        // when // then
         mockMvc.perform(get("/actuator/warm"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.warm").value(true));
     }
 
     @Test
+    @DisplayName("자동 수집이 켜진 곳에서는 첫 채우기가 끝나야 준비됐다고 답한다")
     void withScheduledIngestItIsReadyOnlyAfterTheFirstFill() {
+        // given
         KorleaguerProperties properties = new KorleaguerProperties(2026, null,
                 new KorleaguerProperties.Ingest(true, null), null, null, null);
         CacheWarmer warmer = new CacheWarmer(mock(BaseballQueryService.class), mock(MyPlayersService.class),
@@ -58,11 +63,14 @@ class WarmEndpointTest {
                 Executors.newVirtualThreadPerTaskExecutor(), Clock.systemUTC(), properties);
         WarmEndpoint endpoint = new WarmEndpoint(warmer);
 
+        // when // then
         assertThat(warmer.ready()).isFalse();
         assertThat(endpoint.warm().getStatus()).isEqualTo(503);
 
+        // when
         warmer.warm();
 
+        // then
         assertThat(warmer.ready()).isTrue();
         assertThat(endpoint.warm().getStatus()).isEqualTo(200);
         assertThat(endpoint.warm().getBody()).containsEntry("warm", true);

@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.domain.GameDetail.GameHighlight;
 import com.korleaguer.domain.GameDetail.GamePlay;
 import com.korleaguer.domain.Role;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import tools.jackson.databind.json.JsonMapper;
@@ -29,10 +30,13 @@ class GameDetailsTest {
     private final JsonMapper json = JsonMapper.builder().build();
 
     @Test
+    @DisplayName("이정후의 네 타석을 이닝과 한국어 결과, 공과 타구 값으로 담는다")
     void hitterPlateAppearancesInKorean() throws IOException {
+        // when
         List<GamePlay> plays = GameDetails.plays(read("playbyplay-823898.json", MlbPlayByPlay.class), LEE,
                 Role.HITTER);
 
+        // then
         assertThat(plays).extracting(GamePlay::inning).containsExactly(2, 3, 6, 9);
         assertThat(plays).extracting(GamePlay::resultKo)
                 .containsExactly("홈런", "중견수 뜬공", "우익수 뜬공", "3루수 파울 뜬공");
@@ -55,10 +59,13 @@ class GameDetailsTest {
     }
 
     @Test
+    @DisplayName("고우석이 7회말 상대한 타자 일곱 명의 결과를 순서대로 담는다")
     void pitcherSeesEachBatterFaced() throws IOException {
+        // when
         List<GamePlay> plays = GameDetails.plays(read("playbyplay-824410.json", MlbPlayByPlay.class), GO,
                 Role.PITCHER);
 
+        // then
         assertThat(plays).extracting(GamePlay::resultKo)
                 .containsExactly("홈런", "2루타", "2루타", "헛스윙 삼진", "2루타", "루킹 삼진", "중견수 뜬공");
         assertThat(plays.getFirst().opponentName()).isEqualTo("Patrick Bailey");
@@ -67,10 +74,13 @@ class GameDetailsTest {
     }
 
     @Test
+    @DisplayName("그 선수가 나온 영상만 담고 나온 영상이 없으면 비운다")
     void onlyThePlayersHighlightsWithMp4FirstChoice() throws IOException {
+        // when
         List<GameHighlight> highlights = GameDetails.highlights(read("content-823898.json", MlbGameContent.class),
                 LEE);
 
+        // then
         assertThat(highlights).hasSize(1);
         GameHighlight homer = highlights.getFirst();
         assertThat(homer.title()).isEqualTo("Jung Hoo Lee's solo home run (10)");
@@ -79,12 +89,15 @@ class GameDetailsTest {
         assertThat(homer.hlsUrl()).endsWith(".m3u8");
         assertThat(homer.imageUrl()).contains("w_960");
 
+        // when // then
         assertThat(GameDetails.highlights(read("content-824410.json", MlbGameContent.class), GO)).isEmpty();
         assertThat(GameDetails.highlights(null, LEE)).isEmpty();
     }
 
     @Test
+    @DisplayName("타석 결과를 우전 안타·병살타 같은 말로 옮기고 모르는 것은 영어로 둔다")
     void resultWordsForOtherOutcomes() {
+        // when // then
         assertThat(ko("single", null, hit("line_drive", "9"), null)).isEqualTo("우전 안타");
         assertThat(ko("single", null, hit("ground_ball", "6"), null)).isEqualTo("내야 안타");
         assertThat(ko("field_out", "Some batter grounds out, shortstop to first.", hit("ground_ball", "6"), "SS"))
@@ -100,7 +113,9 @@ class GameDetailsTest {
     }
 
     @Test
+    @DisplayName("영상 길이를 초로 바꾸고 읽을 수 없으면 비운다")
     void durationSeconds() {
+        // when // then
         assertThat(GameDetails.seconds("00:00:30")).isEqualTo(30);
         assertThat(GameDetails.seconds("00:01:05")).isEqualTo(65);
         assertThat(GameDetails.seconds("bad")).isNull();

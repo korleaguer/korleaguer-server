@@ -1,6 +1,7 @@
 package com.korleaguer.client;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
@@ -62,13 +63,17 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("여러 선수를 한 번에 요청해 신상과 소속 팀을 읽는다")
     void readsPeopleInOneRequest() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/people?"),
                         containsString("personIds=673490,678225,808970"), containsString("hydrate=currentTeam"))))
                 .andRespond(withSuccess(fixture("people-batch.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbPerson> people = client.getPeople(List.of(808970L, 673490L, 678225L));
 
+        // then
         assertThat(people).hasSize(6);
         MlbPerson go = people.stream().filter(p -> p.id() == 808970L).findFirst().orElseThrow();
         assertThat(go.fullName()).isEqualTo("Woo-Suk Go");
@@ -92,13 +97,17 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("타자의 경기별 기록에서 경기·팀·상대·타수를 읽는다")
     void readsHittingGameLog() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/people/808975/stats"), containsString("stats=gameLog"),
                         containsString("group=hitting"), containsString("season=2026"))))
                 .andRespond(withSuccess(fixture("gamelog-hitting-808975.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbGameLogSplit> splits = client.getGameLog(808975, MlbClient.Group.HITTING, 2026);
 
+        // then
         assertThat(splits).hasSize(3);
         MlbGameLogSplit first = splits.getFirst();
         assertThat(first.gamePk()).isEqualTo(822756L);
@@ -113,12 +122,16 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("투수의 경기별 기록에서 이닝·자책점·탈삼진·투구 수를 읽는다")
     void readsPitchingGameLog() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("group=pitching"))))
                 .andRespond(withSuccess(fixture("gamelog-pitching-808970.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbGameLogSplit> splits = client.getGameLog(808970, MlbClient.Group.PITCHING, 2026);
 
+        // then
         assertThat(splits).hasSize(4);
         MlbStat debut = splits.getFirst().stat();
         assertThat(splits.getFirst().gamePk()).isEqualTo(823683L);
@@ -132,7 +145,9 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("마이너 경기의 타격과 투구를 한 번에 요청해 경기 단계까지 읽는다")
     void readsMinorGameLogForHittingAndPitchingAtOnce() {
+        // given
         // 실제 응답(2026 고우석, 경기 몇 개만 남겨 저장): 투구 3경기(트리플A 2·더블A 1), 타격 1경기.
         // 경기마다 단계(sport)와 홀드가 온다.
         server.expect(requestTo(allOf(containsString("/api/v1/people/808970/stats"), containsString("stats=gameLog"),
@@ -140,8 +155,10 @@ class HttpMlbClientTest {
                         containsString("season=2026"))))
                 .andRespond(withSuccess(fixture("gamelog-minors-808970.json"), MediaType.APPLICATION_JSON));
 
+        // when
         MlbMinorGameLog log = client.getMinorGameLog(808970, 2026);
 
+        // then
         assertThat(log.pitching()).hasSize(3);
         assertThat(log.hitting()).hasSize(1);
         assertThat(log.counts()).isEqualTo(new MlbMinorGames(1, 3));
@@ -156,21 +173,28 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("마이너 경기가 없으면 빈 기록으로 읽는다")
     void minorGameLogIsEmptyWhenNoMinorGames() {
+        // given
         server.expect(requestTo(containsString("/api/v1/people/808982/stats")))
                 .andRespond(withSuccess("{\"stats\":[]}", MediaType.APPLICATION_JSON));
 
+        // when // then
         assertThat(client.getMinorGameLog(808982, 2026)).isEqualTo(MlbMinorGameLog.NONE);
     }
 
     @Test
+    @DisplayName("경기 번호로 마이너 경기를 요청해 팀 연고지와 점수를 읽는다")
     void readsMinorGamesByGamePkWithTeamPlaces() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/schedule?"), containsString("gamePks=815254,816374"),
                         containsString("hydrate=team"))))
                 .andRespond(withSuccess(fixture("schedule-gamepks-minors.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbScheduleGame> games = client.getGames(List.of(816374L, 815254L));
 
+        // then
         assertThat(games).extracting(MlbScheduleGame::gamePk).containsExactly(815254L, 816374L);
         MlbScheduleGame okc = games.getFirst();
         assertThat(okc.gameDate()).isEqualTo("2026-03-28T00:05:00Z");
@@ -183,13 +207,16 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("경기 41개를 물으면 40개씩 나눠 두 번 요청한다")
     void manyGamesAreAskedFortyAtATime() {
+        // given
         String firstForty = LongStream.rangeClosed(1, 40).mapToObj(String::valueOf).collect(Collectors.joining(","));
         server.expect(requestTo(containsString("gamePks=" + firstForty + "&")))
                 .andRespond(withSuccess("{\"dates\":[]}", MediaType.APPLICATION_JSON));
         server.expect(requestTo(containsString("gamePks=41&")))
                 .andRespond(withSuccess("{\"dates\":[]}", MediaType.APPLICATION_JSON));
 
+        // when // then
         assertThat(client.getGames(LongStream.rangeClosed(1, 41).boxed().toList())).isEmpty();
 
         server.verify();
@@ -197,13 +224,17 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("여러 팀의 시즌 일정을 한 번에 요청하고 연기된 경기는 두 번 나온다")
     void readsSeasonScheduleForSeveralTeams() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/schedule"), containsString("sportId=1"),
                         containsString("teamId=119,137"), containsString("season=2026"))))
                 .andRespond(withSuccess(fixture("schedule-137-119-2026.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbScheduleGame> games = client.getSeasonSchedule(List.of(137L, 119L), 2026);
 
+        // then
         assertThat(games).extracting(MlbScheduleGame::gameType).contains("R", "D", "S");
         MlbScheduleGame opener = games.stream().filter(g -> g.gamePk() == 823244L).findFirst().orElseThrow();
         assertThat(opener.gameDate()).isEqualTo("2026-03-26T00:05:00Z");
@@ -219,21 +250,28 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("날짜를 정해 일정을 요청하고 경기가 없으면 빈 목록으로 읽는다")
     void readsScheduleByDates() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/schedule"), containsString("teamId=137"),
                         containsString("startDate=2026-09-25"), containsString("endDate=2026-09-26"))))
                 .andRespond(withSuccess("{\"dates\":[]}", MediaType.APPLICATION_JSON));
 
+        // when // then
         assertThat(client.getSchedule(List.of(137L), LocalDate.of(2026, 9, 25), LocalDate.of(2026, 9, 26))).isEmpty();
     }
 
     @Test
+    @DisplayName("박스스코어에서 점수와 선발·교체·벤치 선수의 기록을 읽는다")
     void readsBoxscore() {
+        // given
         server.expect(requestTo("http://mlb.test/api/v1/game/823165/boxscore"))
                 .andRespond(withSuccess(fixture("boxscore-823165.json"), MediaType.APPLICATION_JSON));
 
+        // when
         MlbBoxscore box = client.getBoxscore(823165);
 
+        // then
         MlbBoxscore.Side home = box.teams().home();
         assertThat(home.team().id()).isEqualTo(137L);
         assertThat(home.runs()).isEqualTo(3);
@@ -262,14 +300,18 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("이동 기록에서 날짜·종류·두 팀을 읽고 떠난 팀이 없으면 비워 둔다")
     void readsTransactions() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/transactions"), containsString("playerId=808970"),
                         containsString("startDate=2025-01-01"), containsString("endDate=2026-12-31"))))
                 .andRespond(withSuccess(fixture("transactions-808970.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbTransaction> moves = client.getTransactions(808970, LocalDate.of(2025, 1, 1),
                 LocalDate.of(2026, 12, 31));
 
+        // then
         assertThat(moves).hasSize(35);
         MlbTransaction outright = moves.stream().filter(m -> m.id() == 940170L).findFirst().orElseThrow();
         assertThat(outright.date()).isEqualTo("2026-08-30");
@@ -286,12 +328,16 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("팀 정보에서 이름·약자·리그 단계·상위 구단을 읽는다")
     void readsTeamSport() {
+        // given
         server.expect(requestTo("http://mlb.test/api/v1/teams/1960"))
                 .andRespond(withSuccess(fixture("team-1960.json"), MediaType.APPLICATION_JSON));
 
+        // when
         MlbTeam team = client.getTeam(1960);
 
+        // then
         assertThat(team.name()).isEqualTo("St. Paul Saints");
         assertThat(team.abbreviation()).isEqualTo("STP");
         assertThat(team.sportId()).isEqualTo(11L);
@@ -299,12 +345,16 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("시즌 정보에서 정규시즌 시작·끝과 포스트시즌 끝 날짜를 읽는다")
     void readsSeasonDates() {
+        // given
         server.expect(requestTo("http://mlb.test/api/v1/seasons/2027?sportId=1"))
                 .andRespond(withSuccess(fixture("season-2027.json"), MediaType.APPLICATION_JSON));
 
+        // when
         MlbSeason season = client.getSeason(2027);
 
+        // then
         assertThat(season.seasonId()).isEqualTo("2027");
         assertThat(season.regularSeasonStartDate()).isEqualTo("2027-03-25");
         assertThat(season.regularSeasonEndDate()).isEqualTo("2027-09-26");
@@ -312,23 +362,30 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("아직 발표되지 않은 시즌을 물으면 시즌 정보가 비어 있다")
     void unannouncedSeasonIsNull() {
+        // given
         // 아직 발표되지 않은 해는 200에 빈 목록이 온다(2031로 확인, 2026-11-10).
         server.expect(requestTo("http://mlb.test/api/v1/seasons/2031?sportId=1"))
                 .andRespond(withSuccess("{\"copyright\":\"...\",\"seasons\":[]}", MediaType.APPLICATION_JSON));
 
+        // when // then
         assertThat(client.getSeason(2031)).isNull();
     }
 
     @Test
+    @DisplayName("리그 전체 타자의 세부 기록을 한 번에 요청하고 이적 선수도 한 줄로 읽는다")
     void readsLeagueSabermetricsForEveryPlayerAtOnce() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/stats?"), containsString("stats=sabermetrics"),
                         containsString("group=hitting"), containsString("season=2026"), containsString("sportIds=1"),
                         containsString("playerPool=ALL"), containsString("limit=2000"))))
                 .andRespond(withSuccess(fixture("league-sabermetrics-hitting-2026.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbSeasonSplit> splits = client.getLeagueSabermetrics(MlbClient.Group.HITTING, 2026);
 
+        // then
         assertThat(splits).hasSize(2);
         MlbSeasonSplit lee = splits.stream().filter(s -> s.player().id() == 808982L).findFirst().orElseThrow();
         assertThat(lee.stat().wRcPlus()).isEqualTo(101.786);
@@ -345,13 +402,17 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("리그 전체 투수의 시즌 합계에서 이닝·탈삼진·평균자책점을 읽는다")
     void readsLeaguePitchingSeasonTotals() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/stats?"), containsString("stats=season"),
                         containsString("group=pitching"), containsString("playerPool=ALL"))))
                 .andRespond(withSuccess(fixture("league-season-pitching-2026.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbSeasonSplit> splits = client.getLeagueSeasonStats(MlbClient.Group.PITCHING, 2026);
 
+        // then
         MlbSeasonSplit go = splits.stream().filter(s -> s.player().id() == 808970L).findFirst().orElseThrow();
         assertThat(go.stat().inningsPitched()).isEqualTo("4.0");
         assertThat(go.stat().battersFaced()).isEqualTo(22);
@@ -362,13 +423,17 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("연도별 기록에서 이적한 해는 팀별 두 줄과 합친 한 줄로 읽는다")
     void readsYearByYearWithTradedSeason() {
+        // given
         server.expect(requestTo(allOf(containsString("/api/v1/people/673490/stats"), containsString("stats=yearByYear"),
                         containsString("group=hitting"), containsString("sportId=1"))))
                 .andRespond(withSuccess(fixture("yearbyyear-hitting-673490.json"), MediaType.APPLICATION_JSON));
 
+        // when
         List<MlbSeasonSplit> splits = client.getYearByYear(673490, MlbClient.Group.HITTING);
 
+        // then
         assertThat(splits).hasSize(8);
         List<MlbSeasonSplit> traded = splits.stream().filter(s -> "2025".equals(s.season())).toList();
         assertThat(traded).extracting(s -> s.team() == null ? null : s.team().id()).containsExactly(139L, 144L, null);
@@ -382,30 +447,39 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("MLB에 없는 경기나 팀을 물으면 빈 값으로 읽는다")
     void notFoundIsNull() {
+        // given
         server.expect(requestTo(containsString("/api/v1/game/1/boxscore"))).andRespond(withStatus(HttpStatus.NOT_FOUND));
         server.expect(requestTo(containsString("/api/v1/teams/2"))).andRespond(withStatus(HttpStatus.NOT_FOUND));
 
+        // when // then
         assertThat(client.getBoxscore(1)).isNull();
         assertThat(client.getTeam(2)).isNull();
     }
 
     @Test
+    @DisplayName("MLB가 403이나 429로 막으면 차단으로 알리고 다시 시도하지 않는다")
     void forbiddenAndTooManyRequestsStopTheRun() {
+        // given
         server.expect(requestTo(containsString("/api/v1/people"))).andRespond(withStatus(HttpStatus.FORBIDDEN));
         server.expect(requestTo(containsString("/api/v1/teams/1"))).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
 
+        // when // then
         assertThatThrownBy(() -> client.getPeople(List.of(1L))).isInstanceOf(MlbBlockedException.class);
         assertThatThrownBy(() -> client.getTeam(1)).isInstanceOf(MlbBlockedException.class);
         assertThat(client.requestCount()).isEqualTo(2); // 다시 시도하지 않는다
     }
 
     @Test
+    @DisplayName("서버 오류나 연결 끊김은 차단으로 보지 않고 다시 시도하지 않는다")
     void otherFailuresAreNotBlocked() {
+        // given
         server.expect(requestTo(containsString("/api/v1/game/1/boxscore"))).andRespond(withStatus(HttpStatus.BAD_GATEWAY));
         server.expect(requestTo(containsString("/api/v1/game/2/boxscore")))
                 .andRespond(withException(new IOException("connection reset")));
 
+        // when // then
         assertThatThrownBy(() -> client.getBoxscore(1))
                 .isInstanceOf(MlbApiException.class).isNotInstanceOf(MlbBlockedException.class);
         assertThatThrownBy(() -> client.getBoxscore(2))
@@ -414,16 +488,20 @@ class HttpMlbClientTest {
     }
 
     @Test
+    @DisplayName("MLB에 연달아 요청하면 사이에 1초 이상 기다린다")
     void waitsOneSecondBetweenRequests() {
+        // given
         server.expect(requestTo(containsString("/api/v1/teams/1960")))
                 .andRespond(withSuccess(fixture("team-1960.json"), MediaType.APPLICATION_JSON));
         server.expect(requestTo(containsString("/api/v1/teams/1960")))
                 .andRespond(withSuccess(fixture("team-1960.json"), MediaType.APPLICATION_JSON));
 
+        // when
         client.getTeam(1960);
         long first = now[0];
         client.getTeam(1960);
 
+        // then
         assertThat(now[0] - first).isGreaterThanOrEqualTo(SECOND);
         assertThat(client.requestCount()).isEqualTo(2);
     }

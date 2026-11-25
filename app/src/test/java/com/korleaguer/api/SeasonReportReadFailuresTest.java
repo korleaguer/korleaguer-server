@@ -13,6 +13,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonMetricRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -134,7 +135,9 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
+    @DisplayName("조회가 모두 되면 성적표에 세부 기록·기사·거론 구단이 모두 나온다")
     void everyPartIsThereWhenNothingFails() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.offseason.report[*].playerId", hasItem((int) leeId)))
@@ -148,9 +151,12 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
+    @DisplayName("시즌 기록을 못 읽으면 홈 성적표만 비고 시즌 성적은 그대로 나온다")
     void seasonRecordsFailSoOnlyTheReportIsEmpty() throws Exception {
+        // given
         doAnswer(failsInDatabase()).when(metrics).findSeasons(any(), anyInt(), anyInt());
 
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.offseason.playerIds", hasSize(6)))
@@ -160,9 +166,12 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
+    @DisplayName("한 선수의 이동 기록을 못 읽으면 성적표에서 그 선수만 빠진다")
     void onePlayersMovesFailSoOnlyHeIsLeftOut() throws Exception {
+        // given
         doAnswer(failsInDatabase()).when(moves).findNewestFirst(leeId);
 
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.offseason.report[*].playerId", not(hasItem((int) leeId))))
@@ -171,9 +180,12 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
+    @DisplayName("MLB 안 위치를 못 읽으면 성적표의 세부 기록만 비고 기사는 그대로 나온다")
     void leaguePositionsFailSoOnlyTheSaberIsNull() throws Exception {
+        // given
         doAnswer(failsInDatabase()).when(leaguePositions).findSeason(any(), anyInt());
 
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.offseason.report[*].playerId", hasItem((int) leeId)))
@@ -182,9 +194,12 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
+    @DisplayName("한 선수의 겨울 기사를 못 읽으면 그 선수의 기사만 빈다")
     void winterNewsFailsSoOnlyThatPlayersNewsIsEmpty() throws Exception {
+        // given
         doAnswer(failsInDatabase()).when(news).findLatest(eq("이정후"), any());
 
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(report(leeId) + ".saber.wrcPlus").value(contains(101.8)))
@@ -198,9 +213,12 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
+    @DisplayName("거론 구단을 못 읽으면 거론 구단만 비고 기사는 그대로 나온다")
     void linkedTeamsFailSoOnlyTheyAreNull() throws Exception {
+        // given
         doAnswer(failsInDatabase()).when(destinations).findMentions(eq("김하성"), any(), any());
 
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(report(kimId) + ".linkedTeams").value(contains(nullValue())))

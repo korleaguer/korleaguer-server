@@ -2,6 +2,7 @@ package com.korleaguer.api.records;
 
 import com.korleaguer.domain.KoreanMlbSeason.Counts;
 import com.korleaguer.domain.PlayerSeasonMetric.Group;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -56,9 +57,12 @@ class KoreanRecordsTest {
     }
 
     @Test
+    @DisplayName("시즌 기록을 더해 통산 순위를 매기고 타자와 투수를 나눈다")
     void ranksCareerTotalsAndKeepsHittersAndPitchersApart() {
+        // when
         RecordsResponse records = build(Map.of());
 
+        // then
         RecordCategory hits = category(records, "hits");
         assertThat(hits.group()).isEqualTo("HITTING");
         assertThat(hits.unit()).isEqualTo("안타");
@@ -81,13 +85,18 @@ class KoreanRecordsTest {
     }
 
     @Test
+    @DisplayName("기록이 같으면 공동 순위이고 먼저 데뷔한 선수가 앞에 온다")
     void sameValueSharesTheRank() {
+        // given
         Map<Long, List<KoreanRecords.SeasonLine>> seasons = Map.of(
                 LEE.mlbId(), List.of(new KoreanRecords.SeasonLine(2026, hitting(10, 20, 1))),
                 KANG.mlbId(), List.of(new KoreanRecords.SeasonLine(2015, hitting(30, 20, 5))),
                 HEE.mlbId(), List.of(new KoreanRecords.SeasonLine(2004, hitting(20, 10, 3))));
+
+        // when
         RecordsResponse records = response(KoreanRecords.build(2026, List.of(LEE, KANG, HEE), seasons, Map.of()));
 
+        // then
         // 안타 20개 둘은 공동 1위, 먼저 데뷔한 강정호가 앞. 다음은 3위
         assertThat(category(records, "hits").leaders()).extracting(RecordLeader::nameKo, RecordLeader::rank)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("강정호", 1),
@@ -96,9 +105,12 @@ class KoreanRecordsTest {
     }
 
     @Test
+    @DisplayName("현역 선수에게만 바로 위 선수와 넘기까지 남은 수를 알린다")
     void nextIsTheClosestPlayerAboveForActivePlayersOnly() {
+        // when
         RecordsResponse records = build(Map.of());
 
+        // then
         // 이정후 안타 336 → 바로 위 최지만 367, 넘으려면 32개, 넘으면 1위
         RecordNext hits = next(records, "hits");
         assertThat(hits.nameKo()).isEqualTo("이정후");
@@ -119,11 +131,14 @@ class KoreanRecordsTest {
     }
 
     @Test
+    @DisplayName("다른 선수의 통산 안타를 넘은 경기 날짜를 최근 것부터 찾는다")
     void passedFindsTheGameThatCrossedAFormerPlayersTotal() {
+        // when
         // 지난 시즌까지 187안타. 4월 1일 +20 = 207, 5월 1일 +14 = 221(최희섭 220을 넘음), 5월 17일 +13 = 234(강정호 233)
         RecordsResponse records = build(Map.of(LEE.mlbId(), List.of(
                 game("2026-04-01", 20), game("2026-05-01", 14), game("2026-05-17", 13), game("2026-09-27", 102))));
 
+        // then
         assertThat(records.passed()).extracting(RecordPassed::dateKst, RecordPassed::passedNameKo,
                         RecordPassed::category)
                 .containsExactly(
@@ -134,26 +149,42 @@ class KoreanRecordsTest {
     }
 
     @Test
+    @DisplayName("오늘 경기까지 더한 기록이 더 많으면 그 값을 통산에 쓴다")
     void todaysGamesCountBeforeTheDailySeasonLineArrives() {
+        // when
         // 저장한 2026 줄은 149안타인데 경기 기록 합이 150이면(오늘 경기를 아직 yearByYear로 못 받음) 통산은 337
         RecordsResponse records = build(Map.of(LEE.mlbId(), List.of(game("2026-09-27", 150))));
+
+        // then
         assertThat(category(records, "hits").leaders().get(1).value()).isEqualTo(337);
         assertThat(next(records, "hits").toPass()).isEqualTo(31);
+
+        // when
         // 경기 기록 합이 더 적으면(빠진 경기) 저장한 줄을 그대로 쓴다
         RecordsResponse fewer = build(Map.of(LEE.mlbId(), List.of(game("2026-09-27", 100))));
+
+        // then
         assertThat(category(fewer, "hits").leaders().get(1).value()).isEqualTo(336);
     }
 
     @Test
+    @DisplayName("통산 안타가 같아지기만 하면 넘은 기록으로 치지 않는다")
     void reachingTheSameValueIsNotPassing() {
+        // when
         // 187 + 33 = 220: 최희섭과 같아졌을 뿐 넘지 않았다
         RecordsResponse records = build(Map.of(LEE.mlbId(), List.of(game("2026-04-30", 33))));
+
+        // then
         assertThat(records.passed()).isEmpty();
     }
 
     @Test
+    @DisplayName("한 시즌 최다는 선수가 아니라 시즌마다 한 줄씩 매긴다")
     void singleSeasonListsSeasonsNotPlayers() {
+        // when
         RecordsResponse records = build(Map.of());
+
+        // then
         RecordBest hits = records.singleSeason().stream().filter(b -> b.key().equals("hits")).findFirst()
                 .orElseThrow();
         // 시즌마다 한 줄: 이정후 2025·2026 149안타가 공동 4위로 따로 나온다(먼저 시즌이 앞)

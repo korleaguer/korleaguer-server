@@ -8,6 +8,7 @@ import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -101,18 +102,24 @@ class CatchUpGapTest {
     }
 
     @Test
+    @DisplayName("며칠 멈췄다 깨면 밀린 날부터 오늘까지 받고 그다음엔 어제·오늘만 받는다")
     void catchUpRefreshesFromMissedDays() {
+        // when // then
         // 앱 시작 때 시즌 백필: 7001(8/6)은 끝나 굳었고, 7002~7004는 경기 전으로 저장됐다.
         assertThat(stored(7001).isSettled()).isTrue();
         assertThat(stored(7002).getStatusState()).isEqualTo("scheduled");
         assertThat(games.findById(7005L)).isEmpty();
 
+        // given
         // 8/14 18:00Z에 다시 깨어남. 그사이 7002~7004가 끝났고, DB에 없던 7005(8/13, 나중에 잡힌 경기)도 끝났다.
         clock.set(Instant.parse("2026-08-14T18:00:00Z"));
         client.use(afterGap());
         client.takeSchedulesAsked();
+
+        // when
         ingestService.catchUp(true);
 
+        // then
         // 마지막으로 끝난 경기(7001)의 날부터 오늘까지 일정 1번, 결과를 못 받은 경기만 박스스코어로 받는다.
         assertThat(client.takeSchedulesAsked()).containsExactly("2026-08-06~2026-08-14");
         // 7001은 선발·교체를 모르는 지난 경기라 선발·교체 채우기(fillLineups)로 한 번 받는다.
@@ -122,9 +129,14 @@ class CatchUpGapTest {
             assertThat(appearances.findByPlayersAndGames(List.of(1L), List.of(gamePk))).hasSize(1);
         }
 
+        // given
         // 따라잡은 뒤에는 다시 어제·오늘만 받는다.
         clock.set(Instant.parse("2026-08-14T18:12:00Z"));
+
+        // when
         ingestService.catchUp(true);
+
+        // then
         assertThat(client.takeSchedulesAsked()).containsExactly("2026-08-13~2026-08-14");
         assertThat(client.takeBoxscoresAsked()).isEmpty();
     }

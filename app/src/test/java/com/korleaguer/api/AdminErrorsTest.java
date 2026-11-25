@@ -2,6 +2,7 @@ package com.korleaguer.api;
 
 import com.korleaguer.ingest.IngestAlreadyRunningException;
 import com.korleaguer.ingest.IngestService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,16 +33,21 @@ class AdminErrorsTest {
     private IngestService ingestService;
 
     @Test
+    @DisplayName("관리 토큰 없이 수집을 부르면 403과 forbidden을 준다")
     void withoutTokenIsForbidden() throws Exception {
+        // when // then
         mockMvc.perform(post("/admin/ingest/catch-up"))
                 .andExpect(status().isForbidden())
                 .andExpect(content().json("{\"error\":\"forbidden\"}", true));
     }
 
     @Test
+    @DisplayName("이미 수집하는 중에 또 부르면 409와 수집 중이라는 오류를 준다")
     void ingestAlreadyRunningIsConflict() throws Exception {
+        // given
         when(ingestService.ingestGames(any())).thenThrow(new IngestAlreadyRunningException());
 
+        // when // then
         mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26")
                         .header("X-Admin-Token", "test-admin-token"))
                 .andExpect(status().isConflict())

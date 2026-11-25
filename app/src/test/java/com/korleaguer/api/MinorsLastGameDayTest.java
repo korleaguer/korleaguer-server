@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,7 +80,9 @@ class MinorsLastGameDayTest {
     }
 
     @Test
+    @DisplayName("홈의 마지막 경기일은 마이너 선수 구단의 경기를 빼고 정한다")
     void homeFallbackIgnoresMinorsPlayersClub() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players"))
                 .andExpect(jsonPath("$[1].level").value("MINORS"));
         mockMvc.perform(get("/api/home"))
@@ -90,7 +93,9 @@ class MinorsLastGameDayTest {
     }
 
     @Test
+    @DisplayName("내 선수 기간은 구단 경기가 아니라 본인이 마지막으로 뛴 날에 끝난다")
     void myPlayersFallbackIgnoresMinorsPlayersClub() throws Exception {
+        // when // then
         // 내 선수는 선수마다 본인이 마지막으로 뛴 날까지다. 배지환은 밀워키의 9월 28일 경기가 아니라
         // 본인이 뛴 8월 2일(한국 날짜)까지다.
         // (맨 위 isFallback은 '마지막으로 뛴 날까지' 기간을 보이는 카드가 있는지다. 시즌 끝·마이너 카드라 없다.)

@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.MlbTransaction;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -85,7 +86,9 @@ class MinorStintAbsenceTest {
     }
 
     @Test
+    @DisplayName("트리플A에 내려가 있던 동안의 구단 경기는 결장으로 세지 않는다")
     void gamesWhileInTripleAHaveNoAbsenceLine() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.games[*].gameId").value(contains(9006, 9005, 9002, 9001)))
                 .andExpect(jsonPath("$.games[*].played").value(contains(true, false, false, true)))

@@ -4,6 +4,7 @@ import com.korleaguer.api.article.NewsPageFinder;
 
 import com.korleaguer.domain.NewsArticle;
 import com.korleaguer.domain.NewsArticleRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,7 +42,9 @@ class NewsApiTest {
     private int seq;
 
     @Test
+    @DisplayName("기사 한 건에 요약과 그 선수의 다른 기사를 함께 보여 준다")
     void servesOneArticleWithTheOtherArticlesOfThePlayer() throws Exception {
+        // given
         NewsArticle older = news.save(new NewsArticle("노시환", "https://www.mydaily.co.kr/1", "a1", "노시환 MLB 첫 소식",
                 "마이데일리", Instant.parse("2026-11-02T03:00:00Z"), Instant.parse("2026-11-02T03:10:00Z")));
         NewsArticle article = new NewsArticle("노시환", "https://www.mlbtraderumors.com/roh", "a2", "Roh Posted",
@@ -50,6 +53,7 @@ class NewsApiTest {
                 "claude-haiku-5-5", Instant.parse("2026-11-10T03:30:00Z"));
         article = news.save(article);
 
+        // when // then
         mockMvc.perform(get("/api/news/" + article.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(article.getId()))
@@ -69,7 +73,9 @@ class NewsApiTest {
     }
 
     @Test
+    @DisplayName("같은 글을 실은 언론사가 뉴스 탭 목록과 같고 연 기사의 언론사는 빠진다")
     void alsoByIsTheSameAsTheNewsTabLine() throws Exception {
+        // given
         // 마이데일리 기사를 스포츠조선·조선일보가 같은 제목으로 실었다(뺀 언론사 사본은 넣지 않는다, 이슈 #180)
         Instant at = Instant.parse("2026-11-14T12:00:00Z");
         NewsArticle first = save("이정후", "이정후 새 타격코치", "마이데일리", at);
@@ -77,6 +83,7 @@ class NewsApiTest {
         save("이정후", "이정후 새 타격코치", "없는 언론사", at.plusSeconds(900));
         save("이정후", "이정후 새 타격코치", "조선일보", at.plusSeconds(1200));
 
+        // when // then
         mockMvc.perform(get("/api/news").param("player", "이정후"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
@@ -92,7 +99,9 @@ class NewsApiTest {
     }
 
     @Test
+    @DisplayName("오래된 기사도 앞뒤 이틀 안에 같은 글을 실은 언론사를 찾아 준다")
     void anOldArticleFindsItsCopiesBeyondTheLatestArticles() throws Exception {
+        // given
         // 뉴스 탭을 넘겨 연 오래된 기사: 뒤에 이 선수 기사가 많이 쌓여 최근 기사에 사본이 없어도 이 기사 앞뒤 이틀에서 찾는다
         Instant at = Instant.parse("2026-11-01T03:00:00Z");
         NewsArticle old = save("이정후", "이정후 연봉 조정 소식", "마이데일리", at);
@@ -102,6 +111,7 @@ class NewsApiTest {
             save("이정후", "이정후 다른 소식 " + i, "마이데일리", at.plus(Duration.ofDays(5)).plus(Duration.ofMinutes(i)));
         }
 
+        // when // then
         mockMvc.perform(get("/api/news/" + old.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.alsoBy", contains("스포츠조선")))
@@ -109,7 +119,9 @@ class NewsApiTest {
     }
 
     @Test
+    @DisplayName("가운데 기사가 이어 주면 이틀 넘게 떨어진 같은 글도 한 묶음이다")
     void copiesLinkedThroughAnotherCopyAreCountedLikeTheNewsTabLine() throws Exception {
+        // given
         // 같은 제목이 36시간 간격으로 세 언론사에 실렸다. 첫 기사와 마지막 기사는 이틀 넘게 떨어졌지만 가운데 기사가 이어 줘
         // 목록은 한 줄로 묶는다. 기사 페이지도 그 기사 앞뒤 이틀에서 그치지 않고 넓혀 읽어 같은 언론사를 준다
         Instant at = Instant.parse("2026-11-08T00:00:00Z");
@@ -117,6 +129,7 @@ class NewsApiTest {
         save("이정후", "이정후 연봉 조정 소식", "스포츠조선", at.plus(Duration.ofHours(36)));
         NewsArticle last = save("이정후", "이정후 연봉 조정 소식", "조선일보", at.plus(Duration.ofHours(72)));
 
+        // when // then
         mockMvc.perform(get("/api/news").param("player", "이정후"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
@@ -131,10 +144,13 @@ class NewsApiTest {
     }
 
     @Test
+    @DisplayName("없는 기사와 뺀 언론사 기사는 404, 숫자가 아닌 번호는 400을 준다")
     void unknownOrDroppedArticlesAreNotFound() throws Exception {
+        // given
         NewsArticle dropped = news.save(new NewsArticle("노시환", "https://example.com/dropped", "d1", "노시환 MLB 소식",
                 "없는 언론사", Instant.parse("2026-11-10T03:00:00Z"), Instant.parse("2026-11-10T03:10:00Z")));
 
+        // when // then
         mockMvc.perform(get("/api/news/" + dropped.getId()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("news not found"));
@@ -143,12 +159,15 @@ class NewsApiTest {
     }
 
     @Test
+    @DisplayName("HEAD로 물으면 보이는 기사만 본문 없는 HTTP 200을 준다")
     void headAnswersOnlyWhetherTheArticleIsShown() throws Exception {
+        // given
         // 웹이 기사 화면을 열 때마다 먼저 묻는다. GET과 같은 기준(없는 번호·뺀 언론사는 404)으로 본문 없이 상태만
         Instant at = Instant.parse("2026-11-10T03:00:00Z");
         NewsArticle shown = save("노시환", "노시환 MLB 소식", "마이데일리", at);
         NewsArticle dropped = save("노시환", "노시환 MLB 소식", "없는 언론사", at);
 
+        // when // then
         mockMvc.perform(head("/api/news/" + shown.getId()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(""));

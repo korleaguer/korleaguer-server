@@ -4,6 +4,7 @@ import com.korleaguer.domain.LeagueAverage;
 import com.korleaguer.domain.LeagueAverageRepository;
 import com.korleaguer.domain.MinorGameLogRepository;
 import com.korleaguer.domain.MinorSeasonLevel;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -65,7 +66,9 @@ class MySqlCompatibilityTest {
     }
 
     @Test
+    @DisplayName("MySQL에서 앱이 떠서 홈·선수 페이지·내 선수 데이터를 준다")
     void appRunsOnMySql() throws Exception {
+        // when // then
         // 시각(datetime(6), UTC)이 그대로 돌아와 한국 날짜·시각이 H2와 같게 나온다(ApiIntegrationTest와 같은 값)
         mockMvc.perform(get("/api/home"))
                 .andExpect(status().isOk())
@@ -95,23 +98,33 @@ class MySqlCompatibilityTest {
     }
 
     @Test
+    @DisplayName("MySQL에 넣은 리그 평균은 그대로 돌아오고 시즌·단계마다 한 줄뿐이다")
     void leagueAverageRoundTripsOnMySql() {
+        // given
         // 리그 평균(V28, 이슈 #233): 반올림하지 않은 값이 그대로 돌아와야 화면 숫자가 받은 자리에서 계산한 값과 같다
         LeagueAverage.Values values = new LeagueAverage.Values(1968.38 / 6125, 711 / 6200.0, 641 * 27.0 / 4320);
         Instant fetchedAt = Instant.parse("2026-11-01T11:00:00.123456Z");
         LeagueAverage row = new LeagueAverage(2025, "A+");
         row.update(values, fetchedAt);
+
+        // when
         leagueAverages.saveAndFlush(row);
 
+        // then
         LeagueAverage read = leagueAverages.findBySeasonAndLevel(2025, "A+").orElseThrow();
         assertThat(read.values()).isEqualTo(values);
         assertThat(read.getFetchedAt()).isEqualTo(fetchedAt);
+
+        // given
         // (시즌, 단계)마다 한 줄만 들어간다
         LeagueAverage again = new LeagueAverage(2025, "A+");
         again.update(values, fetchedAt);
+
+        // when // then
         assertThatThrownBy(() -> leagueAverages.saveAndFlush(again)).isInstanceOf(DataIntegrityViolationException.class);
         leagueAverages.delete(read);
 
+        // when // then
         // 받을 조합을 뽑는 조회(공식 날짜의 연도)도 MySQL에서 돈다. 샘플의 마이너 경기는 2026 트리플A뿐이다
         assertThat(minorGameLogs.findSeasonLevels()).containsExactly(new MinorSeasonLevel(2026, 2026, "AAA"));
     }

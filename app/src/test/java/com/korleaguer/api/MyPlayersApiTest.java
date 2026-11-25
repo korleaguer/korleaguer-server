@@ -1,5 +1,6 @@
 package com.korleaguer.api;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,7 +45,9 @@ class MyPlayersApiTest {
     }
 
     @Test
+    @DisplayName("비시즌에는 선수마다 본인이 마지막으로 뛴 날까지로 기간을 당긴다")
     void offSeasonUsesEachPlayersLastGame() throws Exception {
+        // when // then
         // 11월이라 최근 7일에 경기가 없다. 선수마다 본인이 마지막으로 뛴 날까지 7일로 당긴다.
         // 이정후는 9월 27일, 김혜성은 9월 26일(다저스는 27일에도 했지만 김혜성은 결장)
         mockMvc.perform(get("/api/my").param("ids", "1,2"))
@@ -68,6 +71,7 @@ class MyPlayersApiTest {
                 .andExpect(jsonPath("$.players[1].toKst").value("2026-09-26"))
                 .andExpect(jsonPath("$.players[1].isFallback").value(true));
 
+        // when // then
         // 30일이면 마지막으로 뛴 날(9월 27일)에서 29일 전부터
         mockMvc.perform(get("/api/my").param("ids", "1").param("days", "30"))
                 .andExpect(jsonPath("$.days").value(30))
@@ -78,7 +82,9 @@ class MyPlayersApiTest {
     }
 
     @Test
+    @DisplayName("내 선수 카드는 요청한 순서대로 오고 겹친 선수는 한 번만 나온다")
     void playersFollowRequestedOrder() throws Exception {
+        // when // then
         // 겹친 id(5)는 처음 것만 남긴다.
         mockMvc.perform(get("/api/my").param("ids", "5,1,5"))
                 .andExpect(status().isOk())
@@ -88,7 +94,9 @@ class MyPlayersApiTest {
     }
 
     @Test
+    @DisplayName("없는 선수는 빼고 나머지 선수 카드만 준다")
     void unknownIdIsSkipped() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/my").param("ids", "1,999"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.players", hasSize(1)))
@@ -96,7 +104,9 @@ class MyPlayersApiTest {
     }
 
     @Test
+    @DisplayName("잘못된 기간이나 선수 번호로 물으면 이유와 함께 HTTP 400을 준다")
     void badRequests() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/my").param("ids", "1").param("days", "5"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("days must be 7, 14 or 30"));
@@ -113,14 +123,19 @@ class MyPlayersApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("ids must be numbers"));
 
+        // given
         String twentyOne = IntStream.rangeClosed(1, 21).mapToObj(String::valueOf).collect(Collectors.joining(","));
+
+        // when // then
         mockMvc.perform(get("/api/my").param("ids", twentyOne))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("ids must have 1 to 20 player ids"));
     }
 
     @Test
+    @DisplayName("타자 카드는 기간 합계와 연속 안타, 최신순 경기 기록을 보여 준다")
     void hitterTotalsAndGames() throws Exception {
+        // when // then
         // 이정후 9월 21~27일: 1001 4타수 1안타 1볼넷, 1002 4타수 2안타(2루타) 1타점, 1003 4타수 2안타(2루타, 홈런) 2타점 1볼넷
         // → 3경기 12타수 5안타 1홈런 3타점 2볼넷, 타율 .417(시즌도 같은 세 경기라 .417). 세 경기 모두 안타 → 연속 3경기
         mockMvc.perform(get("/api/my").param("ids", "1"))
@@ -158,7 +173,9 @@ class MyPlayersApiTest {
     }
 
     @Test
+    @DisplayName("투수 카드는 기간 합계와 연속 무실점, 최신순 등판 기록을 보여 준다")
     void pitcherTotalsAndGames() throws Exception {
+        // when // then
         // 고우석 9월 21~27일: 4002 1이닝(3아웃) 무실점 2탈삼진 세이브, 4003 ⅔이닝(2아웃) 2실점(2자책) 패
         // → 2경기 5아웃(1⅔이닝) 2자책, 평균자책점 2×27/5 = 10.8(시즌도 같은 두 경기라 10.8).
         // 가장 최근 등판(4003)에 실점 → 연속 무실점 0
@@ -194,7 +211,9 @@ class MyPlayersApiTest {
     }
 
     @Test
+    @DisplayName("비시즌 카드는 마지막으로 뛴 경기에서 끝나 그 뒤 결장을 넣지 않는다")
     void offSeasonCardEndsAtPlayersOwnLastGame() throws Exception {
+        // when // then
         // 김혜성: 2001 3타수 무안타, 2002 4타수 3안타, 2003 결장(9월 27일)
         // 비시즌에는 본인이 마지막으로 뛴 2002(9월 26일)까지라 뒤의 결장(2003)은 카드에 넣지 않는다.
         // → 기간 2경기 7타수 3안타(.429). 2001 무안타에서 멈춰 연속 1경기

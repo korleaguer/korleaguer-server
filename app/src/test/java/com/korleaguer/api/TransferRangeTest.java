@@ -7,6 +7,7 @@ import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -93,7 +94,9 @@ class TransferRangeTest {
     }
 
     @Test
+    @DisplayName("팀을 옮긴 선수의 결장은 각 팀에서 뛴 기간에만 붙고 이전 팀 기록도 남는다")
     void absenceOnlyWithinStints() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.player.nameEn").value("Ha-Seong Kim"))
                 .andExpect(jsonPath("$.player.teamAbbr").value("ATL"))
@@ -108,7 +111,9 @@ class TransferRangeTest {
     }
 
     @Test
+    @DisplayName("지금 팀에서 마지막 출전 뒤 빠진 경기는 홈에 결장으로 나온다")
     void homeShowsAbsenceForCurrentTeamAfterLastAppearance() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.recent.isFallback").value(true))
                 .andExpect(jsonPath("$.recent.dateKst").value("2026-08-10"))
@@ -118,7 +123,9 @@ class TransferRangeTest {
     }
 
     @Test
+    @DisplayName("처음 수집하면 MLB 요청 38번과 건너뛴 기록 1개가 수집 기록에 남는다")
     void startupRequestsAndSkippedLinesAreReported() {
+        // when // then
         IngestLog startup = ingestLogs.findAll().stream()
                 .filter(l -> l.getKind() == IngestKind.SCHEDULED)
                 .findFirst()

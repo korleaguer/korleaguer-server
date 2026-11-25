@@ -12,6 +12,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.domain.Role;
 import com.korleaguer.support.MutableClock;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -74,8 +75,10 @@ class LeaguePositionIngestTest {
     }
 
     @Test
+    @DisplayName("앱을 켜면 MLB 안 위치를 저장하고 출전이 적으면 위치를 비운다")
     @Order(1)
     void startupCatchUpStoresPositions() {
+        // when // then
         PlayerLeaguePosition lee = position("이정후", PlayerSeasonMetric.Group.HITTING);
         assertThat(lee.inLeague()).isTrue();
         assertThat(lee.getPlateAppearances()).isEqualTo(579);
@@ -113,8 +116,10 @@ class LeaguePositionIngestTest {
     }
 
     @Test
+    @DisplayName("앱을 켜면 타자와 투수의 시즌별 성적과 지표를 저장한다")
     @Order(2)
     void startupCatchUpStoresCareerSeasons() {
+        // when // then
         long kim = players.findByNameKo("김하성").orElseThrow().getId();
         List<PlayerCareerSeason> seasons = careerSeasons.findNewestFirst(kim, PlayerSeasonMetric.Group.HITTING);
 
@@ -143,22 +148,29 @@ class LeaguePositionIngestTest {
     }
 
     @Test
+    @DisplayName("같은 날 다시 돌면 MLB에 더 묻지 않는다")
     @Order(3)
     void sameDayIsNotAskedAgain() {
+        // given
         long before = client.requestCount();
 
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(client.requestCount()).isEqualTo(before);
     }
 
     @Test
+    @DisplayName("다음 날 위치를 다시 받되 지난 시즌 지표는 또 묻지 않는다")
     @Order(4)
     void nextDayAsksOnlyTheLeagueAndYearByYear() {
+        // given
         clock.set(START.plus(Duration.ofDays(1)));
         long before = client.requestCount();
 
+        // when
         IngestLog log = ingestService.catchUp(false);
 
+        // then
         assertThat(log.getMessage()).contains("MLB 안 위치 6명");
         assertThat(position("이정후", PlayerSeasonMetric.Group.HITTING).getFetchedAt()).isEqualTo(clock.instant());
         // 그날 첫 따라잡기의 다른 단계(선수 정보 1 + 이동 기록 6 + 마이너 경기 수 6)와
@@ -168,23 +180,31 @@ class LeaguePositionIngestTest {
     }
 
     @Test
+    @DisplayName("시즌 중 옮긴 선수는 합친 성적을 쓰고 합친 줄이 없으면 개수만 더한다")
     void tradedSeasonUsesTheCombinedLineAndTeamsInOrder() {
+        // given
         MlbTeam tampa = new MlbTeam(139L, "Tampa Bay Rays", null, null, null);
         MlbTeam atlanta = new MlbTeam(144L, "Atlanta Braves", null, null, null);
+
+        // when
         var totals = LeaguePositionRefresher.careerTotals(List.of(
                 hitting("2025", null, tampa, 24, 93, ".214"), hitting("2025", null, atlanta, 24, 98, ".253"),
                 hitting("2025", 2, null, 48, 191, ".234"), hitting("2024", null, tampa, 10, 30, null)), Role.HITTER);
 
+        // then
         assertThat(totals.get(2025).teamIds()).containsExactly(139L, 144L);
         assertThat(totals.get(2025).games()).isEqualTo(48);
         assertThat(totals.get(2025).plateAppearances()).isEqualTo(191);
         assertThat(totals.get(2025).battingAvg()).isEqualTo(0.234);
         assertThat(totals.get(2024).battingAvg()).isNull();
 
+        // when
         // 합친 줄이 없으면 개수만 더하고 비율은 모른다
         var summed = LeaguePositionRefresher.careerTotals(List.of(
                 hitting("2025", null, tampa, 24, 93, ".214"), hitting("2025", null, atlanta, 24, 98, ".253")),
                 Role.HITTER);
+
+        // then
         assertThat(summed.get(2025).plateAppearances()).isEqualTo(191);
         assertThat(summed.get(2025).battingAvg()).isNull();
     }

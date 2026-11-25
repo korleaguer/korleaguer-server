@@ -1,5 +1,6 @@
 package com.korleaguer.news;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -26,16 +27,21 @@ class ArticlePageTest {
             """;
 
     @Test
+    @DisplayName("기사에서 대표 사진과 본문 문단만 읽는다")
     void readsOgImageAndBodyParagraphsOnly() {
+        // when
         ArticlePage page = ArticlePage.parse(PAGE.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.imageUrl()).isEqualTo("https://cdn.example.com/files/roh-1024x681.jpg");
         assertThat(page.text()).isEqualTo("TODAY : Roh has now officially been posted, a reporter reports.\n"
                 + "The window ends at 4pm CT on December 1. Roh\u2019s status will be resolved before the lockout.");
     }
 
     @Test
+    @DisplayName("스타일에 적힌 이름에 속지 않고 본문 칸의 글을 읽는다")
     void theArticleBlockIsFoundByItsClassNotByAMentionInStyles() {
+        // when
         ArticlePage page = ArticlePage.parse("""
                 <head><style>.entry-content p { margin: 0 }</style></head>
                 <body><nav><p>Menu</p></nav>
@@ -43,11 +49,14 @@ class ArticlePageTest {
                 <div class="entry-footer"></div></body>
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).isEqualTo("Body line.");
     }
 
     @Test
+    @DisplayName("본문 칸이 없으면 기사 칸 안의 긴 문단을 본문으로 읽는다")
     void withoutAnEntryContentBlockLongParagraphsInsideArticleAreUsed() {
+        // when
         ArticlePage page = ArticlePage.parse("""
                 <nav><p>Scores and schedules for every team in the league tonight and tomorrow night</p></nav>
                 <article><h1>Roh Posted</h1><p>Short line.</p>
@@ -55,42 +64,55 @@ class ArticlePageTest {
                 <p>Roh hit 29 homers this season and is expected to draw interest from several clubs.</p></article>
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).isEqualTo("The Hanwha Eagles posted third baseman Si Hwan Roh, opening a 30-day window for all teams.\n"
                 + "Roh hit 29 homers this season and is expected to draw interest from several clubs.");
     }
 
     @Test
+    @DisplayName("부호가 빠진 기사 제목은 부호가 있는 페이지 제목으로 바꾼다")
     void aTitleWithoutPunctuationIsReplacedByThePageTitle() {
+        // given
         ArticlePage page = ArticlePage.parse("""
                 <meta property="og:title" content="노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나 - 엑스포츠뉴스">
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // when // then
         assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
                 .isEqualTo("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나");
         assertThat(page.betterTitle("전혀 다른 기사 제목")).isNull();
         assertThat(page.betterTitle("노시환")).isNull();
+
+        // given
         // 피드 제목에 부호가 더 많으면(페이지 제목이 부호를 뺀 경우) 바꾸지 않는다
         ArticlePage plain = ArticlePage.parse("<meta property=\"og:title\" content=\"노시환 좋은 소식 기다린다\">"
                 .getBytes(StandardCharsets.UTF_8));
+
+        // when // then
         assertThat(plain.betterTitle("노시환 \"좋은 소식 기다린다\"")).isNull();
         assertThat(page.betterTitle("노시환·김하성 동반 영입? ML 초대형 입단설 터졌다…야구 깜짝 낭보 나오나")).isNull();
     }
 
     @Test
+    @DisplayName("앞부분만 있는 제목은 온전한 페이지 제목으로 바꾸고 트위터 사진을 쓴다")
     void aShortenedSitemapTitleGetsTheFullPageTitleAndTwitterImageIsAPhoto() {
+        // given
         // 엑스포츠뉴스 실제 꼴: 사이트맵은 부호·한자를 빼고 앞부분만, 페이지는 og:image 없이 twitter:image
         ArticlePage page = ArticlePage.parse("""
                 <meta property="og:title" content="노시환-김하성 동반 영입! ML 초대형 입단설 터졌다…韓 야구 깜짝 낭보 나오나 &quot;KIM 데려오면 ROH 확보에 도움&quot;" >
                 <meta name="twitter:image" content="https://image.example.kr/1794383296653257.webp">
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // when // then
         assertThat(page.betterTitle("노시환김하성 동반 영입 ML 초대형 입단설 터졌다 야구 깜짝 낭보 나오나"))
                 .isEqualTo("노시환-김하성 동반 영입! ML 초대형 입단설 터졌다…韓 야구 깜짝 낭보 나오나 \"KIM 데려오면 ROH 확보에 도움\"");
         assertThat(page.imageUrl()).isEqualTo("https://image.example.kr/1794383296653257.webp");
     }
 
     @Test
+    @DisplayName("페이지 제목 끝의 사이트 이름은 기사 제목에 붙이지 않는다")
     void aSiteNameTailIsNeverAddedToATitle() {
+        // when // then
         // 리뷰 재현: 꼬리를 뗀 본제목이 맞지 않는다고 꼬리 붙은 전체 제목으로 넘어가면 안 된다
         assertThat(titleFrom("노시환 좋은 소식 기다린다 - 스포츠조선").betterTitle("노시환 \"좋은 소식 기다린다\"")).isNull();
         assertThat(titleFrom("노시환 '포스팅 개시' 공식 발표 | MK스포츠").betterTitle("노시환 \"포스팅 개시\" 공식 발표")).isNull();
@@ -103,7 +125,9 @@ class ArticlePageTest {
     }
 
     @Test
+    @DisplayName("줄바꿈으로만 나뉜 본문도 읽고 날짜와 스크립트는 뺀다")
     void aBodyWrittenWithLineBreaksIsRead() {
+        // when
         // 엑스포츠뉴스 꼴: p 없이 <br>로 나뉜 본문. 짧은 줄(날짜·메뉴)과 스크립트는 뺀다
         ArticlePage page = ArticlePage.parse("""
                 <script>var x = "아주 긴 스크립트 문자열이 본문으로 섞이면 안 되는데 이렇게 길게 써 둔다";</script>
@@ -113,12 +137,15 @@ class ArticlePageTest {
                 노시환은 이번 겨울 포스팅 시스템으로 메이저리그 진출을 노리고 있으며 여러 구단의 관심을 받고 있다.</div>
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).contains("필라델피아 필리스가 김하성의 영입에 관심", "노시환 영입에도 도움", "여러 구단의 관심")
                 .doesNotContain("스크립트", "기사입력");
     }
 
     @Test
+    @DisplayName("본문 칸을 읽고 관련 기사와 저작권 안내는 뺀다")
     void theBodyBoxIsReadAndRelatedHeadlinesAndCopyrightAreLeftOut() {
+        // when
         // 엑스포츠뉴스 꼴: 제목·사이드바가 본문 칸 밖에, 본문 끝에 ▶ 관련 기사와 저작권 줄
         ArticlePage page = ArticlePage.parse("""
                 <div class="aside"><div>많이 본 뉴스: 김하성, 애틀랜타와 재계약 협상 중이라는 현지 보도가 나왔다고 한다</div></div>
@@ -130,12 +157,15 @@ class ArticlePageTest {
                 <div class="copyright">ⓒ 엑스포츠뉴스 무단전재 및 재배포 금지 / 서울시 어딘가 주소와 발행인 이름이 길게 이어진다</div>
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).contains("필라델피아 필리스가 김하성의 영입", "노시환 영입에도 도움")
                 .doesNotContain("많이 본 뉴스", "홀드왕", "무단전재", "사진=");
     }
 
     @Test
+    @DisplayName("저작권 안내가 없어도 본문 칸만 읽고 첫머리 화살표 줄은 뺀다")
     void onlyTheBodyBoxIsReadEvenWithoutACopyrightLineAndALeadingArrowLineIsKeptOut() {
+        // when
         // 리뷰 재현: 본문 칸 안에 저작권 줄이 없고 사이드바·꼬리 칸이 뒤에, 속보 article 카드가 앞에, 본문 첫머리에 ▶ 요약 줄
         ArticlePage page = ArticlePage.parse("""
                 <article class="breaking"><div>[속보] 김하성 FA 다년 계약 임박이라는 다른 기사 제목이 여기 길게 있다</div></article>
@@ -147,17 +177,21 @@ class ArticlePageTest {
                 <div class="footer-info">주소: 서울시 어딘가 길 15, 발행인 홍길동 편집인 홍길동 등록번호 어쩌고</div>
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).contains("공식 신청 절차를 마쳤다", "여러 구단이 관심", "좋은 결과가 나오기를")
                 .doesNotContain("속보", "▶", "류현진", "발행인");
     }
 
     @Test
+    @DisplayName("대표 사진과 트위터 사진이 다 있으면 대표 사진을 쓴다")
     void ogImageWinsOverTwitterImage() {
+        // when
         ArticlePage page = ArticlePage.parse("""
                 <meta name="twitter:image" content="https://cdn.example.kr/logo.png">
                 <meta property="og:image" content="https://cdn.example.kr/photo.jpg">
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.imageUrl()).isEqualTo("https://cdn.example.kr/photo.jpg");
     }
 
@@ -166,21 +200,27 @@ class ArticlePageTest {
     }
 
     @Test
+    @DisplayName("EUC-KR로 쓴 페이지도 한글을 바르게 읽는다")
     void anEucKrPageIsReadInItsOwnCharset() {
+        // given
         byte[] html = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\">"
                 .concat("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\"></head></html>")
                 .getBytes(java.nio.charset.Charset.forName("EUC-KR"));
 
+        // when // then
         assertThat(ArticlePage.parse(html).description()).isEqualTo("노시환이 협상을 시작했다.");
     }
 
     @Test
+    @DisplayName("기사 칸이 없으면 본문을 비우고 사진 주소는 https로 바꾼다")
     void noArticleBlockMeansNoBodyAndHttpImagesBecomeHttps() {
+        // when
         ArticlePage page = ArticlePage.parse("""
                 <meta content="http://cdn.example.com/x.jpg" property="og:image">
                 <meta name="description" content="한 줄 &amp; 소개"><p>just a page</p>
                 """.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.imageUrl()).isEqualTo("https://cdn.example.com/x.jpg");
         assertThat(page.description()).isEqualTo("한 줄 & 소개");
         assertThat(page.text()).isEmpty();
@@ -204,10 +244,13 @@ class ArticlePageTest {
             """;
 
     @Test
+    @DisplayName("HTML에 문단이 없는 조선일보 기사는 화면 데이터에서 본문을 읽는다")
     void anArcXpPageIsReadFromItsContentJson() {
+        // when
         // 조선일보: 화면을 자바스크립트로 그려 HTML에 본문 문단이 하나도 없다(11-12, 이슈 #107)
         ArticlePage page = ArticlePage.parse(ARC_PAGE.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.imageUrl()).isEqualTo("https://cdn.example.com/arc/roh.jpg");
         assertThat(page.text()).isEqualTo("[스포츠 기자] 메이저리그 진출에 도전하는 노시환 에 대한 관심이 높아지고 있다.\n"
                 + "미국 매체는 노시환이 3루는 물론 1루와 유격수까지 맡을 수 있는 수비가 좋은 선수라고 평가했다.\n"
@@ -216,22 +259,29 @@ class ArticlePageTest {
     }
 
     @Test
+    @DisplayName("화면 데이터가 깨졌으면 HTML에서 본문을 읽는다")
     void aBrokenArcJsonFallsBackToTheHtml() {
+        // when
         ArticlePage page = ArticlePage.parse(("<script>Fusion.globalContent={\"content_elements\":[{\"type\":</script>"
                 + "<article><p>" + "노시환이 포스팅됐다. ".repeat(12) + "</p></article>").getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).startsWith("노시환이 포스팅됐다.");
     }
 
     @Test
+    @DisplayName("본문을 못 찾은 페이지는 글 없이 문단 위치만 요약한다")
     void theOutlineOfAPageWithoutABodyTellsWhereTheParagraphsAreWithoutTheirText() {
+        // given
         // 연합뉴스처럼 우리가 열어 볼 수 없는 사이트는 운영 로그의 이 모양으로 원인을 찾는다(이슈 #107)
         String html = "<html><body><article class=\"top-news\"><p>속보</p></article>"
                 + "<div class=\"story-x\" data-title=\"노시환 메츠 계약\" id=\"body1\"><p>" + "본문 첫 문단은 이렇게 길게 이어진다. ".repeat(4)
                 + "</p></div></body></html>";
 
+        // when
         String outline = ArticlePage.outline(html.getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(outline).contains("2 p (1 long, 0 long in article)").contains("1 article (first <article class=\"top-news\">)")
                 .contains("box -").contains("first long p #2 in <div class=\"story-x\" id=\"body1\">").contains("first stop p #-1")
                 .contains("arc json no")
@@ -243,7 +293,9 @@ class ArticlePageTest {
     private static final String LONG = "노시환은 한화의 요청으로 포스팅됐고 30일 동안 메이저리그 구단과 협상할 수 있으며 미국 현지의 관심도 크다고 기사는 전했다. ";
 
     @Test
+    @DisplayName("본문이 기사 칸 밖에 있으면 저작권 안내 앞까지의 긴 문단을 읽는다")
     void whenTheBodyIsOutsideEveryArticleBlockTheWholePageIsReadUpToTheCopyrightLine() {
+        // when
         // 연합뉴스(운영 로그 11-12): article 칸 2개, 긴 문단 12개, 첫 긴 문단은 사진 칸 뒤. 첫 article 칸만 봐서 못 찾았다(#109)
         ArticlePage page = ArticlePage.parse(("<html><body><nav><p>" + LONG + "</p></nav>"
                 + "<article class=\"top-news\"><p>속보 한 줄</p></article>"
@@ -253,37 +305,47 @@ class ArticlePageTest {
                 + "<article class=\"related\"><p>관련 기사 요약은 저작권 줄 뒤라 읽지 않는다. " + LONG + "</p></article>"
                 + "<footer><p>" + LONG + "</p></footer></body></html>").getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).startsWith("(서울=신문) 기자 = 노시환은").contains("둘째 문단도 길다.").contains("셋째 문단.")
                 .doesNotContain("관련 기사").doesNotContain("저작권자");
         assertThat(page.text().lines()).hasSize(3);
     }
 
     @Test
+    @DisplayName("두 번째 기사 칸에 있는 본문도 찾는다")
     void theBodyInTheSecondArticleBlockIsFound() {
+        // when
         ArticlePage page = ArticlePage.parse(("<article class=\"promo\"><p>짧은 홍보</p></article>"
                 + "<article class=\"story\"><p>첫째. " + LONG + "</p><p>둘째. " + LONG + "</p><p>셋째. " + LONG + "</p></article>")
                 .getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).startsWith("첫째. 노시환은").contains("셋째.");
     }
 
     @Test
+    @DisplayName("본문 칸의 글이 짧아도 다른 칸의 글을 본문으로 읽지 않는다")
     void aKnownBodyBoxIsNotWidenedEvenWhenItIsShort() {
+        // when
         // 알려진 본문 칸이 있는데 짧으면 짧은 기사다. 다른 칸의 긴 글(다른 기사 소개 등)을 본문으로 긁지 않는다
         ArticlePage page = ArticlePage.parse(("<div class=\"article_body\"><p>짧은 본문</p></div>"
                 + "<div class=\"other\"><p>" + LONG + "</p><p>" + LONG + "</p><p>" + LONG + "</p></div>")
                 .getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).doesNotContain("포스팅됐고");
     }
 
     @Test
+    @DisplayName("저작권 안내가 없으면 기사 칸 밖의 관련 기사를 본문으로 읽지 않는다")
     void withoutACopyrightLineTheWholePageIsNotRead() {
+        // when
         // 본문 끝(저작권 안내 줄)을 알 수 없으면 관련 기사 소개를 본문으로 읽을 수 있다. 그럴 바엔 '본문 없음'이 낫다
         ArticlePage page = ArticlePage.parse(("<article class=\"video\"><p>영상 설명 한 줄</p></article>"
                 + "<div class=\"related\"><p>관련 기사 하나. " + LONG + "</p><p>관련 기사 둘. " + LONG + "</p>"
                 + "<p>관련 기사 셋. " + LONG + "</p><p>관련 기사 넷. " + LONG + "</p></div>").getBytes(StandardCharsets.UTF_8));
 
+        // then
         assertThat(page.text()).doesNotContain("관련 기사");
     }
 }

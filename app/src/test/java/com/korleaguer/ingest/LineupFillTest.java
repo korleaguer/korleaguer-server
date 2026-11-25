@@ -8,6 +8,7 @@ import com.korleaguer.domain.IngestKind;
 import com.korleaguer.domain.IngestLog;
 import com.korleaguer.domain.IngestLogRepository;
 import com.korleaguer.domain.Lineup;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -57,7 +58,9 @@ class LineupFillTest {
     }
 
     @Test
+    @DisplayName("앱을 켜면 지난 경기의 선발·교체를 채우고 타격 기록은 그대로 둔다")
     void startupFillsEveryPastGameOnce() {
+        // when // then
         IngestLog startup = ingestLogs.findAll().stream()
                 .filter(l -> l.getKind() == IngestKind.SCHEDULED)
                 .findFirst()
@@ -81,11 +84,15 @@ class LineupFillTest {
     }
 
     @Test
+    @DisplayName("이미 채운 경기는 다시 받지 않는다")
     void filledGamesAreNotFetchedAgain() {
+        // given
         long before = client.requestCount();
 
+        // when
         IngestLog log = ingestService.catchUp(false);
 
+        // then
         assertThat(client.requestCount()).isEqualTo(before);
         assertThat(log.getMessage()).isEqualTo("할 일 없음");
     }

@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbMinorGames;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -87,7 +88,9 @@ class MainlyMinorsHomeTest {
     }
 
     @Test
+    @DisplayName("마이너 경기가 더 많은 타자는 타율이 높아도 홈 시즌 기록 맨 아래에 둔다")
     void mainlyMinorsGoLast() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.hitters[*].nameKo").value(contains("가타자", "다타자", "나타자")))
                 .andExpect(jsonPath("$.hitters[0].minorGames").value(0))
@@ -103,7 +106,9 @@ class MainlyMinorsHomeTest {
     }
 
     @Test
+    @DisplayName("홈의 마이너 시즌 성적은 따로 모아 경기가 많은 순으로 보여 준다")
     void minorSeasonIsSeparate() throws Exception {
+        // when // then
         // 마이너 시즌 성적(이슈 #37): 마이너 경기별 기록을 더한 것, 마이너 경기 많은 순. 메이저 줄에는 단계가 없다
         mockMvc.perform(get("/api/home"))
                 .andExpect(jsonPath("$.minorHitters[*].nameKo").value(contains("나타자", "다타자")))
@@ -117,7 +122,9 @@ class MainlyMinorsHomeTest {
     }
 
     @Test
+    @DisplayName("선수 페이지도 마이너 시즌 성적을 메이저와 따로 보여 준다")
     void playerPageHasMinorGames() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/2"))
                 .andExpect(jsonPath("$.hitting.minorGames").value(40))
                 .andExpect(jsonPath("$.hitting.mainlyMinors").value(true))
@@ -128,7 +135,9 @@ class MainlyMinorsHomeTest {
     }
 
     @Test
+    @DisplayName("마이너 경기가 없는 선수는 마이너 시즌 성적이 비어 있다")
     void majorOnlyPlayerHasNoMinorSeason() throws Exception {
+        // when // then
         // 가타자는 마이너 경기가 없다
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.hitting.games").value(3))

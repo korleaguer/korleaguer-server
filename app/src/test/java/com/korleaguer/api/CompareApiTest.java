@@ -2,6 +2,7 @@ package com.korleaguer.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -54,7 +55,9 @@ class CompareApiTest {
     }
 
     @Test
+    @DisplayName("비교 상대는 다른 메이저 타자 전원이고 숫자는 홈·선수 페이지와 같다")
     void linesMatchTheHomeSeasonTableAndThePlayerPage() throws Exception {
+        // given
         JsonNode home = getJson("/api/home");
         // 메이저 타석이 있는 타자(홈 시즌 기록 줄)
         Map<Long, JsonNode> majorHitters = new HashMap<>();
@@ -66,7 +69,10 @@ class CompareApiTest {
         assertThat(majorHitters.size()).as("샘플에 메이저 타자가 둘 이상").isGreaterThanOrEqualTo(2);
 
         for (long me : majorHitters.keySet()) {
+            // when
             JsonNode compare = getJson("/api/players/" + me + "/compare");
+
+            // then
             assertThat(compare.get("season").asInt()).isEqualTo(home.get("season").asInt());
             assertThat(compare.get("playerId").asLong()).isEqualTo(me);
             assertSameNumbers(compare.get("me"), majorHitters.get(me));
@@ -107,16 +113,24 @@ class CompareApiTest {
     }
 
     @Test
+    @DisplayName("투수는 비교할 기록과 상대가 모두 비어 있다")
     void aPitcherHasNoLine() throws Exception {
+        // given
         JsonNode home = getJson("/api/home");
         long pitcher = home.get("pitchers").get(0).get("playerId").asLong();
+
+        // when
         JsonNode compare = getJson("/api/players/" + pitcher + "/compare");
+
+        // then
         assertThat(compare.get("me").isNull()).isTrue();
         assertThat(compare.get("others")).isEmpty();
     }
 
     @Test
+    @DisplayName("없는 선수의 비교를 열면 HTTP 404를 준다")
     void anUnknownPlayerIs404() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/999999/compare")).andExpect(status().isNotFound());
     }
 }

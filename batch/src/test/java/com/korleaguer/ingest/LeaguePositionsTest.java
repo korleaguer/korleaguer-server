@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbSeasonSplit;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.domain.PlayerLeaguePosition;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -21,9 +22,12 @@ import static org.assertj.core.api.Assertions.offset;
 class LeaguePositionsTest {
 
     @Test
+    @DisplayName("리그 위치는 더 못한 선수의 비율이고 1과 99 사이에 둔다")
     void percentileIsTheShareOfWorsePlayersClampedTo1And99() {
+        // given
         List<Double> pool = List.of(1.0, 2.0, 3.0, 4.0);
 
+        // when // then
         assertThat(LeaguePositions.percentile(2.5, pool, v -> v, true)).isEqualTo(50);
         // 같은 값은 나쁜 쪽으로 세지 않는다
         assertThat(LeaguePositions.percentile(2.0, pool, v -> v, true)).isEqualTo(25);
@@ -40,7 +44,9 @@ class LeaguePositionsTest {
     }
 
     @Test
+    @DisplayName("타자는 100타석 이상 친 타자들과 타석당 값으로 견준다")
     void hittersAreComparedWithHundredPlateAppearanceHittersPerPlateAppearance() {
+        // given
         List<MlbSeasonSplit> season = new ArrayList<>();
         List<MlbSeasonSplit> saber = new ArrayList<>();
         // 견줄 타자 4명(100타석 이상)과 견주지 않는 타자 1명(99타석, 값이 아무리 좋아도 빠진다)
@@ -52,9 +58,11 @@ class LeaguePositionsTest {
         // 우리 선수: 400타석, 타석당 WAR 0.005(=2/400)는 1·2번보다 높고 3·4번보다 낮다
         addHitter(season, saber, 10, 400, 110.0, 2.0, 0.4, -5.0, -3.0);
 
+        // when
         Map<Long, LeaguePositions.HitterLine> league = LeaguePositions.hitters(season, saber);
         PlayerLeaguePosition.Hitting me = LeaguePositions.hitting(league.get(10L), league.values());
 
+        // then
         assertThat(me.poolSize()).isEqualTo(5); // 1~4번과 이 선수
         assertThat(me.plateAppearances()).isEqualTo(400);
         assertThat(me.fieldingRuns()).isEqualTo(-8.0, offset(1e-9)); // 수비 = fielding + positional
@@ -65,15 +73,19 @@ class LeaguePositionsTest {
     }
 
     @Test
+    @DisplayName("49타석만 친 타자는 값은 있지만 리그 위치는 없다")
     void fewPlateAppearancesKeepValuesButNoPositions() {
+        // given
         List<MlbSeasonSplit> season = new ArrayList<>();
         List<MlbSeasonSplit> saber = new ArrayList<>();
         addHitter(season, saber, 1, 500, 100.0, 2.0, 0.0, 0.0, 0.0);
         addHitter(season, saber, 10, 49, 150.0, 0.5, 0.5, 0.5, 0.0);
 
+        // when
         Map<Long, LeaguePositions.HitterLine> league = LeaguePositions.hitters(season, saber);
         PlayerLeaguePosition.Hitting me = LeaguePositions.hitting(league.get(10L), league.values());
 
+        // then
         assertThat(me.wrcPlus()).isEqualTo(150.0);
         assertThat(me.poolSize()).isEqualTo(1);
         assertThat(me.pctOverall()).isNull();
@@ -83,7 +95,9 @@ class LeaguePositionsTest {
     }
 
     @Test
+    @DisplayName("투수는 30이닝 이상 던진 투수와 견주고 실점과 볼넷은 낮을수록 좋다")
     void pitchersUseRatesAndLowerIsBetterForEraMinusAndWalks() {
+        // given
         List<MlbSeasonSplit> season = new ArrayList<>();
         List<MlbSeasonSplit> saber = new ArrayList<>();
         addPitcher(season, saber, 1, "100.0", 400, 80, 40, 120.0, 0.0);
@@ -91,9 +105,11 @@ class LeaguePositionsTest {
         addPitcher(season, saber, 3, "29.2", 100, 50, 0, 10.0, 5.0); // 30이닝 미만: 견주지 않는다
         addPitcher(season, saber, 10, "30.0", 125, 25, 10, 100.0, 0.3);
 
+        // when
         Map<Long, LeaguePositions.PitcherLine> league = LeaguePositions.pitchers(season, saber);
         PlayerLeaguePosition.Pitching me = LeaguePositions.pitching(league.get(10L), league.values());
 
+        // then
         assertThat(me.inningsOuts()).isEqualTo(90);
         assertThat(me.strikeoutRate()).isEqualTo(20.0, offset(1e-9)); // 25 / 125
         assertThat(me.walkRate()).isEqualTo(8.0, offset(1e-9));
@@ -103,14 +119,19 @@ class LeaguePositionsTest {
         assertThat(me.pctStrikeouts()).isEqualTo(1); // K% 20이 가장 낮다
         assertThat(me.pctWalks()).isEqualTo(33); // BB% 8은 10(1번)보다 낫고 5(2번)보다 나쁘다
 
+        // given
         // 10이닝 미만이면 위치는 없다
         addPitcher(season, saber, 11, "9.2", 40, 10, 2, 50.0, 0.1);
         league = LeaguePositions.pitchers(season, saber);
+
+        // when // then
         assertThat(LeaguePositions.pitching(league.get(11L), league.values()).pctOverall()).isNull();
     }
 
     @Test
+    @DisplayName("두 줄로 나온 선수는 팀 수가 많은 줄의 기록을 쓴다")
     void aPlayerListedTwiceUsesTheLineWithMoreTeams() {
+        // given
         MlbTeam team = new MlbTeam(143L, "Philadelphia Phillies", null, null, null);
         List<MlbSeasonSplit> season = List.of(
                 new MlbSeasonSplit("2026", 1, team, MlbPerson.of(7L, null, null), null,
@@ -118,6 +139,7 @@ class LeaguePositionsTest {
                 new MlbSeasonSplit("2026", 2, team, MlbPerson.of(7L, null, null), null,
                         new MlbSeasonSplit.Stat(500, null, null, null, null, null)));
 
+        // when // then
         assertThat(LeaguePositions.hitters(season, List.of()).get(7L).plateAppearances()).isEqualTo(500);
     }
 

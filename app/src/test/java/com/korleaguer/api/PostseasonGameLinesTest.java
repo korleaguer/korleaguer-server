@@ -4,6 +4,7 @@ import com.korleaguer.client.MlbClient;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.client.SampleMlbClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -80,7 +81,9 @@ class PostseasonGameLinesTest {
     }
 
     @Test
+    @DisplayName("뛴 경기와 결장 모두 정규시즌인지 포스트시즌인지 표시된다")
     void regularAndPostseasonLinesSayWhichKindOfGame() throws Exception {
+        // when // then
         mockMvc.perform(get("/api/players/1"))
                 .andExpect(jsonPath("$.games[*].gameId").value(contains(7202, 7201, 7002, 7001)))
                 .andExpect(jsonPath("$.games[*].played").value(contains(false, true, false, true)))

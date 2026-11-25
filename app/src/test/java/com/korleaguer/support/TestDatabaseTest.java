@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestDatabaseTest {
 
     @Nested
+    @DisplayName("함께 쓰는 DB")
     @SpringBootTest
     @ActiveProfiles("test")
     class SharedDb {
@@ -26,17 +27,20 @@ class TestDatabaseTest {
         @Test
         @DisplayName("CI에서 함께 쓰는 DB는 MySQL이다")
         void isMySql(@Autowired DataSource dataSource) throws SQLException {
+            // when // then
             assertThat(product(dataSource)).isEqualTo("MySQL");
         }
     }
 
     @Nested
+    @DisplayName("저장을 확인하는 테스트의 DB")
     @CommittedDbTest
     class CommittedDb {
 
         @Test
         @DisplayName("CI에서 저장을 확인하는 테스트의 DB는 MySQL이다")
         void isMySql(@Autowired DataSource dataSource) throws SQLException {
+            // when // then
             assertThat(product(dataSource)).isEqualTo("MySQL");
         }
     }

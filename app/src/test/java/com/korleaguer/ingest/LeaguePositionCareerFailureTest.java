@@ -10,6 +10,7 @@ import com.korleaguer.domain.PlayerCareerSeasonRepository;
 import com.korleaguer.domain.PlayerLeaguePositionRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.PlayerSeasonMetric;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -80,7 +81,9 @@ class LeaguePositionCareerFailureTest {
     }
 
     @Test
+    @DisplayName("시즌별 기록만 못 받으면 MLB 안 위치는 저장하고 그날 다시 묻지 않는다")
     void careerFailureKeepsThePositionAndDoesNotRefetchTheLeagueToday() {
+        // when // then
         String startup = ingestLogs.findAll().stream()
                 .filter(l -> l.getKind() == IngestKind.SCHEDULED)
                 .findFirst().orElseThrow().getMessage();
@@ -91,7 +94,10 @@ class LeaguePositionCareerFailureTest {
                 .isEqualTo(7.3);
         assertThat(careerSeasons.findNewestFirst(kim, PlayerSeasonMetric.Group.HITTING)).isEmpty();
 
+        // given
         long before = client.requestCount();
+
+        // when // then
         assertThat(refresher.refresh()).isEmpty();
         assertThat(client.requestCount()).isEqualTo(before);
     }
