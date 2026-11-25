@@ -24,7 +24,7 @@
 
 ### 모듈: 하는 일로 나눈다
 
-바뀌는 이유가 다른 것끼리 나눈다. Gradle 멀티모듈로 실제로 쪼개 컴파일러가 경계를 막게 한다(단계적으로, §7).
+바뀌는 이유가 다른 것끼리 나눈다. Gradle 멀티모듈로 실제로 쪼개 컴파일러가 경계를 막게 한다.
 다섯 모듈이 모두 Gradle 모듈이다(`core/`, `client/`, `batch/`, `api/`, `app/`, #243). 실행 파일은 `app`이 만들고, 루트는 모듈을 묶기만 한다.
 
 | 모듈 | 하는 일 | 바뀌는 이유 | 지금 패키지 |
@@ -78,7 +78,7 @@ member(앞으로) ─▶ api, core
 
 - **순수 계산 클래스는 스프링 빈과 리포지토리를 모른다.** 값을 받아 값을 돌려준다. 그래야 규칙 하나를 스프링 없이 읽고 테스트할 수 있다.
 - **응답은 계산 결과 타입을 그대로 품는다.** 응답 전용 타입으로 옮겨 담는 층은 두지 않는다. 방향은 응답 → 계산 타입이다. 계산 클래스가 화면 응답 타입(`…Response`)을 알면 안 된다.
-- 그래서 계산 타입의 필드를 바꾸면 JSON이 바뀐다. 웹과의 약속이 바뀌는 PR은 '배포 영향'에 적는다.
+- 그래서 계산 타입의 필드를 바꾸면 JSON이 바뀐다. 웹과의 약속이 바뀌는 PR은 '확인과 배포'에 적는다.
 
 ### 사용자 기능(앞으로)
 
@@ -121,7 +121,7 @@ member(앞으로) ─▶ api, core
 | 역대 기록·화제 문구(records)는 내 선수 카드·포스팅 아래, 시즌 성적 위에 둔다 | 11-23 | 카드가 화제 문구('통산 홈런 ○○ 넘음')를 쓰고 화제 문구는 역대 기록을 읽는다. 같은 층에 두면 카드가 옆 층을 아는 곳 2곳이 풀리지 않는다. 사용자가 골랐다 |
 | 응답은 계산 결과 타입을 그대로 품는다(응답 전용 타입 분리 안 함) | 11-23 | 옮겨 담는 코드와 리뷰할 양만 늘어난다. 실용 |
 | 사용자 데이터와 사용자 글은 조회 응답과 따로 둔다 | 11-23 | 조회 응답의 캐시 두 겹(서버, 웹)을 지킨다 |
-| 모듈은 `core / client / batch / api / app`. Gradle 멀티모듈로 단계적으로 쪼갠다 | 11-23 | 사용자 제안(스케줄링·코어 도메인·API·외부 연동)을 조정했다. 큰 경계는 컴파일러가 막는 것이 가장 확실하다 |
+| 모듈은 `core / client / batch / api / app`. Gradle 멀티모듈로 쪼갠다 | 11-23 | 사용자 제안(스케줄링·코어 도메인·API·외부 연동)을 조정했다. 큰 경계는 컴파일러가 막는 것이 가장 확실하다 |
 | 모듈 이름은 관례를 따른다: 밖을 부르는 모듈은 `client`(`external`·`infra` 아님), 수집 모듈은 `batch`(`ingest`·`scheduler` 아님). Java 패키지 `ingest`는 그대로 둔다 | 11-23 | `external-api`는 관례로 내주는 API를 뜻해 거꾸로 읽힌다. 수집이 요청 중 일을 맡지 않게 되어 스케줄로만 도는 작업이 됐다. `scheduler`는 언제 돌리는지만 가리킨다. 패키지까지 바꾸면 수집 쪽 파일 전부가 바뀐다 |
 | 스케줄링만의 모듈은 두지 않고 수집에 합친다. 화면용 계산 규칙은 `core`가 아니라 `api`에 둔다 | 11-23 | 스케줄 클래스는 셋뿐이다. `core`가 모든 것을 빨아들이는 것을 막는다 |
 | 헥사고날 전면 도입과 계층별 패키지는 쓰지 않는다 | 11-23 | §3 '쓰지 않는 것' |
@@ -149,45 +149,18 @@ member(앞으로) ─▶ api, core
 
 - 사용자가 새 방향이나 결정을 말하면 **기억에만 두지 말고** 이 문서를 고친다. §4에 한 줄을 넣고 날짜를 붙인다.
 - 새 결정이 §3 규칙과 부딪히면 조용히 한쪽을 고르지 않는다. 두 쪽을 나란히 보여 주고 사용자에게 묻는다.
-- §7의 단계가 끝나면 그 줄을 지우고 '지금 패키지' 칸과 숫자를 고친다.
+- 구조가 바뀌면 §3의 '지금 패키지' 칸과 §7의 지금 상태를 함께 고친다.
 
-## 7. 아직 안 한 일 (11-23 기준)
+## 7. 지금 상태와 아직 정하지 않은 것
 
-방향을 정했고 모듈 다섯을 모두 뗐다(#226·#239·#241·#243). 지금 코드가 규칙과 다른 것은 버그가 아니라 할 일이다.
+구조 이동 다섯 단계는 모두 끝났다(#226~#259). §3 규칙을 어기는 곳은 0곳이다. 새로 어기면 컴파일이나 `ApiArchitectureTest`가 실패한다. 규칙과 다른 코드는 할 일이 아니라 버그다. 단계별 기록은 그 PR들에 있다.
 
-### 단계
+모듈 경계에 걸친 것은 다음이 전부다.
 
-단계마다 동작을 바꾸지 않는 PR이다. 크면 나눈다.
-
-먼저 하기로 했던 일(화면용 API가 요청 중에 밖을 부르던 것을 수집으로 옮기기)은 끝났다: 경기 상세(#229, `ingest.GameDetailIngest`), 리그 평균(#233, `ingest.LeagueAverageRefresher`), 하이라이트 제목 번역(#237, `ingest.HighlightTitleIngest`). 화면용 API는 셋 다 DB만 읽고, 요청 중에 밖을 부르는 것은 공 영상 주소(`SavantClips`) 하나만 남았다.
-수집과 조회가 같이 쓰는 타입(`domain.GameDetail`, `domain.LeagueAverage`, `support.Woba`)은 `core`에 있다.
-
-남은 구조 이동:
-
-1단계 `core` 떼기는 끝났다: `domain`·`support`·`posting`(#226), 설정 값·상수·응답 캐시 비우기·모듈 사이 이벤트(`config`), 사진 목록(`photo.PhotoSources`), 자원(`db/migration`, `roster/*.yml`, `photos/`)(#239). 한 Java 패키지는 한 모듈에만 두려고 루트 `config`의 조립 코드는 쓰는 쪽 패키지로, 사진 받기(`PhotoStore`·`PhotoScheduler`)는 `ingest`로 옮겼다.
-
-2단계 `client` 떼기도 끝났다(#241): MLB 클라이언트(`client`)와 요청 제한 `RateLimiter`, 기사 가져오기·robots·요청 예절·Claude 요약·분류·번역(`news`), 샘플 자원. 한 패키지는 한 모듈에만 두려고 기사 수집(`NewsCollector` 등)은 `ingest`로, 수집과 화면이 같이 쓰는 `MlbContext`는 `core`의 `support`로 옮겼다.
-
-3단계 `batch`·`api`·`app` 가르기도 끝났다(#243). 그 전에 `api`가 수집을 알던 4건을 풀었다: 관리용 수집 엔드포인트(`AdminController`·`IngestLogResponse`·`AdminTokenInterceptor`)는 `batch`로, 사진 내주기는 `core`의 `photo.PhotoLoader` 인터페이스(구현은 `ingest.PhotoStore`)로, 비시즌 판단의 '우리 팀 경기가 있나'(DB만 읽음)는 `core`의 `domain.TrackedTeamGames`로.
-
-4단계 '문 하나'도 끝났다(#245): 공 영상 주소를 찾는 일을 `core`의 `video.PlayVideoFinder`(메서드 하나, 공 번호 모양 `PLAY_ID`, 결과 `Lookup`)로 좁히고, 구현 `SavantClips`와 조립 `VideoConfig`는 `client`로 옮겼다. `api` 모듈은 이제 `core`만 의존한다. 사진 내주기의 `photo.PhotoLoader`(#243)와 같은 모양이다.
-
-5단계 `api` 안쪽 주제 패키지도 끝났다: 검사 도구 ArchUnit과 클래스 종류 규칙 둘(#249), 주제 패키지 아홉과 방향 규칙(#251). 구조 이동 다섯 단계가 모두 끝났고, 규칙을 넣을 때 얼려 둔 곳도 모두 고쳤다(#253·#255·#257). 아래 표의 모듈 안쪽 규칙 셋은 어기는 곳이 없다.
-
-### 지금 규칙과 다른 곳
-
-2026-11-23, develop `1b62121`에서 클래스 230개의 import와 이름 참조로 센 값이다(모듈 경계 줄은 #239 뒤 import로 다시 셈). 옮길 때 컴파일로 다시 확인한다.
-
-| 규칙 | 지금 어기는 곳 |
-|---|---|
-| `core`는 다른 모듈을 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다). 막던 3건은 시간대 상수 `support.MlbTime`, 샘플 시즌 `DataMode.SAMPLE_SEASON`, 해시 `support.Hashes`로 풀었다(#239) |
-| `client`는 `core`만 안다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #241) |
-| `batch`와 `api`는 서로 모른다 | 0건(Gradle 모듈이라 컴파일러가 막는다, #243). 남은 연결은 `core`에 둔 것뿐이다: 수집 끝 이벤트(`CatchUpFinished`), 응답 캐시 비우기(`ResponseCaches`), 사진 꺼내기 인터페이스(`PhotoLoader`, 구현은 batch) |
-| `api` → `client`는 문 하나로만(공 영상 주소만) | 0건(`api` 모듈이 `client`를 의존하지 않는다, #245). 문은 `core`의 `video.PlayVideoFinder` 하나 |
-| 화면용 API는 요청 중에 밖을 부르지 않는다(예외는 공 영상 주소 하나) | 0건. 마지막 1건이던 사진 내주기(`PhotoController` → `PhotoLoader`, 구현 `ingest.PhotoStore.load`)를 #259에서 DB 저장본만 읽게 바꿨다. 저장본이 없으면 404(웹은 이름 첫 글자 원)이고, 원본 주소가 바뀌었으면 새로 받기 전까지 옛 저장본을 준다. 받기는 사진 주기 작업(뜰 때 한 번, 10분마다)만 한다. 운영에서 11-11부터 11-24까지 요청 중에 받은 일은 0번이었다(받을 사진 6장 모두 주기 작업이 받아 둠) |
-| 조회 안쪽 주제는 아래 방향으로만 | 0곳(#257). #251에 8곳이었다. 마지막 3곳은 역대 기록 층을 카드 아래로 내리고(사용자 결정), '기록을 받는 상태인지'를 `api` 바로 아래 `StatsAvailability`로 옮겨 풀었다 |
-| 순수 계산은 스프링 빈·리포지토리를 모른다 | 0곳(#253). 리그 평균 값은 `season.LeagueEnv`, 타격·투구 변환은 `game.GameBatting.of`·`GamePitching.of`, 마이너 팀 이름표 `player.MinorTeamNames`는 값 객체(빈 등록은 `PlayerConfig`), 거론 구단 세기 `article.LinkedTeamsCounter`는 빈으로 바꿨다 |
-| 순수 계산은 응답 타입을 모른다 | 0곳(#255). 계산이 쓰던 응답 안 중첩 타입을 계산 쪽 독립 타입으로 꺼냈다(`card.CardStatus`·`CardFact`·`CardPlay`, `season.LevelTotals`·`PeriodHitting`·`PeriodPitching`·`GameStat`, `records.Record…` 여섯, `article.NewsTopic`, `player.MoveEntry`·`PastTeamPhoto`, `screen.TimelineSegment`·`TimelineKind`). 응답이 이것을 품는다 |
+- `batch`와 `api`를 잇는 것은 `core`에 둔 셋이다: 수집 끝 이벤트(`config.CatchUpFinished`), 응답 캐시 비우기(`config.ResponseCaches`), 사진 꺼내기 인터페이스(`photo.PhotoLoader`, 구현은 `batch`의 `ingest.PhotoStore`).
+- 사진 내주기는 DB 저장본만 읽는다(#259). 저장본이 없으면 404이고 웹은 이름 첫 글자 원을 보인다. 사진 받기는 주기 작업(뜰 때 한 번, 10분마다)만 한다.
+- 수집과 조회가 같이 쓰는 타입(`domain.GameDetail`, `domain.LeagueAverage`, `domain.TrackedTeamGames`, `support.Woba`, `support.MlbContext`)은 `core`에 있다.
+- '기록을 받는 상태인지'는 주제 패키지 밖, `api` 패키지 바로 아래의 `StatsAvailability`가 답한다.
 
 ### 아직 정하지 않은 것
 
