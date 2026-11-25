@@ -80,7 +80,7 @@ class NewsArticleRepositoryTest {
         List<NewsArticle> found = news.findNeedingPage(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 10));
 
         assertThat(found).extracting(NewsArticle::getUrl)
-                .containsExactlyInAnyOrder("https://d.example/1", "https://d.example/2", "https://d.example/3");
+                .containsExactly("https://d.example/3", "https://d.example/2", "https://d.example/1"); // 최근 순, 같으면 나중 것부터
     }
 
     @Test
