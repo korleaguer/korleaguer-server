@@ -248,21 +248,21 @@ class GameBuzzRulesTest {
         // given
         // 이정후 6/24: 한국인 통산 홈런, 이대호(14개) 넘음
         RecordPassed passed = new RecordPassed(1L, 808982, "이정후", null, "homeRuns", "홈런",
-                "홈런", java.time.LocalDate.of(2026, 6, 24), "이대호", 14);
+                "홈런", 1, java.time.LocalDate.of(2026, 6, 24), "이대호", 14);
 
         // when // then
         assertThat(GameBuzzFinder.passedText(passed)).isEqualTo("한국인 통산 홈런 이대호(14개) 넘음");
 
         // given
         RecordPassed games = new RecordPassed(4L, 1, "송성문", null, "games", "경기", "경기",
-                java.time.LocalDate.of(2026, 9, 13), "박효준", 68);
+                2, java.time.LocalDate.of(2026, 9, 13), "박효준", 68);
 
         // when // then
         assertThat(GameBuzzFinder.passedText(games)).isEqualTo("한국인 통산 경기 박효준(68경기) 넘음");
 
         // given
         RecordPassed saves = new RecordPassed(5L, 2, "고우석", null, "saves", "세이브", "세이브",
-                java.time.LocalDate.of(2026, 8, 1), "오승환", 42);
+                3, java.time.LocalDate.of(2026, 8, 1), "오승환", 42);
 
         // when // then
         assertThat(GameBuzzFinder.passedText(saves)).isEqualTo("한국인 통산 세이브 오승환(42세이브) 넘음");

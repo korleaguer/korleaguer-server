@@ -88,11 +88,14 @@ public class GameBuzzFinder {
         return List.copyOf(result);
     }
 
-    /** 그 경기 날(한국 날짜)에 이 선수가 넘은 선배 기록. 같은 날 여럿이면 passed의 순서(종목 순)로 첫 번째 */
-    private static Optional<GameBuzz> passed(GameLine line, List<RecordPassed> passed) {
+    /**
+     * 이 선수가 그 경기에서 넘은 기록. 한 경기에 여럿이면 passed의 순서(종목 순)로 첫 번째.
+     * 날짜가 아니라 경기 번호로 맞춘다(더블헤더는 같은 날 두 경기다, 이슈 #282)
+     */
+    static Optional<GameBuzz> passed(GameLine line, List<RecordPassed> passed) {
         return passed.stream()
                 .filter(p -> p.playerId() != null && p.playerId() == line.playerId()
-                        && p.dateKst().equals(line.startTimeKst().toLocalDate()))
+                        && p.gameId() == line.gameId())
                 .findFirst()
                 .map(p -> new GameBuzz(line.playerId(), line.gameId(), GameBuzz.PASSED, badgeStat(p.category()),
                         passedText(p)));
