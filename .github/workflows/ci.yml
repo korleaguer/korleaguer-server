@@ -43,7 +43,10 @@ jobs:
       # Gradle 내려받기·의존성 캐시. v6부터 캐시 부분이 별도 약관(비공개 gradle-actions-caching)에 동의해야 해서 v5에 둔다.
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
+      # 여러 테스트가 함께 쓰는 DB를 운영과 같은 MySQL로 돌린다(app/build.gradle). H2로 잘못 돌면 TestDatabaseTest가 실패한다.
       - name: 테스트
+        env:
+          KORLEAGUER_TEST_DB: mysql
         run: .github/scripts/gradlew-retry.sh test
 
       # 실패하면 어떤 테스트가 깨졌는지 보고서를 내려받을 수 있게 남긴다.

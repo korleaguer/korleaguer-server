@@ -17,8 +17,8 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest(properties =
-        "spring.datasource.url=jdbc:h2:mem:committed-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties = "spring.datasource.url=${KORLEAGUER_COMMITTED_DB_URL:"
+        + "jdbc:h2:mem:committed-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}")
 @ActiveProfiles("test")
 public @interface CommittedDbTest {
 }
