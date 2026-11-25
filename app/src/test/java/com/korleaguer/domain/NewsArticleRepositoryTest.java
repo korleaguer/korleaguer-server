@@ -47,6 +47,43 @@ class NewsArticleRepositoryTest {
     }
 
     @Test
+    void articlesToSummarizeHaveNoSummaryAndCanStillBeTried() {
+        saved("노시환", "https://c.example/1", SINCE); // 딱 기준 시각
+        saved("노시환", "https://c.example/2", SINCE.plusSeconds(60));
+        saved("노시환", "https://c.example/3", SINCE.minusSeconds(1)); // 너무 오래됨
+        summarized("https://c.example/4", "마이데일리", CURRENT, "2026-11-10T00:00:00Z"); // 이미 요약함
+        failed("https://c.example/5", 2); // 한 번 더 해 볼 수 있다
+        failed("https://c.example/6", 3); // 세 번 실패
+        otherPublisher("https://c.example/7");
+
+        List<NewsArticle> found = news.findToEnrich(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 10));
+
+        assertThat(found).extracting(NewsArticle::getUrl)
+                .containsExactly("https://c.example/5", "https://c.example/2", "https://c.example/1");
+        assertThat(news.findToEnrich(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 1)))
+                .extracting(NewsArticle::getUrl).containsExactly("https://c.example/5");
+    }
+
+    @Test
+    void articlesWhosePageIsStillNeededMissTheLeadOrThePhotoAndWereNeverRead() {
+        saved("노시환", "https://d.example/1", SINCE); // 앞부분도 사진도 없음, 딱 기준 시각
+        preview("https://d.example/2", "앞부분", null); // 사진만 없음
+        preview("https://d.example/3", null, "https://img.example/3.jpg"); // 앞부분만 없음
+        preview("https://d.example/4", "앞부분", "https://img.example/4.jpg"); // 둘 다 있음
+        NewsArticle read = saved("노시환", "https://d.example/5", SINCE.plusSeconds(60));
+        read.pageRead(null, null, SINCE.plusSeconds(120)); // 이미 읽어 봤다
+        news.save(read);
+        saved("노시환", "https://d.example/6", SINCE.minusSeconds(1)); // 너무 오래됨
+        failed("https://d.example/7", 3); // 세 번 실패
+        otherPublisher("https://d.example/8");
+
+        List<NewsArticle> found = news.findNeedingPage(List.of("마이데일리"), 3, SINCE, PageRequest.of(0, 10));
+
+        assertThat(found).extracting(NewsArticle::getUrl)
+                .containsExactlyInAnyOrder("https://d.example/1", "https://d.example/2", "https://d.example/3");
+    }
+
+    @Test
     void publishedBetweenIsThatPlayersArticlesInTheRangeWithBothEndsInPublishingOrder() {
         // SameArticles는 정확히 NEAR 떨어진 기사도 같은 글로 볼 수 있어 범위의 양 끝도 읽어야 한다
         Instant from = Instant.parse("2026-11-10T00:00:00Z");
@@ -67,6 +104,26 @@ class NewsArticleRepositoryTest {
     private NewsArticle saved(String subject, String url, Instant publishedAt) {
         return news.save(new NewsArticle(subject, url, "b" + url.substring(url.lastIndexOf('/') + 1), subject + " 소식",
                 "마이데일리", publishedAt, publishedAt.plusSeconds(600)));
+    }
+
+    private void failed(String url, int times) {
+        NewsArticle article = saved("노시환", url, SINCE.plusSeconds(3600));
+        for (int i = 0; i < times; i++) {
+            article.enrichFailed(SINCE.plusSeconds(7200));
+        }
+        news.save(article);
+    }
+
+    private void preview(String url, String lead, String image) {
+        NewsArticle article = saved("노시환", url, SINCE.plusSeconds(3600));
+        article.setLeadText(lead);
+        article.setImageUrl(image);
+        news.save(article);
+    }
+
+    private void otherPublisher(String url) {
+        news.save(new NewsArticle("노시환", url, "o" + url.substring(url.lastIndexOf('/') + 1), "노시환 소식", "다른 언론사",
+                SINCE.plusSeconds(3600), SINCE.plusSeconds(4000)));
     }
 
     private NewsArticle summarized(String url, String publisher, String version, String publishedAt) {

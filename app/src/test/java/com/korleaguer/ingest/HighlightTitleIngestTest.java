@@ -10,14 +10,12 @@ import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.news.HighlightTitleTranslator;
 import com.korleaguer.news.Summarizer;
+import com.korleaguer.support.CommittedDbTest;
 import com.korleaguer.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Limit;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
@@ -47,9 +45,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
  * 번역기는 가짜다. 저장된 상세(player_game_detail)는 테스트마다 직접 넣는다(샘플 데이터의 상세에는 하이라이트가 없다).
  * 리포지토리는 부른 것을 세려고 진짜에 넘기는 mock으로 감쌌다.
  */
-@SpringBootTest
-@ActiveProfiles("test")
-@Transactional
+@CommittedDbTest
 class HighlightTitleIngestTest {
 
     private static final String SOLO = "Jung Hoo Lee's solo home run (7)";
@@ -78,8 +74,9 @@ class HighlightTitleIngestTest {
 
     @BeforeEach
     void setUp() {
-        // 저장된 상세가 하나도 없는 데서 시작한다(샘플 수집이 남긴 '없음' 상세를 지운다. 테스트가 끝나면 되돌아간다)
+        // 저장된 상세와 번역이 하나도 없는 데서 시작한다(샘플 수집이 남긴 '없음' 상세와 앞 테스트가 저장한 것을 지운다)
         realDetails.deleteAllInBatch();
+        realTitles.deleteAllInBatch();
         titles = mock(HighlightTitleRepository.class, delegatesTo(realTitles));
         details = mock(PlayerGameDetailRepository.class, delegatesTo(realDetails));
         lee = players.findByNameKo("이정후").orElseThrow();
