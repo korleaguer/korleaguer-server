@@ -183,7 +183,7 @@ class GameBuzzRulesTest {
     @DisplayName("활약 점수(루타·타점·도루·볼넷)가 5점이면 시즌 최고로 알리지 않는다")
     void weakSeasonBestIsNotBuzz() {
         // given
-        // 김하성처럼 시즌 최고가 5점이면 화제로 말하지 않는다
+        // 시즌 최고가 5점뿐이면 화제로 말하지 않는다
         List<GameBuzzRules.Game> games = new ArrayList<>(List.of(bat(4, 1, 1, 1, 0, 0, 4)));
         games.addAll(season(12, bat(4, 1, 1, 1, 0, 0, 4)));
 
@@ -219,7 +219,7 @@ class GameBuzzRulesTest {
     @DisplayName("첫 홈런도 연속 안타도 시즌 최고도 아닌 날은 화제 문구가 없다")
     void ordinaryDayHasNoBuzz() {
         // given
-        // 6/22 같은 날: 2안타, 연속도 최고도 처음도 아님
+        // 2안타를 쳤지만 연속도 최고도 처음도 아님
         List<GameBuzzRules.Game> games = new ArrayList<>(List.of(bat(4, 1, 1, 1, 0, 0, 4)));
         games.addAll(season(20, bat(4, 2, 0, 1, 0, 0, 2)));
 
