@@ -1,5 +1,6 @@
 package com.korleaguer.support;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -23,6 +24,7 @@ class TestDatabaseTest {
     class SharedDb {
 
         @Test
+        @DisplayName("CI에서 함께 쓰는 DB는 MySQL이다")
         void isMySql(@Autowired DataSource dataSource) throws SQLException {
             assertThat(product(dataSource)).isEqualTo("MySQL");
         }
@@ -33,6 +35,7 @@ class TestDatabaseTest {
     class CommittedDb {
 
         @Test
+        @DisplayName("CI에서 저장을 확인하는 테스트의 DB는 MySQL이다")
         void isMySql(@Autowired DataSource dataSource) throws SQLException {
             assertThat(product(dataSource)).isEqualTo("MySQL");
         }
