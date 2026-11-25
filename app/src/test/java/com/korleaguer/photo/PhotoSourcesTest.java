@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 포스팅 선수 사진: 원본(photo-url)을 받지 않고 우리 편집본(흰 바탕 정사각형)을 사진 시즌이 든 이름으로 준다.
- * 편집본이 빠졌으면 서버가 뜨지 않는다(KBO 원본 94×118을 그대로 보이면 홈 76px 원에서 흐리고 선배 사진과 틀이 다르다).
+ * 편집본이 빠졌으면 서버가 뜨지 않는다(KBO 원본 94×118을 그대로 보이면 홈 76px 원에서 흐리고 지난 포스팅 선수 사진과 틀이 다르다).
  */
 class PhotoSourcesTest {
 

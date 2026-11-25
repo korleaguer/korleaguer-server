@@ -41,10 +41,10 @@ class CardStatusesTest {
     }
 
     @Test
-    @DisplayName("마이너 부상자 명단을 옮겨도 처음 오른 날과 지금 마이너 팀을 보인다")
+    @DisplayName("마이너 부상자 명단이 7일에서 60일로 바뀌어도 처음 오른 날을 보인다")
     void transferKeepsTheFirstPlacementDate() {
         // given
-        // 10일 → 60일 이동은 처음 오른 날부터 센다(배지환, 마이너 7일 명단)
+        // 7일 → 60일 이동은 처음 오른 날부터 센다(배지환, 마이너 7일 명단)
         Player bae = player(Level.MINORS, "Nashville Sounds", false);
         List<PlayerMove> moves = newestFirst(
                 move(bae, "2026-08-25", "SC", "Nashville Sounds placed CF Jihwan Bae on the 7-day injured list.", Level.MINORS),
@@ -107,7 +107,7 @@ class CardStatusesTest {
     }
 
     @Test
-    @DisplayName("강등된 날 마이너 팀이 활성화해도 강등된 날부터 센다")
+    @DisplayName("강등된 날 마이너 팀의 활성화 기록이 붙어도 강등된 상태로 본다")
     void sentDownCountsFromTheOptionEvenWhenTheMinorTeamActivatesLater() {
         // given
         // 김혜성: 같은 날 옵션 뒤 마이너 팀이 '활성화'를 남긴다

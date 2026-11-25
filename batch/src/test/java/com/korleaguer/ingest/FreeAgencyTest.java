@@ -62,7 +62,7 @@ class FreeAgencyTest {
     }
 
     @Test
-    @DisplayName("FA 선언 뒤 방출·상태·출장 정지·등번호 기록이 와도 계속 FA다")
+    @DisplayName("FA 선언 뒤 방출·상태 변경·출장 정지·등번호 변경 기록이 와도 계속 FA다")
     void laterMovesWithoutATeamKeepFreeAgency() {
         // when // then
         // 방출·상태 변경(대표팀 소집 등)·출장 정지·등번호 변경은 새 팀이 아니다
@@ -99,7 +99,7 @@ class FreeAgencyTest {
     }
 
     @Test
-    @DisplayName("날짜를 읽을 수 있는 FA 선언이 없으면 FA가 아니다")
+    @DisplayName("아웃라이트만 됐거나 기록이 없거나 선언 날짜를 못 읽으면 FA가 아니다")
     void noDeclarationIsNotFreeAgent() {
         // when // then
         assertThat(FreeAgency.isFreeAgent(List.of(move("2026-08-19", "OUT", "Outrighted")))).isFalse();

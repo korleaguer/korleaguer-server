@@ -102,7 +102,7 @@ class CatchUpGapTest {
     }
 
     @Test
-    @DisplayName("며칠 멈췄다 깨면 밀린 날부터 오늘까지 받고 그다음엔 어제·오늘만 받는다")
+    @DisplayName("며칠 멈췄다 다시 돌면 마지막으로 끝난 경기 날부터 받고 그다음엔 어제·오늘만 받는다")
     void catchUpRefreshesFromMissedDays() {
         // when // then
         // 앱 시작 때 시즌 백필: 7001(8/6)은 끝나 굳었고, 7002~7004는 경기 전으로 저장됐다.

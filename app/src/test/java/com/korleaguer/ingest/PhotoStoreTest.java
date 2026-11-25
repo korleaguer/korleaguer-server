@@ -93,7 +93,7 @@ class PhotoStoreTest {
     }
 
     @Test
-    @DisplayName("robots.txt로 막은 사진 서버라도 골라 둔 선수 사진은 받아 둔다")
+    @DisplayName("robots.txt 요청을 403으로 거절한 사진 서버에서도 골라 둔 선수 사진은 받는다")
     void robotsForbiddenImageServerStillServesTheChosenPhoto() {
         // given
         reply(KBO, 200, "heroes", Map.of("content-type", "image/jpeg"));
@@ -527,7 +527,7 @@ class PhotoStoreTest {
         return new PhotoStore(sources, repository, fetcher(), DataMode.MLB, clock);
     }
 
-    /** 지난 포스팅 선배 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
+    /** 지난 포스팅 선수 한 명(김하성, 2024 샌디에이고 MLB 사진의 편집본)만 있는 사진 목록 */
     private PhotoStore storeWithPastPhoto(String photoUrl, DataMode mode) {
         PostingProperties.Past kim = new PostingProperties.Past("김하성", 2020, "SD", "2021-01-01", "2020-12-28", 4,
                 28_000_000L, null, 64300L, 673490L, 2024, photoUrl, null);
@@ -548,7 +548,7 @@ class PhotoStoreTest {
         return new PhotoStore(sources, repository, fetcher(), mode, clock);
     }
 
-    /** MLB 사진을 적지 않은 지난 포스팅 선배 한 명(이정후, 2023 포스팅)의 그 시즌 KBO 사진만 있는 사진 목록 */
+    /** MLB 사진을 적지 않은 지난 포스팅 선수 한 명(이정후, 2023 포스팅)의 그 시즌 KBO 사진만 있는 사진 목록 */
     private PhotoStore storeWithPostingSeasonPhoto(String kboPhotoTemplate) {
         PostingProperties.Past lee = new PostingProperties.Past("이정후", 2023, "SF", "2024-01-03", "2023-12-12", 6,
                 113_000_000L, null, 67341L, null, null, null, null);

@@ -57,7 +57,7 @@ class NewsCollectorTest {
     }
 
     @Test
-    @DisplayName("협상 기간이 아니면 기사 피드에 요청하지 않는다")
+    @DisplayName("협상 기간이 아니고 명단 선수도 없으면 기사 피드에 요청하지 않는다")
     void nothingIsRequestedOutsideThePostingWindow() {
         // given
         clock.set(Instant.parse("2026-10-01T00:00:00Z"));
@@ -264,7 +264,7 @@ class NewsCollectorTest {
     }
 
     @Test
-    @DisplayName("명단 선수 기사는 협상 기간 밖에도 한글·영어 이름으로 찾아 저장한다")
+    @DisplayName("명단 선수 기사는 협상 기간 밖에도 모으되 국내 복귀 선수와 오래된 기사는 뺀다")
     void rosterPlayersAreWatchedByKoreanAndMlbNamesEvenOutsideThePostingWindow() {
         // given
         clock.set(Instant.parse("2026-10-20T01:00:00Z")); // 노시환 협상 기간 밖
@@ -293,7 +293,7 @@ class NewsCollectorTest {
     }
 
     @Test
-    @DisplayName("명단에도 있는 포스팅 선수는 한 번만 세고 협상 시작 30일 전부터 모은다")
+    @DisplayName("명단에도 있는 포스팅 선수는 한 번만 세고 협상 시작 30일 전 기사까지 받는다")
     void aPostingPlayerKeepsThePostingWindowWhenAlsoOnTheRoster() {
         // given
         roster = new RosterProperties(List.of(new RosterProperties.Entry("노시환", null, null, null, null, List.of(), null)));

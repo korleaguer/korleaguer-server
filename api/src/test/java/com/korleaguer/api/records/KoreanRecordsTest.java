@@ -123,7 +123,7 @@ class KoreanRecordsTest {
         // 경기 330 → 바로 위는 강정호 297이 아니라 최희섭 363
         assertThat(next(records, "games").targetNameKo()).isEqualTo("최희섭");
         assertThat(next(records, "games").toPass()).isEqualTo(34);
-        // 현역이 아닌 선수에게는 다음 선배가 없다
+        // 현역이 아닌 선수에게는 다음에 넘을 선수가 없다
         assertThat(records.next()).allMatch(n -> n.nameKo().equals("이정후"));
         // 넘기 쉬운(남은 수 ÷ 상대 값이 작은) 순: 안타 32/367 < 경기 34/363 < 홈런 21/40(최희섭)
         assertThat(records.next()).extracting(RecordNext::category)

@@ -92,7 +92,7 @@ class PlayerTimelineApiTest {
     }
 
     @Test
-    @DisplayName("콜업과 이관한 날에 소속 띠가 바뀌고 이동은 날짜순으로 나온다")
+    @DisplayName("콜업되거나 마이너로 이관된 날에 소속 띠가 바뀌고 이동은 날짜순이다")
     void segmentsAndMovesFollowTheMovesOnThePlayerPage() throws Exception {
         // when
         // 샘플 선수 5: 3월 24일 강등 → 9월 20일 콜업 → 10월 6일 이관. 이동은 선수 화면 moves와 같고 날짜 오름차순
@@ -110,7 +110,7 @@ class PlayerTimelineApiTest {
     }
 
     @Test
-    @DisplayName("선수의 단계와 리그 대비 성적은 홈 비시즌 성적표와 같은 값이다")
+    @DisplayName("이동 연표의 리그 단계와 wRC+·ERA+는 홈 비시즌 성적표와 같다")
     void seasonNumbersMatchTheOffSeasonReportOnHome() throws Exception {
         // given
         // 11월이라 홈은 비시즌 성적표를 준다. 같은 선수·시즌의 wRC+·ERA+·단계는 그 성적표와 같은 값이다

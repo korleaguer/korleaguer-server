@@ -39,7 +39,7 @@ class ArticlePageTest {
     }
 
     @Test
-    @DisplayName("스타일에 적힌 이름에 속지 않고 본문 칸의 글을 읽는다")
+    @DisplayName("CSS에 본문 칸 이름이 먼저 나와도 실제 본문 칸의 글을 읽는다")
     void theArticleBlockIsFoundByItsClassNotByAMentionInStyles() {
         // when
         ArticlePage page = ArticlePage.parse("""
@@ -94,7 +94,7 @@ class ArticlePageTest {
     }
 
     @Test
-    @DisplayName("앞부분만 있는 제목은 온전한 페이지 제목으로 바꾸고 트위터 사진을 쓴다")
+    @DisplayName("앞부분만 있는 제목은 온전한 제목으로 바꾸고, 대표 사진이 없으면 트위터 사진을 쓴다")
     void aShortenedSitemapTitleGetsTheFullPageTitleAndTwitterImageIsAPhoto() {
         // given
         // 엑스포츠뉴스 실제 꼴: 사이트맵은 부호·한자를 빼고 앞부분만, 페이지는 og:image 없이 twitter:image
@@ -212,7 +212,7 @@ class ArticlePageTest {
     }
 
     @Test
-    @DisplayName("기사 칸이 없으면 본문을 비우고 사진 주소는 https로 바꾼다")
+    @DisplayName("기사 칸 없이 짧은 글만 있으면 본문을 비우고 사진 주소는 https로 바꾼다")
     void noArticleBlockMeansNoBodyAndHttpImagesBecomeHttps() {
         // when
         ArticlePage page = ArticlePage.parse("""

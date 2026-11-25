@@ -105,7 +105,7 @@ class LeagueAverageApiTest {
     }
 
     @Test
-    @DisplayName("서버를 켜면 화면에 필요한 시즌과 단계의 리그 평균만 받아 둔다")
+    @DisplayName("서버를 켜면 화면에 필요한 시즌과 리그 단계(MLB·AAA)의 평균만 받아 둔다")
     @Order(1)
     void startupCatchUpStoresTheCombinationsTheScreensAsk() {
         // when // then
@@ -168,7 +168,7 @@ class LeagueAverageApiTest {
     }
 
     @Test
-    @DisplayName("없던 리그 평균을 다음 수집이 받으면 리그 대비 숫자도 따라 바뀐다")
+    @DisplayName("없던 리그 평균을 다음 수집이 받으면 ERA+와 wRC+도 따라 바뀐다")
     @Order(4)
     void numbersFollowTheStoredAveragesAfterTheNextIngest() throws Exception {
         // given

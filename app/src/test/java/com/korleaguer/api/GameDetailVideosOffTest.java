@@ -5,6 +5,7 @@ import com.korleaguer.client.MlbGameContent;
 import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.ingest.GameDetailIngest;
+import com.korleaguer.video.PlayVideoFinder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,12 +51,16 @@ class GameDetailVideosOffTest {
         gameDetailIngest.fill(1000);
 
         // when // then
-        mockMvc.perform(get("/api/players/1/games/1001"))
+        String body = mockMvc.perform(get("/api/players/1/games/1001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.plays", hasSize(4)))
                 .andExpect(jsonPath("$.clips").value(false))
-                .andExpect(jsonPath("$.highlights", hasSize(0)));
-        mockMvc.perform(get("/api/players/1/games/1001/clips/0b0e2a3c-1111-2222-3333-444455556666"))
+                .andExpect(jsonPath("$.highlights", hasSize(0)))
+                .andReturn().getResponse().getContentAsString();
+        // 상세에 있는 공이라 켜져 있으면 영상을 준다
+        String playId = Scenario.JSON.readTree(body).at("/plays/0/playId").asString();
+        assertThat(playId).isNotBlank();
+        mockMvc.perform(get("/api/players/1/games/1001/clips/" + playId))
                 .andExpect(status().isNotFound());
     }
 
@@ -76,6 +83,12 @@ class GameDetailVideosOffTest {
                     return read("content-823898.json", MlbGameContent.class);
                 }
             };
+        }
+
+        @Bean
+        @Primary
+        PlayVideoFinder alwaysFound() {
+            return playId -> new PlayVideoFinder.Lookup(true, Optional.of("https://clips.example/1.mp4"));
         }
 
         private static <T> T read(String name, Class<T> type) {

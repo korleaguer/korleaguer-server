@@ -42,7 +42,7 @@ class SameGamesTest {
     }
 
     @Test
-    @DisplayName("짝 경기 사이에 팀을 옮겼으면 팀 이름을 비워 둔다")
+    @DisplayName("두 선수가 같이 나온 경기들 사이에 팀을 옮겼으면 팀 이름을 비운다")
     void teamNameIsNullWhenThePlayerChangedTeamsBetweenMeetings() {
         // given
         List<SameGamesResponse.Meeting> meetings = List.of(meeting(1, "애틀랜타", "W"), meeting(2, "탬파베이", "L"));

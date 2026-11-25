@@ -45,7 +45,7 @@ class SeasonMetricRefresherTest {
     }
 
     @Test
-    @DisplayName("고급 지표는 합친 줄을 쓰고 합친 줄이 없으면 WAR만 더한다")
+    @DisplayName("여러 팀 시즌의 고급 지표는 합친 줄을 쓰고, 그 줄이 없으면 WAR만 더한다")
     void sabermetricsOfSeveralTeamsKeepOnlyTheWarSum() {
         // when
         var one = SeasonMetricRefresher.sabermetrics(List.of(metric(null, ATLANTA, 7.3, -1.17)));

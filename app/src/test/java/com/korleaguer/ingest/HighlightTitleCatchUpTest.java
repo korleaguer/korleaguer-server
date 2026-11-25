@@ -79,7 +79,7 @@ class HighlightTitleCatchUpTest {
     private MockMvc mockMvc;
 
     @Test
-    @DisplayName("받은 경기의 영상 제목을 옮겨 두고 화면 요청은 옮긴 제목만 읽는다")
+    @DisplayName("받은 경기의 영상 제목을 번역해 두고 화면 요청은 번역기를 부르지 않는다")
     void catchUpTranslatesTitlesOfIngestedDetailsAndTheApiOnlyReadsThem() throws Exception {
         // given
         Player lee = players.findByNameKo("이정후").orElseThrow();

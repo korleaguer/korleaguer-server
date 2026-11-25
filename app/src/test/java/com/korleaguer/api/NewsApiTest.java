@@ -144,7 +144,7 @@ class NewsApiTest {
     }
 
     @Test
-    @DisplayName("없는 기사와 뺀 언론사 기사는 404, 숫자가 아닌 번호는 400을 준다")
+    @DisplayName("없는 기사와 수집을 그만둔 언론사 기사는 404, 숫자 아닌 번호는 400을 준다")
     void unknownOrDroppedArticlesAreNotFound() throws Exception {
         // given
         NewsArticle dropped = news.save(new NewsArticle("노시환", "https://example.com/dropped", "d1", "노시환 MLB 소식",

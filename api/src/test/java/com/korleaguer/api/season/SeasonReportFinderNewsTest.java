@@ -54,7 +54,7 @@ class SeasonReportFinderNewsTest {
             new OptionalReads(mock(PlatformTransactionManager.class)));
 
     @Test
-    @DisplayName("이번 겨울 기사는 시즌 뒤 지금 모으는 언론사 것만, 같은 기사는 한 줄로 준다")
+    @DisplayName("이번 겨울 기사는 시즌 뒤에 난 수집 중인 언론사 것만, 같은 기사는 한 줄이다")
     void onlyWinterArticlesFromCurrentPublishersOneLinePerStory() {
         // given
         when(news.findLatest(eq("김하성"), any())).thenReturn(List.of(
@@ -72,7 +72,7 @@ class SeasonReportFinderNewsTest {
     }
 
     @Test
-    @DisplayName("선수 페이지 기사는 시즌 중 것도 넣고 뺀 언론사는 빼며 정한 개수까지만 준다")
+    @DisplayName("선수 페이지는 시즌 중 기사도 넣고 수집을 그만둔 언론사는 빼며 정한 개수만 준다")
     void playerPageNewsUsesTheSameRulesWithoutTheWinterCutAndAtMostLimit() {
         // given
         when(news.findLatest(eq("김하성"), any())).thenReturn(List.of(
@@ -137,6 +137,8 @@ class SeasonReportFinderNewsTest {
     @DisplayName("소속팀이 있거나 반대 전망 기사뿐이면 거론 구단을 보이지 않는다")
     void noLinkedTeamsForAPlayerWithATeamOrWithoutAnyLinkedMention() {
         // given
+        when(destinations.findMentions(eq("이정후"), any(), any())).thenReturn(List.of(
+                new DestinationMention(5L, "NYY", NewsDestination.Stance.LINKED, Instant.parse("2026-11-10T01:00:00Z"))));
         when(destinations.findMentions(eq("김하성"), any(), any())).thenReturn(List.of(
                 new DestinationMention(4L, "NYY", NewsDestination.Stance.DOUBTED, Instant.parse("2026-11-10T01:00:00Z"))));
         when(news.findLatest(any(), any())).thenReturn(List.of());

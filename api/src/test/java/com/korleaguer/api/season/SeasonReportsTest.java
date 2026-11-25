@@ -264,7 +264,7 @@ class SeasonReportsTest {
     }
 
     @Test
-    @DisplayName("선발 투수의 제목은 등판·이닝 대신 승수와 평균 대비 말로 쓴다")
+    @DisplayName("선발 투수의 제목은 등판·이닝 대신 승수와 투구 평가로 쓴다")
     void starterHeadlineUsesWinsInsteadOfTheNumbersBox() {
         // given
         List<GameDay> games = new ArrayList<>();

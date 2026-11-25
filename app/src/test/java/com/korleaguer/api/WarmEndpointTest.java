@@ -43,7 +43,7 @@ class WarmEndpointTest {
     private MockMvc mockMvc;
 
     @Test
-    @DisplayName("자동 수집이 꺼진 곳에서는 미리 채우기가 끝났다고 답한다")
+    @DisplayName("자동 수집이 꺼진 서버는 늘 캐시를 다 채웠다고 답한다")
     void readyWhenWarmingIsOff() throws Exception {
         // when // then
         mockMvc.perform(get("/actuator/warm"))
@@ -52,7 +52,7 @@ class WarmEndpointTest {
     }
 
     @Test
-    @DisplayName("자동 수집이 켜진 곳에서는 첫 채우기가 끝나야 준비됐다고 답한다")
+    @DisplayName("자동 수집이 켜진 서버는 첫 캐시 채우기가 끝나야 준비됐다고 답한다")
     void withScheduledIngestItIsReadyOnlyAfterTheFirstFill() {
         // given
         KorleaguerProperties properties = new KorleaguerProperties(2026, null,

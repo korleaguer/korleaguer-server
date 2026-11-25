@@ -49,7 +49,7 @@ class MinorScheduleIngestTest {
     private MinorGameLogRepository minorGameLogs;
 
     @Test
-    @DisplayName("끝난 마이너 경기는 다시 묻지 않고 기록을 통째로 바꿔도 일정이 남는다")
+    @DisplayName("점수까지 받은 마이너 경기는 다시 묻지 않고 기록을 통째로 바꿔도 일정이 남는다")
     void finishedGamesAreAskedOnceAndKeptWhenTheGameLogIsReplaced() {
         // given
         long lee = players.findByNameKo("이정후").orElseThrow().getId();

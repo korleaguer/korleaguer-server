@@ -134,7 +134,7 @@ class GameDetailApiTest {
     }
 
     @Test
-    @DisplayName("공 영상은 그 경기 상세에 있는 공만 묻고 한 번 물으면 다시 묻지 않는다")
+    @DisplayName("공 영상은 그 경기 상세에 있는 공만 Savant에 묻고 두 번 묻지 않는다")
     void clipIsAskedOnlyForPlaysOfThatDetailAndKept() throws Exception {
         // given
         String body = mockMvc.perform(get("/api/players/1/games/1001")).andExpect(status().isOk())
@@ -186,7 +186,7 @@ class GameDetailApiTest {
     }
 
     @Test
-    @DisplayName("기록이 없는 경기는 빈 상세를, 다른 선수의 마이너 경기는 404를 준다")
+    @DisplayName("그 선수 기록이 없는 경기는 빈 상세를, 남의 마이너 경기는 404를 준다")
     void knownGameWithoutThatPlayersRecordIsUnavailable() throws Exception {
         // given
         // 2001은 김혜성·송성문 경기다(둘의 상세는 저장돼 있다). 이정후(1)는 그 경기에 기록이 없다

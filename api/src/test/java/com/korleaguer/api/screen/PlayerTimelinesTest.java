@@ -171,7 +171,7 @@ class PlayerTimelinesTest {
     }
 
     @Test
-    @DisplayName("배지환은 방출 뒤 메이저로 돌아왔다가 다치고 FA가 된다")
+    @DisplayName("배지환은 방출 뒤 메이저에 갔다가 마이너로 내려가 다치고 FA가 된다")
     void baeJiHwanReturnsAfterBeingReleasedAndEndsInjuredThenFreeAgent() {
         // given
         List<MoveEntry> moves = List.of(
@@ -224,7 +224,7 @@ class PlayerTimelinesTest {
     }
 
     @Test
-    @DisplayName("경기도 상태를 바꾸는 이동도 없거나 띠가 뒤집히면 구간이 없다")
+    @DisplayName("경기도 상태를 바꾸는 이동도 없거나 끝 날이 시작보다 앞서면 구간이 없다")
     void noRecordsOrAnEmptyBandGiveNoSegments() {
         // when // then
         // 그 시즌 경기도 상태를 바꾸는 이동도 없다(없는 시즌)

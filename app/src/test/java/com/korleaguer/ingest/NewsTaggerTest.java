@@ -140,7 +140,7 @@ class NewsTaggerTest {
     }
 
     @Test
-    @DisplayName("지시문 판이 바뀌면 구단을 다시 골라 옛 구단을 바꾼다")
+    @DisplayName("지시문 버전이 바뀌면 구단을 다시 골라 옛 구단을 바꾼다")
     void aNewPromptVersionRetagsAndReplacesTheOldTeams() {
         // given
         article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
@@ -160,7 +160,7 @@ class NewsTaggerTest {
     }
 
     @Test
-    @DisplayName("구단을 고른 뒤에 요약이 붙으면 그 기사를 다시 고른다")
+    @DisplayName("구단을 고른 뒤에 요약이 붙으면 그 기사의 구단을 다시 고른다")
     void aSummaryArrivingAfterTaggingTagsTheArticleAgain() {
         // given
         NewsArticle article = article("요약 포기한 기사", "2026-11-12T01:00:00Z", false, 3);
@@ -215,7 +215,7 @@ class NewsTaggerTest {
     }
 
     @Test
-    @DisplayName("세 번 실패해 포기한 기사도 지시문 판이 바뀌면 다시 고른다")
+    @DisplayName("세 번 실패해 포기한 기사도 지시문 버전이 바뀌면 구단을 다시 고른다")
     void aNewPromptVersionRetriesAnArticleThatGaveUpUnderTheOldOne() {
         // given
         // 이슈 #148: 예전 판에서 세 번 실패한 기사가 새 판으로는 한 번도 시도되지 않았다
@@ -239,7 +239,7 @@ class NewsTaggerTest {
     }
 
     @Test
-    @DisplayName("새 판의 답을 읽지 못하면 세 번만 해 보고 옛 판의 구단을 남긴다")
+    @DisplayName("새 지시문의 답을 읽지 못하면 세 번만 해 보고 전에 고른 구단을 남긴다")
     void anArticleTaggedBeforeKeepsItsTeamsWhenTheNewVersionCannotReadIt() {
         // given
         NewsArticle article = article("메츠행 급부상", "2026-11-12T01:00:00Z", true, 0);
@@ -293,7 +293,7 @@ class NewsTaggerTest {
     }
 
     @Test
-    @DisplayName("포스팅 선수 기사를 먼저 고르고 MLB 선수 기사는 MLB 지시문으로 고른다")
+    @DisplayName("포스팅 선수 기사부터 보고 포스팅·MLB 지시문을 나눠 구단을 고른다")
     void aPostingPlayersArticleUsesThePostingPromptAndOthersTheMlbPrompt() {
         // given
         // 이슈 #139: 포스팅 선수와 MLB 선수는 '주인공' 기준이 달라 지시문·판이 다르다. 포스팅 선수 기사를 먼저 고른다
@@ -311,7 +311,7 @@ class NewsTaggerTest {
     }
 
     @Test
-    @DisplayName("MLB 선수 지시문 판만 바뀌면 MLB 선수 기사만 다시 고른다")
+    @DisplayName("MLB 선수 지시문 버전만 바뀌면 MLB 선수 기사의 구단만 다시 고른다")
     void aNewMlbPromptVersionRetagsOnlyTheMlbPlayersArticles() {
         // given
         article("이정후", "이정후의 새 조력자 등장", "2026-11-12T02:00:00Z", true, 0);

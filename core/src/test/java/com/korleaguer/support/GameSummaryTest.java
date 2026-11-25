@@ -73,7 +73,7 @@ class GameSummaryTest {
     }
 
     @Test
-    @DisplayName("끝난 경기에 선수 기록이 없으면 결장이라고 쓴다")
+    @DisplayName("기록을 받은 끝난 경기에 선수 기록이 없으면 결장이라고 쓴다")
     void absentWhenTeamPlayedButNoRecord() {
         // when // then
         assertThat(GameSummary.notPlayed("final", true)).isEqualTo("결장");

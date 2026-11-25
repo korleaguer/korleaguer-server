@@ -95,7 +95,7 @@ class LeaguePositionsTest {
     }
 
     @Test
-    @DisplayName("투수는 30이닝 이상 던진 투수와 견주고 실점과 볼넷은 낮을수록 좋다")
+    @DisplayName("투수는 30이닝 이상 투수와 견주고 실점·볼넷은 낮을수록 좋으며 10이닝 미만은 뺀다")
     void pitchersUseRatesAndLowerIsBetterForEraMinusAndWalks() {
         // given
         List<MlbSeasonSplit> season = new ArrayList<>();
@@ -122,9 +122,11 @@ class LeaguePositionsTest {
         // given
         // 10이닝 미만이면 위치는 없다
         addPitcher(season, saber, 11, "9.2", 40, 10, 2, 50.0, 0.1);
+
+        // when
         league = LeaguePositions.pitchers(season, saber);
 
-        // when // then
+        // then
         assertThat(LeaguePositions.pitching(league.get(11L), league.values()).pctOverall()).isNull();
     }
 

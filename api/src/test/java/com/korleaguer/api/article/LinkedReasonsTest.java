@@ -15,7 +15,7 @@ class LinkedReasonsTest {
     private static final Instant AT = Instant.parse("2026-11-12T01:00:00Z");
 
     @Test
-    @DisplayName("그 구단이 처음 나온 요약 문장과 가장 긴 구단 이름을 근거로 고른다")
+    @DisplayName("그 구단이 처음 나온 요약 문장과, 그 구단을 부른 가장 긴 이름을 고른다")
     void picksTheFirstSummarySentenceThatNamesTheTeamAndTheLongestName() {
         // given
         NewsArticle a = article("노시환 MLB", "노시환이 포스팅을 신청했다.\n샌디에이고 파드리스, 필라델피아 필리스, 뉴욕 메츠가 관심을 보였다.\n메츠가 가장 적극적이다.");

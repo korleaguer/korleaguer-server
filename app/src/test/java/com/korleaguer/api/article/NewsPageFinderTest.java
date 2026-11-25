@@ -134,7 +134,7 @@ class NewsPageFinderTest {
     }
 
     @Test
-    @DisplayName("다른 사본을 거쳐 이어진 같은 글도 함께 묶고 다른 기사에서 뺀다")
+    @DisplayName("다른 사본을 거쳐 이어진 같은 글도 함께 묶고 '다른 기사' 목록에서 뺀다")
     void aCopyLinkedThroughAnotherCopyCountsLikeTheListAndStaysOutOfMore() {
         // given
         // 목록은 이어 주는 기사(B)로 A와 NEAR 넘게 떨어진 C까지 한 줄로 묶는다. 기사 페이지도 넓혀 읽어 같게 센다.
@@ -204,7 +204,7 @@ class NewsPageFinderTest {
     }
 
     @Test
-    @DisplayName("다른 기사에는 지금 수집하는 언론사의 최근 기사 다섯 건이 나온다")
+    @DisplayName("'다른 기사' 목록에는 지금 수집하는 언론사의 최근 기사 다섯 건이 나온다")
     void moreIsTheLatestFiveOthersFromKeptPublishers() {
         // given
         List<NewsArticle> latest = new ArrayList<>();
@@ -226,7 +226,7 @@ class NewsPageFinderTest {
     }
 
     @Test
-    @DisplayName("다른 기사에서 이 글의 사본은 빼고 서로 같은 글은 한 줄로 묶는다")
+    @DisplayName("'다른 기사' 목록에서 이 글의 사본은 빼고 서로 같은 글은 한 줄로 묶는다")
     void moreLeavesOutCopiesOfThisArticleAndFoldsCopiesIntoOneLine() {
         // given
         // 1번(이 기사)과 0번은 언론사만 다른 같은 글, 2·3번도 같은 글이다(이슈 #113)
@@ -250,7 +250,7 @@ class NewsPageFinderTest {
     }
 
     @Test
-    @DisplayName("최근 목록에 없는 기사를 열어도 그 사본은 다른 기사에 나오지 않는다")
+    @DisplayName("최근 목록에 없는 기사를 열어도 그 사본은 '다른 기사' 목록에 없다")
     void anOldArticleStillHidesItsCopiesFromMore() {
         // given
         // 이 기사가 최근 목록(MORE * 4건) 밖이어도(기사가 몰린 날) 하루 뒤 같은 글을 실은 최근 기사는 '다른 기사'에 넣지 않는다
@@ -302,7 +302,7 @@ class NewsPageFinderTest {
     }
 
     @Test
-    @DisplayName("이번 겨울 포스팅 선수가 아니면 선수 사진 없이 기사 첫머리가 나온다")
+    @DisplayName("이번 겨울 포스팅 선수가 아니면 선수 사진은 비고 기사 첫머리는 나온다")
     void playerOutsideThisWintersPostingsHasNoPhoto() {
         // given
         NewsArticle old = article(3L, "김혜성", "김혜성 소식", "마이데일리", "2026-11-10T03:00:00Z");

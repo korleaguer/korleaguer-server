@@ -108,7 +108,7 @@ class PostingFinderTest {
     }
 
     @Test
-    @DisplayName("협상 시작, 진행률, 마감, 마감 60일 뒤마다 포스팅 구분값이 달라진다")
+    @DisplayName("협상 시작·진행률·마감·마감 60일 뒤에 따라 포스팅 캐시 키가 달라진다")
     void timeKeyChangesWithStatusVisibilityAndEachPercentOfTheBar() {
         // given
         PostingCase roh = new Postings(new PostingProperties(List.of(roh(null)), List.of())).current().getFirst();
@@ -177,7 +177,7 @@ class PostingFinderTest {
         Instant now = Instant.parse("2026-11-11T01:00:00Z");
 
         // when // then
-        // KBO 선수 번호가 있는 선배만, 포스팅된 겨울(season) 시즌 사진. 공식 사진을 끄면 모두 null
+        // KBO 선수 번호가 있는 지난 포스팅 선수만, 포스팅된 겨울(season) 시즌 사진. 공식 사진을 끄면 모두 null
         // 계약 구단 MLB 사진(의 편집본)이 있으면 그것(김하성 2024 샌디에이고), 없으면 포스팅 시즌 KBO 사진(이정후 2023). 끄면 모두 null
         assertThat(finder(roh(null)).find(now).history()).extracting(PostingSummary.Past::photoUrl)
                 .containsExactly("/photos/kbo-67341-2023", null, "/photos/posting-673490-2024?v=" + PhotoFiles.version("posting-673490-2024.jpg"));
@@ -532,7 +532,7 @@ class PostingFinderTest {
     }
 
     @Test
-    @DisplayName("거론 구단마다 센 기사와 그 구단 이름이 나온 요약 문장이 나온다")
+    @DisplayName("거론 구단마다 횟수에 넣은 기사와 구단 이름이 든 요약 문장이 나온다")
     void eachLinkedTeamListsTheStoriesItCountedWithTheSentenceThatNamesTheTeam() {
         // given
         Instant now = Instant.parse("2026-11-12T10:00:00Z"); // 한국 11/12 19시

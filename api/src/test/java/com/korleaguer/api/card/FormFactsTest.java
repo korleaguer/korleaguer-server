@@ -169,7 +169,7 @@ class FormFactsTest {
     }
 
     @Test
-    @DisplayName("안타와 무안타를 번갈아 치면 소식이 없다")
+    @DisplayName("안타 친 경기와 무안타 경기가 번갈아 나오면 소식이 없다")
     void nothingNotableMeansNoFact() {
         // given
         List<GameStat> games = hitter(new int[][]{{4, 1}, {4, 0}, {4, 1}, {4, 0}});

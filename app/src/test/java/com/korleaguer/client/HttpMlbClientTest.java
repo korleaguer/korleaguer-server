@@ -145,7 +145,7 @@ class HttpMlbClientTest {
     }
 
     @Test
-    @DisplayName("마이너 경기의 타격과 투구를 한 번에 요청해 경기 단계까지 읽는다")
+    @DisplayName("마이너 경기의 타격과 투구를 한 번에 요청해 리그 단계(AAA·AA)까지 읽는다")
     void readsMinorGameLogForHittingAndPitchingAtOnce() {
         // given
         // 실제 응답(2026 고우석, 경기 몇 개만 남겨 저장): 투구 3경기(트리플A 2·더블A 1), 타격 1경기.

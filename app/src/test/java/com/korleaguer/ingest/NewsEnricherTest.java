@@ -313,7 +313,7 @@ class NewsEnricherTest {
     }
 
     @Test
-    @DisplayName("요약 서비스를 꺼 두면 기사 페이지를 요청하지 않는다")
+    @DisplayName("요약 서비스를 꺼 두면 AI 요약 출처의 기사 페이지는 요청하지 않는다")
     void withoutAnApiKeyNoPageIsRequested() {
         // given
         roh();
@@ -351,7 +351,7 @@ class NewsEnricherTest {
     }
 
     @Test
-    @DisplayName("요약이 없는 기사부터 요약하고 옛 판의 요약은 그다음에 다시 한다")
+    @DisplayName("요약이 없는 기사부터 요약하고 옛 지시문으로 한 요약은 그다음에 다시 한다")
     void summariesFromAnOlderPromptAreRedoneAfterTheArticlesWithoutOne() {
         // given
         roh();

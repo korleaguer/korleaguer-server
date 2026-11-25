@@ -36,7 +36,7 @@ class ClaudeSummarizerTest {
     }
 
     @Test
-    @DisplayName("요약 판 이름에 모델과 지시문 판을 적는다")
+    @DisplayName("요약 버전에 모델 이름과 지시문 버전을 적는다")
     void theVersionNamesTheModelAndThePromptEdition() {
         // when // then
         assertThat(new ClaudeSummarizer(null, "claude-haiku-5-5").version()).isEqualTo("claude-haiku-5-5/v5");
@@ -133,7 +133,7 @@ class ClaudeSummarizerTest {
     }
 
     @Test
-    @DisplayName("요약을 만드는 지시와 규칙이 적어 둔 판의 지문과 같다")
+    @DisplayName("요약 지시문과 규칙의 해시가 지금 버전에 적어 둔 값과 같다")
     void changingThePromptNeedsANewVersion() throws Exception {
         // given
         // 요약을 바꾸는 입력(지시문, 요청 틀, 분량 규칙, effort·답 길이, 본문 손질)을 바꿨으면 PROMPT_VERSION을 올리고
@@ -169,7 +169,7 @@ class ClaudeSummarizerTest {
     }
 
     @Test
-    @DisplayName("영어 기사의 지난 몇 월은 기사 날짜에 맞는 연도를 붙여 바꾼다")
+    @DisplayName("영어 기사의 last February 같은 말은 기사 날짜에 맞춰 연도를 붙인다")
     void anEnglishLastMonthIsSentWithTheYearOfTheMostRecentSuchMonth() {
         // given
         // 기사 날짜를 주고 지시문에 예까지 적어도, 11월 기사의 'signed last February'를 30번 중 7번 '지난해 2월'로 옮겼다(#105)
