@@ -48,6 +48,11 @@ public class LinkedTeamsCounter {
         this.publishers = newsProperties.publishers();
     }
 
+    /** 거론된 구단이 없을 때(또는 세지 못했을 때)의 값 */
+    public static PostingSummary.LinkedTeams none() {
+        return new PostingSummary.LinkedTeams(LINKED_DAYS, List.of());
+    }
+
     /**
      * @param kept     화면 기사 목록과 같은 거르기(같은 글 묶음을 목록과 같은 기사로 만든다)
      * @param leaveOut 세지 않을 구단 약어(FA 선수의 직전 구단). 없으면 null
@@ -60,7 +65,7 @@ public class LinkedTeamsCounter {
                 .filter(m -> !m.team().equals(leaveOut))
                 .toList();
         if (mentions.isEmpty()) {
-            return new PostingSummary.LinkedTeams(LINKED_DAYS, List.of());
+            return none();
         }
         // 같은 글을 실은 여러 언론사 기사(#113 묶음)는 한 번만 센다(사용자 11-13). 묶음은 목록과 같은 규칙
         List<NewsArticle> recent = kept.apply(news.findLatest(player, PageRequest.of(0, ARTICLES_FOR_STORIES))).stream()
