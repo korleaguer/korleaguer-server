@@ -48,7 +48,7 @@ class MinorLevelNameTest {
     }
 
     @Test
-    @DisplayName("홈의 마이너 기록은 단계가 섞이면 마이너로, 팀은 마지막 경기 팀으로 쓴다")
+    @DisplayName("홈 화면 마이너 기록은 단계가 섞이면 마이너, 팀은 마지막 경기 팀이다")
     void homeMinorRowUsesTheCombinedName() {
         // given
         ReflectionTestUtils.setField(GO, "id", 5L);

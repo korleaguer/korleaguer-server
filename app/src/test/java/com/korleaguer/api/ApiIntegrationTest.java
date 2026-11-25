@@ -318,7 +318,7 @@ class ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("투수 페이지는 타격 칸 없이 세이브와 뛴 기간의 경기만 준다")
+    @DisplayName("투수 페이지에 타격 칸은 없고 세이브가 나오며 첫 등판 전 경기는 빠진다")
     void pitcherPage() throws Exception {
         // when // then
         mockMvc.perform(get("/api/players/5"))
@@ -516,7 +516,7 @@ class ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("관리 토큰이 없으면 수집을 403으로 막고 있으면 수집을 마친다")
+    @DisplayName("수집은 관리 토큰이 없으면 403으로 막고, 토큰이 있으면 끝까지 한다")
     void adminNeedsToken() throws Exception {
         // when // then
         mockMvc.perform(post("/admin/ingest/games").param("date", "2026-09-26"))

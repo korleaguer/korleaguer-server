@@ -151,7 +151,7 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
-    @DisplayName("시즌 기록을 못 읽으면 홈 성적표만 비고 시즌 성적은 그대로 나온다")
+    @DisplayName("성적표용 시즌 지표를 못 읽으면 성적표만 비고 시즌 성적 표는 그대로 나온다")
     void seasonRecordsFailSoOnlyTheReportIsEmpty() throws Exception {
         // given
         doAnswer(failsInDatabase()).when(metrics).findSeasons(any(), anyInt(), anyInt());
@@ -180,7 +180,7 @@ class SeasonReportReadFailuresTest {
     }
 
     @Test
-    @DisplayName("MLB 안 위치를 못 읽으면 성적표의 세부 기록만 비고 기사는 그대로 나온다")
+    @DisplayName("MLB 백분위를 못 읽으면 성적표의 세부 기록만 비고 기사는 그대로 나온다")
     void leaguePositionsFailSoOnlyTheSaberIsNull() throws Exception {
         // given
         doAnswer(failsInDatabase()).when(leaguePositions).findSeason(any(), anyInt());

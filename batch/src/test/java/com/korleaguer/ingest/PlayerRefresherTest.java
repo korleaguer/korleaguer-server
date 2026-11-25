@@ -159,7 +159,7 @@ class PlayerRefresherTest {
     }
 
     @Test
-    @DisplayName("선수 정보는 한 번에 묻고 이동 기록의 팀 단계까지 저장한다")
+    @DisplayName("선수 정보는 한 번에 묻고 이동 기록 속 팀의 메이저·마이너 구분까지 저장한다")
     @SuppressWarnings("unchecked")
     void savesPeopleInOneRequestWithMovesAndTeamLevels() {
         // when

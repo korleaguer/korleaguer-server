@@ -29,7 +29,7 @@ class PoliteFetcherTest {
     private final PoliteFetcher fetcher = new PoliteFetcher(http, AGENTS, clock, clock::advance);
 
     @Test
-    @DisplayName("기사가 없거나 막혀도 사이트를 쉬지 않지만 피드가 사라지면 쉰다")
+    @DisplayName("기사가 없거나 막혀도 요청을 쉬지 않고, 피드가 사라지면 쉰다")
     void aGoneOrRefusedArticlePageDoesNotPauseTheSiteButAGoneFeedDoes() {
         // given
         String page = SITE + "/view/1";
@@ -81,7 +81,7 @@ class PoliteFetcherTest {
     }
 
     @Test
-    @DisplayName("robots.txt에서 서버 오류가 나면 피드를 요청하지 않고 사이트를 쉰다")
+    @DisplayName("robots.txt에서 서버 오류가 나면 피드를 요청하지 않고 그 사이트 요청을 쉰다")
     void robotsServerErrorMeansDoNotFetchAndPauseTheSite() {
         // given
         http.on(ROBOTS, reply(500, "")).on(FEED, ok("<rss/>"));
@@ -99,7 +99,7 @@ class PoliteFetcherTest {
     }
 
     @Test
-    @DisplayName("robots.txt가 403이면 23시간 뒤에도 그 사이트를 쉰다")
+    @DisplayName("robots.txt가 403이면 23시간 뒤에도 그 사이트 요청을 쉰다")
     void robotsForbiddenPausesTheSiteForADay() {
         // given
         http.on(ROBOTS, reply(403, "")).on(FEED, ok("<rss/>"));

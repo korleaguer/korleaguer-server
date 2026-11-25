@@ -112,7 +112,7 @@ class ClaudeDestinationTaggerTest {
     }
 
     @Test
-    @DisplayName("두 지시문 모두 구단 표를 받고 주인공인지 묻는다")
+    @DisplayName("포스팅·MLB 선수 지시문 모두 구단 표를 넣고 선수가 주인공인지 묻는다")
     void bothPromptsTakeTheTeamTableAndAskWhetherThePlayerIsTheSubject() {
         // when // then
         // 이슈 #139: MLB 선수 지시문도 같은 답 모양(구단 줄 + 마지막 줄 '주인공')을 쓴다
@@ -143,7 +143,7 @@ class ClaudeDestinationTaggerTest {
     }
 
     @Test
-    @DisplayName("판 이름에 모델과 분류 종류를 적고 너무 긴 모델 이름은 거른다")
+    @DisplayName("분류 버전에 모델과 종류별 지시문 버전을 적고 너무 긴 모델 이름은 거른다")
     void theVersionFitsTheRecordColumn() {
         // when // then
         assertThat(ClaudeDestinationTagger.versionOf("claude-haiku-5-5", DestinationTagger.Kind.POSTING))

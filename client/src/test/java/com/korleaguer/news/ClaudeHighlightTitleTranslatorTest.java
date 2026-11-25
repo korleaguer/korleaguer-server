@@ -40,7 +40,7 @@ class ClaudeHighlightTitleTranslatorTest {
     }
 
     @Test
-    @DisplayName("번역 판 이름에 모델과 지시문 판을 적는다")
+    @DisplayName("번역 버전에 모델 이름과 지시문 버전을 적는다")
     void theVersionNamesTheModelAndThePromptEdition() {
         // when // then
         assertThat(new ClaudeHighlightTitleTranslator(null, "claude-haiku-5-5").version())

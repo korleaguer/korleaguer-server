@@ -68,7 +68,7 @@ class RecordsApiTest {
                 .andExpect(jsonPath("$.next[?(@.nameKo == '이정후' && @.category == 'hits')].targetNameKo").value("김하성"))
                 .andExpect(jsonPath("$.next[?(@.nameKo == '이정후' && @.category == 'hits')].toPass").value(44))
                 .andExpect(jsonPath("$.next[?(@.nameKo == '이정후' && @.category == 'hits')].rankAfter").value(1))
-                // 샘플에는 현역이 아닌 타자가 없어 넘은 선배가 없다
+                // 샘플에는 현역이 아닌 타자가 없어 넘은 선수가 없다
                 .andExpect(jsonPath("$.passed", hasSize(0)))
                 .andExpect(jsonPath("$.singleSeason[0].key").value("hits"))
                 .andExpect(jsonPath("$.singleSeason[0].rows[0].nameKo").value("이정후"))

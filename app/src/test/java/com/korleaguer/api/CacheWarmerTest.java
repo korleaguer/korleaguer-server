@@ -90,7 +90,7 @@ class CacheWarmerTest {
     }
 
     @Test
-    @DisplayName("따라잡기가 끝나면 홈과 선수 전원, 비시즌 내 선수 캐시가 채워진다")
+    @DisplayName("수집이 끝나면 홈과 선수 전원, 비시즌 내 선수 캐시가 채워진다")
     void catchUpFinishedFillsHomeEveryPlayerAndOffSeasonCards() {
         // when // then
         assertThat(cache(ResponseCaches.HOME_CACHE).get(SimpleKey.EMPTY)).isNotNull();

@@ -99,7 +99,7 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
-    @DisplayName("우리 기록이 있는 시즌과 단계만 받고 기록이 없어도 지금 시즌 MLB는 받는다")
+    @DisplayName("기록이 있는 시즌마다 MLB와 뛴 마이너 단계를 받고 지금 시즌 MLB는 늘 받는다")
     void neededCombinationsComeFromOurRecords() {
         // given
         // 메이저 기록 2024·2026, 마이너 2025(트리플A)·2026(트리플A·루키). 단계를 모르는 경기와 평균을 두지 않는 단계도 있다
@@ -264,7 +264,7 @@ class LeagueAverageRefresherTest {
     }
 
     @Test
-    @DisplayName("다시 받다 막히면 저장된 평균을 그대로 둔다")
+    @DisplayName("다시 받다 실패하면 저장된 평균을 그대로 둔다")
     void failedRefreshKeepsTheStoredRow() {
         // given
         clock.set(Instant.parse("2026-07-02T00:10:00Z"));

@@ -21,7 +21,7 @@ class RankingMinimumsTest {
     }
 
     @Test
-    @DisplayName("시즌 초 10경기까지는 순위 기준이 최소값인 10타석과 15아웃이다")
+    @DisplayName("0경기와 10경기에는 순위 기준이 최소값인 10타석과 15아웃이다")
     void earlySeasonUsesFloor() {
         // when // then
         // 시즌 초에는 경기 수 비율보다 최소값(10타석, 15아웃)이 크다.

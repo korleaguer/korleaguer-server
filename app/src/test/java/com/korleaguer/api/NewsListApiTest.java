@@ -341,7 +341,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("최근 기사에 세 번 이상 나온 말이 많이 나온 순으로 알약에 나온다")
+    @DisplayName("최근 기사에 세 번 이상 나온 말이 자주 나온 말 버튼에 많은 순으로 나온다")
     void topicsAreWordsThatRecentArticlesMentionOften() throws Exception {
         // given
         for (int i = 0; i < 4; i++) {
@@ -373,7 +373,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("영어 말은 낱말이 통째로 같아야 찾고 한글 말은 글자만 들어도 찾는다")
+    @DisplayName("영어 검색어는 낱말이 통째로 같아야, 한글 검색어는 일부만 있어도 찾는다")
     void latinWordsMatchWholeWordsOnly() throws Exception {
         // given
         save("김하성", "김하성 FA 시장 1위", "마이데일리", T0);
@@ -399,7 +399,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("한 구단의 두 이름이 함께 나와도 알약에는 하나만 나온다")
+    @DisplayName("한 구단의 두 이름이 함께 나와도 자주 나온 말 버튼은 하나만 나온다")
     void oneTeamTakesOneTopicEvenWithTwoNames() throws Exception {
         // given
         for (int i = 0; i < 4; i++) {
@@ -442,7 +442,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("알약 숫자는 오래된 기사까지 센 검색 결과 줄 수와 같다")
+    @DisplayName("자주 나온 말의 숫자는 오래된 기사까지 센 검색 결과 줄 수와 같다")
     void topicCountIsTheNumberOfSearchRowsBeyondRecentArticles() throws Exception {
         // given
         // 최근 TOPIC_ROWS건: 그중 FA가 3건. 그보다 오래된 FA 기사 5건은 말을 고를 때는 안 보지만 검색에는 나온다
@@ -508,7 +508,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("선수를 고르면 검색 결과 수는 그 선수 기사만 세고 알약 숫자와 같다")
+    @DisplayName("선수를 고르면 검색 결과 수는 그 선수 기사만 세고 자주 나온 말 숫자와 같다")
     void queryCountInAPlayerScopeCountsThatPlayersRowsLikeThePill() throws Exception {
         // given
         for (int i = 0; i < 4; i++) {
@@ -544,7 +544,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("알약은 최근 횟수가 아니라 보이는 숫자가 큰 순으로 놓인다")
+    @DisplayName("자주 나온 말은 최근 횟수가 아니라 보이는 숫자가 큰 순으로 놓인다")
     void topicsAreOrderedByShownCount() throws Exception {
         // given
         // 최근엔 '영입'이 더 많지만(4 대 3), 전체로 세면 'FA'가 더 많다(3 + 오래된 3 = 6). 보이는 숫자 순으로 FA가 앞
@@ -570,7 +570,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("선수를 고르면 그 선수의 지금 구단은 알약에서 빠진다")
+    @DisplayName("선수를 고르면 그 선수의 지금 구단은 자주 나온 말에서 빠진다")
     void ownTeamIsNotATopicForThatPlayer() throws Exception {
         // given
         inDodgers(null);
@@ -599,7 +599,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("FA 선수는 마지막 구단도 알약에 남는다")
+    @DisplayName("FA 선수를 고르면 마지막 구단도 자주 나온 말에 남는다")
     void lastTeamStaysATopicForAFreeAgent() throws Exception {
         // given
         inDodgers(LocalDate.of(2026, 11, 1));
@@ -673,7 +673,7 @@ class NewsListApiTest {
     }
 
     @Test
-    @DisplayName("잘못된 다음 쪽 표시로 물으면 HTTP 400을 준다")
+    @DisplayName("형식이 잘못된 다음 쪽 커서로 물으면 HTTP 400을 준다")
     void malformedCursorIsBadRequest() throws Exception {
         // when // then
         mockMvc.perform(get("/api/news").param("before", "어제"))

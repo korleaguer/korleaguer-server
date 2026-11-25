@@ -53,7 +53,7 @@ class PhotoControllerTest {
     }
 
     @Test
-    @DisplayName("지금 버전을 붙인 사진 주소는 바뀌지 않는 1년 캐시로 내려 준다")
+    @DisplayName("지금 버전을 붙인 사진 주소는 1년 동안 다시 묻지 않게(immutable) 캐시한다")
     void requestWithTheCurrentVersionIsCachedForeverAsImmutable() throws Exception {
         // when // then
         mockMvc.perform(get("/api/photos/mlb-808982").param("v", "abc12345"))

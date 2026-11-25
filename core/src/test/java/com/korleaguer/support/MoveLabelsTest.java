@@ -35,7 +35,7 @@ class MoveLabelsTest {
     }
 
     @ParameterizedTest
-    @DisplayName("부상자 명단과 출장 정지에 오르고 풀리고 옮긴 일에 우리말 이름을 붙인다")
+    @DisplayName("부상자 명단 등재·해제·이동과 출장 정지·해제에 우리말 이름을 붙인다")
     @CsvSource(delimiter = '|', textBlock = """
             Pensacola Blue Wahoos placed RHP Woo-Suk Go on the 7-day injured list.                     | 부상자 명단 등재
             Toledo Mud Hens activated RHP Woo-Suk Go from the 7-day injured list.                      | 부상자 명단 해제

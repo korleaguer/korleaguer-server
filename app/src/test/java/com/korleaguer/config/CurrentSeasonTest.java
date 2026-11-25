@@ -43,7 +43,7 @@ class CurrentSeasonTest {
     }
 
     @Test
-    @DisplayName("시즌 설정이 비었거나 없으면 자동이고 2027이라 적으면 2027 시즌이다")
+    @DisplayName("시즌 설정이 비었거나 없으면 값이 없고 2027이라 적으면 2027로 읽는다")
     void blankSettingMeansAutomatic() {
         // when // then
         // application.properties의 korleaguer.season=${KORLEAGUER_SEASON:}가 비어 있을 때와 같다.
@@ -167,7 +167,7 @@ class CurrentSeasonTest {
     }
 
     @Test
-    @DisplayName("지금 시즌을 5분 기억하고, 그 뒤나 잊으라고 하면 다시 읽는다")
+    @DisplayName("지금 시즌을 5분 기억하고, 5분이 지나거나 기억을 지우면 DB에서 다시 읽는다")
     void remembersForAFewMinutesThenAsksTheDbAgain() {
         // given
         stored(2026, "2026-03-25");

@@ -94,7 +94,7 @@ class TransferRangeTest {
     }
 
     @Test
-    @DisplayName("팀을 옮긴 선수의 결장은 각 팀에서 뛴 기간에만 붙고 이전 팀 기록도 남는다")
+    @DisplayName("결장은 팀마다 첫 출전 뒤에(옛 팀은 마지막 출전까지) 붙고 옛 팀 기록도 남는다")
     void absenceOnlyWithinStints() throws Exception {
         // when // then
         mockMvc.perform(get("/api/players/1"))

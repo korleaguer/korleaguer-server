@@ -102,7 +102,7 @@ class GameBuzzRulesTest {
     }
 
     @Test
-    @DisplayName("연속 안타는 5경기와 10경기일 때만 알린다")
+    @DisplayName("1~11경기 연속 안타 가운데 5경기와 10경기째에만 알린다")
     void hitStreakOnlyOnMilestones() {
         for (int streak = 1; streak <= 11; streak++) {
             // given
@@ -147,7 +147,7 @@ class GameBuzzRulesTest {
     }
 
     @Test
-    @DisplayName("앞선 경기가 넉넉하고 그 경기를 모두 넘어야 시즌 최고 경기로 알린다")
+    @DisplayName("앞선 경기가 10개 이상이고 활약이 모두보다 커야 시즌 최고로 알린다")
     void seasonBestNeedsTenGamesAndBeatingAllBefore() {
         // given
         // 이정후 8/4: 2홈런 3안타 3타점 도루 1 = 루타 9 + 타점 3 + 도루 1 = 13점
@@ -180,10 +180,10 @@ class GameBuzzRulesTest {
     }
 
     @Test
-    @DisplayName("점수가 5점인 경기는 시즌 최고 경기로 알리지 않는다")
+    @DisplayName("활약 점수(루타·타점·도루·볼넷)가 5점이면 시즌 최고로 알리지 않는다")
     void weakSeasonBestIsNotBuzz() {
         // given
-        // 김하성처럼 시즌 최고가 4점이면 화제로 말하지 않는다
+        // 시즌 최고가 5점뿐이면 화제로 말하지 않는다
         List<GameBuzzRules.Game> games = new ArrayList<>(List.of(bat(4, 1, 1, 1, 0, 0, 4)));
         games.addAll(season(12, bat(4, 1, 1, 1, 0, 0, 4)));
 
@@ -193,7 +193,7 @@ class GameBuzzRulesTest {
     }
 
     @Test
-    @DisplayName("6점이고 앞선 10경기보다 높아야 시즌 최고이며 동점이면 아니다")
+    @DisplayName("활약 점수가 6점 이상이고 앞선 10경기를 모두 넘어야 시즌 최고다")
     void seasonBestChangesExactlyAtTheBars() {
         // given
         // 홈런 없는 경기라 '첫 홈런'과 겹치지 않는다. 루타 4 + 타점 2 = 6점
@@ -216,10 +216,10 @@ class GameBuzzRulesTest {
     }
 
     @Test
-    @DisplayName("처음도 연속도 최고도 아닌 날은 화제 문구가 없다")
+    @DisplayName("첫 홈런도 연속 안타도 시즌 최고도 아닌 날은 화제 문구가 없다")
     void ordinaryDayHasNoBuzz() {
         // given
-        // 6/22 같은 날: 1안타, 연속도 최고도 처음도 아님
+        // 2안타를 쳤지만 연속도 최고도 처음도 아님
         List<GameBuzzRules.Game> games = new ArrayList<>(List.of(bat(4, 1, 1, 1, 0, 0, 4)));
         games.addAll(season(20, bat(4, 2, 0, 1, 0, 0, 2)));
 
@@ -243,7 +243,7 @@ class GameBuzzRulesTest {
     }
 
     @Test
-    @DisplayName("넘은 기록 문구에 넘은 선수 이름과 그 기록 수를 적는다")
+    @DisplayName("통산 기록을 넘으면 제친 선수의 이름과 그 선수의 기록 수를 적는다")
     void passedTextNamesTheSeniorAndCount() {
         // given
         // 이정후 6/24: 한국인 통산 홈런, 이대호(14개) 넘음

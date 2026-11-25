@@ -123,7 +123,7 @@ class PostingsTest {
                 .current().getFirst().slug()).isEqualTo(longest);
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto(longest + "a", 2026)), List.of())))
                 .hasMessageContaining("slug must start with a lowercase letter");
-        // 숫자로 시작하면 지난 선배의 시즌 사진 이름(kbo-{KBO 선수 번호}-{시즌})과 겹칠 수 있다
+        // 숫자로 시작하면 지난 포스팅 선수의 시즌 사진 이름(kbo-{KBO 선수 번호}-{시즌})과 겹칠 수 있다
         assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(withPhoto("69737", 2026)), List.of())))
                 .hasMessageContaining("slug must start with a lowercase letter");
     }

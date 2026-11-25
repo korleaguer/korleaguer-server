@@ -131,6 +131,7 @@ class SameGamesApiTest {
             }
         }
         // 짝은 양쪽에서 한 번씩 보인다
+        assertThat(pairsSeen).as("샘플에는 같이 나온 짝이 있다").isPositive();
         assertThat(pairsSeen % 2).isZero();
     }
 

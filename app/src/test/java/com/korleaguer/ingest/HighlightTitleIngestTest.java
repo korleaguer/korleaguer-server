@@ -87,7 +87,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("저장된 경기의 영상 제목을 한 번씩만 그 경기의 선수 이름으로 옮긴다")
+    @DisplayName("저장된 영상 제목을 그 경기의 선수 이름과 함께 넘겨 한 번씩만 번역한다")
     void titlesOfSavedDetailsAreTranslatedOnceWithThePlayerOfTheirDetail() {
         // given
         // 옮기지 않는 제목: 이미 한글, 빈 제목, 없는 제목, 칸(300자)보다 긴 제목
@@ -115,7 +115,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("한 번에 10개씩만 옮기고 남은 제목은 다음번에 이어서 옮긴다")
+    @DisplayName("제목을 한 번에 10개씩만 번역하고 남은 것은 다음번에 이어서 번역한다")
     void oneRunCallsTheTranslatorOnlyUpToTheLimit() {
         // given
         List<String> all = numbered(25);
@@ -135,7 +135,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("이미 지금 규칙으로 옮긴 제목은 다시 묻지 않고 번역도 그대로 둔다")
+    @DisplayName("지금 규칙으로 번역한 제목은 다시 묻지 않고 그대로 둔다")
     void aTitleAlreadyTranslatedInTheCurrentEditionIsNotAskedAgain() {
         // given
         store(SOLO, "솔로 홈런 (시즌 7호)", "fake/t1");
@@ -150,7 +150,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("옛 규칙으로 옮긴 제목은 다시 옮겨 덮어쓴다")
+    @DisplayName("옛 규칙으로 번역한 제목은 다시 번역해 덮어쓴다")
     void anOldEditionIsTranslatedAgainAndOverwritten() {
         // given
         store(SOLO, "옛 번역", "fake/t0");
@@ -168,7 +168,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("못 옮긴 제목도 상한에 세고, 그 제목만 쉬었다가 다시 옮긴다")
+    @DisplayName("번역에 실패한 호출도 횟수 상한에 넣고 그 제목만 쉬었다가 다시 번역한다")
     void anUnusableAnswerRestsOnlyThatTitleUntilTheRetryTimeAndCountsTowardTheLimit() {
         // given
         saveDetail(lee, SOLO, CATCH);
@@ -202,7 +202,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("계속 못 옮기는 제목은 쉬는 시간을 두 배씩 늘리되 하루를 넘기지 않는다")
+    @DisplayName("계속 번역하지 못한 제목은 쉬는 시간을 두 배씩 늘리되 하루를 넘기지 않는다")
     void aTitleThatKeepsFailingRestsLongerEachTimeUpToADay() {
         // given
         saveDetail(lee, SOLO);
@@ -237,7 +237,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("번역기가 답하지 않으면 바로 멈추고 모든 제목이 쉬었다가 이어서 옮긴다")
+    @DisplayName("번역기가 답하지 않으면 바로 멈추고 모든 제목을 쉬었다가 이어서 번역한다")
     void whenTheServiceFailsTheRunStopsAndEveryTitlePausesThenGoesOn() {
         // given
         saveDetail(lee, SOLO, CATCH, DOUBLE);
@@ -266,7 +266,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("번역기를 끄거나 샘플 모드면 제목을 묻지도 줄 세우지도 않는다")
+    @DisplayName("번역기를 끄거나 샘플 모드면 제목을 번역하지도 대기 줄에 넣지도 않는다")
     void withTheTranslatorOffOrInSampleModeNothingIsAskedReadOrQueued() {
         // given
         saveDetail(lee, SOLO);
@@ -288,7 +288,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("서버를 다시 띄우면 저장된 경기에서 남은 제목만 이어서 옮긴다")
+    @DisplayName("서버를 다시 띄우면 저장된 경기에서 남은 제목만 이어서 번역한다")
     void afterARestartTheBacklogGoesOnFromWhatIsAlreadySaved() {
         // given
         List<String> all = numbered(15);
@@ -312,7 +312,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("밀린 제목을 다 옮기면 저장된 경기와 번역을 다시 읽지 않는다")
+    @DisplayName("밀린 제목을 다 번역하면 저장된 경기와 번역을 다시 읽지 않는다")
     void onceTheBacklogIsClearedSavedDetailsAreNotReadAgain() {
         // given
         saveDetail(lee, SOLO, CATCH);
@@ -358,7 +358,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("이번에 옮길 제목이 차면 저장된 경기를 더 읽지 않는다")
+    @DisplayName("이번에 번역할 제목이 차면 저장된 경기를 더 읽지 않는다")
     void scanningStopsOnceThisRunsShareIsQueued() {
         // given
         // 상세 60줄(한 묶음 50줄보다 많다)에 줄마다 제목 하나: 상한 10이면 첫 묶음만 읽고 멈춘다
@@ -375,7 +375,7 @@ class HighlightTitleIngestTest {
     }
 
     @Test
-    @DisplayName("새로 받은 경기의 제목은 밀린 제목보다 먼저 옮기고 이미 옮긴 것은 뺀다")
+    @DisplayName("새로 받은 경기의 제목은 밀린 제목보다 먼저 번역하고 번역된 것은 뺀다")
     void aDetailSavedLaterIsQueuedFirstWithoutReadingSavedDetails() {
         // given
         saveDetail(lee, numbered(3).toArray(String[]::new));

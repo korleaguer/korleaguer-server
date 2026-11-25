@@ -85,7 +85,7 @@ class DeclaredFreeAgentTest {
     }
 
     @Test
-    @DisplayName("FA를 선언한 선수는 단계 없이 마지막으로 뛴 팀으로 보인다")
+    @DisplayName("FA를 선언한 선수는 리그 단계가 비고 마지막으로 뛴 팀으로 보인다")
     void declaredFreeAgentHasNoLevel() throws Exception {
         // when // then
         mockMvc.perform(get("/api/players"))

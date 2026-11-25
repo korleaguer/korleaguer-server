@@ -216,7 +216,7 @@ class GameIngestTest {
     }
 
     @Test
-    @DisplayName("진행 중 경기는 깰 때마다, 끝난 경기는 하루 한 번 받다가 3일 뒤 멈춘다")
+    @DisplayName("진행 중 경기는 수집할 때마다, 끝난 경기는 하루 한 번 받다가 3일 뒤 멈춘다")
     void liveEveryTimeFinalsOncePerDayThenSettled() {
         // when // then
         // 앱 시작 때 시즌 백필: gameLog 기록(3타수 1안타), 7001은 끝났지만 시작한 지 3일이 안 돼 굳지 않았다.

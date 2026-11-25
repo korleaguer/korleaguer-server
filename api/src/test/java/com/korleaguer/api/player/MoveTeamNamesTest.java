@@ -121,7 +121,7 @@ class MoveTeamNamesTest {
     }
 
     @Test
-    @DisplayName("루키 경기는 우리 팀과 상대 팀을 모두 한국어로 보인다")
+    @DisplayName("루키 리그 경기는 우리 팀과 상대 팀을 모두 한국어로 보인다")
     void rookieGameLinesAreKoreanOnBothSides() {
         // when // then
         // 김하성 2026 루키 재활 경기(운영 minorGames): FCL 브레이브스 vs FCL 트윈스·FCL 레드삭스. 우리 팀만 한국어가 되고
