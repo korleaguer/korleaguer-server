@@ -84,6 +84,16 @@ class FormFactsTest {
     }
 
     @Test
+    void aPinchHitEndsTheHitlessRun() {
+        // 어제 대타 1타석 안타: 앞의 4경기 무안타가 끝났다
+        assertThat(hitterFact(hitter(new int[][]{{4, 1}, {4, 0}, {4, 0}, {4, 0}, {4, 0}, {1, 1}}))).isNull();
+        // 무안타 사이에 낀 대타 안타: 그 뒤 경기부터 다시 센다
+        assertThat(hitterFact(hitter(new int[][]{{4, 0}, {4, 0}, {1, 1}, {4, 0}, {4, 0}, {4, 0}}))).isNull();
+        assertThat(hitterFact(hitter(new int[][]{{4, 0}, {1, 1}, {4, 0}, {4, 0}, {4, 0}, {4, 0}})).text())
+                .isEqualTo("4경기 연속 무안타");
+    }
+
+    @Test
     void onlyTheLastTenGamesCountAsRecent() {
         // 11경기: 홈런 둘 중 하나가 11경기 전이면 최근 10경기는 홈런 1개
         List<GameStat> eleven = new ArrayList<>();

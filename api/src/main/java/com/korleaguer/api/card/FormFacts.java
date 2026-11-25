@@ -15,7 +15,7 @@ import java.util.Map;
  * '내 선수' 카드의 한 줄 소식과 출전 줄(이슈 #33). 판정('좋음'·'주춤')은 만들지 않고 일어난 사실만 쓴다.
  * 메이저 출전 기록과 마이너 기록을 같은 모양(GameStat)으로 받아 같은 규칙으로 센다.
  * <ul>
- *   <li>타자: 연속 안타 5경기 이상(HOT), 연속 무안타 4경기 이상(COLD, 2타석 이상 선 경기만 셈),
+ *   <li>타자: 연속 안타 5경기 이상(HOT), 연속 무안타 4경기 이상(COLD, 2타석 이상 선 경기만 셈, 안타는 1타석이어도 끊음),
  *       최근 10경기 2홈런 이상·멀티히트 3번 이상(HOT). 연속 기록은 시즌 전체, 최근 경기는 지금 단계 기간에서 센다.</li>
  *   <li>투수: 연속 무실점 등판 3번 이상(HOT), 최근 5번 등판 중 무실점 4번 이상(HOT)·실점 3번 이상(COLD, 4번 이상 등판했을 때).</li>
  *   <li>비시즌·FA: 시즌 최장 연속 안타 5경기 이상 / 연속 무실점 등판 3번 이상.</li>
@@ -59,13 +59,16 @@ public final class FormFacts {
         }
         int hitless = 0;
         for (GameStat game : season.reversed()) {
-            if (!game.batted() || game.plateAppearances() < 2) {
+            if (!game.batted()) {
                 continue;
             }
+            // 안타를 먼저 본다. 1타석 경기를 먼저 건너뛰면 대타 안타가 무안타 기록을 끊지 못한다
             if (game.hits() > 0) {
                 break;
             }
-            hitless++;
+            if (game.plateAppearances() >= 2) {
+                hitless++;
+            }
         }
         if (hitless >= 4) {
             return new CardFact(COLD, prefix + hitless + "경기 연속 무안타");
