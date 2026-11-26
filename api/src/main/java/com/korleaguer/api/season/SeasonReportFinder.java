@@ -3,6 +3,7 @@ package com.korleaguer.api.season;
 import com.korleaguer.api.article.LinkedTeamsCounter;
 import com.korleaguer.api.article.PostingSummary;
 import com.korleaguer.api.article.SameArticles;
+import com.korleaguer.api.article.ShownNews;
 import com.korleaguer.api.player.RosterMember;
 import com.korleaguer.api.player.TeamLabels;
 
@@ -319,8 +320,7 @@ public class SeasonReportFinder {
         return reads.read("linked teams for " + name, () -> {
             PostingSummary.LinkedTeams linked = linkedTeams.count(name, now,
                     articles -> articles.stream()
-                            .filter(a -> publishers.contains(a.getPublisher()))
-                            .filter(a -> !a.isOffTopic())
+                            .filter(a -> ShownNews.isShown(a, publishers))
                             .toList(),
                     leaveOut);
             return linked.teams().stream().anyMatch(t -> t.linked() > 0) ? linked : null;
@@ -338,8 +338,7 @@ public class SeasonReportFinder {
         }
         return reads.read("news for " + nameKo, () -> {
             List<NewsArticle> recent = news.findLatest(nameKo, PageRequest.of(0, limit * 4)).stream()
-                    .filter(a -> publishers.contains(a.getPublisher()) && !a.getPublishedAt().isBefore(since))
-                    .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
+                    .filter(a -> ShownNews.isShown(a, publishers) && !a.getPublishedAt().isBefore(since))
                     .toList();
             return SameArticles.group(recent).stream().limit(limit).map(PostingSummary.Headline::of).toList();
         }, List.of());
