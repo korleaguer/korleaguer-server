@@ -79,6 +79,11 @@ member(앞으로) ─▶ api, core
 - **순수 계산 클래스는 스프링 빈과 리포지토리를 모른다.** 값을 받아 값을 돌려준다. 그래야 규칙 하나를 스프링 없이 읽고 테스트할 수 있다.
 - **응답은 계산 결과 타입을 그대로 품는다.** 응답 전용 타입으로 옮겨 담는 층은 두지 않는다. 방향은 응답 → 계산 타입이다. 계산 클래스가 화면 응답 타입(`…Response`)을 알면 안 된다.
 - 그래서 계산 타입의 필드를 바꾸면 JSON이 바뀐다. 웹과의 약속이 바뀌는 PR은 '확인과 배포'에 적는다.
+- **응답 모양은 명세 파일(저장소 맨 위 `openapi.json`)로 뽑아 두고, 웹은 그 파일에서 타입을 만든다**(#300). 응답 record를 쓸 때 지킬 것:
+  - null이 될 수 있는 필드는 타입에 `@Nullable`(JSpecify)을 단다. 달지 않은 필드는 null이 아니라는 약속이다.
+  - 정해진 글자만 오는 `String` 필드는 `@Schema(allowableValues = …)`로 값 목록을 적는다(가능하면 그 값의 상수를 쓴다).
+  - 응답 record를 바꿨으면 `OPENAPI_UPDATE=1 ./gradlew :app:test --tests com.korleaguer.api.OpenApiSpecTest`로 명세를 다시 만들어 같은 PR에 넣는다. 안 넣으면 `OpenApiSpecTest`가 실패한다.
+  - `OpenApiSpecTest`·`OpenApiSpecInSeasonTest`는 샘플 데이터로 화면 API를 모두 불러 응답이 명세대로인지(빠진 필드, 없는 필드, 약속과 다른 null, 목록에 없는 값)도 본다.
 
 ### 사용자 기능(앞으로)
 
@@ -194,9 +199,9 @@ member(앞으로) ─▶ api, core
 - 사진 내주기는 DB 저장본만 읽는다(#259). 저장본이 없으면 404이고 웹은 이름 첫 글자 원을 보인다. 사진 받기는 주기 작업(뜰 때 한 번, 10분마다)만 한다.
 - 수집과 조회가 같이 쓰는 타입(`domain.GameDetail`, `domain.LeagueAverage`, `domain.TrackedTeamGames`, `support.Woba`, `support.MlbContext`)은 `core`에 있다.
 - '기록을 받는 상태인지'는 주제 패키지 밖, `api` 패키지 바로 아래의 `StatsAvailability`가 답한다.
+- 응답 모양 명세는 springdoc-openapi로 뽑는다. springdoc은 테스트에서만 쓰고 운영 실행 파일에는 넣지 않는다(`/v3/api-docs` 주소도 운영에는 없다). 날것을 웹이 쓸 모양으로 다듬는 규칙은 `app` 테스트의 `OpenApiSpec`에 있다.
 
 ### 아직 정하지 않은 것
 
-- 엔드포인트별 응답 모양을 파일로 뽑아 두는 검사('그대로 품기'의 보완).
 - 수집과 API를 다른 프로세스로 뗄 때 캐시 비우기를 어떻게 알릴지(§3 규모의 목록).
 - 로그인 방식(소셜·이메일), 세션이냐 토큰이냐, 댓글 신고·관리. 만들 때 정한다.
