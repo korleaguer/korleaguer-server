@@ -70,7 +70,7 @@ public class GameLineAssembler {
     }
 
     /** [from, to) 사이에 시작한 경기의 한 줄 기록. 선수 순서대로, 같은 선수는 최신 경기부터. */
-    public List<GameLine> lines(List<RosterMember> members, Instant from, Instant to, boolean statsReady) {
+    public List<GameLine> lines(List<RosterMember> members, Instant from, Instant to) {
         if (members.isEmpty() || !from.isBefore(to)) {
             return List.of();
         }
@@ -81,8 +81,8 @@ public class GameLineAssembler {
                 .toList();
         // 뛴 기간(결장 줄을 붙일 팀)은 이 기간이 속한 시즌 기록으로 정한다. 부르는 쪽이 정한 기간과 시즌이 어긋나지 않는다.
         int season = currentSeason.seasonAt(to.minusMillis(1));
-        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, statsReady, season);
-        Map<Long, List<MinorStints.Range>> minors = statsReady ? minorsByPlayer(playerIds, season) : Map.of();
+        Map<Long, List<Stint>> stints = stintsByPlayer(members, playerIds, season);
+        Map<Long, List<MinorStints.Range>> minors = minorsByPlayer(playerIds, season);
         List<Long> teamIds = stints.values().stream()
                 .flatMap(List::stream)
                 .map(stint -> stint.team().getMlbTeamId())
@@ -98,7 +98,7 @@ public class GameLineAssembler {
             Set<Long> playedGameIds = new HashSet<>();
             for (Appearance appearance : played) {
                 if (appearance.getPlayer().getId().equals(player.getId())) {
-                    lines.add(line(player, appearance.getTeam(), appearance.getGame(), appearance, statsReady));
+                    lines.add(line(player, appearance.getTeam(), appearance.getGame(), appearance));
                     playedGameIds.add(appearance.getGame().getGamePk());
                 }
             }
@@ -108,7 +108,7 @@ public class GameLineAssembler {
                 if (!playedGameIds.contains(game.getGamePk())
                         && !MinorStints.covers(playerMinors, LocalDate.ofInstant(game.getStartTimeUtc(), US_EASTERN))) {
                     teamInRange(game, playerStints)
-                            .ifPresent(team -> lines.add(line(player, team, game, null, statsReady)));
+                            .ifPresent(team -> lines.add(line(player, team, game, null)));
                 }
             }
         }
@@ -129,14 +129,14 @@ public class GameLineAssembler {
                 .collect(Collectors.toMap(a -> a.getGame().getGamePk(), a -> a, (a, b) -> a));
         return games.findTeamGamesBetween(List.of(team.getMlbTeamId()), from, to).stream()
                 .filter(GameLineAssembler::counted)
-                .map(game -> line(player, team, game, mine.get(game.getGamePk()), true))
+                .map(game -> line(player, team, game, mine.get(game.getGamePk())))
                 .sorted(Comparator.comparing(GameLine::startTimeKst).reversed())
                 .toList();
     }
 
     /** 뛴 기록 하나를 그 선수의 경기 줄로(같은 경기 맞대결, SameGamesService). 팀은 그 경기에서 뛴 팀이다 */
     public GameLine playedLine(Appearance appearance) {
-        return line(appearance.getPlayer(), appearance.getTeam(), appearance.getGame(), appearance, true);
+        return line(appearance.getPlayer(), appearance.getTeam(), appearance.getGame(), appearance);
     }
 
     /**
@@ -157,13 +157,7 @@ public class GameLineAssembler {
 
     /** 선수마다 결장 줄을 붙일 수 있는 (팀, 기간) 목록 */
     private Map<Long, List<Stint>> stintsByPlayer(List<RosterMember> members, List<Long> playerIds,
-                                                  boolean statsReady, int season) {
-        if (!statsReady) {
-            // 기록이 없으니 뛴 기간을 알 수 없다. 지금 소속 팀 경기 전부에 "기록 없음"을 단다.
-            return members.stream()
-                    .filter(m -> m.team() != null)
-                    .collect(Collectors.toMap(m -> m.player().getId(), m -> List.of(new Stint(m.team(), null, null))));
-        }
+                                                  int season) {
         Map<Long, List<Appearance>> byPlayer = appearances.findSeason(playerIds, season, COUNTED_SEASON_TYPES)
                 .stream()
                 .collect(Collectors.groupingBy(a -> a.getPlayer().getId()));
@@ -204,7 +198,7 @@ public class GameLineAssembler {
                 .findFirst();
     }
 
-    private GameLine line(Player player, Team team, Game game, Appearance appearance, boolean statsReady) {
+    private GameLine line(Player player, Team team, Game game, Appearance appearance) {
         boolean home = game.isHome(team);
         Team opponent = home ? game.getAwayTeam() : game.getHomeTeam();
         boolean notStarted = GameStatuses.NOT_STARTED.contains(game.getStatusState());
@@ -213,7 +207,7 @@ public class GameLineAssembler {
         boolean played = appearance != null;
         String summary = played
                 ? GameSummary.played(player.role(), appearance.getBatting(), appearance.getPitching())
-                : GameSummary.notPlayed(game.getStatusState(), statsReady);
+                : GameSummary.notPlayed(game.getStatusState());
 
         return new GameLine(
                 player.getId(),

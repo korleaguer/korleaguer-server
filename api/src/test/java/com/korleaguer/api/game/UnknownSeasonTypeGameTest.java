@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,10 +44,13 @@ class UnknownSeasonTypeGameTest {
         Player player = new Player("고우석");
         ReflectionTestUtils.setField(player, "id", 5L);
         AppearanceRepository appearances = mock(AppearanceRepository.class);
-        when(appearances.findWithGameBetween(any(), any(), any())).thenReturn(List.of(
+        List<Appearance> playedGames = List.of(
                 played(player, game(7001L, SeasonType.REGULAR.stored(), "2026-09-25T23:10:00Z")),
                 played(player, game(7999L, null, "2026-09-27T23:10:00Z")),
-                played(player, game(7201L, SeasonType.POSTSEASON.stored(), "2026-10-04T22:08:00Z"))));
+                played(player, game(7201L, SeasonType.POSTSEASON.stored(), "2026-10-04T22:08:00Z")));
+        when(appearances.findWithGameBetween(any(), any(), any())).thenReturn(playedGames);
+        // 결장 줄을 붙일 기간(뛴 팀과 날짜)은 시즌 출전에서 정한다
+        when(appearances.findSeason(any(), anyInt(), any())).thenReturn(playedGames);
         GameRepository games = mock(GameRepository.class);
         when(games.findTeamGamesBetween(any(), any(), any())).thenReturn(List.of(
                 game(7002L, SeasonType.REGULAR.stored(), "2026-09-26T23:10:00Z"),
@@ -55,7 +59,7 @@ class UnknownSeasonTypeGameTest {
                 mock(RosterProfiles.class), mock(CurrentSeason.class));
 
         // when
-        List<GameLine> lines = assembler.lines(List.of(new RosterMember(player, MIN, false)), FROM, TO, false);
+        List<GameLine> lines = assembler.lines(List.of(new RosterMember(player, MIN, false)), FROM, TO);
 
         // then
         // 7201·7001은 뛴 경기, 7002는 결장. 종류가 빈 7999(뛴 경기)·7998(팀 경기)은 줄이 없다

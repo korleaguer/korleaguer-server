@@ -25,9 +25,9 @@ public final class GameSummary {
     }
 
     /** 선수 기록이 없는 경기. 팀은 뛰었는데(final) 기록이 없으면 결장이다. */
-    public static String notPlayed(String statusState, boolean statsAvailable) {
+    public static String notPlayed(String statusState) {
         return switch (statusState == null ? "unknown" : statusState) {
-            case "final" -> statsAvailable ? ABSENT : "기록 없음";
+            case "final" -> ABSENT;
             case "scheduled" -> "경기 전";
             case "in_progress" -> "경기 중";
             case "delayed" -> "지연";

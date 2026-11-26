@@ -83,19 +83,19 @@ class GameSummaryTest {
     }
 
     @Test
-    @DisplayName("기록을 받은 끝난 경기에 선수 기록이 없으면 결장이라고 쓴다")
+    @DisplayName("끝난 경기에 선수 기록이 없으면 결장이라고 쓴다")
     void absentWhenTeamPlayedButNoRecord() {
         // when // then
-        assertThat(GameSummary.notPlayed("final", true)).isEqualTo("결장");
+        assertThat(GameSummary.notPlayed("final")).isEqualTo("결장");
     }
 
     @Test
-    @DisplayName("기록을 못 받은 경기는 기록 없음, 시작 전은 경기 전, 미뤄지면 연기로 쓴다")
-    void notAbsentWhenStatsAreUnavailableOrGameNotFinished() {
+    @DisplayName("시작 전은 경기 전, 미뤄지면 연기, 상태를 모르면 기록 없음으로 쓴다")
+    void notAbsentWhenGameNotFinished() {
         // when // then
-        assertThat(GameSummary.notPlayed("final", false)).isEqualTo("기록 없음");
-        assertThat(GameSummary.notPlayed("scheduled", true)).isEqualTo("경기 전");
-        assertThat(GameSummary.notPlayed("postponed", true)).isEqualTo("연기");
+        assertThat(GameSummary.notPlayed("scheduled")).isEqualTo("경기 전");
+        assertThat(GameSummary.notPlayed("postponed")).isEqualTo("연기");
+        assertThat(GameSummary.notPlayed(null)).isEqualTo("기록 없음");
     }
 
     /** 타수·안타·2루타·3루타·홈런·타점·볼넷·도루. 문구에 쓰지 않는 칸은 0이다 */
