@@ -4,6 +4,8 @@ import com.korleaguer.client.MlbGameLogSplit;
 import com.korleaguer.client.MlbPerson;
 import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbTeam;
+import com.korleaguer.domain.Affiliation;
+import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.GameRepository;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import static com.korleaguer.client.MlbFixtures.batting;
@@ -49,6 +52,9 @@ class GameWriterGameLogTest {
     @Autowired
     private AppearanceRepository appearances;
 
+    @Autowired
+    private AffiliationRepository affiliations;
+
     private Player player;
 
     @BeforeEach
@@ -64,6 +70,7 @@ class GameWriterGameLogTest {
     }
 
     private void removeTestGame() {
+        affiliations.findByPlayer(player).ifPresent(affiliations::delete);
         appearances.deleteAll(appearances.findByPlayersAndGames(List.of(player.getId()), List.of(GAME_PK)));
         games.deleteById(GAME_PK);
     }
@@ -86,5 +93,26 @@ class GameWriterGameLogTest {
         assertThat(saved).hasSize(1);
         assertThat(saved.getFirst().getBatting().atBats()).isEqualTo(4);
         assertThat(saved.getFirst().getBatting().hits()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("소속 기록 없이 선수 정보를 받은 선수는 시즌 기록을 저장한 날(UTC 날짜)로 끝난 마지막 팀 소속이 남는다")
+    void unaffiliatedPlayerKeepsTheLastTeamEndedOnTheUtcDay() {
+        // given
+        // 한국 시간으로는 8월 21일 오전이지만 수집의 하루는 UTC 날짜라 8월 20일이다
+        Instant lateUtc = Instant.parse("2026-08-20T20:00:00Z");
+        player.updateLevel(null, null, lateUtc);
+        player = players.save(player);
+        MlbScheduleGame played = game(GAME_PK, NYM, ATL, "2026-08-09T23:10:00Z", "R");
+
+        // when
+        writer.saveSeason(2026, List.of(played),
+                List.of(new GameWriter.PlayerLogs(player.getId(), List.of(batting(1L, ATL, played, 4, 2)), List.of())),
+                lateUtc);
+
+        // then
+        Affiliation kept = affiliations.findByPlayer(player).orElseThrow();
+        assertThat(kept.getTeam().getMlbTeamId()).isEqualTo(144L);
+        assertThat(kept.getEndDate()).isEqualTo(LocalDate.of(2026, 8, 20));
     }
 }
