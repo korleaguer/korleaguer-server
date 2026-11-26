@@ -2,7 +2,6 @@ package com.korleaguer.api.player;
 
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.PlayerMove;
-import com.korleaguer.support.MoveLabels;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

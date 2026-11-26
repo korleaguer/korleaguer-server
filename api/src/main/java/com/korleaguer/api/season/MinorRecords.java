@@ -7,6 +7,7 @@ import com.korleaguer.api.game.GameLine;
 import com.korleaguer.api.game.MinorGameLine;
 import com.korleaguer.api.player.MinorTeamNames;
 
+import com.korleaguer.api.game.GameSummary;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.MinorGameLog;
@@ -17,7 +18,6 @@ import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameStatuses;
-import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
 import com.korleaguer.support.MlbTime;
 

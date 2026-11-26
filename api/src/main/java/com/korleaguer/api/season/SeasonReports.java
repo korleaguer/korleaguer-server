@@ -2,12 +2,12 @@ package com.korleaguer.api.season;
 
 import com.korleaguer.api.player.MinorTeamNames;
 
+import com.korleaguer.api.player.MoveLabels;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Role;
 import com.korleaguer.support.BaseballMath;
-import com.korleaguer.support.MoveLabels;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

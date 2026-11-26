@@ -1,4 +1,4 @@
-package com.korleaguer.support;
+package com.korleaguer.api.player;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
