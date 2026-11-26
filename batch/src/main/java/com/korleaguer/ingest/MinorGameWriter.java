@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.Collection;
 import java.util.Comparator;
@@ -32,6 +31,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.korleaguer.ingest.MlbValues.date;
+import static com.korleaguer.ingest.MlbValues.gameState;
 import static com.korleaguer.ingest.MlbValues.teamId;
 import static com.korleaguer.ingest.MlbValues.teamName;
 import static com.korleaguer.ingest.MlbValues.toBatting;
@@ -92,7 +92,7 @@ public class MinorGameWriter {
                         : split.stat().holds(), split.stat() == null ? null : split.stat().blownSaves())));
         byGame.values().forEach(line -> line.updateSchedule(known.get(line.getGamePk())));
         minorGameLogs.saveAll(byGame.values());
-        LocalDate recheckFrom = LocalDate.ofInstant(fetchedAt, ZoneOffset.UTC).minusDays(MINOR_RECHECK_DAYS);
+        LocalDate recheckFrom = UtcDay.of(fetchedAt).minusDays(MINOR_RECHECK_DAYS);
         return byGame.values().stream()
                 .filter(line -> line.getSchedule() == null
                         || (!line.getSchedule().isSettled() && !line.getGameDate().isBefore(recheckFrom)))
@@ -153,22 +153,16 @@ public class MinorGameWriter {
         }
         if (home == null) {
             // 어느 쪽이 선수 팀인지 모른다: 뒤바뀐 점수를 남기지 않게 시작 시각·상태만 둔다(끝나도 점수가 없어 기간 안에는 다시 묻는다)
-            return new MinorGameSchedule(start, statusState(game), null, null, null, null);
+            return new MinorGameSchedule(start, gameState(game), null, null, null, null);
         }
         MlbScheduleGame.Side mine = home ? sides.home() : sides.away();
         MlbScheduleGame.Side other = home ? sides.away() : sides.home();
-        return new MinorGameSchedule(start, statusState(game), mine.score(), other.score(), place(mine.team()),
+        return new MinorGameSchedule(start, gameState(game), mine.score(), other.score(), place(mine.team()),
                 place(other.team()));
     }
 
-    private static String statusState(MlbScheduleGame game) {
-        MlbScheduleGame.Status status = game.status();
-        return status == null ? "unknown"
-                : GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState());
-    }
-
     private static boolean isFinal(MlbScheduleGame game) {
-        return GameStatuses.FINAL.equals(statusState(game));
+        return GameStatuses.FINAL.equals(gameState(game));
     }
 
     private static String place(MlbTeam team) {

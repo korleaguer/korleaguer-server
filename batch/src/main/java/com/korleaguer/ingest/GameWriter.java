@@ -26,8 +26,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +37,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.korleaguer.ingest.MlbValues.gameState;
 import static com.korleaguer.ingest.MlbValues.toBatting;
 import static com.korleaguer.ingest.MlbValues.toPitching;
 
@@ -113,7 +112,7 @@ public class GameWriter {
             // 처음 받을 때 이미 MLB 구단 소속이 없던 선수(FA 등)는 선수 정보 단계에서 남길 팀이 없었다.
             // 방금 저장한 기록의 마지막 팀을 끝난 소속으로 남겨 홈 시즌 성적에 보이게 한다.
             if (player.getLevelCheckedAt() != null) {
-                playerWriter.keepLastPlayedTeamIfUnaffiliated(player, LocalDate.ofInstant(now, ZoneOffset.UTC));
+                playerWriter.keepLastPlayedTeamIfUnaffiliated(player, UtcDay.of(now));
             }
         }
         if (skippedLines > 0) {
@@ -250,12 +249,10 @@ public class GameWriter {
             log.debug("skip game {} with unreadable date or season", source.gamePk());
             return null;
         }
-        MlbScheduleGame.Status status = source.status();
         Game game = games.findById(source.gamePk()).orElseGet(() -> new Game(source.gamePk()));
         game.update(season, seasonType.stored(), start, saveTeam(sides.home().team()), saveTeam(sides.away().team()),
                 sides.home().score(), sides.away().score(),
-                status == null ? "unknown"
-                        : GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()),
+                gameState(source),
                 source.venue() == null ? null : source.venue().name());
         game.markFinalIfNew(now);
         return games.save(game);
@@ -290,9 +287,7 @@ public class GameWriter {
     }
 
     private static boolean postponed(MlbScheduleGame game) {
-        MlbScheduleGame.Status status = game.status();
-        return status != null && GameStatuses.POSTPONED.equals(
-                GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()));
+        return GameStatuses.POSTPONED.equals(gameState(game));
     }
 
     private static Map<Long, MlbGameLogSplit> byGamePk(List<MlbGameLogSplit> splits) {

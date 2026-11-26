@@ -45,15 +45,7 @@ public class NewsDestination {
         return id;
     }
 
-    public Long getArticleId() {
-        return articleId;
-    }
-
     public String getTeam() {
         return team;
-    }
-
-    public Stance getStance() {
-        return stance;
     }
 }

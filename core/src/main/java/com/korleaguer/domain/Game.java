@@ -1,5 +1,6 @@
 package com.korleaguer.domain;
 
+import com.korleaguer.support.GameStatuses;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -20,8 +21,6 @@ import java.time.ZoneOffset;
 @Entity
 public class Game {
 
-    public static final String STATUS_FINAL = "final";
-    public static final String STATUS_IN_PROGRESS = "in_progress";
     /** 끝난 경기를 다시 확인하는 기간(기록 정정 대비) */
     public static final Duration SETTLE_AFTER = Duration.ofDays(3);
 
@@ -94,7 +93,7 @@ public class Game {
         if (settled) {
             return false;
         }
-        if (STATUS_IN_PROGRESS.equals(statusState)) {
+        if (GameStatuses.IN_PROGRESS.equals(statusState)) {
             return true;
         }
         if (!isFinal()) {
@@ -131,7 +130,7 @@ public class Game {
     }
 
     public boolean isFinal() {
-        return STATUS_FINAL.equals(statusState);
+        return GameStatuses.FINAL.equals(statusState);
     }
 
     public boolean involves(Team team) {
@@ -177,10 +176,6 @@ public class Game {
 
     public String getStatusState() {
         return statusState;
-    }
-
-    public String getVenue() {
-        return venue;
     }
 
     public Instant getFinalAt() {

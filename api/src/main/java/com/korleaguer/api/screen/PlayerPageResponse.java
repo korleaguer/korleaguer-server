@@ -37,6 +37,7 @@ import java.util.List;
  * </ul>
  * minorGames(이슈 #145)는 같은 시즌 마이너 경기 줄(MinorGameLine, 최신 경기부터)이다. 웹이 games와 날짜순으로 섞어 '경기 기록'에
  * 보인다(마이너에서 잘해야 콜업되니 마이너에 오래 있는 선수의 소식도 보이게). 마이너 경기가 없으면 빈 목록이다.
+ * statsAvailable은 늘 true다(MLB 공식 API는 경기별 선수 기록을 늘 준다). 웹 호환 때문에 남겨 둔다.
  */
 public record PlayerPageResponse(
         @Schema(allowableValues = {"sample", "mlb"}) String dataMode,

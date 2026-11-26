@@ -23,6 +23,7 @@ import java.util.List;
  * players는 요청한 순서이고, 없는 id는 빠진다.
  * buzz는 players 줄(games) 중 화제 문구가 붙은 메이저 정규시즌 경기들이다(GameBuzz, 홈 recent.buzz와 같은 규칙, 이슈 #209).
  * 선수 id·경기 id로 줄과 짝지으며 없는 줄은 빠진다. 마이너·포스트시즌 줄에는 없다.
+ * statsAvailable은 늘 true다(MLB 공식 API는 경기별 선수 기록을 늘 준다). 웹 호환 때문에 남겨 둔다.
  */
 public record MyPlayersResponse(
         @Schema(allowableValues = {"sample", "mlb"}) String dataMode,
@@ -44,7 +45,6 @@ public record MyPlayersResponse(
 
     /**
      * 선수 한 명. 타자면 pitching이, 투수면 hitting이 null이다.
-     * 선수 기록을 받지 못한 상태(statsAvailable=false)면 hitting·pitching·streak 모두 null이다.
      * streak은 이번 시즌(정규시즌+포스트시즌) 최근 경기부터 이어진 연속 기록이다(타자: 안타 경기, 투수: 무실점 등판).
      * games는 기간 안 경기 한 줄 기록(결장·경기 전 포함), 최신순이다. 마이너 경기 줄의 startTimeKst는 선수 화면 마이너
      * 경기 줄(minorGames)과 같은 시각이다(같은 경기가 같은 날, 이슈 #183).

@@ -41,7 +41,7 @@ class IngestServiceLockTest {
         when(blockingRefresher.refresh(anyBoolean())).thenAnswer(invocation -> {
             entered.countDown();
             release.await(5, TimeUnit.SECONDS);
-            return new PlayerRefresher.Result(0, 0, false, 0);
+            return new PlayerRefresher.Result(0, 0, false);
         });
         IngestLogRepository ingestLogs = mock(IngestLogRepository.class);
         when(ingestLogs.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

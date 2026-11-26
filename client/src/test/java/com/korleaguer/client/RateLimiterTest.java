@@ -39,21 +39,6 @@ class RateLimiterTest {
     }
 
     @Test
-    @DisplayName("남은 요청 수를 비우면 다음 요청은 1분을 기다린다")
-    void drainMakesNextRequestWaitAFullMinute() {
-        // given
-        limiter.acquire();
-        long before = now[0];
-
-        // when
-        limiter.drain();
-        limiter.acquire();
-
-        // then
-        assertThat(now[0] - before).isGreaterThanOrEqualTo(MINUTE);
-    }
-
-    @Test
     @DisplayName("1초에 한 번으로 정하면 요청을 1초씩 띄운다")
     void oneRequestPerSecondWindowSpacesRequests() {
         // given

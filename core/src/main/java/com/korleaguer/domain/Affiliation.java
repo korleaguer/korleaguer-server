@@ -72,15 +72,7 @@ public class Affiliation {
         return team;
     }
 
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
     public LocalDate getEndDate() {
         return endDate;
-    }
-
-    public boolean isLoan() {
-        return loan;
     }
 }

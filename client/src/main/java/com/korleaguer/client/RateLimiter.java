@@ -64,15 +64,6 @@ public class RateLimiter {
         }
     }
 
-    /** 429를 받았을 때 남은 몫을 0으로 만든다. 다음 요청은 지금부터 한 구간(1분이면 61초)을 기다린다. */
-    public synchronized void drain() {
-        long now = nanoTime.getAsLong();
-        recent.clear();
-        for (int i = 0; i < limit; i++) {
-            recent.addLast(now);
-        }
-    }
-
     private static void sleepNanos(long nanos) {
         try {
             Thread.sleep(Duration.ofNanos(nanos));
