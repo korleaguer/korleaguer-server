@@ -132,10 +132,6 @@ public record PostingSummary(List<Player> players, List<Past> history) {
             this(null, title, url, publisher, publishedAt, null, null, null, null, List.of());
         }
 
-        public static Headline of(NewsArticle a) {
-            return of(a, List.of());
-        }
-
         /** 같은 기사 묶음의 대표 기사와 같은 글을 실은 다른 언론사 */
         public static Headline of(SameArticles.Group g) {
             return of(g.article(), g.alsoBy());
