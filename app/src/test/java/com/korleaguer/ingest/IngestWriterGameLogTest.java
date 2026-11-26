@@ -10,6 +10,7 @@ import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.support.CommittedDbTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,16 @@ class IngestWriterGameLogTest {
     @BeforeEach
     void setUp() {
         player = players.findByNameKo(NAME).orElseGet(() -> players.save(new Player(NAME)));
+        removeTestGame();
+    }
+
+    /** 커밋한 시험 경기·출전 줄이 뒤에 도는 다른 커밋 DB 테스트에 보이지 않게 지운다(선수 줄은 다음 실행이 다시 쓴다) */
+    @AfterEach
+    void tearDown() {
+        removeTestGame();
+    }
+
+    private void removeTestGame() {
         appearances.deleteAll(appearances.findByPlayersAndGames(List.of(player.getId()), List.of(GAME_PK)));
         games.deleteById(GAME_PK);
     }
