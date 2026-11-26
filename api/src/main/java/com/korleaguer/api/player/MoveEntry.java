@@ -20,7 +20,7 @@ import java.util.Set;
  */
 public record MoveEntry(
         LocalDate date,
-        String typeCode,
+        @Nullable String typeCode,
         String labelKo,
         @Nullable String fromTeam,
         @Nullable String toTeam,

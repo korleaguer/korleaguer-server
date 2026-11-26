@@ -77,7 +77,7 @@ public record GameDetail(
      * @param imageUrl    대표 사진(960x540, 없으면 640x360). 없으면 null
      */
     public record GameHighlight(
-            String title,
+            @Nullable String title,
             @Nullable String titleKo,
             @Nullable Integer durationSec,
             @Nullable String mp4Url,

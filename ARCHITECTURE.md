@@ -81,7 +81,8 @@ member(앞으로) ─▶ api, core
 - 그래서 계산 타입의 필드를 바꾸면 JSON이 바뀐다. 웹과의 약속이 바뀌는 PR은 '확인과 배포'에 적는다.
 - **응답 모양은 명세 파일(저장소 맨 위 `openapi.json`)로 뽑아 두고, 웹은 그 파일에서 타입을 만든다**(#300). 응답 record를 쓸 때 지킬 것:
   - null이 될 수 있는 필드는 타입에 `@Nullable`(JSpecify)을 단다. 달지 않은 필드는 null이 아니라는 약속이다.
-  - 정해진 글자만 오는 `String` 필드는 `@Schema(allowableValues = …)`로 값 목록을 적는다(가능하면 그 값의 상수를 쓴다).
+  - 몇 개로 정해진 글자만 오고 웹이 값마다 다르게 그리는 `String` 필드(경기 결과 W·L·T, 상태 배지 종류 등)는 `@Schema(allowableValues = …)`로 값 목록을 적는다. 가능하면 그 값의 상수를 쓴다. MLB가 주는 단계 약어나 기록 종류 이름처럼 목록이 밖이나 다른 표에서 정해지는 값은 적지 않는다(두 곳에 적으면 어긋난다).
+  - JSON이 아닌 주소(사진)는 `@Hidden`으로 명세에서 빼고, 본문 없이 답하는 응답은 `@ApiResponse(content = @Content)`로 적는다.
   - 응답 record를 바꿨으면 `OPENAPI_UPDATE=1 ./gradlew :app:test --tests com.korleaguer.api.OpenApiSpecTest`로 명세를 다시 만들어 같은 PR에 넣는다. 안 넣으면 `OpenApiSpecTest`가 실패한다.
   - `OpenApiSpecTest`·`OpenApiSpecInSeasonTest`는 샘플 데이터로 화면 API를 모두 불러 응답이 명세대로인지(빠진 필드, 없는 필드, 약속과 다른 null, 목록에 없는 값)도 본다.
 

@@ -38,8 +38,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 final class OpenApiSpec {
 
-    /** app 모듈 폴더에서 테스트가 돈다. 명세 파일은 저장소 맨 위에 둔다. */
-    static final Path FILE = Path.of("..", "openapi.json");
+    /** 저장소 맨 위의 명세 파일. Gradle이 절대 경로를 넘긴다(app/build.gradle). IDE에서 바로 돌리면 app 모듈 폴더 기준 */
+    static final Path FILE = Path.of(System.getProperty("openapi.file", "../openapi.json"));
 
     private static final String SCHEMA_REF = "#/components/schemas/";
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -73,10 +73,19 @@ final class OpenApiSpec {
         ObjectNode paths = JSON.createObjectNode();
         new TreeMap<>(toMap(doc.path("paths"))).forEach((path, item) -> {
             ObjectNode operations = (ObjectNode) item;
-            operations.forEach(op -> {
-                if (op.has("responses")) {
-                    ((ObjectNode) op).set("responses", sorted(op.get("responses")));
+            operations.properties().forEach(e -> {
+                JsonNode op = e.getValue();
+                if (!op.has("responses")) {
+                    return;
                 }
+                boolean head = e.getKey().equals("head");
+                op.get("responses").forEach(r -> {
+                    // HEAD는 본문이 없다(예외 처리기가 모든 주소에 붙이는 오류 본문도 지운다). 본문 없다고 적은 응답의 빈 content도 지운다
+                    if (head || r.path("content").isEmpty()) {
+                        ((ObjectNode) r).remove("content");
+                    }
+                });
+                ((ObjectNode) op).set("responses", sorted(op.get("responses")));
             });
             paths.set(path, operations);
         });
@@ -255,36 +264,48 @@ final class OpenApiSpec {
     static List<String> crawl(MockMvc mvc, String specText) throws Exception {
         JsonNode spec = JSON.readTree(specText);
         List<String> errors = new ArrayList<>();
-        JsonNode home = call(mvc, spec, "/api/home", "/api/home", errors);
-        JsonNode players = call(mvc, spec, "/api/players", "/api/players", errors);
-        call(mvc, spec, "/api/players/timeline", "/api/players/timeline", errors);
-        call(mvc, spec, "/api/records", "/api/records", errors);
+        Set<String> answered = new LinkedHashSet<>();
+        JsonNode home = call(mvc, spec, "/api/home", "/api/home", 200, errors, answered);
+        JsonNode players = call(mvc, spec, "/api/players", "/api/players", 200, errors, answered);
+        call(mvc, spec, "/api/players/timeline", "/api/players/timeline", 200, errors, answered);
+        call(mvc, spec, "/api/records", "/api/records", 200, errors, answered);
         List<String> ids = new ArrayList<>();
         for (JsonNode player : players) {
             String id = player.path("id").asText();
             ids.add(id);
-            call(mvc, spec, "/api/players/{id}", "/api/players/" + id, errors);
-            call(mvc, spec, "/api/players/{id}/same-games", "/api/players/" + id + "/same-games", errors);
-            call(mvc, spec, "/api/players/{id}/compare", "/api/players/" + id + "/compare", errors);
+            call(mvc, spec, "/api/players/{id}", "/api/players/" + id, 200, errors, answered);
+            call(mvc, spec, "/api/players/{id}/same-games", "/api/players/" + id + "/same-games", 200, errors, answered);
+            call(mvc, spec, "/api/players/{id}/compare", "/api/players/" + id + "/compare", 200, errors, answered);
         }
-        call(mvc, spec, "/api/my", "/api/my?ids=" + String.join(",", ids) + "&days=30", errors);
-        JsonNode news = call(mvc, spec, "/api/news", "/api/news", errors);
+        call(mvc, spec, "/api/my", "/api/my?ids=" + String.join(",", ids) + "&days=30", 200, errors, answered);
+        JsonNode news = call(mvc, spec, "/api/news", "/api/news", 200, errors, answered);
         for (JsonNode item : news.path("items")) {
-            call(mvc, spec, "/api/news/{id}", "/api/news/" + item.path("id").asText(), errors);
+            call(mvc, spec, "/api/news/{id}", "/api/news/" + item.path("id").asText(), 200, errors, answered);
         }
         for (JsonNode line : home.path("recent").path("lines")) {
-            if (line.path("gameId").canConvertToLong()) {
-                call(mvc, spec, "/api/players/{id}/games/{gamePk}",
-                        "/api/players/" + line.path("playerId").asText() + "/games/" + line.path("gameId").asText(), errors);
-            }
+            call(mvc, spec, "/api/players/{id}/games/{gamePk}",
+                    "/api/players/" + line.path("playerId").asText() + "/games/" + line.path("gameId").asText(), 200,
+                    errors, answered);
         }
-        call(mvc, spec, "/api/players/{id}", "/api/players/999999999", errors);
+        call(mvc, spec, "/api/players/{id}", "/api/players/999999999", 404, errors, answered);
+
+        // 명세에 있는 JSON 응답 주소를 모두 한 번 이상 불렀는지(공 영상 주소는 외부를 불러 뺀다)
+        spec.path("paths").properties().forEach(e -> {
+            if (e.getValue().has("get") && !e.getKey().endsWith("/clips/{playId}") && !answered.contains(e.getKey())) {
+                errors.add(e.getKey() + ": 샘플 데이터로 한 번도 부르지 못했다");
+            }
+        });
         return errors;
     }
 
-    private static JsonNode call(MockMvc mvc, JsonNode spec, String template, String url, List<String> errors)
-            throws Exception {
+    private static JsonNode call(MockMvc mvc, JsonNode spec, String template, String url, int expected,
+                                 List<String> errors, Set<String> answered) throws Exception {
         MockHttpServletResponse response = mvc.perform(get(url)).andReturn().getResponse();
+        if (response.getStatus() != expected) {
+            errors.add(url + ": 응답 코드가 " + expected + "가 아니라 " + response.getStatus() + "다");
+        } else if (expected == 200) {
+            answered.add(template);
+        }
         JsonNode body = JSON.readTree(response.getContentAsByteArray());
         for (String error : mismatches(spec, template, "get", response.getStatus(), body)) {
             errors.add(url + " " + error);

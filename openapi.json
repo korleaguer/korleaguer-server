@@ -242,91 +242,10 @@
             "description" : "OK"
           },
           "400" : {
-            "description" : "Bad Request",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description" : "Bad Request"
           },
           "404" : {
-            "description" : "Not Found",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/photos/{key}" : {
-      "get" : {
-        "tags" : [
-          "photo-controller"
-        ],
-        "operationId" : "photo",
-        "parameters" : [
-          {
-            "name" : "key",
-            "in" : "path",
-            "required" : true,
-            "schema" : {
-              "type" : "string"
-            }
-          },
-          {
-            "name" : "v",
-            "in" : "query",
-            "required" : false,
-            "schema" : {
-              "type" : "string"
-            }
-          },
-          {
-            "name" : "If-None-Match",
-            "in" : "header",
-            "required" : false,
-            "schema" : {
-              "type" : "string"
-            }
-          }
-        ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "type" : "string",
-                  "format" : "byte"
-                }
-              }
-            }
-          },
-          "400" : {
-            "description" : "Bad Request",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404" : {
-            "description" : "Not Found",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description" : "Not Found"
           }
         }
       }
@@ -496,24 +415,10 @@
             "description" : "OK"
           },
           "400" : {
-            "description" : "Bad Request",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description" : "Bad Request"
           },
           "404" : {
-            "description" : "Not Found",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description" : "Not Found"
           }
         }
       }
@@ -685,14 +590,7 @@
             }
           },
           "404" : {
-            "description" : "Not Found",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description" : "Not Found"
           }
         }
       }
@@ -1382,7 +1280,10 @@
         "type" : "object",
         "properties" : {
           "title" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "titleKo" : {
             "type" : [
@@ -1560,7 +1461,10 @@
             "format" : "date-time"
           },
           "teamKo" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "teamAbbr" : {
             "type" : [
@@ -1569,7 +1473,10 @@
             ]
           },
           "opponentKo" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "opponentAbbr" : {
             "type" : [
@@ -2060,7 +1967,10 @@
             "format" : "date-time"
           },
           "level" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "levelKo" : {
             "type" : "string"
@@ -2073,7 +1983,10 @@
             "format" : "int64"
           },
           "teamKo" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "opponentId" : {
             "type" : [
@@ -2083,7 +1996,10 @@
             "format" : "int64"
           },
           "opponentKo" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "home" : {
             "type" : [
@@ -2179,7 +2095,10 @@
             "format" : "date"
           },
           "typeCode" : {
-            "type" : "string"
+            "type" : [
+              "string",
+              "null"
+            ]
           },
           "labelKo" : {
             "type" : "string"
