@@ -43,8 +43,6 @@ final class SeasonRates {
      * 그 사이에서 백분위를 숨기는 선(10이닝)과 맞췄다. 고우석 메이저 4이닝 ERA+ 46 같은 값은 시즌 숫자로 쓰지 않는다
      */
     static final int MIN_OUTS = 30;
-    /** 여러 마이너 단계를 더한 숫자의 단계 이름 */
-    static final String MIXED_MINORS = "마이너";
 
     private SeasonRates() {
     }
@@ -148,13 +146,10 @@ final class SeasonRates {
     }
 
     /**
-     * 마이너 합계의 단계 이름: 모두 한 단계면 그 이름(트리플A), 단계가 섞였거나 단계를 모르는 경기(level null)가 끼었으면
-     * '마이너'. 모르는 단계도 한 단계로 센다: 숫자는 그 경기를 표준값(LeagueEnv.STANDARD)으로 섞어 재므로
-     * '트리플A'라 하면 잣대와 어긋난다(이슈 #179 리뷰). 모두 모르면 MinorRecords.levelKo(null)과 같이 '마이너'.
-     * 홈 마이너 줄이 쓰는 MinorRecords.levelKo(마이너 경기 목록)와 같은 규칙이다(한쪽을 바꾸면 다른 쪽도 바꾼다)
+     * 마이너 합계의 단계 이름: 홈 마이너 줄과 같은 규칙(MinorRecords.singleLevelOf). 단계를 모르는 경기(level null)가 끼면
+     * '마이너'다: 숫자는 그 경기를 표준값(LeagueEnv.STANDARD)으로 섞어 재므로 '트리플A'라 하면 잣대와 어긋난다(이슈 #179 리뷰)
      */
     private static String levelKo(List<GameDay> minors) {
-        List<String> levels = minors.stream().map(GameDay::level).distinct().toList();
-        return levels.size() == 1 ? MinorRecords.levelKo(levels.getFirst()) : MIXED_MINORS;
+        return MinorRecords.levelKo(MinorRecords.singleLevelOf(minors.stream().map(GameDay::level).toList()));
     }
 }
