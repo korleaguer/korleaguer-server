@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import static com.korleaguer.api.season.SeasonReports.orZero;
+
 import com.korleaguer.api.season.SeasonReport.Month;
 import com.korleaguer.api.season.SeasonReports.GameDay;
 import com.korleaguer.api.season.SeasonReports.Move;
@@ -111,7 +113,7 @@ final class SeasonMonths {
         if (official == null) {
             return Scale.NONE;
         }
-        List<GameDay> majors = in.majors().stream().filter(g -> hasStat(g, pitcher)).toList();
+        List<GameDay> majors = in.majors().stream().filter(g -> g.counted(pitcher)).toList();
         if (pitcher) {
             int outs = majors.stream().mapToInt(g -> orZero(g.pitching().pitchingOuts())).sum();
             int earnedRuns = majors.stream().mapToInt(g -> orZero(g.pitching().earnedRuns())).sum();
@@ -271,12 +273,12 @@ final class SeasonMonths {
         Map<String, List<GameDay>> byStage = new HashMap<>();
         int rehabGames = 0;
         for (GameDay game : majors) {
-            if (inSpan(game, span) && hasStat(game, pitcher)) {
+            if (inSpan(game, span) && game.counted(pitcher)) {
                 byStage.computeIfAbsent(MLB, k -> new ArrayList<>()).add(game);
             }
         }
         for (GameDay game : minors) {
-            if (!inSpan(game, span) || !hasStat(game, pitcher)) {
+            if (!inSpan(game, span) || !game.counted(pitcher)) {
                 continue;
             }
             DayState state = days.get(game.date());
@@ -355,16 +357,8 @@ final class SeasonMonths {
         return game.date() != null && !game.date().isBefore(span.from()) && !game.date().isAfter(span.to());
     }
 
-    private static boolean hasStat(GameDay game, boolean pitcher) {
-        return pitcher ? game.pitching() != null && game.pitching().pitchingOuts() != null : game.batting() != null;
-    }
-
     /** 메이저가 가장 높고, 마이너는 트리플A → 루키 순(SeasonReports와 같은 단계 순서) */
     private static int stageRank(String stage) {
         return MLB.equals(stage) ? Integer.MAX_VALUE : SeasonReports.levelRank(stage);
-    }
-
-    private static int orZero(Integer value) {
-        return SeasonReports.orZero(value);
     }
 }

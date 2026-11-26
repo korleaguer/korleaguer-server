@@ -109,6 +109,14 @@ public final class SeasonReports {
      */
     public record GameDay(LocalDate date, String level, String teamKo, String opponentKo, Batting batting, Pitching pitching,
                    boolean started, Boolean win) {
+
+        /**
+         * 비율(평균자책점·ERA+·타율·wRC+)을 낼 때 세는 경기. 투수는 아웃 수를 아는 경기(모르면 자책점만 늘어 평균자책점이
+         * 틀린다), 타자는 타격 기록이 있는 경기다. 달 막대·숫자 칸·연표 숫자가 이 한 기준을 쓴다
+         */
+        public boolean counted(boolean pitcher) {
+            return pitcher ? pitching != null && pitching.pitchingOuts() != null : batting != null;
+        }
     }
 
     /** 이동 기록 한 줄 */
