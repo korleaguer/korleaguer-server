@@ -168,6 +168,27 @@ class SeasonMetricIngestTest {
                 SeasonReport::statLevelKo).containsExactly(null, 300, "트리플A");
     }
 
+    @Test
+    @DisplayName("올 시즌 지표는 이미 WAR까지 저장돼 있어도 다음 날 다시 받아 새 값으로 바꾼다")
+    @Order(6)
+    void currentSeasonMetricsAreFetchedAgainEvenWhenSaved() {
+        // given
+        // 이정후 2026 줄에 지난번에 받은 값처럼 다른 지표를 넣어 둔다(MLB 샘플은 wRC+ 101.8, WAR 0.97)
+        PlayerSeasonMetric stale = metric("이정후", 2026, PlayerSeasonMetric.Group.HITTING);
+        stale.updateMetrics(80.0, null, 0.5);
+        metrics.save(stale);
+        clock.set(START.plus(Duration.ofDays(2)));
+
+        // when
+        IngestLog log = ingestService.catchUp(false, true);
+
+        // then
+        assertThat(log.getMessage()).contains("시즌 지표 6명");
+        PlayerSeasonMetric lee = metric("이정후", 2026, PlayerSeasonMetric.Group.HITTING);
+        assertThat(lee.getWrcPlus()).isEqualTo(101.8);
+        assertThat(lee.getWar()).isEqualTo(0.97);
+    }
+
     private long id(String nameKo) {
         return players.findByNameKo(nameKo).orElseThrow().getId();
     }

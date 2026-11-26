@@ -59,6 +59,23 @@ class GameDetailsTest {
     }
 
     @Test
+    @DisplayName("아직 끝나지 않은 타석은 결과가 적혀 있어도 경기 상세에 담지 않는다")
+    void unfinishedPlateAppearanceIsLeftOut() {
+        // given
+        // 1회 끝난 안타, 이닝·끝남 여부가 빠진 볼넷(끝난 것으로 본다), 6회 진행 중인 타석
+        MlbPlayByPlay pbp = new MlbPlayByPlay(List.of(
+                play(new MlbPlayByPlay.About(0, "top", 1, true), "single"),
+                play(null, "walk"),
+                play(new MlbPlayByPlay.About(40, "top", 6, false), "strikeout")));
+
+        // when
+        List<GamePlay> plays = GameDetails.plays(pbp, LEE, Role.HITTER);
+
+        // then
+        assertThat(plays).extracting(GamePlay::eventType).containsExactly("single", "walk");
+    }
+
+    @Test
     @DisplayName("고우석이 7회말 상대한 타자 일곱 명의 결과를 순서대로 담는다")
     void pitcherSeesEachBatterFaced() throws IOException {
         // when
@@ -120,6 +137,14 @@ class GameDetailsTest {
         assertThat(GameDetails.seconds("00:01:05")).isEqualTo(65);
         assertThat(GameDetails.seconds("bad")).isNull();
         assertThat(GameDetails.seconds(null)).isNull();
+    }
+
+    /** 이정후 타석 하나(공 정보 없음) */
+    private static MlbPlayByPlay.Play play(MlbPlayByPlay.About about, String eventType) {
+        return new MlbPlayByPlay.Play(new MlbPlayByPlay.Result(null, eventType, "", 0), about, null,
+                new MlbPlayByPlay.Matchup(new MlbPlayByPlay.Person(LEE, "Jung Hoo Lee"),
+                        new MlbPlayByPlay.Person(1L, "Some Pitcher")),
+                List.of(), List.of());
     }
 
     private static MlbPlayByPlay.HitData hit(String trajectory, String location) {

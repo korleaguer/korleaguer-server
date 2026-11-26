@@ -11,6 +11,8 @@ import com.korleaguer.domain.Role;
 import com.korleaguer.support.BaseballMath;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -554,6 +556,33 @@ class SeasonReportsTest {
         // then
         assertThat(few.tier()).isEqualTo(SeasonTier.SOLID);
         assertThat(few.reason()).isNull();
+    }
+
+    @ParameterizedTest(name = "앞 반 {0}타수, 뒤 반 {1}타수면 전·후반 흐름을 쓰는가: {2}")
+    @CsvSource({"50, 50, true", "50, 49, false", "49, 50, false"})
+    @DisplayName("전·후반 흐름은 두 반이 모두 50타수 이상일 때만 이유로 쓴다")
+    void halfSeasonFlowNeedsFiftyAtBatsInBothHalves(int firstAtBats, int secondAtBats, boolean shown) {
+        // given
+        // 앞 반(4월 1일부터)은 매 타수 안타, 뒤 반(7월 1일부터)은 매 타수 범타라 wRC+ 차이는 늘 크다. 한 경기 1타수
+        List<GameDay> games = new ArrayList<>();
+        for (int i = 0; i < firstAtBats; i++) {
+            games.add(hitting(LocalDate.of(2026, 4, 1).plusDays(i), 1, 1, 0, 0, 0));
+        }
+        for (int i = 0; i < secondAtBats; i++) {
+            games.add(hitting(LocalDate.of(2026, 7, 1).plusDays(i), 1, 0, 0, 0, 0));
+        }
+
+        // when
+        SeasonReport report = build(hitter(1, new Line(2026, 320, 0, 100.0, 1.0), games, List.of(), List.of(),
+                false));
+
+        // then
+        assertThat(report.tier()).isEqualTo(SeasonTier.SOLID);
+        if (shown) {
+            assertThat(report.reason()).startsWith("5월까지 wRC+ ").contains(" → 6월부터 ");
+        } else {
+            assertThat(report.reason()).isNull();
+        }
     }
 
     @Test

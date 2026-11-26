@@ -2,6 +2,8 @@ package com.korleaguer.client;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
@@ -42,8 +44,27 @@ class MlbMinorGameLogTest {
         assertThat(new MlbMinorGameLog(null, null)).isEqualTo(MlbMinorGameLog.NONE);
     }
 
+    @ParameterizedTest(name = "sport.id {0} 경기는 마이너로 {1}개 센다")
+    @CsvSource({"10, 0", "11, 1", "16, 1", "17, 0"})
+    @DisplayName("트리플A(11)부터 루키(16)까지만 마이너 경기로 센다")
+    void minorsRunFromTripleAToRookie(long sportId, int counted) {
+        // given
+        MlbGameLogSplit game = split(1, "R", new MlbGameLogSplit.Sport(sportId, "X"));
+
+        // when
+        MlbMinorGameLog log = new MlbMinorGameLog(List.of(game), List.of(game));
+
+        // then
+        assertThat(MlbMinorGameLog.isMinors(game)).isEqualTo(counted == 1);
+        assertThat(log.counts()).isEqualTo(new MlbMinorGames(counted, counted));
+    }
+
     private static MlbGameLogSplit split(long gamePk, String gameType) {
+        return split(gamePk, gameType, TRIPLE_A);
+    }
+
+    private static MlbGameLogSplit split(long gamePk, String gameType, MlbGameLogSplit.Sport sport) {
         return new MlbGameLogSplit("2026", "2026-09-20", gameType, true, true, null, null,
-                new MlbGameLogSplit.GameRef(gamePk), null, null, TRIPLE_A);
+                new MlbGameLogSplit.GameRef(gamePk), null, null, sport);
     }
 }

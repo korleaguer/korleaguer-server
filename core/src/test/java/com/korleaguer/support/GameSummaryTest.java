@@ -32,6 +32,16 @@ class GameSummaryTest {
     }
 
     @Test
+    @DisplayName("타수 없이 볼넷만 고른 날은 '0타수 무안타' 없이 볼넷만 쓴다")
+    void walksOnlyDayHasNoAtBatText() {
+        // given
+        Batting batting = hitter(0, 0, 0, 0, 0, 0, 2, 0);
+
+        // when // then
+        assertThat(GameSummary.hitting(batting)).isEqualTo("2볼넷");
+    }
+
+    @Test
     @DisplayName("3루타와 도루도 한 줄에 나온다")
     void hitterWithTripleAndSteal() {
         // given
