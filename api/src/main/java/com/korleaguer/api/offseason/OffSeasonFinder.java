@@ -44,15 +44,11 @@ public class OffSeasonFinder {
 
     /** 비시즌이면 비시즌 정보, 시즌 중이면 null */
     public OffSeason find(List<RosterMember> roster, Instant now) {
-        if (trackedTeams.hasRecentGames(now, QUIET_DAYS)) {
+        if (inSeason(now)) {
             return null;
         }
         int season = currentSeason.current();
         LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
-        Optional<SeasonDates> thisSeason = seasonDates.findById(season);
-        if (thisSeason.isPresent() && inRegularSeason(thisSeason.get(), usToday)) {
-            return null;
-        }
         LocalDate opening = seasonDates.findById(season + 1)
                 .map(SeasonDates::getRegularSeasonStart)
                 .filter(day -> !day.isBefore(usToday))
@@ -60,6 +56,16 @@ public class OffSeasonFinder {
         Integer daysToOpening = opening == null ? null : (int) ChronoUnit.DAYS.between(usToday, opening);
         List<Long> playerIds = roster.stream().map(m -> m.player().getId()).toList();
         return new OffSeason(season, season + 1, opening, daysToOpening, playerIds, List.of());
+    }
+
+    /** 시즌 중인가: 우리 구단 경기가 최근 QUIET_DAYS일 안에 있었거나, 오늘(미국 동부)이 이번 정규시즌 안이다 */
+    public boolean inSeason(Instant now) {
+        if (trackedTeams.hasRecentGames(now, QUIET_DAYS)) {
+            return true;
+        }
+        LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
+        Optional<SeasonDates> thisSeason = seasonDates.findById(currentSeason.current());
+        return thisSeason.isPresent() && inRegularSeason(thisSeason.get(), usToday);
     }
 
     private static boolean inRegularSeason(SeasonDates dates, LocalDate day) {

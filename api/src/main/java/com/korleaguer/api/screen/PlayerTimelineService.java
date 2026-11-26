@@ -52,7 +52,7 @@ import java.util.stream.Collectors;
  * GET /api/players/timeline(선수별 시즌 이동 연표). 등록 선수 전원의 띠 구간·이동·시즌 숫자를 한 번에 준다.
  * <ul>
  *   <li>띠는 그 시즌 3월 1일부터 오늘(한국 날짜)까지, 지난 시즌이면 다음 해 2월 말일까지(PlayerTimelines).</li>
- *   <li>이동은 선수 화면과 같은 규칙(BaseballQueryService.fanMoves)으로 팬에게 보일 것만 고른다.</li>
+ *   <li>이동은 선수 화면과 같은 규칙(MoveEntry.fanMoves)으로 팬에게 보일 것만 고른다.</li>
  *   <li>시즌 숫자는 홈 비시즌 성적표와 같은 계산(SeasonReportFinder → SeasonReports.build → SeasonRates)이다.
  *       그래서 시즌 중에도 나오고, 같은 선수·시즌이면 같은 값이다. 기사·'MLB 안 위치'는 읽지 않는다.</li>
  *   <li>응답은 시즌마다 캐시한다(ResponseCaches.TIMELINE_CACHE). 데이터나 날짜가 바뀔 때 비우고(ResponseCaches),
@@ -111,8 +111,8 @@ public class PlayerTimelineService {
         LocalDate from = LocalDate.of(season, 3, 1);
         LocalDate seasonEnd = LocalDate.of(season + 1, 3, 1).minusDays(1);
         LocalDate to = today.isBefore(seasonEnd) ? today : seasonEnd;
-        // 홈의 비시즌 판정과 같은 기준(OffSeasonFinder). 비시즌 정보를 만들 때만 명단을 쓰므로 여기서는 비워 둔다
-        boolean inSeason = season == currentSeason.current() && offSeasons.find(List.of(), now) == null;
+        // 홈의 비시즌 판정과 같은 기준(OffSeasonFinder)
+        boolean inSeason = season == currentSeason.current() && offSeasons.inSeason(now);
 
         // /api/players와 같은 순서(id 순)
         List<Player> roster = players.findAll(Sort.by("id"));
@@ -156,7 +156,7 @@ public class PlayerTimelineService {
             // fanMoves는 최신순을 받는다(같은 이동이 두 번 오면 나중 것을 남기는 쪽이 같도록 선수 화면과 같은 순서로)
             List<PlayerMove> newestFirst = new ArrayList<>(oldestFirst);
             Collections.reverse(newestFirst);
-            List<MoveEntry> fan = new ArrayList<>(BaseballQueryService.fanMoves(newestFirst, minorTeamNames));
+            List<MoveEntry> fan = new ArrayList<>(MoveEntry.fanMoves(newestFirst, minorTeamNames));
             Collections.reverse(fan);
             result.put(id, fan);
         });
