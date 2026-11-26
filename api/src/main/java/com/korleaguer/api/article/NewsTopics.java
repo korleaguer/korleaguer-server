@@ -1,6 +1,7 @@
 package com.korleaguer.api.article;
 
 import com.korleaguer.domain.NewsArticle;
+import com.korleaguer.support.MlbTeams;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -43,22 +44,22 @@ final class NewsTopics {
             "세인트루이스", "말린스", "마이애미", "내셔널스", "워싱턴");
 
     /**
-     * 구단 약어(Team.abbreviation, 쓰는 곳마다 다른 약어도 함께) → WORDS에 있는 그 구단 이름들(별명·도시).
+     * 대표 구단 약어 → WORDS에 있는 그 구단 이름들(별명·도시). 다른 약어(SFG 등)는 teamWords가 대표 약어로 바꿔 찾는다.
      * 고른 선수의 지금 구단을 뺄 때 쓴다(TeamNames의 약어 표와 같은 약어)
      */
     private static final Map<String, List<String>> TEAM_WORDS = Map.ofEntries(
-            Map.entry("ARI", List.of("다이아몬드백스", "애리조나")), Map.entry("AZ", List.of("다이아몬드백스", "애리조나")),
+            Map.entry("ARI", List.of("다이아몬드백스", "애리조나")),
             Map.entry("ATL", List.of("브레이브스", "애틀랜타")),
             Map.entry("BAL", List.of("오리올스", "볼티모어")),
             Map.entry("BOS", List.of("레드삭스", "보스턴")),
             Map.entry("CHC", List.of("컵스")),
-            Map.entry("CWS", List.of("화이트삭스")), Map.entry("CHW", List.of("화이트삭스")),
+            Map.entry("CWS", List.of("화이트삭스")),
             Map.entry("CIN", List.of("신시내티")),
             Map.entry("CLE", List.of("가디언스", "클리블랜드")),
             Map.entry("COL", List.of("로키스", "콜로라도")),
             Map.entry("DET", List.of("타이거스", "디트로이트")),
             Map.entry("HOU", List.of("애스트로스", "휴스턴")),
-            Map.entry("KC", List.of("로열스", "캔자스시티")), Map.entry("KCR", List.of("로열스", "캔자스시티")),
+            Map.entry("KC", List.of("로열스", "캔자스시티")),
             Map.entry("LAA", List.of("에인절스")),
             Map.entry("LAD", List.of("다저스")),
             Map.entry("MIA", List.of("말린스", "마이애미")),
@@ -66,18 +67,17 @@ final class NewsTopics {
             Map.entry("MIN", List.of("트윈스", "미네소타")),
             Map.entry("NYM", List.of("메츠")),
             Map.entry("NYY", List.of("양키스")),
-            Map.entry("ATH", List.of("애슬레틱스")), Map.entry("OAK", List.of("애슬레틱스")),
+            Map.entry("ATH", List.of("애슬레틱스")),
             Map.entry("PHI", List.of("필리스", "필라델피아")),
             Map.entry("PIT", List.of("파이리츠", "피츠버그")),
-            Map.entry("SD", List.of("파드리스", "샌디에이고")), Map.entry("SDP", List.of("파드리스", "샌디에이고")),
-            Map.entry("SF", List.of("자이언츠", "샌프란시스코")), Map.entry("SFG", List.of("자이언츠", "샌프란시스코")),
+            Map.entry("SD", List.of("파드리스", "샌디에이고")),
+            Map.entry("SF", List.of("자이언츠", "샌프란시스코")),
             Map.entry("SEA", List.of("매리너스", "시애틀")),
             Map.entry("STL", List.of("카디널스", "세인트루이스")),
-            Map.entry("TB", List.of("탬파베이")), Map.entry("TBR", List.of("탬파베이")),
+            Map.entry("TB", List.of("탬파베이")),
             Map.entry("TEX", List.of("레인저스", "텍사스")),
             Map.entry("TOR", List.of("블루제이스", "토론토")),
-            Map.entry("WSH", List.of("내셔널스", "워싱턴")), Map.entry("WSN", List.of("내셔널스", "워싱턴")),
-            Map.entry("WAS", List.of("내셔널스", "워싱턴")));
+            Map.entry("WSH", List.of("내셔널스", "워싱턴")));
 
     /**
      * 같은 구단의 두 이름(별명·도시, TEAM_WORDS에서 이름이 둘인 구단). 둘 다 많이 나오면 알약 두 칸이 같은 기사를 가리키므로
@@ -85,7 +85,6 @@ final class NewsTopics {
      */
     private static final List<List<String>> SAME_TEAM = TEAM_WORDS.values().stream()
             .filter(names -> names.size() == 2)
-            .distinct()
             .toList();
 
     /** 영문·숫자만으로 된 말(FA 등). 이런 말은 낱말 단위로만 찾는다('DFA'·'fans' 속의 fa는 아니다) */
@@ -96,7 +95,11 @@ final class NewsTopics {
 
     /** 구단 약어의 이름들(WORDS에 있는 것). 모르는 약어나 null이면 빈 목록 */
     static List<String> teamWords(String abbreviation) {
-        return abbreviation == null ? List.of() : TEAM_WORDS.getOrDefault(abbreviation, List.of());
+        if (abbreviation == null) {
+            return List.of();
+        }
+        String canonical = MlbTeams.canonical(abbreviation);
+        return TEAM_WORDS.getOrDefault(canonical == null ? abbreviation : canonical, List.of());
     }
 
     /**
