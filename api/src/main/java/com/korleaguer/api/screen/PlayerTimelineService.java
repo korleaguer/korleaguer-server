@@ -45,7 +45,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -193,10 +192,7 @@ public class PlayerTimelineService {
     static Stat stat(SeasonReports.Input input, SeasonReport report) {
         boolean pitcher = input.role() == Role.PITCHER;
         boolean minors = report.level() == Level.MINORS;
-        Predicate<GameDay> counted = pitcher
-                ? g -> g.pitching() != null && g.pitching().pitchingOuts() != null
-                : g -> g.batting() != null;
-        List<GameDay> games = (minors ? input.minors() : input.majors()).stream().filter(counted).toList();
+        List<GameDay> games = (minors ? input.minors() : input.majors()).stream().filter(g -> g.counted(pitcher)).toList();
         if (games.isEmpty() && report.wrcPlus() == null && report.eraPlus() == null) {
             return null;
         }

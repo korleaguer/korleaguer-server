@@ -40,16 +40,11 @@ public record SeasonReport(long playerId, SeasonTier tier, String label, String 
                            List<WinterMove> winterMoves, List<PostingSummary.Headline> news,
                            PostingSummary.LinkedTeams linkedTeams, PlayerSaber saber) {
 
-    /** 기사와 거론 구단을 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
-    SeasonReport withNews(List<PostingSummary.Headline> headlines, PostingSummary.LinkedTeams linked) {
+    /** 기사·거론 구단과 'MLB 안 위치'를 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
+    SeasonReport withDbParts(List<PostingSummary.Headline> headlines, PostingSummary.LinkedTeams linked,
+                             PlayerSaber position) {
         return new SeasonReport(playerId, tier, label, headline, reason, level, war, wrcPlus, eraPlus, statLevelKo,
-                months, winterMoves, List.copyOf(headlines), linked, saber);
-    }
-
-    /** 'MLB 안 위치'를 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
-    SeasonReport withSaber(PlayerSaber position) {
-        return new SeasonReport(playerId, tier, label, headline, reason, level, war, wrcPlus, eraPlus, statLevelKo,
-                months, winterMoves, news, linkedTeams, position);
+                months, winterMoves, List.copyOf(headlines), linked, position);
     }
 
     /**

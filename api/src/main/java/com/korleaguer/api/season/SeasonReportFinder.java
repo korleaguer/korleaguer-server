@@ -234,8 +234,8 @@ public class SeasonReportFinder {
                 .map(r -> {
                     RosterMember member = members.get(r.playerId());
                     String name = member.player().getNameKo();
-                    return r.withNews(winterNews(name, winterStart), freeAgentLinkedTeams(member, now))
-                            .withSaber(sabers.get(r.playerId()));
+                    return r.withDbParts(winterNews(name, winterStart), freeAgentLinkedTeams(member, now),
+                            sabers.get(r.playerId()));
                 })
                 .toList();
     }
