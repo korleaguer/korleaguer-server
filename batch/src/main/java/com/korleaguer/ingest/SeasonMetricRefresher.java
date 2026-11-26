@@ -143,15 +143,11 @@ public class SeasonMetricRefresher {
         }
     }
 
-    /** 시즌 → 메이저 합계. 여러 팀 시즌은 합친 줄, 없으면 팀별 줄을 더한다. */
+    /** 시즌 → 메이저 합계. 쓸 줄은 MlbSeasonSplit.pick으로 고르고 더한다 */
     static Map<Integer, Totals> totals(List<MlbSeasonSplit> splits, Role role) {
-        Map<Integer, List<MlbSeasonSplit>> bySeason = splits.stream()
-                .filter(s -> s.stat() != null && s.seasonYear() != null)
-                .collect(Collectors.groupingBy(MlbSeasonSplit::seasonYear, TreeMap::new, Collectors.toList()));
         Map<Integer, Totals> result = new TreeMap<>();
-        bySeason.forEach((year, lines) -> {
-            List<MlbSeasonSplit> used = lines.stream().filter(MlbSeasonSplit::combined).findFirst()
-                    .map(List::of).orElse(lines);
+        MlbSeasonSplit.bySeason(splits).forEach((year, lines) -> {
+            List<MlbSeasonSplit> used = MlbSeasonSplit.pick(lines);
             int plateAppearances = 0;
             int outs = 0;
             int started = 0;
@@ -167,20 +163,19 @@ public class SeasonMetricRefresher {
         return result;
     }
 
-    /** 고급 지표 줄들 → 한 시즌 지표. 여러 줄이면 합친 줄, 없으면 WAR만 더한다. */
+    /** 고급 지표 줄들 → 한 시즌 지표. 쓸 줄(MlbSeasonSplit.pick)이 하나면 그 줄, 여럿이면(합친 줄이 없는 여러 팀 시즌) WAR만 더한다 */
     static SeasonStatWriter.SeasonMetrics sabermetrics(List<MlbSeasonSplit> splits) {
         List<MlbSeasonSplit> lines = splits.stream().filter(s -> s.stat() != null).toList();
         if (lines.isEmpty()) {
             return new SeasonStatWriter.SeasonMetrics(null, null, null);
         }
-        Optional<MlbSeasonSplit> one = lines.size() == 1 ? Optional.of(lines.getFirst())
-                : lines.stream().filter(MlbSeasonSplit::combined).findFirst();
-        if (one.isPresent()) {
-            MlbSeasonSplit.Stat stat = one.get().stat();
+        List<MlbSeasonSplit> used = MlbSeasonSplit.pick(lines);
+        if (used.size() == 1) {
+            MlbSeasonSplit.Stat stat = used.getFirst().stat();
             return new SeasonStatWriter.SeasonMetrics(stat.wRcPlus(), stat.eraMinus(), stat.war());
         }
-        boolean anyWar = lines.stream().anyMatch(s -> s.stat().war() != null);
-        double war = lines.stream().mapToDouble(s -> s.stat().war() == null ? 0 : s.stat().war()).sum();
+        boolean anyWar = used.stream().anyMatch(s -> s.stat().war() != null);
+        double war = used.stream().mapToDouble(s -> s.stat().war() == null ? 0 : s.stat().war()).sum();
         return new SeasonStatWriter.SeasonMetrics(null, null, anyWar ? war : null);
     }
 
