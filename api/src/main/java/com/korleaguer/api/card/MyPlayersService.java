@@ -231,7 +231,7 @@ public class MyPlayersService {
         for (RosterMember member : members) {
             long id = member.player().getId();
             List<Appearance> played = majorSeason.getOrDefault(id, List.of());
-            if (isKind(statuses.get(id), "IL") && !played.isEmpty()) {
+            if (kindOf(statuses.get(id)) == CardStatus.Kind.IL && !played.isEmpty()) {
                 LocalDate end = KoreanTime.kstDate(played.getLast().getGame().getStartTimeUtc());
                 periods.put(id, new Period(end.minusDays(days - 1), end, true));
             }
@@ -264,7 +264,7 @@ public class MyPlayersService {
                     .collect(Collectors.groupingBy(e -> currentSeason.seasonAt(e.getKey().to().minusMillis(1)),
                             Collectors.flatMapping(e -> e.getValue().stream(), Collectors.toList())));
             bySeason.forEach((cardSeason, group) -> seasonByPlayer.putAll(
-                    byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES))));
+                    oldestFirst(byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES)))));
         }
 
         return members.stream()
@@ -376,15 +376,15 @@ public class MyPlayersService {
      * @param minorSeason 이번 시즌 마이너 경기(오늘 미국 날짜까지)
      * @param lines       카드 기간 안 경기 한 줄 기록(결장·경기 전 포함, 최신순)
      * @param periodGames 카드 기간 안 메이저 출전(정규+포스트, 시범경기 뺌). 기간 합계·wRC+·ERA+용
-     * @param cardSeason  카드 기간이 속한 시즌의 메이저 출전(정규+포스트, 진행 중 경기 포함). 연속 기록·시즌 비교용.
+     * @param cardSeason  카드 기간이 속한 시즌의 메이저 출전(정규+포스트, 진행 중 경기 포함, 오래된 것부터). 연속 기록·시즌 비교용.
      *                    개막 직후 지난 시즌 끝으로 당긴 카드는 지난 시즌이라 majorSeason과 다를 수 있다
      */
     private record Card(RosterMember member, Period range, CardStatuses.Resolved resolved, List<Appearance> majorSeason,
                         List<MinorGameLog> minorSeason, List<GameLine> lines, List<Appearance> periodGames,
                         List<Appearance> cardSeason) {
 
-        String kind() {
-            return resolved.status() == null ? null : resolved.status().kind();
+        CardStatus.Kind kind() {
+            return kindOf(resolved);
         }
     }
 
@@ -409,8 +409,9 @@ public class MyPlayersService {
         List<Appearance> regular = card.cardSeason().stream()
                 .filter(a -> REGULAR.equals(a.getGame().getSeasonType()))
                 .toList();
-        Integer streak = pitcher ? SeasonStats.scorelessStreak(card.cardSeason())
-                : SeasonStats.hitStreak(card.cardSeason());
+        // 연속 기록은 한 줄 소식('5경기 연속 안타')과 같은 규칙으로 센다. 세는 경기는 다르다: 이 숫자는 카드 기간이
+        // 속한 시즌의 메이저 출전(진행 중 경기 포함)이고, 소식은 이번 시즌 끝난 경기(마이너 카드면 마이너 경기)다
+        Integer streak = FormFacts.streak(card.cardSeason().stream().map(MinorRecords::stat).toList(), pitcher);
         // 기간 wRC+·ERA+의 기준은 카드 기간이 속한 시즌의 메이저 리그 평균이다(마이너·재활 기록은 MinorRecords가 따로 만들고 값이 없다)
         LeagueEnv league = leagues.get(currentSeason.seasonAt(range.to().minusMillis(1)),
                 LeagueEnv.MLB);
@@ -418,10 +419,10 @@ public class MyPlayersService {
         PeriodPitching pitching = pitcher ? pitching(member, period, regular, league) : null;
         List<GameStat> majorStats = card.majorSeason().stream().map(MinorRecords::stat).toList();
         List<GameStat> minorStats = card.minorSeason().stream().map(MinorRecords::stat).toList();
-        String kind = card.kind();
+        CardStatus.Kind kind = card.kind();
 
         // FA·시즌 끝·KBO 복귀: 기간 대신 시즌 합계와 시즌 최장 연속 기록
-        if ("FA".equals(kind) || "SEASON_OVER".equals(kind) || "KBO".equals(kind)) {
+        if (kind != null && kind.showsSeasonTotals()) {
             List<Appearance> majorRegular = card.majorSeason().stream()
                     .filter(a -> REGULAR.equals(a.getGame().getSeasonType()))
                     .toList();
@@ -435,14 +436,15 @@ public class MyPlayersService {
         // 마이너(부상자 명단·출장 정지·지명 할당 포함): 큰 숫자·막대를 마이너 기록으로
         if (inMinors(card, player)) {
             List<MinorGameLog> minor = card.minorSeason();
-            List<GameStat> stint = since(minorStats, card.resolved().stintStart());
-            // 새 팀으로 옮긴 뒤 아직 경기가 없으면 예전 팀 기록을 보이지 않는다(카드: "OOO 합류, 아직 경기 없음").
-            boolean joinedNoGames = "MINORS".equals(kind) && card.resolved().stintStart() != null && stint.isEmpty();
-            // 이름표 단계는 숫자와 같은 범위로: 소식·최근 경기는 지금 기간 경기라 그 기간의 단계(섞였으면 "마이너 ").
-            // 지금 기간을 모르거나 그 뒤 경기가 없으면 시즌 전체로 정한다.
+            // 지금 단계 기간의 경기. 마이너 경기 숫자의 날짜는 공식 날짜라 since(minorStats, ...)와 같은 경기다
             LocalDate stintStart = card.resolved().stintStart();
             List<MinorGameLog> stintGames = stintStart == null ? minor
                     : minor.stream().filter(g -> !g.getGameDate().isBefore(stintStart)).toList();
+            List<GameStat> stint = stintGames.stream().map(MinorRecords::stat).toList();
+            // 새 팀으로 옮긴 뒤 아직 경기가 없으면 예전 팀 기록을 보이지 않는다(카드: "OOO 합류, 아직 경기 없음").
+            boolean joinedNoGames = kind == CardStatus.Kind.MINORS && stintStart != null && stint.isEmpty();
+            // 이름표 단계는 숫자와 같은 범위로: 소식·최근 경기는 지금 기간 경기라 그 기간의 단계(섞였으면 "마이너 ").
+            // 지금 기간을 모르거나 그 뒤 경기가 없으면 시즌 전체로 정한다.
             String prefix = MinorRecords.levelKo(stintGames.isEmpty() ? minor : stintGames) + " ";
             CardFact fact = joinedNoGames ? null : pitcher
                     ? FormFacts.pitcher(minorStats, stint, prefix, card.resolved().start())
@@ -467,7 +469,7 @@ public class MyPlayersService {
         CardFact fact = pitcher
                 ? FormFacts.pitcher(majorStats, stint, "", card.resolved().start())
                 : FormFacts.hitter(majorStats, stint, "", card.resolved().start());
-        boolean injured = "IL".equals(kind);
+        boolean injured = kind == CardStatus.Kind.IL;
         // 부상자 명단에 오른 뒤 마이너 재활 경기를 뛰었으면 재활 경기를 보여 준다(기획 4-1). 팀·단계는 마지막 재활 경기다.
         MinorWindow rehab = injured ? rehabWindow(card.minorSeason(), status.since(), today, days) : null;
         if (rehab != null) {
@@ -486,7 +488,7 @@ public class MyPlayersService {
                 ? (card.majorSeason().isEmpty() ? MyPlayersResponse.Basis.NONE : MyPlayersResponse.Basis.BEFORE_INJURY)
                 : range.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED : MyPlayersResponse.Basis.RECENT;
         CardPlay play = null;
-        if (status == null || "RETURNED".equals(kind) || "CALLED_UP".equals(kind)) {
+        if (status == null || kind == CardStatus.Kind.RETURNED || kind == CardStatus.Kind.CALLED_UP) {
             play = pitcher ? FormFacts.pitcherPlay(majorStats, usToday)
                     : FormFacts.hitterPlay(teamGames(member, card.resolved().stintStart(), now), card.resolved().start());
         }
@@ -496,9 +498,9 @@ public class MyPlayersService {
 
     /** 마이너 기록으로 카드를 채울지: 마이너 상태이거나, 출장 정지·지명 할당인데 지금 단계가 마이너 */
     private static boolean inMinors(Card card, Player player) {
-        String kind = card.kind();
-        return "MINORS".equals(kind) || "MINORS_IL".equals(kind)
-                || (("SUSPENDED".equals(kind) || "DFA".equals(kind)) && player.getLevel() == Level.MINORS);
+        CardStatus.Kind kind = card.kind();
+        return kind == CardStatus.Kind.MINORS || kind == CardStatus.Kind.MINORS_IL
+                || ((kind == CardStatus.Kind.SUSPENDED || kind == CardStatus.Kind.DFA) && player.getLevel() == Level.MINORS);
     }
 
     private CardStatuses.Resolved resolveStatus(Player player, List<Appearance> majorSeason,
@@ -514,7 +516,7 @@ public class MyPlayersService {
         // 국내 리그로 돌아간 선수(명단의 returned-ko): MLB 기록상 FA여도 'KBO 복귀'다. 이동 기록·시즌 끝보다 먼저 본다.
         String returnedKo = profiles.returnedKo(player);
         if (returnedKo != null) {
-            return new CardStatuses.Resolved(new CardStatus("KBO", null, null, null, returnedKo,
+            return new CardStatuses.Resolved(new CardStatus(CardStatus.Kind.KBO, null, null, null, returnedKo,
                     lastGame == null ? null : lastGame.kstDate(), lastGame == null ? null : lastGame.level()),
                     null, CardStatuses.Start.OTHER);
         }
@@ -581,8 +583,9 @@ public class MyPlayersService {
         return minorWindow(minor.stream().filter(g -> !g.getGameDate().isBefore(since)).toList(), today, days);
     }
 
-    private static boolean isKind(CardStatuses.Resolved resolved, String kind) {
-        return resolved != null && resolved.status() != null && kind.equals(resolved.status().kind());
+    /** 상태 종류(평소대로 뛰고 있으면 null) */
+    private static CardStatus.Kind kindOf(CardStatuses.Resolved resolved) {
+        return resolved == null || resolved.status() == null ? null : resolved.status().kind();
     }
 
     /** since(미국 날짜) 뒤 경기만. since가 없으면 그대로 */
@@ -685,18 +688,20 @@ public class MyPlayersService {
         // 기간 합계에는 마이너 경기 수를 쓰지 않는다(0).
         HitterSeason total = SeasonStats.hitter(member.player(), null, null, member.team(), period, 0);
         HitterSeason seasonTotal = SeasonStats.hitter(member.player(), null, null, member.team(), regular, 0);
+        Double wrcPlus = PeriodRates.wrcPlus(period, league);
         return new PeriodHitting(total.games(), total.atBats(), total.hits(), total.homeRuns(),
                 total.rbi(), total.walks(), total.stolenBases(), total.avg(), seasonTotal.avg(),
-                PeriodRates.wrcPlus(period, league), plusLevel(PeriodRates.wrcPlus(period, league)), false);
+                wrcPlus, plusLevel(wrcPlus), false);
     }
 
     private static PeriodPitching pitching(RosterMember member, List<Appearance> period,
                                                              List<Appearance> regular, LeagueEnv league) {
         PitcherSeason total = SeasonStats.pitcher(member.player(), null, null, member.team(), period, 0);
         PitcherSeason seasonTotal = SeasonStats.pitcher(member.player(), null, null, member.team(), regular, 0);
+        Double eraPlus = PeriodRates.eraPlus(period, league);
         return new PeriodPitching(total.games(), total.outs(), total.inningsText(),
                 SeasonStats.earnedRuns(period), total.era(), total.strikeouts(), total.wins(), total.losses(),
-                total.saves(), seasonTotal.era(), PeriodRates.eraPlus(period, league), plusLevel(PeriodRates.eraPlus(period, league)), false);
+                total.saves(), seasonTotal.era(), eraPlus, plusLevel(eraPlus), false);
     }
 
     private static Map<Long, List<Appearance>> byPlayer(List<Appearance> list) {

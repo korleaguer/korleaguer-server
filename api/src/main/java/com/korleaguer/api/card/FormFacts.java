@@ -43,17 +43,7 @@ public final class FormFacts {
      */
     static CardFact hitter(List<GameStat> season, List<GameStat> stint, String prefix,
                                          CardStatuses.Start start) {
-        int hitStreak = 0;
-        for (GameStat game : season.reversed()) {
-            if (!game.batted()) {
-                continue;
-            }
-            if (game.hits() > 0) {
-                hitStreak++;
-            } else if (game.atBats() > 0) {
-                break;
-            }
-        }
+        int hitStreak = streak(season, false);
         if (hitStreak >= 5) {
             return new CardFact(HOT, prefix + hitStreak + "경기 연속 안타");
         }
@@ -93,16 +83,7 @@ public final class FormFacts {
     /** 투수 소식. 인자는 hitter와 같다. */
     static CardFact pitcher(List<GameStat> season, List<GameStat> stint, String prefix,
                                           CardStatuses.Start start) {
-        int scoreless = 0;
-        for (GameStat game : season.reversed()) {
-            if (!game.pitched()) {
-                continue;
-            }
-            if (game.runsAllowed() == null || game.runsAllowed() > 0) {
-                break;
-            }
-            scoreless++;
-        }
+        int scoreless = streak(season, true);
         if (scoreless >= 3) {
             return new CardFact(HOT, prefix + scoreless + "번 연속 무실점 등판");
         }
@@ -112,7 +93,7 @@ public final class FormFacts {
             return null;
         }
         String label = label(recent.size(), RECENT_APPEARANCES, "번 등판", start);
-        long clean = recent.stream().filter(g -> g.runsAllowed() != null && g.runsAllowed() == 0).count();
+        long clean = recent.stream().filter(FormFacts::scoreless).count();
         if (clean >= 4) {
             return new CardFact(HOT, prefix + label + " 중 " + clean + "번 무실점");
         }
@@ -132,24 +113,72 @@ public final class FormFacts {
         return best >= 5 ? new CardFact(HOT, "시즌 최장 " + best + "경기 연속 안타") : null;
     }
 
+    /**
+     * 지금 이어진 연속 기록: 타자는 연속 안타 경기, 투수는 연속 무실점 등판. 카드 streak와 한 줄 소식이 같은 규칙으로
+     * 센다(넘기는 경기 목록은 서로 다를 수 있다).
+     *
+     * @param seasonOldestFirst 시즌 경기(오래된 것부터). 최근 경기부터 거슬러 센다
+     */
+    static int streak(List<GameStat> seasonOldestFirst, boolean pitcher) {
+        int streak = 0;
+        for (GameStat game : seasonOldestFirst.reversed()) {
+            Step step = step(game, pitcher);
+            if (step == Step.BREAKS) {
+                break;
+            }
+            if (step == Step.EXTENDS) {
+                streak++;
+            }
+        }
+        return streak;
+    }
+
     private static int longest(List<GameStat> games, boolean pitcher) {
         int best = 0;
         int current = 0;
         for (GameStat game : games) {
-            if (pitcher) {
-                if (!game.pitched()) {
-                    continue;
-                }
-                current = game.runsAllowed() != null && game.runsAllowed() == 0 ? current + 1 : 0;
-            } else {
-                if (!game.batted() || (game.hits() == 0 && game.atBats() == 0)) {
-                    continue;
-                }
-                current = game.hits() > 0 ? current + 1 : 0;
+            Step step = step(game, pitcher);
+            if (step == Step.SKIPS) {
+                continue;
             }
+            current = step == Step.EXTENDS ? current + 1 : 0;
             best = Math.max(best, current);
         }
         return best;
+    }
+
+    /** 연속 기록에서 경기 하나가 하는 일 */
+    private enum Step {
+        EXTENDS,
+        BREAKS,
+        SKIPS
+    }
+
+    /**
+     * 연속 기록을 세는 규칙. 지금 이어진 기록과 시즌 최장 기록이 같은 규칙을 쓴다.
+     * <ul>
+     *   <li>타자: 안타가 있으면 이어지고, 타수가 있는데 무안타면 끊긴다. 타격 기록이 없거나 타수가 없는 경기(볼넷만 등)는 건너뛴다.</li>
+     *   <li>투수: 무실점이면 이어지고, 실점했거나 실점을 모르면 끊긴다. 투구 기록이 없는 출전(대주자 등)은 건너뛴다.</li>
+     * </ul>
+     */
+    private static Step step(GameStat game, boolean pitcher) {
+        if (pitcher) {
+            if (!game.pitched()) {
+                return Step.SKIPS;
+            }
+            return scoreless(game) ? Step.EXTENDS : Step.BREAKS;
+        }
+        if (!game.batted()) {
+            return Step.SKIPS;
+        }
+        if (game.hits() > 0) {
+            return Step.EXTENDS;
+        }
+        return game.atBats() > 0 ? Step.BREAKS : Step.SKIPS;
+    }
+
+    private static boolean scoreless(GameStat game) {
+        return game.runsAllowed() != null && game.runsAllowed() == 0;
     }
 
     /** "최근 10경기" 또는 다 차지 않았으면 "복귀 후 6경기"(시작을 모르면 "최근 6경기") */

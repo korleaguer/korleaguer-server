@@ -35,7 +35,7 @@ class CardStatusesTest {
         CardStatuses.Resolved resolved = CardStatuses.resolve(lee, moves, null, null, on(TODAY));
 
         // then
-        assertThat(resolved.status().kind()).isEqualTo("IL");
+        assertThat(resolved.status().kind()).isEqualTo(CardStatus.Kind.IL);
         assertThat(resolved.status().since()).isEqualTo(LocalDate.of(2026, 9, 20));
         assertThat(resolved.status().days()).isEqualTo(6);
     }
@@ -56,7 +56,7 @@ class CardStatusesTest {
                 new CardStatuses.MinorSpot("AAA", "Syracuse Mets"), on(TODAY));
 
         // then
-        assertThat(resolved.status().kind()).isEqualTo("MINORS_IL");
+        assertThat(resolved.status().kind()).isEqualTo(CardStatus.Kind.MINORS_IL);
         assertThat(resolved.status().since()).isEqualTo(LocalDate.of(2026, 8, 25));
         // 팀 이름·단계는 넘겨받은 지금 마이너 팀(MinorSpot)을 쓴다
         assertThat(resolved.status().teamName()).isEqualTo("Syracuse Mets");
@@ -79,14 +79,14 @@ class CardStatusesTest {
         CardStatuses.Resolved day3 = CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 8, 5)));
 
         // then
-        assertThat(day3.status().kind()).isEqualTo("RETURNED");
+        assertThat(day3.status().kind()).isEqualTo(CardStatus.Kind.RETURNED);
         assertThat(day3.status().days()).isEqualTo(3);
         assertThat(day3.start()).isEqualTo(CardStatuses.Start.RETURNED);
 
         // when // then
         // 그날 포함 7일째까지 보이고 8일째부터 사라진다
         assertThat(CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 8, 9))).status().kind())
-                .isEqualTo("RETURNED");
+                .isEqualTo(CardStatus.Kind.RETURNED);
         assertThat(CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 8, 10))).status()).isNull();
 
         // when
@@ -102,7 +102,7 @@ class CardStatusesTest {
         CardStatuses.Resolved rehab = CardStatuses.resolve(kim, moves, null, null, on(LocalDate.of(2026, 7, 20)));
 
         // then
-        assertThat(rehab.status().kind()).isEqualTo("IL");
+        assertThat(rehab.status().kind()).isEqualTo(CardStatus.Kind.IL);
         assertThat(rehab.status().since()).isEqualTo(LocalDate.of(2026, 7, 4));
     }
 
@@ -124,7 +124,7 @@ class CardStatusesTest {
                 new CardStatuses.MinorSpot("AAA", "Oklahoma City Comets"), on(LocalDate.of(2026, 6, 10)));
 
         // then
-        assertThat(resolved.status().kind()).isEqualTo("MINORS");
+        assertThat(resolved.status().kind()).isEqualTo(CardStatus.Kind.MINORS);
         assertThat(resolved.status().since()).isEqualTo(LocalDate.of(2026, 5, 29));
         assertThat(resolved.stintStart()).isEqualTo(LocalDate.of(2026, 5, 29));
         assertThat(resolved.start()).isEqualTo(CardStatuses.Start.SENT_DOWN);
@@ -143,14 +143,14 @@ class CardStatusesTest {
         CardStatuses.Resolved resolved = CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 10)));
 
         // then
-        assertThat(resolved.status().kind()).isEqualTo("CALLED_UP");
+        assertThat(resolved.status().kind()).isEqualTo(CardStatus.Kind.CALLED_UP);
         assertThat(resolved.status().days()).isEqualTo(4);
         assertThat(resolved.start()).isEqualTo(CardStatuses.Start.CALLED_UP);
 
         // when // then
         // 그날 포함 7일째까지 보이고 8일째부터 사라진다
         assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 13))).status().kind())
-                .isEqualTo("CALLED_UP");
+                .isEqualTo(CardStatus.Kind.CALLED_UP);
         assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 14))).status()).isNull();
     }
 
@@ -167,7 +167,7 @@ class CardStatusesTest {
         // when // then
         assertThat(CardStatuses.resolve(go, dayBefore, null, null, on(LocalDate.of(2026, 3, 27))).status()).isNull();
         assertThat(CardStatuses.resolve(go, openingDay, null, null, on(LocalDate.of(2026, 3, 27))).status().kind())
-                .isEqualTo("CALLED_UP");
+                .isEqualTo(CardStatus.Kind.CALLED_UP);
     }
 
     @Test
@@ -182,9 +182,9 @@ class CardStatusesTest {
 
         // when // then
         assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 30))).status().kind())
-                .isEqualTo("SUSPENDED");
+                .isEqualTo(CardStatus.Kind.SUSPENDED);
         assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 8, 10))).status().kind())
-                .isEqualTo("MINORS");
+                .isEqualTo(CardStatus.Kind.MINORS);
     }
 
     @Test
@@ -197,7 +197,7 @@ class CardStatusesTest {
 
         // when // then
         assertThat(CardStatuses.resolve(bae, moves, null, null, on(LocalDate.of(2026, 8, 16))).status().kind())
-                .isEqualTo("DFA");
+                .isEqualTo(CardStatus.Kind.DFA);
     }
 
     @Test
@@ -215,7 +215,7 @@ class CardStatusesTest {
         CardStatuses.Resolved resolved = CardStatuses.resolve(go, moves, last, null, on(TODAY));
 
         // then
-        assertThat(resolved.status().kind()).isEqualTo("FA");
+        assertThat(resolved.status().kind()).isEqualTo(CardStatus.Kind.FA);
         assertThat(resolved.status().since()).isEqualTo(LocalDate.of(2026, 8, 30));
         assertThat(resolved.status().days()).isEqualTo(27);
         // 마지막 경기 날짜는 한국 날짜(선수 화면 경기 달력과 같은 날, 이슈 #183)
@@ -236,7 +236,7 @@ class CardStatusesTest {
                 afterSeason(today, false));
 
         // then
-        assertThat(over.status().kind()).isEqualTo("SEASON_OVER");
+        assertThat(over.status().kind()).isEqualTo(CardStatus.Kind.SEASON_OVER);
         assertThat(over.status().days()).isNull();
         assertThat(over.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 9, 28));
 
@@ -247,7 +247,7 @@ class CardStatusesTest {
                 afterSeason(today, false)).status()).isNull();
         assertThat(CardStatuses.resolve(lee, List.of(),
                 new CardStatuses.LastGame(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), "MLB"), null,
-                afterSeason(today, false)).status().kind()).isEqualTo("SEASON_OVER");
+                afterSeason(today, false)).status().kind()).isEqualTo(CardStatus.Kind.SEASON_OVER);
 
         // when
         // 포스트시즌을 뛰는 선수(이틀 전 경기)는 평소대로 둔다
@@ -273,7 +273,7 @@ class CardStatusesTest {
                 afterSeason(LocalDate.of(2026, 10, 5), false));
 
         // then
-        assertThat(over.status().kind()).isEqualTo("SEASON_OVER");
+        assertThat(over.status().kind()).isEqualTo(CardStatus.Kind.SEASON_OVER);
         assertThat(over.status().lastGameDate()).isEqualTo(LocalDate.of(2026, 10, 2));
     }
 
@@ -288,7 +288,7 @@ class CardStatusesTest {
 
         // when // then
         assertThat(CardStatuses.resolve(go, moves, null, null, on(LocalDate.of(2026, 7, 9))).status().kind())
-                .isEqualTo("CALLED_UP");
+                .isEqualTo(CardStatus.Kind.CALLED_UP);
     }
 
     @Test
@@ -343,7 +343,7 @@ class CardStatusesTest {
                 new CardStatuses.Today(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 3, 27), false, false));
 
         // then
-        assertThat(resolved.status().kind()).isEqualTo("CALLED_UP");
+        assertThat(resolved.status().kind()).isEqualTo(CardStatus.Kind.CALLED_UP);
         assertThat(resolved.status().days()).isEqualTo(4);
         assertThat(resolved.start()).isEqualTo(CardStatuses.Start.CALLED_UP);
     }
@@ -359,7 +359,7 @@ class CardStatusesTest {
 
         // when // then
         assertThat(CardStatuses.resolve(lee, moves, null, null, on(LocalDate.of(2026, 6, 4))).status().kind())
-                .isEqualTo("IL");
+                .isEqualTo(CardStatus.Kind.IL);
     }
 
     @Test
@@ -378,12 +378,12 @@ class CardStatusesTest {
         CardStatuses.Resolved playing = CardStatuses.resolve(kim, moves, last, null, afterSeason(october2, true));
 
         // then
-        assertThat(playing.status().kind()).isEqualTo("CALLED_UP");
+        assertThat(playing.status().kind()).isEqualTo(CardStatus.Kind.CALLED_UP);
         assertThat(playing.status().days()).isEqualTo(5);
 
         // when // then
         assertThat(CardStatuses.resolve(kim, moves, last, null, afterSeason(october2, false)).status().kind())
-                .isEqualTo("SEASON_OVER");
+                .isEqualTo(CardStatus.Kind.SEASON_OVER);
     }
 
     @Test

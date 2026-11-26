@@ -270,6 +270,36 @@ class FormFactsTest {
         assertThat(play.daysSinceLast()).isEqualTo(2);
     }
 
+    @Test
+    @DisplayName("지금 이어진 연속 안타는 타수 없는 경기를 건너뛰고 무안타 경기에서 끊긴다")
+    void currentHitStreakSkipsGamesWithoutAtBats() {
+        // given
+        // 오래된 순: 1안타, 4타수 무안타, 1안타, 타격 기록 없음, 볼넷만(0타수 0안타), 2안타
+        // 최신부터 2안타 → (건너뜀) → (건너뜀) → 1안타 → 무안타에서 멈춤 = 2
+        List<GameStat> games = List.of(withHits(0, 4, 1), hitless(1, 4), withHits(2, 3, 1), noRecord(3),
+                walkOnly(4), withHits(5, 4, 2));
+
+        // when // then
+        assertThat(FormFacts.streak(games, false)).isEqualTo(2);
+        assertThat(FormFacts.streak(List.of(), false)).isZero();
+    }
+
+    @Test
+    @DisplayName("지금 이어진 연속 무실점은 실점했거나 실점을 모르면 끊기고 안 던진 출전은 건너뛴다")
+    void currentScorelessStreakStopsAtRunsOrUnknown() {
+        // given
+        // 오래된 순으로 넣는다. 최신부터 센다.
+        List<GameStat> scorelessThenRun = List.of(allowedRuns(0, 1), scorelessOuting(1), scorelessOuting(2));
+        List<GameStat> unknownRuns = List.of(scorelessOuting(0), unknownRunsOuting(1), scorelessOuting(2));
+        // 투구 기록 없는 출전(대주자 등)은 건너뛴다.
+        List<GameStat> pinchRunner = List.of(allowedRuns(0, 1), scorelessOuting(1), noRecord(2), scorelessOuting(3));
+
+        // when // then
+        assertThat(FormFacts.streak(scorelessThenRun, true)).isEqualTo(2);
+        assertThat(FormFacts.streak(unknownRuns, true)).isEqualTo(1);
+        assertThat(FormFacts.streak(pinchRunner, true)).isEqualTo(2);
+    }
+
     private static CardFact hitterFact(List<GameStat> games) {
         return FormFacts.hitter(games, games, "", CardStatuses.Start.OTHER);
     }
@@ -299,6 +329,43 @@ class FormFactsTest {
             list.add(new GameStat(START.plusDays(i), false, 0, 0, 0, 0, true, runs[i]));
         }
         return list;
+    }
+
+    /** 그날 안타가 있는 타격 경기 */
+    private static GameStat withHits(int day, int atBats, int hits) {
+        return stat(day, atBats, hits, 0);
+    }
+
+    /** 그날 타수가 있는데 무안타인 타격 경기 */
+    private static GameStat hitless(int day, int atBats) {
+        return stat(day, atBats, 0, 0);
+    }
+
+    /** 그날 볼넷만 고른 경기(0타수 1타석) */
+    private static GameStat walkOnly(int day) {
+        return stat(day, 0, 0, 0);
+    }
+
+    private static GameStat scorelessOuting(int day) {
+        return outing(day, 0);
+    }
+
+    private static GameStat allowedRuns(int day, int runs) {
+        return outing(day, runs);
+    }
+
+    /** 실점을 모르는 등판 */
+    private static GameStat unknownRunsOuting(int day) {
+        return outing(day, null);
+    }
+
+    private static GameStat outing(int day, Integer runsAllowed) {
+        return new GameStat(START.plusDays(day), false, 0, 0, 0, 0, true, runsAllowed);
+    }
+
+    /** 타격·투구 기록이 없는 출전(대주자 등) */
+    private static GameStat noRecord(int day) {
+        return new GameStat(START.plusDays(day), false, 0, 0, 0, 0, false, null);
     }
 
     private static GameLine line(boolean played, Lineup lineup) {
