@@ -1,7 +1,5 @@
 package com.korleaguer.api.player;
 
-import com.korleaguer.api.screen.BaseballQueryService;
-
 import com.korleaguer.api.season.MinorGameLinesTest;
 
 import com.korleaguer.config.MinorTeamProperties;
@@ -38,7 +36,7 @@ class MoveTeamNamesTest {
     @DisplayName("트리플A와 더블A 팀은 한국어 지명에 단계를 붙인다")
     void tripleAAndDoubleATeamsGetTheKoreanPlaceAndTheLevel() {
         // when
-        List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
+        List<MoveEntry> moves = MoveEntry.fanMoves(List.of(
                 rehab("2026-07-17", GWINNETT, "Gwinnett Stripers"),
                 rehab("2026-04-28", COLUMBUS_DOUBLE_A, "Columbus Clingstones")), NAMES);
 
@@ -61,7 +59,7 @@ class MoveTeamNamesTest {
     void lowerLevelRehabTeamsGetTheKoreanPlaceAndTheLevel() {
         // when
         // 운영(11-19) 명단 6명의 이동 기록에서 영어로 남았던 하위 단계 팀 6곳(모두 재활 경기 배정, 이슈 #191)
-        List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
+        List<MoveEntry> moves = MoveEntry.fanMoves(List.of(
                 rehabFrom("2026-07-13", "Atlanta Braves", ATLANTA, "Ha-Seong Kim", 464L, "FCL Braves"),
                 rehabFrom("2025-08-19", "Toledo Mud Hens", 512L, "Woo-Suk Go", 582L, "West Michigan Whitecaps"),
                 rehabFrom("2025-06-17", "Indianapolis Indians", 484L, "Ji Hwan Bae", 3390L, "Bradenton Marauders"),
@@ -85,7 +83,7 @@ class MoveTeamNamesTest {
         // when
         // 이름표에 넣지 않은 루키 도미니칸 서머 리그 팀(DSL Marlins)·국가대표(Korea)는 표에 없다.
         // 이름을 지어내지 않고 MLB가 준 이름 그대로
-        List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
+        List<MoveEntry> moves = MoveEntry.fanMoves(List.of(
                 move("2025-05-08", "ASG",
                         "Pensacola Blue Wahoos sent RHP Woo-Suk Go on a rehab assignment to DSL Marlins.",
                         4124L, "Pensacola Blue Wahoos", 619L, "DSL Marlins", Level.MINORS),
@@ -102,7 +100,7 @@ class MoveTeamNamesTest {
     @DisplayName("메이저 구단은 한국어 구단 이름으로 보인다")
     void majorLeagueClubsKeepTheirKoreanClubName() {
         // when
-        List<MoveEntry> moves = BaseballQueryService.fanMoves(List.of(
+        List<MoveEntry> moves = MoveEntry.fanMoves(List.of(
                 move("2025-09-01", "CLW", "Atlanta Braves claimed SS Ha-Seong Kim off waivers from Tampa Bay Rays.",
                         139L, "Tampa Bay Rays", ATLANTA, "Atlanta Braves", Level.MLB)), NAMES);
 
