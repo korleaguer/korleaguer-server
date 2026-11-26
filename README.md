@@ -311,7 +311,7 @@ com.korleaguer
 │            공 하나 영상 주소(SavantClips, Baseball Savant)와 그 조립(VideoConfig)
 ├── ingest   (batch) 선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
 │            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 경기 상세 받기(GameDetailIngest),
-│            하이라이트 제목 번역(HighlightTitleIngest), 리그 평균 받기(LeagueAverageRefresher), DB 저장(IngestWriter),
+│            하이라이트 제목 번역(HighlightTitleIngest), 리그 평균 받기(LeagueAverageRefresher), DB 저장(PlayerWriter·MinorGameWriter·GameWriter·SeasonStatWriter·SeasonDatesWriter),
 │            사진 한 번 받아 저장·재확인(PhotoStore)·주기 작업(PhotoScheduler),
 │            관련 기사 수집(NewsCollector)·기사 페이지 읽어 요약(NewsEnricher)·행선지 구단 고르기(NewsTagger)·스케줄(NewsScheduler),
 │            관리용 수집 엔드포인트(AdminController, /admin/**, 토큰 검사 AdminTokenInterceptor)

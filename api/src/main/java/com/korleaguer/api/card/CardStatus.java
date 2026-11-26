@@ -14,11 +14,30 @@ import java.time.LocalDate;
  * 예전에는 미국 날짜라 미국 밤 경기가 하루 일렀다). 마이너 일정을 아직 받지 못한 경기는 공식 날짜 다음 날이다(달력과 같다).
  */
 public record CardStatus(
-        String kind,
+        Kind kind,
         LocalDate since,
         Integer days,
         String level,
         String teamName,
         LocalDate lastGameDate,
         String lastGameLevel) {
+
+    /** 상태 종류. 응답에는 이름 그대로 나간다(웹이 이 글자로 배지를 고른다) */
+    public enum Kind {
+        IL,
+        RETURNED,
+        CALLED_UP,
+        MINORS,
+        MINORS_IL,
+        SUSPENDED,
+        DFA,
+        FA,
+        SEASON_OVER,
+        KBO;
+
+        /** 기간 대신 시즌 합계를 보이는 상태: FA, 시즌 끝, 국내 리그 복귀 */
+        boolean showsSeasonTotals() {
+            return this == FA || this == SEASON_OVER || this == KBO;
+        }
+    }
 }

@@ -40,7 +40,7 @@ class MinorScheduleIngestTest {
     private static final MlbTeam CHIHUAHUAS = new MlbTeam(4904L, "El Paso Chihuahuas", null, null, null, "El Paso");
 
     @Autowired
-    private IngestWriter writer;
+    private MinorGameWriter writer;
 
     @Autowired
     private PlayerRepository players;

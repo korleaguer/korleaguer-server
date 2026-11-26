@@ -65,7 +65,7 @@ public class GameIngest {
     private static final Logger log = LoggerFactory.getLogger(GameIngest.class);
 
     private final MlbClient client;
-    private final IngestWriter writer;
+    private final GameWriter writer;
     private final PlayerRepository players;
     private final AffiliationRepository affiliations;
     private final GameRepository games;
@@ -76,7 +76,7 @@ public class GameIngest {
     // 앞 일정을 마지막으로 받은 날(UTC 날짜). 앱이 떠 있는 동안만 기억한다.
     private volatile LocalDate lookedAheadOn;
 
-    public GameIngest(MlbClient client, IngestWriter writer, PlayerRepository players,
+    public GameIngest(MlbClient client, GameWriter writer, PlayerRepository players,
                       AffiliationRepository affiliations, GameRepository games, AppearanceRepository appearances,
                       GameDetailIngest gameDetails, TrackedTeamGames trackedTeams, Clock clock) {
         this.client = client;
@@ -100,11 +100,11 @@ public class GameIngest {
             return "";
         }
         Instant now = clock.instant();
-        List<IngestWriter.PlayerLogs> logs = new ArrayList<>();
+        List<GameWriter.PlayerLogs> logs = new ArrayList<>();
         int failed = 0;
         for (Player player : targets) {
             try {
-                logs.add(new IngestWriter.PlayerLogs(player.getId(),
+                logs.add(new GameWriter.PlayerLogs(player.getId(),
                         client.getGameLog(player.getMlbId(), MlbClient.Group.HITTING, season),
                         client.getGameLog(player.getMlbId(), MlbClient.Group.PITCHING, season)));
             } catch (MlbBlockedException e) {
@@ -127,7 +127,7 @@ public class GameIngest {
                 .filter(team -> team != null && MlbTeams.isClub(team.id()))
                 .forEach(team -> teamIds.add(team.id()));
         List<MlbScheduleGame> schedule = client.getSeasonSchedule(teamIds, season);
-        IngestWriter.SeasonSaveResult saved = writer.saveSeason(season, schedule, logs, now);
+        GameWriter.SeasonSaveResult saved = writer.saveSeason(season, schedule, logs, now);
 
         // 포스트시즌 기록은 gameLog에 없으므로 끝난 포스트시즌 경기만 박스스코어로 받는다.
         Fetched fetched = boxscores(games.findTeamSeasonGames(teamIds, season, SeasonType.POSTSEASON.stored()).stream()
@@ -214,7 +214,7 @@ public class GameIngest {
     /**
      * 선발·교체를 아직 모르는 지난 경기(굳은 경기)를 최근 것부터 limit개까지 박스스코어로 채운다.
      * 한 경기는 한 번만 받는다(못 정한 선수가 있어도 다시 받지 않는다). 기록은 건드리지 않는다.
-     * 단 그 뒤 시즌 백필로 그 경기에 새 기록이 생기면 다시 채울 경기가 된다(IngestWriter.saveGameLog).
+     * 단 그 뒤 시즌 백필로 그 경기에 새 기록이 생기면 다시 채울 경기가 된다(GameWriter.saveGameLog).
      */
     public String fillLineups(int limit) {
         List<Game> targets = appearances.findGamesMissingLineups(PageRequest.of(0, limit));

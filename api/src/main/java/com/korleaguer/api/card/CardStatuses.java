@@ -37,6 +37,8 @@ final class CardStatuses {
     /** 다른 팀으로 옮기거나 팀을 떠나는 기록(트레이드·웨이버 클레임·계약·방출·FA 선언). 그 전의 지명 할당은 끝난 일이다 */
     private static final Set<String> CHANGES_TEAM = Set.of("TR", "CLW", "SFA", "SGN", "REL", "DFA");
     private static final Set<String> CALL_UP = Set.of("CU", "SE");
+    /** 메이저에서 마이너로 내려간 강등(옵션·아웃라이트) */
+    private static final Set<String> SENT_DOWN_FROM_MAJORS = Set.of("OPT", "OUT");
     private static final Pattern RETROACTIVE = Pattern.compile("retroactive to ([A-Z][a-z]+ \\d{1,2}, \\d{4})");
     private static final DateTimeFormatter LONG_DATE = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH);
 
@@ -104,13 +106,13 @@ final class CardStatuses {
                     .filter(Objects::nonNull)
                     .findFirst()
                     .orElse(null);
-            return new Resolved(status("FA", since, usToday, null, null, lastGame), null, Start.OTHER);
+            return new Resolved(status(CardStatus.Kind.FA, since, usToday, null, null, lastGame), null, Start.OTHER);
         }
         // 포스트시즌 명단에 든 선수는 본인 경기가 며칠 없어도(팀이 쉬는 날·첫 출전 전) 시즌 끝이 아니다.
         // 며칠 경기가 없었는지는 오늘(미국 날짜)과 견주므로 마지막 경기도 미국 날짜로 센다(보이는 날짜는 한국 날짜다).
         if (today.seasonEnded() && !today.teamPlaying() && (lastGame == null
                 || lastGame.usDate().isBefore(usToday.minusDays(SEASON_OVER_AFTER_DAYS)))) {
-            return new Resolved(status("SEASON_OVER", null, usToday, null, null, lastGame), null, Start.OTHER);
+            return new Resolved(status(CardStatus.Kind.SEASON_OVER, null, usToday, null, null, lastGame), null, Start.OTHER);
         }
 
         Decision decision = decide(movesNewestFirst);
@@ -119,14 +121,14 @@ final class CardStatuses {
         switch (decision.kind()) {
             case INJURED -> {
                 boolean inMinors = decision.minors() || player.getLevel() == Level.MINORS;
-                return new Resolved(status(inMinors ? "MINORS_IL" : "IL", decision.date(), usToday,
+                return new Resolved(status(inMinors ? CardStatus.Kind.MINORS_IL : CardStatus.Kind.IL, decision.date(), usToday,
                         inMinors ? minorLevel : null, inMinors ? minorTeam : null, null), null, Start.OTHER);
             }
             case SUSPENDED -> {
-                return new Resolved(status("SUSPENDED", decision.date(), usToday, null, null, null), null, Start.OTHER);
+                return new Resolved(status(CardStatus.Kind.SUSPENDED, decision.date(), usToday, null, null, null), null, Start.OTHER);
             }
             case DESIGNATED -> {
-                return new Resolved(status("DFA", decision.date(), usToday, null, null, null), null, Start.OTHER);
+                return new Resolved(status(CardStatus.Kind.DFA, decision.date(), usToday, null, null, null), null, Start.OTHER);
             }
             default -> {
                 // 아래에서 단계로 정한다
@@ -139,8 +141,8 @@ final class CardStatuses {
             LocalDate since = decision.kind() == Kind.SENT_DOWN ? decision.date()
                     : sentDown == null ? null : sentDown.getMoveDate();
             boolean fromMajors = decision.kind() == Kind.SENT_DOWN ? decision.fromMajors()
-                    : sentDown != null && Set.of("OPT", "OUT").contains(code(sentDown));
-            CardStatus badge = status("MINORS", since, usToday, minorLevel, minorTeam, null);
+                    : sentDown != null && SENT_DOWN_FROM_MAJORS.contains(code(sentDown));
+            CardStatus badge = status(CardStatus.Kind.MINORS, since, usToday, minorLevel, minorTeam, null);
             // 개막 전(지난 시즌·겨울)에 내려갔으면 이번 시즌 마이너 경기 전부가 한 기간이다.
             if (since == null || since.isBefore(today.seasonStart())) {
                 return new Resolved(badge, null, Start.OTHER);
@@ -153,12 +155,12 @@ final class CardStatuses {
         }
         if (decision.kind() == Kind.RETURNED || decision.kind() == Kind.ACTIVATED) {
             CardStatus badge = decision.kind() == Kind.RETURNED && recent(decision.date(), usToday)
-                    ? status("RETURNED", decision.date(), usToday, null, null, null) : null;
+                    ? status(CardStatus.Kind.RETURNED, decision.date(), usToday, null, null, null) : null;
             return new Resolved(badge, decision.date(), Start.RETURNED);
         }
         if (decision.kind() == Kind.CALLED_UP) {
             CardStatus badge = recent(decision.date(), usToday)
-                    ? status("CALLED_UP", decision.date(), usToday, null, null, null) : null;
+                    ? status(CardStatus.Kind.CALLED_UP, decision.date(), usToday, null, null, null) : null;
             return new Resolved(badge, decision.date(), Start.CALLED_UP);
         }
         return new Resolved(null, null, Start.OTHER);
@@ -207,12 +209,12 @@ final class CardStatuses {
                 case "SC" -> {
                     if (text.contains("injured list")) {
                         boolean minors = move.getToLevel() == Level.MINORS;
-                        if (text.contains("activated") || text.contains("reinstated")) {
+                        if (reactivated(text)) {
                             return new Decision(Kind.RETURNED, date, minors, false);
                         }
                         return new Decision(Kind.INJURED, placementDate(movesNewestFirst, i), minors, false);
                     }
-                    if ((text.contains("activated") || text.contains("reinstated")) && move.getToLevel() != null) {
+                    if (reactivated(text) && move.getToLevel() != null) {
                         return Decision.of(calledUpOn(movesNewestFirst, date) ? Kind.CALLED_UP : Kind.ACTIVATED, date);
                     }
                 }
@@ -228,12 +230,9 @@ final class CardStatuses {
                 case "CU", "SE" -> {
                     return Decision.of(Kind.CALLED_UP, date);
                 }
-                case "OPT", "OUT" -> {
-                    return new Decision(Kind.SENT_DOWN, date, false, true);
-                }
-                case "ASG" -> {
-                    if (!text.contains("rehab") && move.getToLevel() == Level.MINORS) {
-                        return new Decision(Kind.SENT_DOWN, date, false, false);
+                case "OPT", "OUT", "ASG" -> {
+                    if (sentDown(move)) {
+                        return new Decision(Kind.SENT_DOWN, date, false, SENT_DOWN_FROM_MAJORS.contains(code(move)));
                     }
                 }
                 default -> {
@@ -266,7 +265,7 @@ final class CardStatuses {
                 if (!"SC".equals(code(older)) || !text.contains("injured list")) {
                     continue;
                 }
-                if (text.contains("activated") || text.contains("reinstated")) {
+                if (reactivated(text)) {
                     break;
                 }
                 if (text.contains("placed")) {
@@ -293,10 +292,21 @@ final class CardStatuses {
     private static PlayerMove sentDownMove(List<PlayerMove> movesNewestFirst) {
         return movesNewestFirst.stream()
                 .filter(m -> m.getMoveDate() != null)
-                .filter(m -> Set.of("OPT", "OUT").contains(code(m))
-                        || ("ASG".equals(code(m)) && !text(m).contains("rehab") && m.getToLevel() == Level.MINORS))
+                .filter(CardStatuses::sentDown)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /** 마이너로 내려간 기록: 옵션·아웃라이트, 또는 재활 경기가 아닌 마이너 배정(ASG) */
+    private static boolean sentDown(PlayerMove move) {
+        String code = code(move);
+        return SENT_DOWN_FROM_MAJORS.contains(code)
+                || ("ASG".equals(code) && !text(move).contains("rehab") && move.getToLevel() == Level.MINORS);
+    }
+
+    /** 부상자 명단 기록 등의 설명이 '다시 뛸 수 있게 됨'(해제·활성화)인가. text는 소문자로 바꾼 설명이다 */
+    private static boolean reactivated(String text) {
+        return text.contains("activated") || text.contains("reinstated");
     }
 
     private static boolean recent(LocalDate since, LocalDate usToday) {
@@ -312,7 +322,7 @@ final class CardStatuses {
      * 배지 한 개. days는 since(이동 기록 날짜, 미국 날짜)부터 오늘(미국 날짜)까지라 미국 날짜끼리 센다. 마지막 경기 날짜는
      * 시작 시각의 한국 날짜로 내보낸다(선수 화면 경기 달력과 같은 날, 이슈 #183)
      */
-    private static CardStatus status(String kind, LocalDate since, LocalDate usToday, String level,
+    private static CardStatus status(CardStatus.Kind kind, LocalDate since, LocalDate usToday, String level,
                                                        String teamName, LastGame lastGame) {
         Integer days = since == null || since.isAfter(usToday) ? null : daysSince(since, usToday);
         return new CardStatus(kind, since, days, level, teamName,

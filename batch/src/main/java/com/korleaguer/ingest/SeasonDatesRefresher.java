@@ -39,13 +39,13 @@ public class SeasonDatesRefresher {
 
     private final MlbClient client;
     private final SeasonDatesRepository seasonDates;
-    private final IngestWriter writer;
+    private final SeasonDatesWriter writer;
     private final CurrentSeason currentSeason;
     private final Clock clock;
     // 더 물을 필요가 없다고 정한 날(UTC 날짜). 발표 전인 해를 같은 날 다시 묻지 않으려고 둔다. 앱이 떠 있는 동안만 기억한다.
     private volatile LocalDate checkedOn;
 
-    public SeasonDatesRefresher(MlbClient client, SeasonDatesRepository seasonDates, IngestWriter writer,
+    public SeasonDatesRefresher(MlbClient client, SeasonDatesRepository seasonDates, SeasonDatesWriter writer,
                                 CurrentSeason currentSeason, Clock clock) {
         this.client = client;
         this.seasonDates = seasonDates;

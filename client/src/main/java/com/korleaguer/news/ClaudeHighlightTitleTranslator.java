@@ -1,21 +1,11 @@
 package com.korleaguer.news;
 
 import com.anthropic.client.AnthropicClient;
-import com.anthropic.errors.AnthropicException;
-import com.anthropic.errors.PermissionDeniedException;
-import com.anthropic.errors.UnauthorizedException;
-import com.anthropic.models.messages.Message;
-import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
-import com.anthropic.models.messages.StopReason;
-import com.anthropic.models.messages.ThinkingConfigDisabled;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Claude API로 MLB 하이라이트 영어 제목을 한국어 한 줄로 옮긴다(이슈 #199). 뉴스 요약(ClaudeSummarizer)과 같은 방식·모델이다:
@@ -59,11 +49,8 @@ public final class ClaudeHighlightTitleTranslator implements HighlightTitleTrans
     private static final Pattern META = Pattern.compile("선수 이름|이름을? 빼|제외하고|옮기면|옮긴|번역|주인공|[Ww]ait|제목");
     private static final Pattern WRAPPING = Pattern.compile("^[\"“'‘`*]+|[\"”'’`*]+$");
 
-    private static final Logger log = LoggerFactory.getLogger(ClaudeHighlightTitleTranslator.class);
-
-    private final AnthropicClient client;
+    private final ClaudeMessages claude;
     private final String model;
-    private volatile boolean rejected;
 
     public ClaudeHighlightTitleTranslator(AnthropicClient client, String model) {
         // 판 이름이 DB 칸에 들어가지 않으면 저장할 때마다 실패하고 같은 제목을 계속 다시 옮긴다. 설정(NewsConfig)이 먼저 걸러 끈다
@@ -71,7 +58,7 @@ public final class ClaudeHighlightTitleTranslator implements HighlightTitleTrans
             throw new IllegalArgumentException("model name is too long to record: " + versionOf(model)
                     + " (up to " + MAX_VERSION + " characters)");
         }
-        this.client = client;
+        this.claude = new ClaudeMessages(client, model, "highlight titles", "translations are off until restart");
         this.model = model;
     }
 
@@ -86,7 +73,7 @@ public final class ClaudeHighlightTitleTranslator implements HighlightTitleTrans
 
     @Override
     public boolean enabled() {
-        return !rejected;
+        return claude.enabled();
     }
 
     @Override
@@ -96,34 +83,12 @@ public final class ClaudeHighlightTitleTranslator implements HighlightTitleTrans
 
     @Override
     public Optional<String> translate(String titleEn, String playerKo, String playerEn) {
-        MessageCreateParams params = MessageCreateParams.builder()
-                .model(model)
-                .maxTokens(MAX_TOKENS)
-                .thinking(ThinkingConfigDisabled.builder().build())
-                .system(SYSTEM)
-                .outputConfig(OutputConfig.builder().effort(EFFORT).build())
-                .addUserMessage(String.format(Locale.ROOT, USER_MESSAGE, playerKo, playerEn, titleEn))
-                .build();
-        Message message;
-        try {
-            message = client.messages().create(params);
-        } catch (UnauthorizedException | PermissionDeniedException e) {
-            rejected = true;
-            log.error("highlight titles: the Claude API rejected ANTHROPIC_API_KEY ({}); translations are off until restart",
-                    e.statusCode());
-            throw new Summarizer.Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
-        } catch (AnthropicException e) {
-            throw new Summarizer.Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
-        }
-        Optional<StopReason> stop = message.stopReason();
-        if (stop.filter(s -> StopReason.REFUSAL.equals(s) || StopReason.MAX_TOKENS.equals(s)).isPresent()) {
+        ClaudeMessages.Reply reply = claude.ask(SYSTEM, MAX_TOKENS, EFFORT,
+                String.format(Locale.ROOT, USER_MESSAGE, playerKo, playerEn, titleEn));
+        if (reply.refused() || reply.truncated()) {
             return Optional.empty();
         }
-        String text = message.content().stream()
-                .flatMap(block -> block.text().stream())
-                .map(t -> t.text())
-                .collect(Collectors.joining("\n"));
-        return tidy(text);
+        return tidy(reply.text());
     }
 
     /**

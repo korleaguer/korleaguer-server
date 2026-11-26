@@ -181,7 +181,7 @@ public final class MinorRecords {
      * 일정을 아직 받지 못했으면(시작 시각 없이 공식 날짜만 있다) 공식 날짜 다음 날 08:00으로 어림한다. 마이너 경기는 거의
      * 미국 저녁 경기라 한국 다음 날 아침이다: 운영(11-18) 이번 시즌 266경기는 모두 일정을 받았고 모두 한국 날짜가 공식
      * 날짜 다음 날이었다. 어림이 틀려도 달력과 카드가 이 값 하나를 쓰므로 서로 어긋나지 않고, 일정은 다음 수집 때 다시 물어
-     * 받으면 실제 시각으로 바뀐다(IngestWriter.saveMinorGameLog). kstDate를 부르면 서로 부르게 되므로 공식 날짜에서 바로 센다
+     * 받으면 실제 시각으로 바뀐다(MinorGameWriter.saveMinorGameLog). kstDate를 부르면 서로 부르게 되므로 공식 날짜에서 바로 센다
      */
     public static OffsetDateTime startTimeKst(MinorGameLog game) {
         MinorGameSchedule schedule = game.getSchedule();
