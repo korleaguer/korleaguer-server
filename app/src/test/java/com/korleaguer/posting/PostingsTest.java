@@ -232,6 +232,24 @@ class PostingsTest {
     }
 
     @Test
+    @DisplayName("1년 계약 포스팅은 받고 0년 계약은 막는다")
+    void oneYearDealIsTheShortestAccepted() {
+        // given
+        PostingProperties.Result oneYear = new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 1, 1L, null);
+        PostingProperties.Result zeroYears = new PostingProperties.Result("SIGNED", "SD", "2026-11-28", 0, 1L, null);
+
+        // when
+        Postings ok = new Postings(new PostingProperties(List.of(current(List.of(),
+                "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", oneYear)), List.of()));
+
+        // then
+        assertThat(ok.current().getFirst().result().years()).isEqualTo(1);
+        assertThatThrownBy(() -> new Postings(new PostingProperties(List.of(current(List.of(),
+                "2026-11-02T08:00:00-05:00", "2026-12-01T17:00:00-05:00", zeroYears)), List.of())))
+                .hasMessageContaining("years must be 1 or more");
+    }
+
+    @Test
     @DisplayName("지난 포스팅의 합의일이 마감보다 늦으면 막는다")
     void pastAgreementCannotComeAfterTheDeadline() {
         // when // then

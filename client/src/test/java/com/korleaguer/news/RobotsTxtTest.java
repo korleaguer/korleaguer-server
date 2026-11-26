@@ -101,6 +101,23 @@ class RobotsTxtTest {
     }
 
     @Test
+    @DisplayName("끝에 별표를 붙인 막기 규칙은 그 앞까지 같은 주소를 모두 막는다")
+    void trailingWildcardBlocksEverythingAfterThePrefix() {
+        // given
+        RobotsTxt robots = RobotsTxt.parse("""
+                User-agent: *
+                Disallow: /private*
+                Disallow: /tmp**
+                """);
+
+        // when // then
+        assertThat(robots.allows("korleaguer", "/private")).isFalse();
+        assertThat(robots.allows("korleaguer", "/private/feed")).isFalse();
+        assertThat(robots.allows("korleaguer", "/tmp/a.xml")).isFalse();
+        assertThat(robots.allows("korleaguer", "/public/feed")).isTrue();
+    }
+
+    @Test
     @DisplayName("규칙 파일이 비었거나 막을 곳을 비워 두면 모든 주소를 허용한다")
     void emptyFileAndEmptyDisallowAllowEverything() {
         // when // then
