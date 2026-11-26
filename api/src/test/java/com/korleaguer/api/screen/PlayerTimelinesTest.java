@@ -50,6 +50,26 @@ class PlayerTimelinesTest {
     }
 
     @Test
+    @DisplayName("종류 코드가 빈 이동이 있어도 띠를 만들고 그 이동은 상태를 바꾸지 않는다")
+    void aMoveWithoutTypeCodeDoesNotBreakTheBand() {
+        // given
+        List<MoveEntry> moves = List.of(
+                move("2026-04-10", null, "계약", "샌프란시스코", Level.MLB),
+                move("2026-05-22", "SC", "부상자 명단 등재", "샌프란시스코", Level.MLB),
+                move("2026-05-29", "SC", "부상자 명단 해제", "샌프란시스코", Level.MLB));
+
+        // when
+        List<TimelineSegment> segments = PlayerTimelines.segments(moves, FROM, TO,
+                firstGames("2026-03-26", "샌프란시스코", null, null));
+
+        // then
+        assertThat(spans(segments)).containsExactly(
+                tuple(MLB, "2026-03-01", "2026-05-21"),
+                tuple(INJURED, "2026-05-22", "2026-05-28"),
+                tuple(MLB, "2026-05-29", "2026-11-19"));
+    }
+
+    @Test
     @DisplayName("김혜성은 두 번 내려갔다 올라와 마이너와 메이저 구간이 번갈아 나온다")
     void kimHyeSeongGoesDownAndUpTwice() {
         // given

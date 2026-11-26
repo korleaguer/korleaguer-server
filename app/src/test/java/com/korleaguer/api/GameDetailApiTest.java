@@ -7,6 +7,7 @@ import com.korleaguer.client.MlbPlayByPlay;
 import com.korleaguer.client.SampleMlbClient;
 import com.korleaguer.domain.HighlightTitle;
 import com.korleaguer.domain.HighlightTitleRepository;
+import com.korleaguer.domain.PlayerGameDetail;
 import com.korleaguer.domain.PlayerGameDetailRepository;
 import com.korleaguer.ingest.GameDetailIngest;
 import com.korleaguer.video.PlayVideoFinder;
@@ -130,6 +131,29 @@ class GameDetailApiTest {
                     .doesNotContain("솔로 홈런");
         } finally {
             highlightTitles.delete(row);
+        }
+    }
+
+    @Test
+    @DisplayName("하이라이트 제목이 모두 비어 있어도 경기 상세가 열리고 한국어 제목은 없다")
+    void detailOpensWhenEveryHighlightTitleIsMissing() throws Exception {
+        // given
+        PlayerGameDetail saved = details.findByPlayerIdAndGamePk(1, 1001).orElseThrow();
+        String original = saved.getPayload();
+        String untitled = original.replace("\"title\":\"Jung Hoo Lee's solo home run (10)\"", "\"title\":null");
+        assertThat(untitled).isNotEqualTo(original);
+        saved.update(untitled, true, Instant.parse("2026-11-01T11:00:00Z"));
+        details.save(saved);
+        try {
+            // when // then
+            mockMvc.perform(get("/api/players/1/games/1001"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.highlights", hasSize(1)))
+                    .andExpect(jsonPath("$.highlights[0].title").doesNotExist())
+                    .andExpect(jsonPath("$.highlights[0].titleKo").doesNotExist());
+        } finally {
+            saved.update(original, true, Instant.parse("2026-11-01T11:00:00Z"));
+            details.save(saved);
         }
     }
 
