@@ -43,7 +43,7 @@ class SeasonDatesRefresherTest {
 
     private final MutableClock clock = new MutableClock(NOW);
     private final SeasonDatesRepository seasonDates = mock(SeasonDatesRepository.class);
-    private final IngestWriter writer = mock(IngestWriter.class);
+    private final SeasonDatesWriter writer = mock(SeasonDatesWriter.class);
     private final CurrentSeason currentSeason = mock(CurrentSeason.class);
     private final List<Integer> asked = new ArrayList<>();
 

@@ -51,7 +51,8 @@ class PlayerRefresherTest {
     private static final KorleaguerProperties PROPERTIES = new KorleaguerProperties(2026, null, null, null, null, null);
 
     private final PlayerRepository players = mock(PlayerRepository.class);
-    private final IngestWriter writer = mock(IngestWriter.class);
+    private final PlayerWriter writer = mock(PlayerWriter.class);
+    private final MinorGameWriter minorWriter = mock(MinorGameWriter.class);
     private final MinorSeasonRepository minorSeasons = mock(MinorSeasonRepository.class);
     private final Player go = player(5L, "고우석", 808970L);
     private final Player lee = player(1L, "이정후", 808982L);
@@ -115,7 +116,7 @@ class PlayerRefresherTest {
     void setUp() {
         when(players.findByMlbIdIsNotNull()).thenReturn(List.of(lee, go));
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        refresher = new PlayerRefresher(client, players, writer, minorSeasons,
+        refresher = new PlayerRefresher(client, players, writer, minorWriter, minorSeasons,
                 new CurrentSeason(PROPERTIES, DataMode.MLB, mock(SeasonDatesRepository.class), clock), clock);
     }
 
@@ -234,8 +235,8 @@ class PlayerRefresherTest {
         assertThat(askedPeople).isEmpty();
         assertThat(askedRanges).isEmpty();
         assertThat(client.requestCount()).isEqualTo(1);
-        verify(writer).saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW));
-        verify(writer, never()).saveMinorGameLog(eq(1L), anyInt(), any(), any());
+        verify(minorWriter).saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW));
+        verify(minorWriter, never()).saveMinorGameLog(eq(1L), anyInt(), any(), any());
         assertThat(result.checked()).isZero();
     }
 
@@ -244,15 +245,15 @@ class PlayerRefresherTest {
     void asksScheduleOnlyForMinorGamesWithoutFinalScores() {
         // given
         // 저장이 돌려준 경기(아직 점수를 모르는 고우석 경기 둘)만 한 번에 묻는다. 이정후는 물을 경기가 없다
-        when(writer.saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L, 12L));
+        when(minorWriter.saveMinorGameLog(eq(5L), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L, 12L));
 
         // when
         PlayerRefresher.Result result = refresher.refresh(false);
 
         // then
         assertThat(askedGames).containsExactly(List.of(11L, 12L));
-        verify(writer).saveMinorSchedule(eq(5L), eq(2026), eq(List.of(11L, 12L)), any());
-        verify(writer, never()).saveMinorSchedule(eq(1L), anyInt(), any(), any());
+        verify(minorWriter).saveMinorSchedule(eq(5L), eq(2026), eq(List.of(11L, 12L)), any());
+        verify(minorWriter, never()).saveMinorSchedule(eq(1L), anyInt(), any(), any());
         assertThat(result.checked()).isEqualTo(2);
     }
 
@@ -260,7 +261,7 @@ class PlayerRefresherTest {
     @DisplayName("마이너 경기 일정을 받지 못해도 멈추지 않고 모든 선수를 확인한다")
     void failedScheduleKeepsTheGameLogAndGoesOn() {
         // given
-        when(writer.saveMinorGameLog(anyLong(), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L));
+        when(minorWriter.saveMinorGameLog(anyLong(), eq(2026), any(), eq(NOW))).thenReturn(List.of(11L));
         failGames = true;
 
         // when
@@ -268,7 +269,7 @@ class PlayerRefresherTest {
 
         // then
         assertThat(askedGames).hasSize(2); // 두 선수 모두 물었고, 실패해도 멈추지 않는다
-        verify(writer, never()).saveMinorSchedule(anyLong(), anyInt(), any(), any());
+        verify(minorWriter, never()).saveMinorSchedule(anyLong(), anyInt(), any(), any());
         assertThat(result.checked()).isEqualTo(2);
         assertThat(result.failed()).isZero();
     }

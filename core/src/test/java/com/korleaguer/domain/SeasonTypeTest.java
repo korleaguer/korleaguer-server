@@ -25,7 +25,7 @@ class SeasonTypeTest {
     @DisplayName("시범경기·올스타전·친선경기와 종류가 없는 경기는 어느 시즌에도 넣지 않는다")
     void springTrainingAllStarAndUnknownAreNotStored() {
         // when // then
-        // 시범경기(S)·올스타(A)·친선경기(E)와 종류를 모르는 경기는 저장하지 않는다(IngestWriter.saveGame이 건너뛴다)
+        // 시범경기(S)·올스타(A)·친선경기(E)와 종류를 모르는 경기는 저장하지 않는다(GameWriter.saveGame이 건너뛴다)
         assertThat(SeasonType.fromGameType("S")).isNull();
         assertThat(SeasonType.fromGameType("A")).isNull();
         assertThat(SeasonType.fromGameType("E")).isNull();
