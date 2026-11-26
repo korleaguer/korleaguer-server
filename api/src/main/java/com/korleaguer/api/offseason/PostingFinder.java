@@ -1,7 +1,5 @@
 package com.korleaguer.api.offseason;
 
-import com.korleaguer.api.article.SameArticles;
-
 import com.korleaguer.api.article.LinkedTeamsCounter;
 import com.korleaguer.api.article.PostingNews;
 import com.korleaguer.api.article.PostingSummary;
