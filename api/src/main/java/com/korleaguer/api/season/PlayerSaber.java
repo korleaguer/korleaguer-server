@@ -3,6 +3,7 @@ package com.korleaguer.api.season;
 import com.korleaguer.domain.PlayerLeaguePosition;
 import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.support.BaseballMath;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 선수 화면의 'MLB 안 위치'(GET /api/players/{id}의 saber, 이슈 #133). 지금 시즌 MLB 공식 Stats API sabermetrics 값과,
@@ -53,23 +54,48 @@ public sealed interface PlayerSaber permits PlayerSaber.Hitter, PlayerSaber.Pitc
      * 타자. batting은 타격 득점, baseRunning은 주루 득점, fielding은 수비 득점(MLB fielding + positional, 포지션 난도 포함)으로
      * 모두 리그 평균 대비 득점(+면 평균보다 낫다)이다.
      */
-    record Hitter(int season, Double war, int poolSize, Integer plateAppearances, Double wrcPlus, Double batting,
-                  Double baseRunning, Double fielding, HitterPercentiles percentiles) implements PlayerSaber {
+    record Hitter(
+            int season,
+            @Nullable Double war,
+            int poolSize,
+            @Nullable Integer plateAppearances,
+            @Nullable Double wrcPlus,
+            @Nullable Double batting,
+            @Nullable Double baseRunning,
+            @Nullable Double fielding,
+            @Nullable HitterPercentiles percentiles) implements PlayerSaber {
     }
 
     /** 타자 위치: 종합(타석당 WAR), 타격(wRC+), 주루·수비(타석당 득점) */
-    record HitterPercentiles(Integer overall, Integer batting, Integer baseRunning, Integer fielding) {
+    record HitterPercentiles(
+            @Nullable Integer overall,
+            @Nullable Integer batting,
+            @Nullable Integer baseRunning,
+            @Nullable Integer fielding) {
     }
 
     /**
      * 투수. eraPlus는 ERA-를 뒤집은 ERA+(10000 ÷ ERA-, 100 = 리그 평균, 높을수록 잘함, 300까지)다. ERA-는 그대로 둔다.
      * inningsOuts는 이닝을 아웃 수로(50⅔이닝 = 152), strikeoutRate·walkRate는 상대 타자 중 비율(%, 0~100)이다.
      */
-    record Pitcher(int season, Double war, int poolSize, Integer inningsOuts, Double eraMinus, Double eraPlus, Double fipMinus,
-                   Double strikeoutRate, Double walkRate, PitcherPercentiles percentiles) implements PlayerSaber {
+    record Pitcher(
+            int season,
+            @Nullable Double war,
+            int poolSize,
+            @Nullable Integer inningsOuts,
+            @Nullable Double eraMinus,
+            @Nullable Double eraPlus,
+            @Nullable Double fipMinus,
+            @Nullable Double strikeoutRate,
+            @Nullable Double walkRate,
+            @Nullable PitcherPercentiles percentiles) implements PlayerSaber {
     }
 
     /** 투수 위치: 종합(아웃당 WAR), 실점 억제(ERA- 낮을수록), 삼진(K% 높을수록), 볼넷(BB% 낮을수록) */
-    record PitcherPercentiles(Integer overall, Integer runPrevention, Integer strikeouts, Integer walks) {
+    record PitcherPercentiles(
+            @Nullable Integer overall,
+            @Nullable Integer runPrevention,
+            @Nullable Integer strikeouts,
+            @Nullable Integer walks) {
     }
 }

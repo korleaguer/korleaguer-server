@@ -1,6 +1,7 @@
 package com.korleaguer.api.player;
 
 import com.korleaguer.domain.Level;
+import org.jspecify.annotations.Nullable;
 import java.time.LocalDate;
 
 /**
@@ -14,7 +15,7 @@ public record MoveEntry(
         LocalDate date,
         String typeCode,
         String labelKo,
-        String fromTeam,
-        String toTeam,
-        Level toLevel) {
+        @Nullable String fromTeam,
+        @Nullable String toTeam,
+        @Nullable Level toLevel) {
 }

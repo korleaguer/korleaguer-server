@@ -3,6 +3,8 @@ package com.korleaguer.api.game;
 import com.korleaguer.domain.Lineup;
 import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonType;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 
@@ -20,24 +22,24 @@ import java.time.OffsetDateTime;
 public record GameLine(
         long playerId,
         String nameKo,
-        String photoUrl,
+        @Nullable String photoUrl,
         Role role,
         long gameId,
         OffsetDateTime startTimeKst,
         String teamKo,
-        String teamAbbr,
+        @Nullable String teamAbbr,
         String opponentKo,
-        String opponentAbbr,
+        @Nullable String opponentAbbr,
         boolean home,
-        Integer teamScore,
-        Integer opponentScore,
-        String result,
+        @Nullable Integer teamScore,
+        @Nullable Integer opponentScore,
+        @Schema(allowableValues = {"W", "L", "T"}) @Nullable String result,
         String gameStatus,
         boolean played,
         String summary,
-        GameBatting batting,
-        GamePitching pitching,
-        Lineup lineup,
-        SeasonType seasonType,
-        String photoTeamAbbr) {
+        @Nullable GameBatting batting,
+        @Nullable GamePitching pitching,
+        @Nullable Lineup lineup,
+        @Nullable SeasonType seasonType,
+        @Nullable String photoTeamAbbr) {
 }

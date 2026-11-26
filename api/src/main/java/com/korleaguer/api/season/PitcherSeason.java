@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 투수 시즌 성적(메이저 정규시즌). era는 아웃이 0이면 null이다. photoUrl은 공식 사진 주소(없으면 null), photoTeamAbbr은 그 사진 속 유니폼 팀 약어(없으면 null)다.
  * minorGames는 같은 시즌 마이너(트리플A ~ 루키) 등판 경기 수(받기 전이면 0),
@@ -9,21 +11,21 @@ package com.korleaguer.api.season;
 public record PitcherSeason(
         long playerId,
         String nameKo,
-        String photoUrl,
-        String teamKo,
-        String teamAbbr,
-        String photoTeamAbbr,
+        @Nullable String photoUrl,
+        @Nullable String teamKo,
+        @Nullable String teamAbbr,
+        @Nullable String photoTeamAbbr,
         int games,
         int minorGames,
         boolean mainlyMinors,
         int outs,
         String inningsText,
-        Double era,
+        @Nullable Double era,
         int wins,
         int losses,
         int saves,
         int strikeouts,
         int walks,
         int hitsAllowed,
-        String levelKo) {
+        @Nullable String levelKo) {
 }

@@ -1,5 +1,8 @@
 package com.korleaguer.domain;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -16,7 +19,7 @@ import java.util.List;
 public record GameDetail(
         long playerId,
         long gamePk,
-        String role,
+        @Schema(allowableValues = {"HITTER", "PITCHER"}) String role,
         boolean available,
         boolean clips,
         List<GamePlay> plays,
@@ -51,16 +54,16 @@ public record GameDetail(
             String resultKo,
             String eventType,
             int rbi,
-            String opponentName,
-            Integer balls,
-            Integer strikes,
+            @Nullable String opponentName,
+            @Nullable Integer balls,
+            @Nullable Integer strikes,
             int pitches,
-            String pitchKo,
-            Integer pitchKmh,
-            Integer exitKmh,
-            Integer launchAngle,
-            Integer distanceM,
-            String playId) {
+            @Nullable String pitchKo,
+            @Nullable Integer pitchKmh,
+            @Nullable Integer exitKmh,
+            @Nullable Integer launchAngle,
+            @Nullable Integer distanceM,
+            @Nullable String playId) {
     }
 
     /**
@@ -73,8 +76,13 @@ public record GameDetail(
      * @param hlsUrl      HLS(.m3u8) 주소. 없으면 null
      * @param imageUrl    대표 사진(960x540, 없으면 640x360). 없으면 null
      */
-    public record GameHighlight(String title, String titleKo, Integer durationSec, String mp4Url, String hlsUrl,
-                                String imageUrl) {
+    public record GameHighlight(
+            String title,
+            @Nullable String titleKo,
+            @Nullable Integer durationSec,
+            @Nullable String mp4Url,
+            @Nullable String hlsUrl,
+            @Nullable String imageUrl) {
 
         public GameHighlight withTitleKo(String titleKo) {
             return new GameHighlight(title, titleKo, durationSec, mp4Url, hlsUrl, imageUrl);

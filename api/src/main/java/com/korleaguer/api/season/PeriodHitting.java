@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 기간 타격 합계. avg는 타수가 0이면 null, seasonAvg는 선수 페이지와 같은 정규시즌 타율이다.
  * wrcPlus는 기간 wRC+(plusLevel 단계의 그 시즌 리그 평균 = 100, 0~300, 구장 보정 없음). 메이저는 plusLevel이 MLB,
@@ -16,9 +18,9 @@ public record PeriodHitting(
         int rbi,
         int walks,
         int stolenBases,
-        Double avg,
-        Double seasonAvg,
-        Double wrcPlus,
-        String plusLevel,
+        @Nullable Double avg,
+        @Nullable Double seasonAvg,
+        @Nullable Double wrcPlus,
+        @Nullable String plusLevel,
         boolean mixedLevels) {
 }

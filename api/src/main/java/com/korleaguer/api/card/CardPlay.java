@@ -1,5 +1,9 @@
 package com.korleaguer.api.card;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -9,8 +13,9 @@ import java.util.List;
  * 메이저에 있을 때만 있다.
  */
 public record CardPlay(
-        List<String> recent,
-        String after,
-        Integer appearances14,
-        Integer daysSinceLast) {
+        @ArraySchema(schema = @Schema(allowableValues = {"STARTER", "SUB", "PLAYED", "ABSENT"}))
+        @Nullable List<String> recent,
+        @Schema(allowableValues = {"RETURNED", "CALLED_UP"}) @Nullable String after,
+        @Nullable Integer appearances14,
+        @Nullable Integer daysSinceLast) {
 }

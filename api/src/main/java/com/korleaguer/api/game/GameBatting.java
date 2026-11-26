@@ -1,6 +1,7 @@
 package com.korleaguer.api.game;
 
 import com.korleaguer.domain.Batting;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 한 경기 타격 숫자. 앞 여섯 칸(타수·안타·홈런·타점·볼넷·도루)은 빈 칸(null)을 0으로 둔다.
@@ -14,12 +15,12 @@ public record GameBatting(
         int rbi,
         int walks,
         int stolenBases,
-        Integer doubles,
-        Integer triples,
-        Integer hitByPitch,
-        Integer sacFlies,
-        Integer plateAppearances,
-        Integer strikeouts) {
+        @Nullable Integer doubles,
+        @Nullable Integer triples,
+        @Nullable Integer hitByPitch,
+        @Nullable Integer sacFlies,
+        @Nullable Integer plateAppearances,
+        @Nullable Integer strikeouts) {
 
     /** 저장된 타격 기록을 경기 줄 숫자로. 기록이 없으면 null */
     public static GameBatting of(Batting b) {

@@ -1,5 +1,7 @@
 package com.korleaguer.api.records;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -15,7 +17,7 @@ import java.util.List;
  * unit은 숫자 뒤에 붙이는 말이다(예: 336 + "안타").
  */
 public record RecordsResponse(
-        String dataMode,
+        @Schema(allowableValues = {"sample", "mlb"}) String dataMode,
         int season,
         Instant generatedAt,
         List<RecordCategory> categories,

@@ -1,6 +1,8 @@
 package com.korleaguer.api.article;
 
 import com.korleaguer.domain.NewsArticle;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,10 +31,20 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param news          관련 기사 제목(발행 시각이 늦은 순, 최대 12건)
      * @param linkedTeams   최근 며칠 기사에서 이 선수의 행선지로 거론된 MLB 구단(이슈 #115)
      */
-    public record Player(String nameKo, String kboTeam, String positionKo, Integer birthYear, String photoUrl,
-                         String status,
-                         Instant windowOpensAt, Instant deadlineAt, Integer daysLeft, double elapsedRatio,
-                         Deal deal, List<Headline> news, LinkedTeams linkedTeams) {
+    public record Player(
+            String nameKo,
+            String kboTeam,
+            String positionKo,
+            @Nullable Integer birthYear,
+            @Nullable String photoUrl,
+            @Schema(allowableValues = {"UPCOMING", "NEGOTIATING", "SIGNED", "NO_DEAL", "CLOSED"}) String status,
+            Instant windowOpensAt,
+            Instant deadlineAt,
+            @Nullable Integer daysLeft,
+            double elapsedRatio,
+            @Nullable Deal deal,
+            List<Headline> news,
+            @Nullable LinkedTeams linkedTeams) {
     }
 
     /**
@@ -78,8 +90,16 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param reason     Claude 요약에서 그 구단 이름이 처음 나온 문장. 요약에 없으면 null(화면은 제목을 보인다)
      * @param reasonName reason(없으면 제목)에서 찾은 구단 이름 그대로(뉴욕 메츠, 메츠 …). 화면이 이 글자를 강조한다. 못 찾으면 null
      */
-    public record LinkedArticle(Long id, String title, String titleKo, String publisher, Instant publishedAt,
-                                String imageUrl, List<String> alsoBy, String reason, String reasonName) {
+    public record LinkedArticle(
+            Long id,
+            String title,
+            @Nullable String titleKo,
+            String publisher,
+            Instant publishedAt,
+            @Nullable String imageUrl,
+            List<String> alsoBy,
+            @Nullable String reason,
+            @Nullable String reasonName) {
 
         public LinkedArticle {
             alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);
@@ -94,8 +114,13 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param krwPerUsd     합의일 원/달러 환율(1달러당 원, ECB 기준 환율로 계산). 화면이 보장액을 원화로 어림한다.
      *                      적지 않았으면 null
      */
-    public record Deal(Long mlbTeamId, String mlbTeamKo, LocalDate agreedOn, Integer years, Long guaranteedUsd,
-                       Double krwPerUsd) {
+    public record Deal(
+            @Nullable Long mlbTeamId,
+            @Nullable String mlbTeamKo,
+            @Nullable LocalDate agreedOn,
+            @Nullable Integer years,
+            @Nullable Long guaranteedUsd,
+            @Nullable Double krwPerUsd) {
     }
 
     /**
@@ -107,8 +132,13 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param photoUrl           계약 구단 시절 MLB 공식 사진의 편집본(흰 바탕 정사각형, /photos/posting-673490-2024).
      *                           없으면 포스팅 당시 KBO 공식 등록 사진(/photos/kbo-77829-2019). 둘 다 없거나 공식 사진을 껐으면 null
      */
-    public record Past(String nameKo, int season, LocalDate deadline, Integer daysBeforeDeadline, Deal deal,
-                       String photoUrl) {
+    public record Past(
+            String nameKo,
+            int season,
+            LocalDate deadline,
+            @Nullable Integer daysBeforeDeadline,
+            @Nullable Deal deal,
+            @Nullable String photoUrl) {
     }
 
     /**
@@ -121,8 +151,17 @@ public record PostingSummary(List<Player> players, List<Past> history) {
      * @param imageUrl 기사 대표 사진의 원본 주소(언론사 서버, https). 없으면 null
      * @param alsoBy   같은 글을 실은 다른 언론사(낸 순). 언론사만 다른 같은 기사는 한 줄로 묶는다(SameArticles). 없으면 빈 목록
      */
-    public record Headline(Long id, String title, String url, String publisher, Instant publishedAt, String titleKo,
-                           String lead, String summary, String imageUrl, List<String> alsoBy) {
+    public record Headline(
+            @Nullable Long id,
+            String title,
+            String url,
+            String publisher,
+            Instant publishedAt,
+            @Nullable String titleKo,
+            @Nullable String lead,
+            @Nullable String summary,
+            @Nullable String imageUrl,
+            List<String> alsoBy) {
 
         public Headline {
             alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);
