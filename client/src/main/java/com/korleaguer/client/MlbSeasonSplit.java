@@ -2,6 +2,12 @@ package com.korleaguer.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Function;
+
 /**
  * 선수의 한 시즌 합계 한 줄(people/{id}/stats?stats=yearByYear 또는 stats=sabermetrics의 splits 한 줄,
  * 또는 리그 전체 /stats?stats=season·sabermetrics&playerPool=ALL의 splits 한 줄).
@@ -85,5 +91,39 @@ public record MlbSeasonSplit(
     /** 여러 팀 시즌을 합친 줄인지(팀이 없고 numTeams가 있다) */
     public boolean combined() {
         return numTeams != null && team == null;
+    }
+
+    /** 선수 한 명의 줄들 → 시즌마다 받은 줄(오래된 시즌부터). 기록이나 연도가 없는 줄은 뺀다 */
+    public static Map<Integer, List<MlbSeasonSplit>> bySeason(List<MlbSeasonSplit> splits) {
+        Map<Integer, List<MlbSeasonSplit>> bySeason = new TreeMap<>();
+        for (MlbSeasonSplit split : splits) {
+            Integer year = split.seasonYear();
+            if (split.stat() != null && year != null) {
+                bySeason.computeIfAbsent(year, y -> new ArrayList<>()).add(split);
+            }
+        }
+        return bySeason;
+    }
+
+    /**
+     * 한 시즌의 줄들 가운데 그 시즌 기록으로 쓸 줄. 여러 팀 시즌은 합친 줄 하나만 쓰고, 합친 줄이 없으면 팀별 줄을 모두 쓴다
+     * (부르는 쪽이 더한다, sum). 줄이 하나면 그 줄이다.
+     */
+    public static List<MlbSeasonSplit> pick(List<MlbSeasonSplit> lines) {
+        return lines.stream().filter(MlbSeasonSplit::combined).findFirst()
+                .map(List::of)
+                .orElseGet(() -> lines.stream().filter(l -> !l.combined()).toList());
+    }
+
+    /** 줄들의 값을 더한다. 모든 줄에 값이 없으면 null */
+    public static Integer sum(List<MlbSeasonSplit> lines, Function<Stat, Integer> value) {
+        Integer total = null;
+        for (MlbSeasonSplit line : lines) {
+            Integer v = value.apply(line.stat());
+            if (v != null) {
+                total = (total == null ? 0 : total) + v;
+            }
+        }
+        return total;
     }
 }

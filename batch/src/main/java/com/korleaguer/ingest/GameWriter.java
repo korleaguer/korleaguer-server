@@ -39,6 +39,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.korleaguer.ingest.MlbValues.gameState;
 import static com.korleaguer.ingest.MlbValues.toBatting;
 import static com.korleaguer.ingest.MlbValues.toPitching;
 
@@ -250,12 +251,10 @@ public class GameWriter {
             log.debug("skip game {} with unreadable date or season", source.gamePk());
             return null;
         }
-        MlbScheduleGame.Status status = source.status();
         Game game = games.findById(source.gamePk()).orElseGet(() -> new Game(source.gamePk()));
         game.update(season, seasonType.stored(), start, saveTeam(sides.home().team()), saveTeam(sides.away().team()),
                 sides.home().score(), sides.away().score(),
-                status == null ? "unknown"
-                        : GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()),
+                gameState(source),
                 source.venue() == null ? null : source.venue().name());
         game.markFinalIfNew(now);
         return games.save(game);
@@ -290,9 +289,7 @@ public class GameWriter {
     }
 
     private static boolean postponed(MlbScheduleGame game) {
-        MlbScheduleGame.Status status = game.status();
-        return status != null && GameStatuses.POSTPONED.equals(
-                GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState()));
+        return GameStatuses.POSTPONED.equals(gameState(game));
     }
 
     private static Map<Long, MlbGameLogSplit> byGamePk(List<MlbGameLogSplit> splits) {
