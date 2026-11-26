@@ -14,7 +14,6 @@ import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.GameStatuses;
-import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
 import org.springframework.stereotype.Component;
 

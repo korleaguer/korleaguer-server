@@ -69,7 +69,7 @@ public record SeasonReport(long playerId, SeasonTier tier, String label, String 
         public enum Kind { MLB, MINORS, INJURED, FREE_AGENT, NONE }
     }
 
-    /** 겨울 이동 한 줄. label은 이동 기록 이름(support.MoveLabels) */
+    /** 겨울 이동 한 줄. label은 이동 기록 이름(player.MoveLabels) */
     public record WinterMove(LocalDate date, String label) {
     }
 }

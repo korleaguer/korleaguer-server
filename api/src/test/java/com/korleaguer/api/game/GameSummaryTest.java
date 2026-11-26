@@ -1,4 +1,4 @@
-package com.korleaguer.support;
+package com.korleaguer.api.game;
 
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
