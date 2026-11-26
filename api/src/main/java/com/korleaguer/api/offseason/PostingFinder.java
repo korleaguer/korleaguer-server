@@ -1,7 +1,7 @@
 package com.korleaguer.api.offseason;
 
 import com.korleaguer.api.article.LinkedTeamsCounter;
-import com.korleaguer.api.article.PostingNews;
+import com.korleaguer.api.article.ShownNews;
 import com.korleaguer.api.article.PostingSummary;
 import com.korleaguer.api.article.SameArticles;
 import com.korleaguer.api.season.OptionalReads;
@@ -49,7 +49,7 @@ public class PostingFinder {
     private final OptionalReads reads;
     /** 지금 news/sources.yml에 있는 언론사. 뺀 언론사(이용약관으로 뺀 뉴시스 등)의 예전 기사는 보이지 않는다 */
     private final Set<String> publishers;
-    /** 영어 MLB 매체. 국내 기사만 제목이 MLB 이야기인지 본다(PostingNews) */
+    /** 영어 MLB 매체. 국내 기사만 제목이 MLB 이야기인지 본다(ShownNews) */
     private final Set<String> aiPublishers;
 
     public PostingFinder(Postings postings, NewsArticleRepository news, LinkedTeamsCounter linkedTeams,
@@ -110,9 +110,8 @@ public class PostingFinder {
      */
     private List<NewsArticle> kept(List<NewsArticle> articles) {
         return articles.stream()
-                .filter(a -> publishers.contains(a.getPublisher()))
-                .filter(a -> PostingNews.isMlbStory(a, aiPublishers))
-                .filter(a -> !a.isOffTopic()) // 이 선수가 주인공이 아닌 기사(AI 판단, 이슈 #129)
+                .filter(a -> ShownNews.isShown(a, publishers))
+                .filter(a -> ShownNews.isMlbStory(a, aiPublishers))
                 .toList();
     }
 

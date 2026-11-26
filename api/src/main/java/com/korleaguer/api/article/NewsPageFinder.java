@@ -34,7 +34,7 @@ public class NewsPageFinder {
     private final PhotoSources photos;
     /** 지금 news/sources.yml에 있는 언론사. 뺀 언론사의 예전 기사는 홈처럼 여기서도 보이지 않는다 */
     private final Set<String> publishers;
-    /** 영어 MLB 매체. 포스팅 선수의 국내 기사만 제목이 MLB 이야기인지 본다(PostingNews, 이슈 #127) */
+    /** 영어 MLB 매체. 포스팅 선수의 국내 기사만 제목이 MLB 이야기인지 본다(ShownNews, 이슈 #127) */
     private final Set<String> aiPublishers;
 
     public NewsPageFinder(NewsArticleRepository news, Postings postings, PhotoSources photos,
@@ -116,9 +116,8 @@ public class NewsPageFinder {
      */
     private List<NewsArticle> kept(List<NewsArticle> articles, boolean posting) {
         return articles.stream()
-                .filter(a -> publishers.contains(a.getPublisher()))
-                .filter(a -> !posting || PostingNews.isMlbStory(a, aiPublishers))
-                .filter(a -> !a.isOffTopic())
+                .filter(a -> ShownNews.isShown(a, publishers))
+                .filter(a -> !posting || ShownNews.isMlbStory(a, aiPublishers))
                 .toList();
     }
 
