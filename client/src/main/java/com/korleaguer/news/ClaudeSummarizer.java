@@ -1,14 +1,7 @@
 package com.korleaguer.news;
 
 import com.anthropic.client.AnthropicClient;
-import com.anthropic.errors.AnthropicException;
-import com.anthropic.errors.PermissionDeniedException;
-import com.anthropic.errors.UnauthorizedException;
-import com.anthropic.models.messages.Message;
-import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
-import com.anthropic.models.messages.StopReason;
-import com.anthropic.models.messages.ThinkingConfigDisabled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,9 +107,8 @@ public final class ClaudeSummarizer implements Summarizer {
 
     private static final Logger log = LoggerFactory.getLogger(ClaudeSummarizer.class);
 
-    private final AnthropicClient client;
+    private final ClaudeMessages claude;
     private final String model;
-    private volatile boolean rejected;
 
     public ClaudeSummarizer(AnthropicClient client, String model) {
         // 판 이름이 DB 칸(summary_model)에 들어가지 않으면 저장할 때마다 실패하고 같은 기사를 계속 다시 요약한다.
@@ -125,7 +117,7 @@ public final class ClaudeSummarizer implements Summarizer {
             throw new IllegalArgumentException("summary model name is too long to record: " + versionOf(model)
                     + " (up to " + MAX_VERSION + " characters)");
         }
-        this.client = client;
+        this.claude = new ClaudeMessages(client, model, "news", "summaries are off until restart");
         this.model = model;
     }
 
@@ -140,41 +132,17 @@ public final class ClaudeSummarizer implements Summarizer {
 
     @Override
     public boolean enabled() {
-        return !rejected;
+        return claude.enabled();
     }
 
     @Override
     public Optional<Summary> summarize(String player, String title, LocalDate published, String body) {
         int most = maxSentences(body);
-        MessageCreateParams params = MessageCreateParams.builder()
-                .model(model)
-                .maxTokens(MAX_TOKENS)
-                .thinking(ThinkingConfigDisabled.builder().build())
-                .system(SYSTEM)
-                .outputConfig(OutputConfig.builder().effort(EFFORT).build())
-                .addUserMessage(userMessage(player, title, published, most, body))
-                .build();
-        Message message;
-        try {
-            message = client.messages().create(params);
-        } catch (UnauthorizedException | PermissionDeniedException e) {
-            rejected = true;
-            log.error("news: the Claude API rejected ANTHROPIC_API_KEY ({}); summaries are off until restart",
-                    e.statusCode());
-            throw new Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
-        } catch (AnthropicException e) {
-            // 결제·모델 설정, 사용량 제한(429), 서버 문제(5xx·529), 연결 실패, 요청 거절(400)
-            throw new Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
-        }
-        Optional<StopReason> stop = message.stopReason();
-        if (stop.filter(StopReason.REFUSAL::equals).isPresent()) {
+        ClaudeMessages.Reply reply = claude.ask(SYSTEM, MAX_TOKENS, EFFORT, userMessage(player, title, published, most, body));
+        if (reply.refused()) {
             return Optional.empty();
         }
-        String text = message.content().stream()
-                .flatMap(block -> block.text().stream())
-                .map(t -> t.text())
-                .collect(Collectors.joining("\n"));
-        return tidy(text, stop.filter(StopReason.MAX_TOKENS::equals).isPresent(), most, player);
+        return tidy(reply.text(), reply.truncated(), most, player);
     }
 
     /**

@@ -1,14 +1,7 @@
 package com.korleaguer.news;
 
 import com.anthropic.client.AnthropicClient;
-import com.anthropic.errors.AnthropicException;
-import com.anthropic.errors.PermissionDeniedException;
-import com.anthropic.errors.UnauthorizedException;
-import com.anthropic.models.messages.Message;
-import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
-import com.anthropic.models.messages.StopReason;
-import com.anthropic.models.messages.ThinkingConfigDisabled;
 import com.korleaguer.domain.NewsDestination;
 import com.korleaguer.support.MlbTeams;
 import com.korleaguer.support.TeamNames;
@@ -120,17 +113,16 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
     private static final Pattern ABOUT = Pattern.compile("^\\s*(?:[-*•·]\\s+|\\d+[.)]\\s*)?주인공\\s*[:：]?\\s*(예|아니오|아니요)");
     private static final Logger log = LoggerFactory.getLogger(ClaudeDestinationTagger.class);
 
-    private final AnthropicClient client;
+    private final ClaudeMessages claude;
     private final String model;
     private final String system;
     private final String systemMlb;
-    private volatile boolean rejected;
 
     public ClaudeDestinationTagger(AnthropicClient client, String model) {
         if (!fitsRecord(model)) {
             throw new IllegalArgumentException("destination model name is too long to record: " + versionOf(model, Kind.MLB));
         }
-        this.client = client;
+        this.claude = new ClaudeMessages(client, model, "news", "destination tagging is off until restart");
         this.model = model;
         this.system = String.format(Locale.ROOT, SYSTEM, teamTable());
         this.systemMlb = String.format(Locale.ROOT, SYSTEM_MLB, teamTable());
@@ -154,7 +146,7 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
 
     @Override
     public boolean enabled() {
-        return !rejected;
+        return claude.enabled();
     }
 
     @Override
@@ -164,33 +156,13 @@ public final class ClaudeDestinationTagger implements DestinationTagger {
 
     @Override
     public Optional<Tagging> tag(String player, Kind kind, String title, String text) {
-        MessageCreateParams params = MessageCreateParams.builder()
-                .model(model)
-                .maxTokens(MAX_TOKENS)
-                .thinking(ThinkingConfigDisabled.builder().build())
-                .system(kind == Kind.POSTING ? system : systemMlb)
-                .outputConfig(OutputConfig.builder().effort(EFFORT).build())
-                .addUserMessage(userMessage(player, title, text))
-                .build();
-        Message message;
-        try {
-            message = client.messages().create(params);
-        } catch (UnauthorizedException | PermissionDeniedException e) {
-            rejected = true;
-            log.error("news: the Claude API rejected ANTHROPIC_API_KEY ({}); destination tagging is off until restart",
-                    e.statusCode());
-            throw new Summarizer.Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
-        } catch (AnthropicException e) {
-            throw new Summarizer.Failure(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
-        }
+        ClaudeMessages.Reply reply = claude.ask(kind == Kind.POSTING ? system : systemMlb, MAX_TOKENS, EFFORT,
+                userMessage(player, title, text));
         // 거절이나 길이 제한에 잘린 답은 믿지 않는다(뒤쪽 구단 줄을 잃었을 수 있다). 기사 탓 실패로 센다
-        if (message.stopReason().filter(r -> r.equals(StopReason.REFUSAL) || r.equals(StopReason.MAX_TOKENS)).isPresent()) {
+        if (reply.refused() || reply.truncated()) {
             return Optional.empty();
         }
-        String answer = message.content().stream()
-                .flatMap(block -> block.text().stream())
-                .map(t -> t.text())
-                .collect(Collectors.joining("\n"));
+        String answer = reply.text();
         Optional<Tagging> picked = parse(answer);
         if (picked.isEmpty()) {
             // 읽지 못한 답의 모양을 보고 규칙을 고칠 수 있게 앞부분만 남긴다(기사 내용이 아니라 모델의 답이다)
