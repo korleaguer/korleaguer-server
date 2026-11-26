@@ -1,6 +1,5 @@
 package com.korleaguer.api.player;
 
-
 import com.korleaguer.api.season.MinorGameLinesTest;
 
 import com.korleaguer.config.MinorTeamProperties;

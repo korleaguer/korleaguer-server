@@ -2,8 +2,8 @@ package com.korleaguer.api.season;
 
 import com.korleaguer.api.article.LinkedTeamsCounter;
 import com.korleaguer.api.article.PostingSummary;
-import com.korleaguer.api.article.ShownNews;
 import com.korleaguer.api.article.SameArticles;
+import com.korleaguer.api.article.ShownNews;
 import com.korleaguer.api.player.RosterMember;
 import com.korleaguer.api.player.TeamLabels;
 

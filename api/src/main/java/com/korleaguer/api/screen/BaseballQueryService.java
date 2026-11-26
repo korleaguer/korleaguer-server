@@ -306,8 +306,6 @@ public class BaseballQueryService {
                 seasonReports.news(player.getNameKo(), Instant.EPOCH, PLAYER_NEWS), minorGames);
     }
 
-
-
     // 소속 줄이 있는 선수들. 소속이 끝난 선수(FA 등)도 마지막 소속으로 넣는다(시즌 기록이 홈에서 빠지지 않게).
     private List<RosterMember> roster() {
         return affiliations.findAllLatest().stream()

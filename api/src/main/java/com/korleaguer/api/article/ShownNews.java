@@ -6,7 +6,8 @@ import com.korleaguer.support.MlbContext;
 import java.util.Set;
 
 /**
- * 화면에 보일 기사인지. 홈 MLB 도전 카드·성적표·선수 화면·기사 페이지가 같은 기준을 쓴다(뉴스 탭 목록은 같은 뜻을 쿼리로 거른다).
+ * 화면에 보일 기사인지. 홈 MLB 도전 카드·성적표·선수 화면·기사 페이지의 다른 기사 목록이 같은 기준을 쓴다(뉴스 탭 목록은
+ * 같은 뜻을 쿼리로 거른다). 기사 페이지에서 주소로 연 기사 자체는 언론사만 본다(NewsPageFinder.shown).
  */
 public final class ShownNews {
 
