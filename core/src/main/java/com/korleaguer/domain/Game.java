@@ -179,10 +179,6 @@ public class Game {
         return statusState;
     }
 
-    public String getVenue() {
-        return venue;
-    }
-
     public Instant getFinalAt() {
         return finalAt;
     }

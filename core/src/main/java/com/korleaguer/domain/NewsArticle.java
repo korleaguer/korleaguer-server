@@ -70,10 +70,6 @@ public class NewsArticle {
         return url;
     }
 
-    public String getUrlHash() {
-        return urlHash;
-    }
-
     public String getTitle() {
         return title;
     }
@@ -112,10 +108,6 @@ public class NewsArticle {
 
     public String getSummaryModel() {
         return summaryModel;
-    }
-
-    public Instant getEnrichedAt() {
-        return enrichedAt;
     }
 
     public int getEnrichAttempts() {

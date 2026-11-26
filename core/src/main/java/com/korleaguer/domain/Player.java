@@ -103,10 +103,6 @@ public class Player {
         return birthPlace;
     }
 
-    public boolean isActive() {
-        return active;
-    }
-
     public LocalDate getBirthDate() {
         return birthDate;
     }
