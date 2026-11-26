@@ -117,7 +117,7 @@ final class SeasonRates {
         int outs = 0;
         int earnedRuns = 0;
         for (GameDay game : games) {
-            if (game.pitching() == null || game.pitching().pitchingOuts() == null) {
+            if (!game.counted(true)) {
                 continue;
             }
             int gameOuts = game.pitching().pitchingOuts();
