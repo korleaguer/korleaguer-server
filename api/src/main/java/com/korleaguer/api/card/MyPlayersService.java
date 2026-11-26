@@ -244,26 +244,22 @@ public class MyPlayersService {
             // 선수 순, 같은 선수는 최신 경기부터 정렬돼 온다. 선수별로 나눠도 순서는 그대로다.
             gameLines.lines(group, period.from(), period.to())
                     .forEach(line -> linesByPlayer.computeIfAbsent(line.playerId(), id -> new ArrayList<>()).add(line));
-            if (anyMembers) {
-                // 기간 합계는 경기 한 줄과 같은 기록(기간 안에 뛴 경기)으로 센다.
-                // 시범경기는 빼고 센다(시즌 비교 값과 기준을 맞춘다).
-                appearances.findWithGameBetween(ids(group), period.from(), period.to()).stream()
-                        .filter(a -> STREAK_SEASON_TYPES.contains(a.getGame().getSeasonType()))
-                        .forEach(a -> periodByPlayer.computeIfAbsent(a.getPlayer().getId(), id -> new ArrayList<>())
-                                .add(a));
-            }
+            // 기간 합계는 경기 한 줄과 같은 기록(기간 안에 뛴 경기)으로 센다.
+            // 시범경기는 빼고 센다(시즌 비교 값과 기준을 맞춘다).
+            appearances.findWithGameBetween(ids(group), period.from(), period.to()).stream()
+                    .filter(a -> STREAK_SEASON_TYPES.contains(a.getGame().getSeasonType()))
+                    .forEach(a -> periodByPlayer.computeIfAbsent(a.getPlayer().getId(), id -> new ArrayList<>())
+                            .add(a));
         });
 
         // 연속 기록·시즌 비교는 카드 기간이 속한 시즌 기록으로 센다.
         // 개막 직후 지난 시즌 끝으로 당긴 카드는 지난 시즌과 비교한다(새 시즌은 아직 기록이 없다).
         Map<Long, List<Appearance>> seasonByPlayer = new HashMap<>();
-        if (anyMembers) {
-            Map<Integer, List<RosterMember>> bySeason = groups.entrySet().stream()
-                    .collect(Collectors.groupingBy(e -> currentSeason.seasonAt(e.getKey().to().minusMillis(1)),
-                            Collectors.flatMapping(e -> e.getValue().stream(), Collectors.toList())));
-            bySeason.forEach((cardSeason, group) -> seasonByPlayer.putAll(
-                    oldestFirst(byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES)))));
-        }
+        Map<Integer, List<RosterMember>> bySeason = groups.entrySet().stream()
+                .collect(Collectors.groupingBy(e -> currentSeason.seasonAt(e.getKey().to().minusMillis(1)),
+                        Collectors.flatMapping(e -> e.getValue().stream(), Collectors.toList())));
+        bySeason.forEach((cardSeason, group) -> seasonByPlayer.putAll(
+                oldestFirst(byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES)))));
 
         return members.stream()
                 .map(m -> {
