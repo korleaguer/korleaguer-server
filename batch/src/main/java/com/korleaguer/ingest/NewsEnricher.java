@@ -94,7 +94,7 @@ public class NewsEnricher {
         DONE,
         /** 기사 탓으로 실패했다(시도로 센다) */
         FAILED,
-        /** 기사 탓이 아니다(사이트가 쉬는 중, 요약 서비스 문제). 세지 않고 이번 차례를 멈춘다 */
+        /** 요약 서비스 문제(기사 탓이 아니다). 세지 않고 이번 차례를 멈춘다 */
         WAIT,
         /** 그 사이트만 지금 받을 수 없다(쉬는 중·페이지를 막음). 세지 않고 다음 기사로 */
         SKIP
@@ -125,7 +125,7 @@ public class NewsEnricher {
                 break;
             }
             Outcome outcome = readPage(article, now);
-            if (outcome == Outcome.WAIT) {
+            if (outcome == Outcome.SKIP) {
                 continue; // 그 사이트만 쉬거나 페이지를 막았다. 칸으로 세지 않고 다른 언론사 기사를 읽는다
             }
             requested++;
@@ -145,17 +145,17 @@ public class NewsEnricher {
             URI uri = URI.create(article.getUrl());
             String host = uri.getHost();
             if (pageBlocked(host, now) || fetcher.paused(uri)) {
-                return Outcome.WAIT;
+                return Outcome.SKIP;
             }
             PoliteFetcher.Page html = fetcher.getPage(uri);
             if (!html.ok()) {
                 int status = html.status();
                 if (status == 401 || status == 403 || status == 451) {
                     blockPages(host, status, now); // 페이지를 막은 사이트: 페이지 읽기만 오래 끈다(피드는 계속)
-                    return Outcome.WAIT;
+                    return Outcome.SKIP;
                 }
                 if (status == 429 || status == 503 || (status == 0 && fetcher.paused(uri))) {
-                    return Outcome.WAIT;
+                    return Outcome.SKIP;
                 }
                 article.enrichFailed(now); // 기사가 없어졌거나 robots.txt가 막았거나 이 기사만 5xx
                 return Outcome.FAILED;

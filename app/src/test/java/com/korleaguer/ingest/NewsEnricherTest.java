@@ -294,6 +294,32 @@ class NewsEnricherTest {
     }
 
     @Test
+    @DisplayName("막힌 사이트의 기사는 한 차례에 읽는 페이지 10건으로 세지 않아 그 뒤 다른 사이트 기사를 읽는다")
+    void blockedSiteArticlesDoNotUseUpTheRun() {
+        // given
+        // 막힌 사이트의 더 새 기사 10건이 앞에 오고, 읽을 수 있는 기사는 그 뒤 11번째다
+        String blocked = "https://blocked.example.kr";
+        blockedHosts.save(new NewsBlockedHost("blocked.example.kr", NOV_11.plus(java.time.Duration.ofDays(20))));
+        for (int i = 0; i < 10; i++) {
+            articles.save(new NewsArticle("노시환", blocked + "/article/" + i, "blocked" + i, "노시환 소식 " + i,
+                    "MLB Trade Rumors", Instant.parse("2026-11-10T22:00:00Z").plusSeconds(i), NOV_11));
+        }
+        String other = "https://other.example.kr";
+        NewsArticle fine = articles.save(new NewsArticle("노시환", other + "/view/1", "f", "노시환 다른 소식",
+                "MLB Trade Rumors", Instant.parse("2026-11-10T20:00:00Z"), NOV_11));
+        http.on(other + "/robots.txt", ok("User-agent: *\nAllow: /\n"))
+                .on(other + "/view/1", ok("<meta property=\"og:description\" content=\"노시환이 협상을 시작했다.\">"));
+        NewsEnricher enricher = new NewsEnricher(properties("lead"), fetcher(), fetcher(), articles, blockedHosts,
+                Summarizer.OFF, DataMode.MLB, clock);
+
+        // when
+        enricher.enrich();
+
+        // then
+        assertThat(stored(fine).getLeadText()).isEqualTo("노시환이 협상을 시작했다.");
+    }
+
+    @Test
     @DisplayName("기사 페이지를 거부한 사이트는 막힌 사이트로 저장하고 피드는 쉬지 않는다")
     void aRefusedArticlePageIsSavedAsABlockedHostAndTheFeedIsNotPaused() {
         // given
