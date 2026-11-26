@@ -51,12 +51,12 @@ public class SeasonMetricRefresher {
     private final PlayerRepository players;
     private final PlayerSeasonMetricRepository metrics;
     private final SeasonDatesRepository seasonDates;
-    private final IngestWriter writer;
+    private final SeasonStatWriter writer;
     private final CurrentSeason currentSeason;
     private final Clock clock;
 
     public SeasonMetricRefresher(MlbClient client, PlayerRepository players, PlayerSeasonMetricRepository metrics,
-                                 SeasonDatesRepository seasonDates, IngestWriter writer, CurrentSeason currentSeason,
+                                 SeasonDatesRepository seasonDates, SeasonStatWriter writer, CurrentSeason currentSeason,
                                  Clock clock) {
         this.client = client;
         this.players = players;
@@ -130,9 +130,9 @@ public class SeasonMetricRefresher {
             if (total == null) {
                 total = Totals.none(role);
             }
-            IngestWriter.SeasonMetrics seasonMetrics;
+            SeasonStatWriter.SeasonMetrics seasonMetrics;
             if (!total.played()) {
-                seasonMetrics = year == season ? new IngestWriter.SeasonMetrics(null, null, null) : null;
+                seasonMetrics = year == season ? new SeasonStatWriter.SeasonMetrics(null, null, null) : null;
             } else if (year == season || saved.get(year) == null || saved.get(year).getWar() == null) {
                 seasonMetrics = sabermetrics(client.getSabermetrics(player.getMlbId(), group, year));
             } else {
@@ -168,20 +168,20 @@ public class SeasonMetricRefresher {
     }
 
     /** 고급 지표 줄들 → 한 시즌 지표. 여러 줄이면 합친 줄, 없으면 WAR만 더한다. */
-    static IngestWriter.SeasonMetrics sabermetrics(List<MlbSeasonSplit> splits) {
+    static SeasonStatWriter.SeasonMetrics sabermetrics(List<MlbSeasonSplit> splits) {
         List<MlbSeasonSplit> lines = splits.stream().filter(s -> s.stat() != null).toList();
         if (lines.isEmpty()) {
-            return new IngestWriter.SeasonMetrics(null, null, null);
+            return new SeasonStatWriter.SeasonMetrics(null, null, null);
         }
         Optional<MlbSeasonSplit> one = lines.size() == 1 ? Optional.of(lines.getFirst())
                 : lines.stream().filter(MlbSeasonSplit::combined).findFirst();
         if (one.isPresent()) {
             MlbSeasonSplit.Stat stat = one.get().stat();
-            return new IngestWriter.SeasonMetrics(stat.wRcPlus(), stat.eraMinus(), stat.war());
+            return new SeasonStatWriter.SeasonMetrics(stat.wRcPlus(), stat.eraMinus(), stat.war());
         }
         boolean anyWar = lines.stream().anyMatch(s -> s.stat().war() != null);
         double war = lines.stream().mapToDouble(s -> s.stat().war() == null ? 0 : s.stat().war()).sum();
-        return new IngestWriter.SeasonMetrics(null, null, anyWar ? war : null);
+        return new SeasonStatWriter.SeasonMetrics(null, null, anyWar ? war : null);
     }
 
     private static int orZero(Integer value) {

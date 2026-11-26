@@ -53,7 +53,7 @@ public class IngestService {
     static final int TITLES_PER_RUN = 10;
 
     private final MlbClient client;
-    private final IngestWriter writer;
+    private final PlayerWriter writer;
     private final PlayerRefresher playerRefresher;
     private final SeasonDatesRefresher seasonDatesRefresher;
     private final SeasonMetricRefresher seasonMetricRefresher;
@@ -72,7 +72,7 @@ public class IngestService {
     private final Clock clock;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public IngestService(MlbClient client, IngestWriter writer, PlayerRefresher playerRefresher,
+    public IngestService(MlbClient client, PlayerWriter writer, PlayerRefresher playerRefresher,
                          SeasonDatesRefresher seasonDatesRefresher, SeasonMetricRefresher seasonMetricRefresher,
                          LeaguePositionRefresher leaguePositionRefresher, KoreanRecordsRefresher koreanRecordsRefresher,
                          LeagueAverageRefresher leagueAverageRefresher, GameIngest gameIngest,

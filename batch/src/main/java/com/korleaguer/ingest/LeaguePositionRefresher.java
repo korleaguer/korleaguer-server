@@ -55,12 +55,12 @@ public class LeaguePositionRefresher {
     private final PlayerRepository players;
     private final PlayerLeaguePositionRepository positions;
     private final PlayerCareerSeasonRepository careerSeasons;
-    private final IngestWriter writer;
+    private final SeasonStatWriter writer;
     private final CurrentSeason currentSeason;
     private final Clock clock;
 
     public LeaguePositionRefresher(MlbClient client, PlayerRepository players, PlayerLeaguePositionRepository positions,
-                                   PlayerCareerSeasonRepository careerSeasons, IngestWriter writer,
+                                   PlayerCareerSeasonRepository careerSeasons, SeasonStatWriter writer,
                                    CurrentSeason currentSeason, Clock clock) {
         this.client = client;
         this.players = players;
@@ -120,20 +120,20 @@ public class LeaguePositionRefresher {
 
         PlayerLeaguePosition.Hitting hitting = null;
         PlayerLeaguePosition.Pitching pitching = null;
-        IngestWriter.SeasonMetrics currentMetrics = new IngestWriter.SeasonMetrics(null, null, null);
+        SeasonStatWriter.SeasonMetrics currentMetrics = new SeasonStatWriter.SeasonMetrics(null, null, null);
         if (pitcher) {
             Map<Long, LeaguePositions.PitcherLine> pitchers = league.pitchers();
             LeaguePositions.PitcherLine me = pitchers.get(mlbId);
             if (me != null) {
                 pitching = LeaguePositions.pitching(me, pitchers.values());
-                currentMetrics = new IngestWriter.SeasonMetrics(null, me.eraMinus(), me.war());
+                currentMetrics = new SeasonStatWriter.SeasonMetrics(null, me.eraMinus(), me.war());
             }
         } else {
             Map<Long, LeaguePositions.HitterLine> hitters = league.hitters();
             LeaguePositions.HitterLine me = hitters.get(mlbId);
             if (me != null) {
                 hitting = LeaguePositions.hitting(me, hitters.values());
-                currentMetrics = new IngestWriter.SeasonMetrics(me.wrcPlus(), null, me.war());
+                currentMetrics = new SeasonStatWriter.SeasonMetrics(me.wrcPlus(), null, me.war());
             }
         }
 
@@ -151,12 +151,12 @@ public class LeaguePositionRefresher {
     }
 
     private void refreshCareer(Player player, MlbClient.Group group, PlayerSeasonMetric.Group rowGroup, int season,
-                               IngestWriter.SeasonMetrics currentMetrics, Instant now) {
+                               SeasonStatWriter.SeasonMetrics currentMetrics, Instant now) {
         long mlbId = player.getMlbId();
         Map<Integer, PlayerCareerSeason.Totals> totals = careerTotals(client.getYearByYear(mlbId, group), player.role());
         Map<Integer, PlayerCareerSeason> saved = careerSeasons.findNewestFirst(player.getId(), rowGroup).stream()
                 .collect(Collectors.toMap(PlayerCareerSeason::getSeason, Function.identity(), (a, b) -> a));
-        Map<Integer, IngestWriter.SeasonMetrics> metrics = new HashMap<>();
+        Map<Integer, SeasonStatWriter.SeasonMetrics> metrics = new HashMap<>();
         for (int year : totals.keySet()) {
             if (year == season) {
                 metrics.put(year, currentMetrics);

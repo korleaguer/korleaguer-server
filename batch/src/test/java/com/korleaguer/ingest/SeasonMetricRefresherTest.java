@@ -51,14 +51,14 @@ class SeasonMetricRefresherTest {
         var one = SeasonMetricRefresher.sabermetrics(List.of(metric(null, ATLANTA, 7.3, -1.17)));
 
         // then
-        assertThat(one).isEqualTo(new IngestWriter.SeasonMetrics(7.3, null, -1.17));
+        assertThat(one).isEqualTo(new SeasonStatWriter.SeasonMetrics(7.3, null, -1.17));
 
         // when
         var combined = SeasonMetricRefresher.sabermetrics(List.of(metric(null, TAMPA, 90.0, 0.4),
                 metric(null, ATLANTA, 70.0, -0.2), metric(2, null, 80.0, 0.2)));
 
         // then
-        assertThat(combined).isEqualTo(new IngestWriter.SeasonMetrics(80.0, null, 0.2));
+        assertThat(combined).isEqualTo(new SeasonStatWriter.SeasonMetrics(80.0, null, 0.2));
 
         // when
         var summed = SeasonMetricRefresher.sabermetrics(List.of(metric(null, TAMPA, 90.0, 0.4),
@@ -70,7 +70,7 @@ class SeasonMetricRefresherTest {
 
         // when // then
         assertThat(SeasonMetricRefresher.sabermetrics(List.of()))
-                .isEqualTo(new IngestWriter.SeasonMetrics(null, null, null));
+                .isEqualTo(new SeasonStatWriter.SeasonMetrics(null, null, null));
     }
 
     private static MlbSeasonSplit hitting(String season, Integer numTeams, MlbTeam team, int plateAppearances) {

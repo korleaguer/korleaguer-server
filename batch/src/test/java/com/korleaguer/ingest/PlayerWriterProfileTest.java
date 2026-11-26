@@ -11,17 +11,9 @@ import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
 import com.korleaguer.domain.Game;
-import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.PlayerRepository;
-import com.korleaguer.domain.MinorGameLogRepository;
-import com.korleaguer.domain.MinorSeasonRepository;
-import com.korleaguer.domain.PlayerCareerSeasonRepository;
-import com.korleaguer.domain.PlayerLeaguePositionRepository;
-import com.korleaguer.domain.PlayerSeasonMetricRepository;
-import com.korleaguer.domain.PlayerSeasonRepository;
-import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -45,7 +37,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** MLB 선수 정보(people)를 선수 프로필과 지금 소속으로 저장한다. */
-class IngestWriterProfileTest {
+class PlayerWriterProfileTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 10);
     private static final Instant NOW = Instant.parse("2026-11-10T03:00:00Z");
@@ -54,14 +46,11 @@ class IngestWriterProfileTest {
     private final TeamRepository teams = mock(TeamRepository.class);
     private final AffiliationRepository affiliations = mock(AffiliationRepository.class);
     private final AppearanceRepository appearances = mock(AppearanceRepository.class);
-    private final IngestWriter writer = new IngestWriter(teams, players, affiliations, mock(GameRepository.class),
-            appearances, mock(PlayerMoveRepository.class), mock(PlayerSeasonRepository.class),
-            mock(MinorSeasonRepository.class), mock(MinorGameLogRepository.class), mock(SeasonDatesRepository.class),
-            mock(PlayerSeasonMetricRepository.class), mock(PlayerLeaguePositionRepository.class),
-            mock(PlayerCareerSeasonRepository.class));
+    private final PlayerWriter writer = new PlayerWriter(players, teams, affiliations, appearances,
+            mock(PlayerMoveRepository.class));
     private final Player player = new Player("이정후");
 
-    private final Logger writerLog = (Logger) LoggerFactory.getLogger(IngestWriter.class);
+    private final Logger writerLog = (Logger) LoggerFactory.getLogger(PlayerWriter.class);
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
 
     @BeforeEach

@@ -25,11 +25,11 @@ import static com.korleaguer.client.MlbFixtures.team;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 시즌 백필의 gameLog 저장(IngestWriter.saveSeason). 저장한 뒤 DB에서 다시 읽어 본다.
+ * 시즌 백필의 gameLog 저장(GameWriter.saveSeason). 저장한 뒤 DB에서 다시 읽어 본다.
  * 함께 쓰는 DB에는 샘플 수집이 남긴 경기·기록이 있어, 표를 통째로 비우지 않고 이 클래스가 쓰는 시험 선수와 경기 줄만 지운다.
  */
 @CommittedDbTest
-class IngestWriterGameLogTest {
+class GameWriterGameLogTest {
 
     private static final String NAME = "경기기록시험타자";
     private static final long GAME_PK = 990401L;
@@ -38,7 +38,7 @@ class IngestWriterGameLogTest {
     private static final Instant NOW = Instant.parse("2026-08-20T00:00:00Z");
 
     @Autowired
-    private IngestWriter writer;
+    private GameWriter writer;
 
     @Autowired
     private PlayerRepository players;
@@ -79,7 +79,7 @@ class IngestWriterGameLogTest {
 
         // when
         writer.saveSeason(2026, List.of(played),
-                List.of(new IngestWriter.PlayerLogs(player.getId(), List.of(empty, real), List.of())), NOW);
+                List.of(new GameWriter.PlayerLogs(player.getId(), List.of(empty, real), List.of())), NOW);
 
         // then
         List<Appearance> saved = appearances.findByPlayersAndGames(List.of(player.getId()), List.of(GAME_PK));
