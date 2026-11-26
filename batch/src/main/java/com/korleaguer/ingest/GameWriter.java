@@ -26,8 +26,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,7 +111,7 @@ public class GameWriter {
             // 처음 받을 때 이미 MLB 구단 소속이 없던 선수(FA 등)는 선수 정보 단계에서 남길 팀이 없었다.
             // 방금 저장한 기록의 마지막 팀을 끝난 소속으로 남겨 홈 시즌 성적에 보이게 한다.
             if (player.getLevelCheckedAt() != null) {
-                playerWriter.keepLastPlayedTeamIfUnaffiliated(player, LocalDate.ofInstant(now, ZoneOffset.UTC));
+                playerWriter.keepLastPlayedTeamIfUnaffiliated(player, UtcDay.of(now));
             }
         }
         if (skippedLines > 0) {

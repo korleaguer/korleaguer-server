@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.Collection;
 import java.util.Comparator;
@@ -92,7 +91,7 @@ public class MinorGameWriter {
                         : split.stat().holds(), split.stat() == null ? null : split.stat().blownSaves())));
         byGame.values().forEach(line -> line.updateSchedule(known.get(line.getGamePk())));
         minorGameLogs.saveAll(byGame.values());
-        LocalDate recheckFrom = LocalDate.ofInstant(fetchedAt, ZoneOffset.UTC).minusDays(MINOR_RECHECK_DAYS);
+        LocalDate recheckFrom = UtcDay.of(fetchedAt).minusDays(MINOR_RECHECK_DAYS);
         return byGame.values().stream()
                 .filter(line -> line.getSchedule() == null
                         || (!line.getSchedule().isSettled() && !line.getGameDate().isBefore(recheckFrom)))
