@@ -1,10 +1,12 @@
 package com.korleaguer.ingest;
 
+import com.korleaguer.client.MlbScheduleGame;
 import com.korleaguer.client.MlbStat;
 import com.korleaguer.client.MlbTeam;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.support.BaseballMath;
+import com.korleaguer.support.GameStatuses;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -24,6 +26,13 @@ final class MlbValues {
         } catch (DateTimeParseException e) {
             return null;
         }
+    }
+
+    /** 일정의 경기 상태(GameStatuses 값). 상태가 없으면 "unknown" */
+    static String gameState(MlbScheduleGame game) {
+        MlbScheduleGame.Status status = game.status();
+        return status == null ? "unknown"
+                : GameStatuses.of(status.abstractGameState(), status.codedGameState(), status.detailedState());
     }
 
     static Long teamId(MlbTeam team) {
