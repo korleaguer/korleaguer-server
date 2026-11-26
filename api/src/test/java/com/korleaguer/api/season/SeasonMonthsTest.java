@@ -315,6 +315,24 @@ class SeasonMonthsTest {
         assertThat(months.getLast()).extracting(Month::games, Month::avg).containsExactly(1, 0.25);
         assertThat(months.subList(1, 5)).extracting(Month::kind).containsOnly(Kind.NONE);
     }
+    @Test
+    @DisplayName("아웃 수를 모르는 등판은 투수의 달 평균자책점과 등판 수에서 빠진다")
+    void pitcherGameWithUnknownOutsIsLeftOutOfTheMonth() {
+        // given
+        // 4월에 9아웃 1자책 세 번(평균자책점 3.00), 아웃 수를 못 받은 등판 한 번(5자책)
+        List<GameDay> majors = new ArrayList<>(pitchGames(null, LocalDate.of(2026, 4, 1), 3, 27, 3));
+        Pitching outsUnknown = new Pitching(null, 0, 5, 5, 0, 0, 0, 20, 0, 0, 0);
+        majors.add(new GameDay(LocalDate.of(2026, 4, 20), null, null, null, null, outsUnknown, false, null));
+
+        // when
+        List<Month> months = SeasonMonths.build(new Input(1, Role.PITCHER, 2026, OPENING, LAST_DAY, false, null,
+                List.of(), majors, List.of(), List.of()), Map.of());
+
+        // then
+        assertThat(months.getFirst()).extracting(Month::month, Month::kind, Month::games, Month::era)
+                .containsExactly(4, Kind.MLB, 3, 3.0);
+    }
+
 
     // ---- 재료 ----
 
