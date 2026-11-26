@@ -324,14 +324,14 @@ com.korleaguer
 │   ├── records   한국인 역대 기록(RecordsService), 화제 문구(GameBuzz)
 │   ├── season    시즌 성적과 그 계산(성적표 SeasonReport, wRC+·리그 평균, 마이너 기록)
 │   ├── article   기사 목록·페이지, 포스팅 요약(PostingSummary), 거론 구단 세기
-│   ├── game      경기 줄(GameLine), 경기 상세(GameDetailService)
-│   └── player    선수 기본: 명단(RosterMember)·프로필·팀 이름
+│   ├── game      경기 줄(GameLine)과 한 줄 기록 문장(GameSummary), 경기 상세(GameDetailService)
+│   └── player    선수 기본: 명단(RosterMember)·프로필·팀 이름, 이동 기록 이름표(MoveLabels), 키·몸무게·투타
 ├── posting  (core) 포스팅 자료(roster/posting.yml) 읽기와 검사(Postings)
 ├── video    (core) 공 하나 영상 주소를 찾는 문(PlayVideoFinder). 화면용 API가 요청 중에 밖을 부르는 단 하나의 예외
 ├── photo    (core) 선수 사진 호스팅: 이름·원본 목록과 주소 버전(PhotoSources), 사진 꺼내기 인터페이스(PhotoLoader)
 ├── news     (client) 기사·사진 가져오기와 AI: 피드 읽기(FeedParser), 기사 페이지 읽기(ArticlePage), robots.txt(RobotsTxt), 요청 예절(PoliteFetcher),
 │            Claude 요약(ClaudeSummarizer)·행선지 구단 고르기(ClaudeDestinationTagger)·하이라이트 제목 번역(ClaudeHighlightTitleTranslator), 연결 조립(NewsConfig)
-└── support  (core) 한국 시간·미국 동부 시간, 야구 계산(타율·ERA·이닝, wOBA 가중치), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·키·몸무게·투타·생년월일 변환, 한 줄 기록 문장, 이동 기록 이름, 내용 해시, 기사 제목이 MLB 이야기인지(MlbContext)
+└── support  (core) 한국 시간·미국 동부 시간, 야구 계산(타율·ERA·이닝, wOBA 가중치), 팀 한글 이름·MLB 팀 번호, 경기 상태 값, 포지션·생년월일 변환, 내용 해시, 기사 제목이 MLB 이야기인지(MlbContext)
 ```
 
 - DB 스키마: `core/src/main/resources/db/migration/V1__init.sql`(MySQL 8 문법, H2 MySQL 모드에서도 그대로 돈다)과 `V7__player_free_agent.sql`(FA, V2~V6은 V1에 합쳐 없다). 시각은 `datetime(6)`에 UTC로 저장하고(`hibernate.jdbc.time_zone=UTC`, Instant는 TIMESTAMP로) 응답에서만 한국 시간으로 바꾼다. 외래 키는 표 단위로 적는다(MySQL은 열 옆의 `references`를 무시한다). 소속(`affiliation`)은 선수마다 한 줄(`unique (player_id)`).
