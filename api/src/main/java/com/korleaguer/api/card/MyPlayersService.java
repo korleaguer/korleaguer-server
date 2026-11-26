@@ -30,7 +30,6 @@ import com.korleaguer.domain.Affiliation;
 import com.korleaguer.domain.AffiliationRepository;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.AppearanceRepository;
-import com.korleaguer.domain.Game;
 import com.korleaguer.domain.GameRepository;
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.MinorGameLog;
@@ -44,6 +43,7 @@ import com.korleaguer.domain.SeasonDates;
 import com.korleaguer.domain.SeasonDatesRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
+import com.korleaguer.support.GameStatuses;
 import com.korleaguer.support.KoreanTime;
 import com.korleaguer.support.MlbTime;
 import org.springframework.cache.Cache;
@@ -603,7 +603,7 @@ public class MyPlayersService {
             lines = gameLines.lines(List.of(member), from, now);
         }
         List<GameLine> finals = lines.stream()
-                .filter(line -> Game.STATUS_FINAL.equals(line.gameStatus()))
+                .filter(line -> GameStatuses.FINAL.equals(line.gameStatus()))
                 .toList();
         return finals.subList(0, Math.min(FormFacts.RECENT_GAMES, finals.size())).reversed();
     }

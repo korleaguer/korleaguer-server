@@ -11,6 +11,7 @@ import com.korleaguer.domain.Player;
 import com.korleaguer.domain.PlayerMoveRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
+import com.korleaguer.support.GameStatuses;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -34,8 +35,8 @@ class GameLineAssemblerTest {
     @DisplayName("진행 중인 경기는 점수가 있어도 승패를 붙이지 않고, 끝난 경기에만 승패를 붙인다")
     void onlyFinishedGamesGetAWinOrLoss() {
         // given
-        Appearance live = played(game(7001L, Game.STATUS_IN_PROGRESS, 3, 2));
-        Appearance finished = played(game(7002L, Game.STATUS_FINAL, 3, 2));
+        Appearance live = played(game(7001L, GameStatuses.IN_PROGRESS, 3, 2));
+        Appearance finished = played(game(7002L, GameStatuses.FINAL, 3, 2));
 
         // when
         GameLine liveLine = assembler.playedLine(live);

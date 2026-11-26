@@ -238,7 +238,7 @@ public class GameLineAssembler {
 
     /** 끝난 경기만 W/L/T, 경기 전·중이면 null */
     private static String result(Game game, Integer teamScore, Integer opponentScore) {
-        if (!Game.STATUS_FINAL.equals(game.getStatusState()) || teamScore == null || opponentScore == null) {
+        if (!GameStatuses.FINAL.equals(game.getStatusState()) || teamScore == null || opponentScore == null) {
             return null;
         }
         int compared = Integer.compare(teamScore, opponentScore);

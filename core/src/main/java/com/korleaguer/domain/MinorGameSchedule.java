@@ -1,5 +1,6 @@
 package com.korleaguer.domain;
 
+import com.korleaguer.support.GameStatuses;
 import jakarta.persistence.Embeddable;
 
 import java.time.Instant;
@@ -27,6 +28,6 @@ public record MinorGameSchedule(
 
     /** 끝난 경기이고 점수를 안다(다시 묻지 않는다) */
     public boolean isSettled() {
-        return Game.STATUS_FINAL.equals(statusState) && teamScore != null && opponentScore != null;
+        return GameStatuses.FINAL.equals(statusState) && teamScore != null && opponentScore != null;
     }
 }

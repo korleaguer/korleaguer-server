@@ -10,6 +10,7 @@ import com.korleaguer.domain.PlayerRepository;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.domain.Team;
 import com.korleaguer.domain.TeamRepository;
+import com.korleaguer.support.GameStatuses;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,7 +84,7 @@ class UnknownSeasonTypeGameTest {
 
     private Game game(long gamePk, String seasonType, String start, Team home, Team away) {
         Game game = new Game(gamePk);
-        game.update(2026, seasonType, Instant.parse(start), home, away, 3, 2, Game.STATUS_FINAL, null);
+        game.update(2026, seasonType, Instant.parse(start), home, away, 3, 2, GameStatuses.FINAL, null);
         return games.save(game);
     }
 
