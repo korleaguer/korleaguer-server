@@ -39,8 +39,8 @@ class RecentGamesFinder {
         this.buzz = buzz;
     }
 
-    RecentGames find(List<RosterMember> roster, Instant now, boolean statsReady) {
-        List<GameLine> last24h = latestPerPlayer(assembler.lines(roster, now.minus(RECENT_WINDOW), now, statsReady));
+    RecentGames find(List<RosterMember> roster, Instant now) {
+        List<GameLine> last24h = latestPerPlayer(assembler.lines(roster, now.minus(RECENT_WINDOW), now));
         if (!last24h.isEmpty()) {
             LocalDate latest = last24h.stream()
                     .map(GameLine::startTimeKst)
@@ -56,7 +56,7 @@ class RecentGamesFinder {
         }
         LocalDate day = lastDay.get();
         List<GameLine> lines = assembler.lines(roster, KoreanTime.startOfKstDay(day),
-                KoreanTime.startOfKstDay(day.plusDays(1)), statsReady);
+                KoreanTime.startOfKstDay(day.plusDays(1)));
         List<GameLine> latest = latestPerPlayer(lines);
         return new RecentGames(true, day, latest, buzz.find(players(roster), latest));
     }

@@ -1,6 +1,5 @@
 package com.korleaguer.api.card;
 
-import com.korleaguer.api.StatsAvailability;
 import com.korleaguer.api.season.GameStat;
 import com.korleaguer.api.season.LevelTotals;
 import com.korleaguer.api.season.PeriodHitting;
@@ -158,7 +157,7 @@ public class MyPlayersService {
         // (마이너 카드는 마이너 기간, 부상자 명단 카드는 '다치기 전'이라 따로 적는다, 시즌 합계 카드는 기간이 없다).
         boolean anyFallback = result.stream().anyMatch(p -> p.basis() == MyPlayersResponse.Basis.LAST_PLAYED
                 || (p.basis() == MyPlayersResponse.Basis.REHAB && p.isFallback()));
-        return new MyPlayersResponse(dataMode.value(), StatsAvailability.statsAvailable(), currentSeason.current(),
+        return new MyPlayersResponse(dataMode.value(), true, currentSeason.current(),
                 now.truncatedTo(ChronoUnit.SECONDS), days, today.minusDays(days - 1), today, anyFallback, result,
                 buzz(result));
     }
@@ -196,17 +195,16 @@ public class MyPlayersService {
         LocalDate today = KoreanTime.kstDate(now);
         LocalDate usToday = LocalDate.ofInstant(now, MlbTime.US_EASTERN);
         int season = currentSeason.current();
-        boolean statsAvailable = StatsAvailability.statsAvailable();
         List<RosterMember> members = members(requested);
-        boolean loadStats = statsAvailable && !members.isEmpty();
+        boolean anyMembers = !members.isEmpty();
 
         // 최근 폼 요약 재료: 이번 시즌 메이저 출전(정규+포스트, 오래된 것부터)·마이너 경기·이동 기록으로 상태를 정한다.
         // 끝난 경기만 본다(진행 중 경기의 중간 기록으로 연속 기록 소식이 사라지거나 미리 붙지 않게, 출전 줄과 같은 기준).
-        Map<Long, List<Appearance>> majorSeason = loadStats ? oldestFirst(byPlayer(
+        Map<Long, List<Appearance>> majorSeason = anyMembers ? oldestFirst(byPlayer(
                 appearances.findSeason(ids(members), season, STREAK_SEASON_TYPES).stream()
                         .filter(a -> !a.getGame().getStartTimeUtc().isAfter(now) && a.getGame().isFinal())
                         .toList())) : Map.of();
-        Map<Long, List<MinorGameLog>> minorSeason = loadStats ? minorGameLogs.findSeason(ids(members), season).stream()
+        Map<Long, List<MinorGameLog>> minorSeason = anyMembers ? minorGameLogs.findSeason(ids(members), season).stream()
                 .filter(g -> !g.getGameDate().isAfter(usToday))
                 .collect(Collectors.groupingBy(g -> g.getPlayer().getId())) : Map.of();
         SeasonSpan span = seasonSpan(season);
@@ -244,28 +242,24 @@ public class MyPlayersService {
         Map<Long, List<Appearance>> periodByPlayer = new HashMap<>();
         groups.forEach((period, group) -> {
             // 선수 순, 같은 선수는 최신 경기부터 정렬돼 온다. 선수별로 나눠도 순서는 그대로다.
-            gameLines.lines(group, period.from(), period.to(), statsAvailable)
+            gameLines.lines(group, period.from(), period.to())
                     .forEach(line -> linesByPlayer.computeIfAbsent(line.playerId(), id -> new ArrayList<>()).add(line));
-            if (loadStats) {
-                // 기간 합계는 경기 한 줄과 같은 기록(기간 안에 뛴 경기)으로 센다.
-                // 시범경기는 빼고 센다(시즌 비교 값과 기준을 맞춘다).
-                appearances.findWithGameBetween(ids(group), period.from(), period.to()).stream()
-                        .filter(a -> STREAK_SEASON_TYPES.contains(a.getGame().getSeasonType()))
-                        .forEach(a -> periodByPlayer.computeIfAbsent(a.getPlayer().getId(), id -> new ArrayList<>())
-                                .add(a));
-            }
+            // 기간 합계는 경기 한 줄과 같은 기록(기간 안에 뛴 경기)으로 센다.
+            // 시범경기는 빼고 센다(시즌 비교 값과 기준을 맞춘다).
+            appearances.findWithGameBetween(ids(group), period.from(), period.to()).stream()
+                    .filter(a -> STREAK_SEASON_TYPES.contains(a.getGame().getSeasonType()))
+                    .forEach(a -> periodByPlayer.computeIfAbsent(a.getPlayer().getId(), id -> new ArrayList<>())
+                            .add(a));
         });
 
         // 연속 기록·시즌 비교는 카드 기간이 속한 시즌 기록으로 센다.
         // 개막 직후 지난 시즌 끝으로 당긴 카드는 지난 시즌과 비교한다(새 시즌은 아직 기록이 없다).
         Map<Long, List<Appearance>> seasonByPlayer = new HashMap<>();
-        if (loadStats) {
-            Map<Integer, List<RosterMember>> bySeason = groups.entrySet().stream()
-                    .collect(Collectors.groupingBy(e -> currentSeason.seasonAt(e.getKey().to().minusMillis(1)),
-                            Collectors.flatMapping(e -> e.getValue().stream(), Collectors.toList())));
-            bySeason.forEach((cardSeason, group) -> seasonByPlayer.putAll(
-                    oldestFirst(byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES)))));
-        }
+        Map<Integer, List<RosterMember>> bySeason = groups.entrySet().stream()
+                .collect(Collectors.groupingBy(e -> currentSeason.seasonAt(e.getKey().to().minusMillis(1)),
+                        Collectors.flatMapping(e -> e.getValue().stream(), Collectors.toList())));
+        bySeason.forEach((cardSeason, group) -> seasonByPlayer.putAll(
+                oldestFirst(byPlayer(appearances.findSeason(ids(group), cardSeason, STREAK_SEASON_TYPES)))));
 
         return members.stream()
                 .map(m -> {
@@ -273,7 +267,7 @@ public class MyPlayersService {
                     Card card = new Card(m, periods.get(id), statuses.get(id), majorSeason.getOrDefault(id, List.of()),
                             minorSeason.getOrDefault(id, List.of()), linesByPlayer.getOrDefault(id, List.of()),
                             periodByPlayer.getOrDefault(id, List.of()), seasonByPlayer.getOrDefault(id, List.of()));
-                    return myPlayer(card, today, usToday, days, season, now, statsAvailable);
+                    return myPlayer(card, today, usToday, days, season, now);
                 })
                 .toList();
     }
@@ -389,7 +383,7 @@ public class MyPlayersService {
     }
 
     private MyPlayersResponse.MyPlayer myPlayer(Card card, LocalDate today, LocalDate usToday, int days, int season,
-                                                Instant now, boolean statsAvailable) {
+                                                Instant now) {
         RosterMember member = card.member();
         Player player = member.player();
         Period range = card.range();
@@ -401,10 +395,6 @@ public class MyPlayersService {
         String photoTeam = profiles.photoTeamAbbr(player, member.team());
         PlayerSummary summary = PlayerSummary.of(player, photoUrl, member.team(), today,
                 profiles.returnedKo(player), photoTeam);
-        if (!statsAvailable) {
-            return new MyPlayersResponse.MyPlayer(summary, range.fromKst(), range.toKst(), range.fallback(),
-                    null, null, null, lines, status, null, null, MyPlayersResponse.Basis.NONE, null, null);
-        }
         boolean pitcher = player.role() == Role.PITCHER;
         List<Appearance> regular = card.cardSeason().stream()
                 .filter(a -> REGULAR.equals(a.getGame().getSeasonType()))
@@ -610,7 +600,7 @@ public class MyPlayersService {
             }
             lines = gameLines.teamLines(member.player(), team, from, now);
         } else {
-            lines = gameLines.lines(List.of(member), from, now, true);
+            lines = gameLines.lines(List.of(member), from, now);
         }
         List<GameLine> finals = lines.stream()
                 .filter(line -> Game.STATUS_FINAL.equals(line.gameStatus()))
