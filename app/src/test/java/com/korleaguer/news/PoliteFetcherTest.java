@@ -81,6 +81,35 @@ class PoliteFetcherTest {
     }
 
     @Test
+    @DisplayName("robots.txt가 다른 주소로 넘겨지면 따라가서 그 규칙대로 피드를 받는다")
+    void robotsRedirectIsFollowed() {
+        // given
+        String moved = SITE + "/static/robots.txt";
+        http.on(ROBOTS, reply(301, "", "Location", moved))
+                .on(moved, ok("User-agent: *\nAllow: /\n"))
+                .on(FEED, ok("<rss/>"));
+
+        // when // then
+        assertThat(fetch(FEED)).map(PoliteFetcherTest::text).contains("<rss/>");
+        assertThat(http.urls()).containsExactly(ROBOTS, moved, FEED);
+    }
+
+    @Test
+    @DisplayName("넘김이 아닌 robots.txt 응답에 붙은 Location은 따라가지 않는다")
+    void locationOnANonRedirectRobotsReplyIsIgnored() {
+        // given
+        // 404(규칙 없음 = 모두 허용)에 Location이 붙어 와도 그 주소의 규칙(모두 막음)을 읽지 않는다
+        String elsewhere = SITE + "/blocked-robots.txt";
+        http.on(ROBOTS, reply(404, "", "Location", elsewhere))
+                .on(elsewhere, ok("User-agent: *\nDisallow: /\n"))
+                .on(FEED, ok("<rss/>"));
+
+        // when // then
+        assertThat(fetch(FEED)).map(PoliteFetcherTest::text).contains("<rss/>");
+        assertThat(http.urls()).containsExactly(ROBOTS, FEED);
+    }
+
+    @Test
     @DisplayName("robots.txt에서 서버 오류가 나면 피드를 요청하지 않고 그 사이트 요청을 쉰다")
     void robotsServerErrorMeansDoNotFetchAndPauseTheSite() {
         // given
