@@ -4,6 +4,7 @@ import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Game;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Team;
+import com.korleaguer.support.GameStatuses;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,7 @@ class StintTest {
 
     private static Appearance on(int day) {
         Game game = new Game((long) day);
-        game.update(2026, "regular", day(day), MIN, MIN, 1, 2, Game.STATUS_FINAL, null);
+        game.update(2026, "regular", day(day), MIN, MIN, 1, 2, GameStatuses.FINAL, null);
         Appearance appearance = new Appearance(new Player("고우석"), game);
         appearance.update(MIN, null, null);
         return appearance;

@@ -143,7 +143,7 @@ public final class MinorRecords {
                 .map(game -> new GameLine(player.getId(), player.getNameKo(), photoUrl, role, game.getGamePk(),
                         startTimeKst(game), game.getTeamName(), null,
                         game.getOpponentName(), null, Boolean.TRUE.equals(game.getHome()), null, null,
-                        game.getWin() == null ? null : game.getWin() ? "W" : "L", "final", true,
+                        game.getWin() == null ? null : game.getWin() ? "W" : "L", GameStatuses.FINAL, true,
                         GameSummary.played(role, game.getBatting(), game.getPitching()),
                         GameBatting.of(game.getBatting()), GamePitching.of(game.getPitching()), null,
                         MINOR_SEASON_TYPE, photoTeamAbbr))
