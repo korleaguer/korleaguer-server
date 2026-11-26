@@ -304,10 +304,10 @@ Gradle 모듈은 다섯이다(괄호는 모듈). `core`(`core/src`): `domain`·`
 
 ```
 com.korleaguer
-├── AppConfig (app) 캐시·스케줄 켜기, 설정 값 등록, Clock, 뒤에서 도는 수집용 실행기
+├── AppConfig (app) 캐시·스케줄 켜기, 설정 값 등록, 데이터 출처 빈(DataMode), Clock, 뒤에서 도는 수집용 실행기
 ├── config   (core) 설정 값(korleaguer.*, 명단·기사·마이너 팀 이름표), 데이터 출처(DataMode), 지금 시즌(CurrentSeason),
 │            응답 캐시 비우기(ResponseCaches·DataChanges), 모듈 사이 이벤트(CatchUpFinished·ResponseCachesCleared)
-├── client   (client) MLB 공식 API 호출(HttpMlbClient)과 샘플(SampleMlbClient), 응답 record, 클라이언트 선택(ClientConfig), 요청 제한(RateLimiter),
+├── client   (client) MLB 공식 API 호출(HttpMlbClient)과 샘플(SampleMlbClient), 응답 record, 데이터 출처에 맞는 클라이언트 고르기(ClientConfig), 요청 제한(RateLimiter),
 │            공 하나 영상 주소(SavantClips, Baseball Savant)와 그 조립(VideoConfig)
 ├── ingest   (batch) 선수 정보·이동 기록(PlayerRefresher), 시즌 백필·경기 갱신(GameIngest), 진입점·잠금·기록(IngestService),
 │            스케줄(IngestScheduler), 앱 시작 때 따라잡기(StartupIngest), 경기 상세 받기(GameDetailIngest),
