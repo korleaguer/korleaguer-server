@@ -12,6 +12,7 @@ import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.TextBlock;
+import com.anthropic.services.blocking.MessageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -25,7 +26,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -157,9 +157,9 @@ class ClaudeCallsTest {
     }
 
     private static AnthropicClient failingWith(AnthropicException error) {
-        AnthropicClient client = mock(AnthropicClient.class, RETURNS_DEEP_STUBS);
-        when(client.messages().create(any(MessageCreateParams.class))).thenThrow(error);
-        return client;
+        MessageService messages = mock(MessageService.class);
+        when(messages.create(any(MessageCreateParams.class))).thenThrow(error);
+        return clientWith(messages);
     }
 
     /** 글 조각(text 블록)마다 하나씩 담은 답 */
@@ -174,8 +174,18 @@ class ClaudeCallsTest {
         Message message = mock(Message.class);
         when(message.stopReason()).thenReturn(Optional.of(stop));
         when(message.content()).thenReturn(blocks);
-        AnthropicClient client = mock(AnthropicClient.class, RETURNS_DEEP_STUBS);
-        when(client.messages().create(any(MessageCreateParams.class))).thenReturn(message);
+        MessageService messages = mock(MessageService.class);
+        when(messages.create(any(MessageCreateParams.class))).thenReturn(message);
+        return clientWith(messages);
+    }
+
+    /**
+     * SDK 클라이언트는 메서드가 많은 인터페이스라 손으로 구현하지 않고, 세 기능이 쓰는 messages().create 하나만 바꾼다.
+     * 그 밖의 메서드를 부르면 null이 돌아와 테스트가 바로 깨진다
+     */
+    private static AnthropicClient clientWith(MessageService messages) {
+        AnthropicClient client = mock(AnthropicClient.class);
+        when(client.messages()).thenReturn(messages);
         return client;
     }
 }
