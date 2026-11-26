@@ -118,8 +118,8 @@ final class SeasonMonths {
             if (official <= 0 || outs == 0 || earnedRuns == 0) {
                 return Scale.NONE;
             }
-            double ours = 100 * mlb.era() / (earnedRuns * 27.0 / outs);
-            return new Scale(0, (10000 / official) / ours);
+            double ours = EraMath.eraPlus(earnedRuns, outs, mlb);
+            return new Scale(0, EraMath.fromMinus(official) / ours);
         }
         Double woba = woba(majors);
         return woba == null ? Scale.NONE : new Scale(official - WrcMath.wrcPlus(woba, mlb), 1);
@@ -326,7 +326,7 @@ final class SeasonMonths {
         if (earnedRuns == 0) {
             return ERA_PLUS_CAP;
         }
-        double value = 100 * league.era() / (earnedRuns * 27.0 / outs) * factor;
+        double value = EraMath.eraPlus(earnedRuns, outs, league) * factor;
         return (int) Math.min(ERA_PLUS_CAP, Math.round(value));
     }
 

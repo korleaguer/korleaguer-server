@@ -1,4 +1,4 @@
-package com.korleaguer.support;
+package com.korleaguer.api.player;
 
 import java.util.Locale;
 
