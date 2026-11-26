@@ -315,6 +315,7 @@ class SeasonMonthsTest {
         assertThat(months.getLast()).extracting(Month::games, Month::avg).containsExactly(1, 0.25);
         assertThat(months.subList(1, 5)).extracting(Month::kind).containsOnly(Kind.NONE);
     }
+
     @Test
     @DisplayName("아웃 수를 모르는 등판은 투수의 달 평균자책점과 등판 수에서 빠진다")
     void pitcherGameWithUnknownOutsIsLeftOutOfTheMonth() {

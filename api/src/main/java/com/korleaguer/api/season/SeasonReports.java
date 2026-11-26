@@ -112,7 +112,8 @@ public final class SeasonReports {
 
         /**
          * 비율(평균자책점·ERA+·타율·wRC+)을 낼 때 세는 경기. 투수는 아웃 수를 아는 경기(모르면 자책점만 늘어 평균자책점이
-         * 틀린다), 타자는 타격 기록이 있는 경기다. 달 막대·숫자 칸·연표 숫자가 이 한 기준을 쓴다
+         * 틀린다), 타자는 타격 기록이 있는 경기다. 달 막대·숫자 칸·연표 숫자가 이 한 기준을 쓴다.
+         * 마이너 투수 머리 줄의 단계별 평균자책점(outs·earnedRuns)은 아직 이 기준을 쓰지 않고 투구 기록이 있는 경기를 모두 센다
          */
         public boolean counted(boolean pitcher) {
             return pitcher ? pitching != null && pitching.pitchingOuts() != null : batting != null;
