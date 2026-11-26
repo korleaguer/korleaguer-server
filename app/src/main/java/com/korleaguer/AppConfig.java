@@ -35,7 +35,7 @@ public class AppConfig {
         return Clock.systemUTC();
     }
 
-    /** 뒤에서 도는 수집(앱 시작 때 따라잡기, 선수 페이지에서 시즌 받기). 앱이 내려갈 때 멈춘다. */
+    /** 뒤에서 도는 일(앱 시작 때 따라잡기, 사진 받기, 응답 캐시 채우기). 앱이 내려갈 때 멈춘다. */
     @Bean(destroyMethod = "shutdownNow")
     public ExecutorService ingestExecutor() {
         return Executors.newVirtualThreadPerTaskExecutor();

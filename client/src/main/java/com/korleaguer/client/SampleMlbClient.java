@@ -435,11 +435,6 @@ public class SampleMlbClient implements MlbClient {
                     seasons, yearByYear, sabermetrics);
         }
 
-        public Data withPitchingLogs(List<MlbGameLogSplit> pitchingLogs) {
-            return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons, yearByYear, sabermetrics);
-        }
-
         public Data withBoxscores(Map<Long, MlbBoxscore> boxscores) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
                     seasons, yearByYear, sabermetrics);
@@ -451,11 +446,6 @@ public class SampleMlbClient implements MlbClient {
         }
 
         public Data withSeasons(List<MlbSeason> seasons) {
-            return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
-                    seasons, yearByYear, sabermetrics);
-        }
-
-        public Data withSeasonStats(List<MlbSeasonSplit> yearByYear, List<MlbSeasonSplit> sabermetrics) {
             return new Data(people, teams, transactions, schedule, hittingLogs, pitchingLogs, boxscores, minorGames,
                     seasons, yearByYear, sabermetrics);
         }
