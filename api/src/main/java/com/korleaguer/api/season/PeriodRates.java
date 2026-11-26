@@ -86,16 +86,4 @@ public final class PeriodRates {
     private static int orZero(Integer value) {
         return value == null ? 0 : value;
     }
-
-    /** 마이너 경기들이 모두 한 단계면 그 약어, 섞였거나 단계를 모르면 null (여러 단계를 한 평균에 견주지 않는다) */
-    static String singleLevel(List<com.korleaguer.domain.MinorGameLog> games) {
-        List<String> levels = games.stream().map(com.korleaguer.domain.MinorGameLog::getLevel).distinct().toList();
-        return levels.size() == 1 ? levels.getFirst() : null;
-    }
-
-    /** 마이너 경기들이 아는 단계 둘 이상에 걸쳐 있는가(단계를 모르는 경기는 세지 않는다). 이때 singleLevel은 늘 null이다 */
-    static boolean mixedLevels(List<com.korleaguer.domain.MinorGameLog> games) {
-        return games.stream().map(com.korleaguer.domain.MinorGameLog::getLevel)
-                .filter(java.util.Objects::nonNull).distinct().count() > 1;
-    }
 }

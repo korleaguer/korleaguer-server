@@ -105,32 +105,6 @@ class PeriodRatesTest {
     }
 
     @Test
-    @DisplayName("기간 경기가 모두 같은 단계일 때만 단계를 알려 주고 섞이거나 모르면 비운다")
-    void singleLevelIsNullWhenMixed() {
-        // when // then
-        assertThat(PeriodRates.singleLevel(List.of(game("AAA"), game("AAA")))).isEqualTo("AAA");
-        assertThat(PeriodRates.singleLevel(List.of(game("AA"), game("AAA")))).isNull();
-        assertThat(PeriodRates.singleLevel(List.of(game(null)))).isNull();
-    }
-
-    @Test
-    @DisplayName("아는 단계가 둘 이상일 때만 단계를 오간 것으로 본다")
-    void mixedLevelsOnlyWhenTwoKnownLevels() {
-        // when // then
-        assertThat(PeriodRates.mixedLevels(List.of(game("AAA"), game("AAA")))).isFalse();
-        assertThat(PeriodRates.mixedLevels(List.of(game("ROK"), game("AA"), game("AAA")))).isTrue();
-        // 단계를 모르는 경기는 '오갔다'의 근거가 아니다
-        assertThat(PeriodRates.mixedLevels(List.of(game("AAA"), game(null)))).isFalse();
-        assertThat(PeriodRates.mixedLevels(List.of())).isFalse();
-    }
-
-    private static com.korleaguer.domain.MinorGameLog game(String level) {
-        var game = new com.korleaguer.domain.MinorGameLog(new Player("선수"), 2026, 1L);
-        game.updateGame(java.time.LocalDate.of(2026, 6, 1), level, "T", "O", true, true);
-        return game;
-    }
-
-    @Test
     @DisplayName("같은 기록도 타자가 잘 치는 마이너 리그에서는 wRC+가 낮다")
     void minorLinesAreMeasuredAgainstTheirOwnLevel() {
         // given
