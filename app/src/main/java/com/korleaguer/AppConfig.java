@@ -1,11 +1,14 @@
 package com.korleaguer;
 
+import com.korleaguer.config.DataMode;
 import com.korleaguer.config.KoreanMlbProperties;
 import com.korleaguer.config.KorleaguerProperties;
 import com.korleaguer.config.MinorTeamProperties;
 import com.korleaguer.config.NewsProperties;
 import com.korleaguer.config.RosterProperties;
 import com.korleaguer.posting.PostingProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +31,18 @@ import java.util.concurrent.Executors;
         NewsProperties.class, MinorTeamProperties.class, KoreanMlbProperties.class})
 public class AppConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
+
+    /**
+     * 데이터 출처(korleaguer.data-source: 실제 MLB 또는 샘플). 외부 호출(client)의 MLB 클라이언트 고르기, 지금 시즌 정하기(core),
+     * 응답의 dataMode(api)가 함께 쓰므로 모듈을 묶는 여기에 둔다
+     */
+    @Bean
+    public DataMode dataMode(KorleaguerProperties properties) {
+        DataMode mode = DataMode.resolve(properties.dataSource());
+        log.info("data source: {}", mode.value());
+        return mode;
+    }
 
     // 테스트에서 시각을 고정할 수 있게 Clock을 빈으로 둔다.
     @Bean

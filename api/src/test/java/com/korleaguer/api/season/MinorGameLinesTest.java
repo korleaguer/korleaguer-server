@@ -7,6 +7,7 @@ import com.korleaguer.api.game.GameLineAssembler;
 import com.korleaguer.api.game.MinorGameLine;
 import com.korleaguer.api.player.MinorTeamNames;
 
+import com.korleaguer.api.game.GameSummary;
 import com.korleaguer.config.MinorTeamProperties;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.MinorGameLog;
@@ -14,7 +15,6 @@ import com.korleaguer.domain.MinorGameSchedule;
 import com.korleaguer.domain.Pitching;
 import com.korleaguer.domain.Player;
 import com.korleaguer.domain.Role;
-import com.korleaguer.support.GameSummary;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;

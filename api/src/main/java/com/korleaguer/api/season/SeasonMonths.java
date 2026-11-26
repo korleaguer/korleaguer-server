@@ -2,13 +2,13 @@ package com.korleaguer.api.season;
 
 import static com.korleaguer.api.season.SeasonReports.orZero;
 
+import com.korleaguer.api.player.MoveLabels;
 import com.korleaguer.api.season.SeasonReport.Month;
 import com.korleaguer.api.season.SeasonReports.GameDay;
 import com.korleaguer.api.season.SeasonReports.Move;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.Role;
 import com.korleaguer.support.BaseballMath;
-import com.korleaguer.support.MoveLabels;
 import com.korleaguer.support.Woba;
 
 import java.time.LocalDate;
