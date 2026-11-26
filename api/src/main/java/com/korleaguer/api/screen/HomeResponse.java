@@ -15,6 +15,7 @@ import java.util.List;
  * minorHitters·minorPitchers는 같은 시즌 마이너 경기별 기록을 더한 마이너 성적(levelKo에 단계), 마이너 경기 많은 순이다.
  * offseason은 비시즌일 때만 있고(다음 개막일 등, OffSeason), 시즌 중이면 null이다.
  * posting도 비시즌일 때만 있다(이번 겨울 KBO 포스팅 선수·지난 포스팅 기록·관련 기사 제목, PostingSummary).
+ * statsAvailable은 늘 true다(MLB 공식 API는 경기별 선수 기록을 늘 준다). 웹 호환 때문에 남겨 둔다.
  */
 public record HomeResponse(
         String dataMode,
