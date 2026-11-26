@@ -81,7 +81,6 @@ public class PlayerRefresher {
      * 선수 정보는 오늘 받았지만 마이너 출전 경기 수는 오늘 받지 못한 선수(배포 직후, 그 요청만 실패)는 마이너 경기 수만 다시 묻는다.
      */
     public Result refresh(boolean force) {
-        long requestsBefore = client.requestCount();
         Instant now = clock.instant();
         LocalDate today = UtcDay.of(now);
         int season = currentSeason.current();
@@ -95,24 +94,24 @@ public class PlayerRefresher {
                 .filter(p -> !due.contains(p) && !minorsFresh.contains(p.getId()))
                 .toList();
         if (due.isEmpty() && minorsOnly.isEmpty()) {
-            return new Result(0, 0, false, 0);
+            return new Result(0, 0, false);
         }
 
-        Result result = due.isEmpty() ? new Result(0, 0, false, 0) : refreshPlayers(due, season, now, today);
+        Result result = due.isEmpty() ? new Result(0, 0, false) : refreshPlayers(due, season, now, today);
         if (!result.blocked()) {
             for (Player player : minorsOnly) {
                 try {
                     refreshMinorGames(player, season, now);
                 } catch (MlbBlockedException e) {
                     log.warn("[mlb] stop calling MLB for this run: {}", e.getMessage());
-                    return new Result(result.checked(), result.failed(), true, client.requestCount() - requestsBefore);
+                    return new Result(result.checked(), result.failed(), true);
                 }
             }
         }
-        return new Result(result.checked(), result.failed(), result.blocked(), client.requestCount() - requestsBefore);
+        return new Result(result.checked(), result.failed(), result.blocked());
     }
 
-    /** 선수 정보·이동 기록·마이너 경기 수를 받는다. requests는 여기서 세지 않는다(0). */
+    /** 선수 정보·이동 기록·마이너 경기 수를 받는다 */
     private Result refreshPlayers(List<Player> due, int season, Instant now, LocalDate today) {
         Map<Long, MlbPerson> people;
         try {
@@ -121,10 +120,10 @@ public class PlayerRefresher {
                     .collect(Collectors.toMap(MlbPerson::id, Function.identity(), (a, b) -> a));
         } catch (MlbBlockedException e) {
             log.warn("[mlb] stop calling MLB for this run: {}", e.getMessage());
-            return new Result(0, 0, true, 0);
+            return new Result(0, 0, true);
         } catch (MlbApiException e) {
             log.warn("[mlb] people request failed, will retry next ingest ({})", e.getMessage());
-            return new Result(0, due.size(), false, 0);
+            return new Result(0, due.size(), false);
         }
 
         int checked = 0;
@@ -142,13 +141,13 @@ public class PlayerRefresher {
                 checked++;
             } catch (MlbBlockedException e) {
                 log.warn("[mlb] stop calling MLB for this run: {}", e.getMessage());
-                return new Result(checked, failed, true, 0);
+                return new Result(checked, failed, true);
             } catch (MlbApiException e) {
                 log.warn("[mlb] {}: skip, will retry next ingest ({})", player.getNameKo(), e.getMessage());
                 failed++;
             }
         }
-        return new Result(checked, failed, false, 0);
+        return new Result(checked, failed, false);
     }
 
     private void refresh(Player player, MlbPerson person, int season, Instant now, LocalDate today) {
@@ -234,9 +233,9 @@ public class PlayerRefresher {
 
     /**
      * 한 번 돈 결과. checked: 새로 받은 선수 수, failed: 오류로 건너뛴 선수 수,
-     * blocked: 403/429로 도중에 멈췄는지, requests: 보낸 MLB 요청 수
+     * blocked: 403/429로 도중에 멈췄는지
      */
-    public record Result(int checked, int failed, boolean blocked, long requests) {
+    public record Result(int checked, int failed, boolean blocked) {
 
         /** 수집 기록 메시지에 붙일 한 줄. 오늘 이미 다 받아 할 일이 없었으면 빈 문자열 */
         public String describe() {
