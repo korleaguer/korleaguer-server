@@ -43,19 +43,6 @@ final class NewsTopics {
             "세인트루이스", "말린스", "마이애미", "내셔널스", "워싱턴");
 
     /**
-     * 같은 구단의 두 이름(별명·도시). 둘 다 많이 나오면 알약 두 칸이 같은 기사를 가리키므로 많은 쪽만 둔다
-     * (예: 이정후 기사는 '샌프란시스코 자이언츠'를 붙여 쓴다)
-     */
-    private static final List<List<String>> SAME_TEAM = List.of(
-            List.of("자이언츠", "샌프란시스코"), List.of("파드리스", "샌디에이고"), List.of("브레이브스", "애틀랜타"),
-            List.of("필리스", "필라델피아"), List.of("파이리츠", "피츠버그"), List.of("레드삭스", "보스턴"),
-            List.of("레인저스", "텍사스"), List.of("애스트로스", "휴스턴"), List.of("매리너스", "시애틀"),
-            List.of("블루제이스", "토론토"), List.of("오리올스", "볼티모어"), List.of("가디언스", "클리블랜드"),
-            List.of("타이거스", "디트로이트"), List.of("트윈스", "미네소타"), List.of("로열스", "캔자스시티"),
-            List.of("다이아몬드백스", "애리조나"), List.of("로키스", "콜로라도"), List.of("브루어스", "밀워키"),
-            List.of("카디널스", "세인트루이스"), List.of("말린스", "마이애미"), List.of("내셔널스", "워싱턴"));
-
-    /**
      * 구단 약어(Team.abbreviation, 쓰는 곳마다 다른 약어도 함께) → WORDS에 있는 그 구단 이름들(별명·도시).
      * 고른 선수의 지금 구단을 뺄 때 쓴다(TeamNames의 약어 표와 같은 약어)
      */
@@ -91,6 +78,15 @@ final class NewsTopics {
             Map.entry("TOR", List.of("블루제이스", "토론토")),
             Map.entry("WSH", List.of("내셔널스", "워싱턴")), Map.entry("WSN", List.of("내셔널스", "워싱턴")),
             Map.entry("WAS", List.of("내셔널스", "워싱턴")));
+
+    /**
+     * 같은 구단의 두 이름(별명·도시, TEAM_WORDS에서 이름이 둘인 구단). 둘 다 많이 나오면 알약 두 칸이 같은 기사를 가리키므로
+     * 많은 쪽만 둔다(예: 이정후 기사는 '샌프란시스코 자이언츠'를 붙여 쓴다). 같으면 앞의 별명을 둔다
+     */
+    private static final List<List<String>> SAME_TEAM = TEAM_WORDS.values().stream()
+            .filter(names -> names.size() == 2)
+            .distinct()
+            .toList();
 
     /** 영문·숫자만으로 된 말(FA 등). 이런 말은 낱말 단위로만 찾는다('DFA'·'fans' 속의 fa는 아니다) */
     private static final Pattern LATIN_WORD = Pattern.compile("[A-Za-z0-9 ]+");

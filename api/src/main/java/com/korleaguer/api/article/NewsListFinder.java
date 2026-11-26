@@ -37,7 +37,7 @@ import java.util.stream.Stream;
  *       규칙). 같은 이름이면 포스팅 선수로 본다(수집·기사 화면과 같다). 명단에도 있으면 선수 번호만 명단에서 가져온다.
  *       포스팅 선수는 MLB 이야기 기사가 하나라도 있어야 고르기 목록에 나온다.</li>
  *   <li>기사 규칙은 홈·선수 화면과 같다: 지금 수집하는 언론사만, 선수가 주인공이 아닌 기사는 빼고(AI 판단, 이슈 #129),
- *       포스팅 선수의 국내 기사는 제목이 MLB 이야기인 것만(PostingNews, 이슈 #127), 언론사만 다른 같은 기사는 한 줄(SameArticles).
+ *       포스팅 선수의 국내 기사는 제목이 MLB 이야기인 것만(ShownNews, 이슈 #127), 언론사만 다른 같은 기사는 한 줄(SameArticles).
  *       전체 보기에서 여러 선수에 걸린 같은 기사도 SameArticles가 한 줄로 묶는다(제목이 같다).</li>
  *   <li>쪽 넘기기: 줄은 묶음의 가장 먼저 낸 기사 순(늦은 순)이고, 커서(C)는 그 쪽 마지막 줄의 가장 먼저 낸 기사다.
  *       가장 먼저 낸 기사가 C 이후인 묶음은 이미 보였고, C보다 이른 묶음은 아직 안 보였다. 다음 쪽은 C보다 NEAR만큼 늦은
@@ -288,7 +288,7 @@ public class NewsListFinder {
     private Instant latestMlbArticle(String nameKo) {
         return news.findPage(List.of(nameKo), publishers, Cursor.TOP.at(), Cursor.TOP.id(), PageRequest.of(0, BATCH))
                 .stream()
-                .filter(a -> PostingNews.isMlbStory(a, aiPublishers))
+                .filter(a -> ShownNews.isMlbStory(a, aiPublishers))
                 .findFirst()
                 .map(NewsArticle::getPublishedAt)
                 .orElse(null);
@@ -307,7 +307,7 @@ public class NewsListFinder {
 
     /** 포스팅 선수(명단 밖)의 국내 기사는 제목이 MLB 이야기일 때만(홈 MLB 도전 카드와 같은 기준) */
     private boolean kept(NewsArticle a, Set<String> postingOnly) {
-        return !postingOnly.contains(a.getSubject()) || PostingNews.isMlbStory(a, aiPublishers);
+        return !postingOnly.contains(a.getSubject()) || ShownNews.isMlbStory(a, aiPublishers);
     }
 
     /** 묶음을 가장 먼저 낸 기사의 늦은 순으로(같은 시각이면 번호가 큰 쪽이 앞, 커서와 같은 순서) */
