@@ -26,7 +26,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -258,7 +257,7 @@ public class GameIngest {
      */
     public String lookAhead() {
         Instant now = clock.instant();
-        LocalDate utcToday = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        LocalDate utcToday = UtcDay.of(now);
         if (utcToday.equals(lookedAheadOn)) {
             return "";
         }

@@ -20,7 +20,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -93,8 +92,8 @@ public class LeagueAverageRefresher {
     public String refresh(boolean inSeason) {
         int season = currentSeason.current();
         Instant now = clock.instant();
-        LocalDate utcToday = LocalDate.ofInstant(now, ZoneOffset.UTC);
-        Instant startOfDay = utcToday.atStartOfDay(ZoneOffset.UTC).toInstant();
+        LocalDate utcToday = UtcDay.of(now);
+        Instant startOfDay = UtcDay.start(utcToday);
         Map<Key, LeagueAverage> saved = new HashMap<>();
         for (LeagueAverage row : averages.findAll()) {
             saved.put(new Key(row.getSeason(), row.getLevel()), row);

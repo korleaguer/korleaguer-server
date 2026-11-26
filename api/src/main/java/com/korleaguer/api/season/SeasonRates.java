@@ -16,7 +16,7 @@ import java.util.Map;
  *       마이너 경기만 있으면 웹이 마이너 합계를 크게 보이므로(SeasonReportCard) 마이너를 잰다. 다만 공식 지표를 받았으면
  *       경기별 메이저 기록이 아직 없어도 MLB 카드라 공식 값을 쓴다(같은 카드의 saber와 같은 단계).</li>
  *   <li>메이저: MLB 공식 시즌 wRC+(player_season_metric, 구장 보정 포함)를 반올림한다. SeasonMonths가 메이저 달을 맞추는
- *       값이라 달 막대를 시즌 하나로 합친 값과 같다. 투수는 공식 ERA-로 낸 ERA+(10000 ÷ ERA-, SeasonMonths와 같은 식).
+ *       값이라 달 막대를 시즌 하나로 합친 값과 같다. 투수는 공식 ERA-로 낸 ERA+(10000 ÷ ERA-, EraMath.fromMinus).
  *       공식 값을 아직 받지 못했으면 경기별 기록을 MLB 리그 평균과 견준다(보정 없는 메이저 달과 같다).</li>
  *   <li>마이너: 웹 숫자 칸(GET /api/home의 minorHitters·minorPitchers)과 같은 경기, 곧 그 시즌 마이너 경기 전부(재활 경기
  *       포함)를 더해 단계 리그 평균(LeagueEnvironments)과 견준다. 여러 단계를 뛰었으면 단계 리그 평균을 타석(투수는 아웃)
@@ -92,7 +92,7 @@ final class SeasonRates {
         }
         double eraMinus = official.quality();
         return eraMinus <= 0 ? SeasonMonths.ERA_PLUS_CAP
-                : (int) Math.min(SeasonMonths.ERA_PLUS_CAP, Math.round(10000 / eraMinus));
+                : (int) Math.min(SeasonMonths.ERA_PLUS_CAP, Math.round(EraMath.fromMinus(eraMinus)));
     }
 
     /** 경기별 기록의 wRC+. 리그 평균은 경기 단계(minors가 아니면 모두 MLB)의 값을 타석 비중으로 섞는다 */

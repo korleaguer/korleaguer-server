@@ -71,12 +71,12 @@ public final class PeriodRates {
         if (earnedRuns == 0) {
             return CAP;
         }
-        return BaseballMath.round(clamp(100 * league.era() / (earnedRuns * 27.0 / outs)), 1);
+        return BaseballMath.round(clamp(EraMath.eraPlus(earnedRuns, outs, league)), 1);
     }
 
-    /** 공식 ERA-(낮을수록 잘함)를 ERA+로. 값이 없거나 0 이하면 null (SeasonRates와 같은 식, 10000 ÷ ERA-) */
+    /** 공식 ERA-(낮을수록 잘함)를 ERA+로. 값이 없거나 0 이하면 null (EraMath.fromMinus) */
     static Double eraPlusFromMinus(Double eraMinus) {
-        return eraMinus == null || eraMinus <= 0 ? null : BaseballMath.round(clamp(10000 / eraMinus), 1);
+        return eraMinus == null || eraMinus <= 0 ? null : BaseballMath.round(clamp(EraMath.fromMinus(eraMinus)), 1);
     }
 
     private static double clamp(double value) {

@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,14 +80,14 @@ public class PlayerRefresher {
     public Result refresh(boolean force) {
         long requestsBefore = client.requestCount();
         Instant now = clock.instant();
-        LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        LocalDate today = UtcDay.of(now);
         int season = currentSeason.current();
         List<Player> all = players.findByMlbIdIsNotNull();
         List<Player> due = all.stream()
                 .filter(p -> force || !checkedOn(p, today))
                 .toList();
         Set<Long> minorsFresh = Set.copyOf(
-                minorSeasons.findPlayerIdsFetchedSince(season, today.atStartOfDay(ZoneOffset.UTC).toInstant()));
+                minorSeasons.findPlayerIdsFetchedSince(season, UtcDay.start(today)));
         List<Player> minorsOnly = all.stream()
                 .filter(p -> !due.contains(p) && !minorsFresh.contains(p.getId()))
                 .toList();
@@ -227,7 +226,7 @@ public class PlayerRefresher {
 
     private static boolean checkedOn(Player player, LocalDate today) {
         Instant checkedAt = player.getLevelCheckedAt();
-        return checkedAt != null && !LocalDate.ofInstant(checkedAt, ZoneOffset.UTC).isBefore(today);
+        return checkedAt != null && !UtcDay.of(checkedAt).isBefore(today);
     }
 
     /**

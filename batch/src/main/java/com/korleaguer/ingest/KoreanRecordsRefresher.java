@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -75,8 +74,8 @@ public class KoreanRecordsRefresher {
      */
     public String refresh() {
         Instant now = clock.instant();
-        LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
-        Instant startOfDay = today.atStartOfDay(ZoneOffset.UTC).toInstant();
+        LocalDate today = UtcDay.of(now);
+        Instant startOfDay = UtcDay.start(today);
         Set<Long> saved = Set.copyOf(seasons.findMlbIds());
         Set<Long> freshToday = Set.copyOf(seasons.findMlbIdsFetchedSince(startOfDay));
         List<Target> due = targets().stream()

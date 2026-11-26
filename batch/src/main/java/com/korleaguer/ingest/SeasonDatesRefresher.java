@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Optional;
 
 /**
@@ -66,7 +65,7 @@ public class SeasonDatesRefresher {
             return "";
         }
         Instant now = clock.instant();
-        LocalDate utcToday = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        LocalDate utcToday = UtcDay.of(now);
         if (utcToday.equals(checkedOn)) {
             return "";
         }
@@ -83,7 +82,7 @@ public class SeasonDatesRefresher {
             checkedOn = utcToday;
             return "";
         }
-        Instant startOfDay = utcToday.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant startOfDay = UtcDay.start(utcToday);
         boolean fetchedToday = seasonDates.findById(target)
                 .map(dates -> !dates.getFetchedAt().isBefore(startOfDay))
                 .orElse(false);

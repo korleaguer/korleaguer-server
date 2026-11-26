@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,7 +79,7 @@ public class SeasonMetricRefresher {
         if (!regularSeasonOver(season, LocalDate.ofInstant(now, MlbTime.US_EASTERN))) {
             return "";
         }
-        Instant startOfDay = LocalDate.ofInstant(now, ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant startOfDay = UtcDay.startOf(now);
         Set<Long> fresh = Set.copyOf(metrics.findPlayerIdsFetchedSince(season, startOfDay));
         List<Player> due = players.findByMlbIdIsNotNull().stream()
                 .filter(p -> !fresh.contains(p.getId()))

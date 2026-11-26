@@ -20,8 +20,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -82,7 +80,7 @@ public class LeaguePositionRefresher {
     public String refresh() {
         int season = currentSeason.current();
         Instant now = clock.instant();
-        Instant startOfDay = LocalDate.ofInstant(now, ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant startOfDay = UtcDay.startOf(now);
         Set<Long> fresh = Set.copyOf(positions.findPlayerIdsFetchedSince(season, startOfDay));
         List<Player> due = players.findByMlbIdIsNotNull().stream()
                 .filter(p -> !fresh.contains(p.getId()))
