@@ -63,7 +63,7 @@ class GameWriterGameLogTest {
         removeTestGame();
     }
 
-    /** 커밋한 시험 경기·출전 줄이 뒤에 도는 다른 커밋 DB 테스트에 보이지 않게 지운다(선수 줄은 다음 실행이 다시 쓴다) */
+    /** 커밋한 시험 경기·출전·소속 줄이 뒤에 도는 다른 커밋 DB 테스트에 보이지 않게 지운다(선수 줄은 다음 실행이 다시 쓴다) */
     @AfterEach
     void tearDown() {
         removeTestGame();
@@ -71,6 +71,9 @@ class GameWriterGameLogTest {
 
     private void removeTestGame() {
         affiliations.findByPlayer(player).ifPresent(affiliations::delete);
+        // 선수 정보를 받은 선수만 마지막 팀을 남기므로, 다른 테스트가 그 경로를 타지 않게 확인 시각도 비운다
+        player.updateLevel(null, null, null);
+        player = players.save(player);
         appearances.deleteAll(appearances.findByPlayersAndGames(List.of(player.getId()), List.of(GAME_PK)));
         games.deleteById(GAME_PK);
     }
