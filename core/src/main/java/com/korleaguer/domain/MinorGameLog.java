@@ -155,8 +155,4 @@ public class MinorGameLog {
     public Integer getHolds() {
         return holds;
     }
-
-    public Integer getBlownSaves() {
-        return blownSaves;
-    }
 }

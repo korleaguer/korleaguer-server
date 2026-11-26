@@ -48,11 +48,6 @@ public class SeasonDates {
         return regularSeasonEnd;
     }
 
-    /** 포스트시즌 마지막 날. MLB가 주지 않았으면 null */
-    public LocalDate getPostSeasonEnd() {
-        return postSeasonEnd;
-    }
-
     public Instant getFetchedAt() {
         return fetchedAt;
     }
