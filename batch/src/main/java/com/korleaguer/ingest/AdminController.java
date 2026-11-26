@@ -20,7 +20,7 @@ import java.util.Map;
  * 관리용 수집 엔드포인트(MLB 공식 Stats API). X-Admin-Token 검사는 AdminTokenInterceptor가 한다.
  * MLB 요청은 1초에 1회라 시즌 다시 받기는 끝날 때까지 몇십 초 걸릴 수 있다.
  * 수집이 이미 도는 중이면 409 {"error":"ingest already running"}을 돌려준다(아래 ingestAlreadyRunning).
- * X-Admin-Token 검사를 거는 곳은 AdminWebConfig다.
+ * X-Admin-Token 검사는 AdminTokenInterceptor가 스스로 /admin/**에 걸린다.
  */
 @RestController
 @RequestMapping("/admin")

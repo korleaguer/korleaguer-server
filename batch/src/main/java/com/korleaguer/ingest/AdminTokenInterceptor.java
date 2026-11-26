@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,7 +15,7 @@ import java.security.MessageDigest;
 
 /** /admin/** 요청은 X-Admin-Token 헤더가 설정값과 같을 때만 통과시킨다. 토큰 설정이 없으면 전부 막는다. */
 @Component
-public class AdminTokenInterceptor implements HandlerInterceptor {
+public class AdminTokenInterceptor implements HandlerInterceptor, WebMvcConfigurer {
 
     static final String HEADER = "X-Admin-Token";
 
@@ -21,6 +23,12 @@ public class AdminTokenInterceptor implements HandlerInterceptor {
 
     public AdminTokenInterceptor(KorleaguerProperties properties) {
         this.properties = properties;
+    }
+
+    /** 관리용 주소에만 건다 */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(this).addPathPatterns("/admin/**");
     }
 
     @Override
