@@ -409,7 +409,8 @@ public class MyPlayersService {
         List<Appearance> regular = card.cardSeason().stream()
                 .filter(a -> REGULAR.equals(a.getGame().getSeasonType()))
                 .toList();
-        // 연속 기록은 한 줄 소식('5경기 연속 안타')과 같은 규칙으로 센다
+        // 연속 기록은 한 줄 소식('5경기 연속 안타')과 같은 규칙으로 센다. 세는 경기는 다르다: 이 숫자는 카드 기간이
+        // 속한 시즌의 메이저 출전(진행 중 경기 포함)이고, 소식은 이번 시즌 끝난 경기(마이너 카드면 마이너 경기)다
         Integer streak = FormFacts.streak(card.cardSeason().stream().map(MinorRecords::stat).toList(), pitcher);
         // 기간 wRC+·ERA+의 기준은 카드 기간이 속한 시즌의 메이저 리그 평균이다(마이너·재활 기록은 MinorRecords가 따로 만들고 값이 없다)
         LeagueEnv league = leagues.get(currentSeason.seasonAt(range.to().minusMillis(1)),

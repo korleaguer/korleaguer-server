@@ -276,8 +276,8 @@ class FormFactsTest {
         // given
         // 오래된 순: 1안타, 4타수 무안타, 1안타, 타격 기록 없음, 볼넷만(0타수 0안타), 2안타
         // 최신부터 2안타 → (건너뜀) → (건너뜀) → 1안타 → 무안타에서 멈춤 = 2
-        List<GameStat> games = List.of(stat(0, 4, 1, 0), stat(1, 4, 0, 0), stat(2, 3, 1, 0), noRecord(3),
-                stat(4, 0, 0, 0), stat(5, 4, 2, 0));
+        List<GameStat> games = List.of(withHits(0, 4, 1), hitless(1, 4), withHits(2, 3, 1), noRecord(3),
+                walkOnly(4), withHits(5, 4, 2));
 
         // when // then
         assertThat(FormFacts.streak(games, false)).isEqualTo(2);
@@ -289,10 +289,10 @@ class FormFactsTest {
     void currentScorelessStreakStopsAtRunsOrUnknown() {
         // given
         // 오래된 순으로 넣는다. 최신부터 센다.
-        List<GameStat> scorelessThenRun = List.of(outing(0, 1), outing(1, 0), outing(2, 0));
-        List<GameStat> unknownRuns = List.of(outing(0, 0), outing(1, null), outing(2, 0));
+        List<GameStat> scorelessThenRun = List.of(allowedRuns(0, 1), scorelessOuting(1), scorelessOuting(2));
+        List<GameStat> unknownRuns = List.of(scorelessOuting(0), unknownRunsOuting(1), scorelessOuting(2));
         // 투구 기록 없는 출전(대주자 등)은 건너뛴다.
-        List<GameStat> pinchRunner = List.of(outing(0, 1), outing(1, 0), noRecord(2), outing(3, 0));
+        List<GameStat> pinchRunner = List.of(allowedRuns(0, 1), scorelessOuting(1), noRecord(2), scorelessOuting(3));
 
         // when // then
         assertThat(FormFacts.streak(scorelessThenRun, true)).isEqualTo(2);
@@ -331,7 +331,34 @@ class FormFactsTest {
         return list;
     }
 
-    /** 실점(모르면 null) → 그날 등판 */
+    /** 그날 안타가 있는 타격 경기 */
+    private static GameStat withHits(int day, int atBats, int hits) {
+        return stat(day, atBats, hits, 0);
+    }
+
+    /** 그날 타수가 있는데 무안타인 타격 경기 */
+    private static GameStat hitless(int day, int atBats) {
+        return stat(day, atBats, 0, 0);
+    }
+
+    /** 그날 볼넷만 고른 경기(0타수 1타석) */
+    private static GameStat walkOnly(int day) {
+        return stat(day, 0, 0, 0);
+    }
+
+    private static GameStat scorelessOuting(int day) {
+        return outing(day, 0);
+    }
+
+    private static GameStat allowedRuns(int day, int runs) {
+        return outing(day, runs);
+    }
+
+    /** 실점을 모르는 등판 */
+    private static GameStat unknownRunsOuting(int day) {
+        return outing(day, null);
+    }
+
     private static GameStat outing(int day, Integer runsAllowed) {
         return new GameStat(START.plusDays(day), false, 0, 0, 0, 0, true, runsAllowed);
     }
