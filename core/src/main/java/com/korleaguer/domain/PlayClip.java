@@ -30,10 +30,6 @@ public class PlayClip {
         this.fetchedAt = fetchedAt;
     }
 
-    public String getPlayId() {
-        return playId;
-    }
-
     public String getMp4Url() {
         return mp4Url;
     }
