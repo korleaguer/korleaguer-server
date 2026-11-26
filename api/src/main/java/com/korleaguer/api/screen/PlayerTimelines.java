@@ -103,7 +103,8 @@ final class PlayerTimelines {
                 .sorted(Comparator.comparing(MoveEntry::date).thenComparingInt(PlayerTimelines::order))
                 .toList();
         MoveEntry firstState = inRange.stream()
-                .filter(m -> STATE_TYPES.contains(m.typeCode()))
+                // 종류 코드가 빈 이동도 있다(종류 설명만 있는 이동). Set.of는 null을 물으면 예외라 먼저 거른다
+                .filter(m -> m.typeCode() != null && STATE_TYPES.contains(m.typeCode()))
                 .findFirst().orElse(null);
 
         boolean majorFirst = first.majorDay() != null
