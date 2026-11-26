@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,11 +27,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 응답 모양 명세(저장소 맨 위 openapi.json)가 코드와 같은지, 실제 응답이 명세대로인지 본다(비시즌).
  * 응답 record를 바꿨으면 명세를 다시 만든다: OPENAPI_UPDATE=1 ./gradlew :app:test --tests com.korleaguer.api.OpenApiSpecTest
  */
-@SpringBootTest(properties = {"springdoc.paths-to-match=/api/**", "springdoc.use-fqn=true",
+@SpringBootTest(properties = {"springdoc.api-docs.enabled=true", "springdoc.paths-to-match=/api/**", "springdoc.use-fqn=true",
         "springdoc.default-produces-media-type=application/json"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+// 이 설정의 컨텍스트는 이 클래스만 쓴다. 끝나면 내려놓아 테스트 전체의 메모리를 늘리지 않는다
+@DirtiesContext
 class OpenApiSpecTest {
 
     @Autowired

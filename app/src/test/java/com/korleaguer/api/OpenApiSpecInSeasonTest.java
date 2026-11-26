@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,11 +23,13 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 시즌 중 응답도 명세(openapi.json)대로인지 본다. 홈이 최근 경기와 성적표를 채운다. */
-@SpringBootTest(properties = {"springdoc.paths-to-match=/api/**", "springdoc.use-fqn=true",
+@SpringBootTest(properties = {"springdoc.api-docs.enabled=true", "springdoc.paths-to-match=/api/**", "springdoc.use-fqn=true",
         "springdoc.default-produces-media-type=application/json"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+// 이 설정의 컨텍스트는 이 클래스만 쓴다. 끝나면 내려놓아 테스트 전체의 메모리를 늘리지 않는다
+@DirtiesContext
 class OpenApiSpecInSeasonTest {
 
     @Autowired
