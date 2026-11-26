@@ -25,8 +25,8 @@ dependencyManagement {
 }
 
 dependencies {
-	// 분류기 결과 등 공개 메서드가 core 타입(엔티티의 값)을 드러내므로 api로 준다
-	api project(':core')
+	// 이 모듈을 쓰는 batch·app은 core를 따로 받는다. 여기서 다시 내보내지 않는다
+	implementation project(':core')
 	// MLB Stats API 호출(RestClient)과 응답 읽기
 	implementation 'org.springframework:spring-web'
 	implementation 'tools.jackson.core:jackson-databind'
