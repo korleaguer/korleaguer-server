@@ -1,5 +1,7 @@
 package com.korleaguer.ingest;
 
+import static com.korleaguer.client.MlbSeasonSplit.sum;
+
 import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
@@ -25,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 /**
  * 한국인 메이저리거 역대 기록(기록 탭, 이슈 #177)에 쓰는 시즌별 개수 기록을 받는다. 따라잡기(IngestService.catchUp)의 맨 뒤 단계다.
@@ -122,23 +123,11 @@ public class KoreanRecordsRefresher {
         return new ArrayList<>(byId.values());
     }
 
-    /**
-     * yearByYear 줄들 → 시즌마다 개수 기록. 여러 팀 시즌은 합친 줄(numTeams, 팀 없음)을 쓰고,
-     * 합친 줄이 없으면 팀별 줄을 더한다(LeaguePositionRefresher.careerTotals와 같은 규칙).
-     */
+    /** yearByYear 줄들 → 시즌마다 개수 기록(여러 팀 시즌은 MlbSeasonSplit.pick으로 고른 줄을 더한다) */
     static Map<Integer, KoreanMlbSeason.Counts> seasonCounts(List<MlbSeasonSplit> splits, boolean pitcher) {
-        Map<Integer, List<MlbSeasonSplit>> bySeason = new TreeMap<>();
-        for (MlbSeasonSplit split : splits) {
-            Integer year = split.seasonYear();
-            if (split.stat() != null && year != null) {
-                bySeason.computeIfAbsent(year, y -> new ArrayList<>()).add(split);
-            }
-        }
         Map<Integer, KoreanMlbSeason.Counts> result = new TreeMap<>();
-        bySeason.forEach((year, lines) -> {
-            List<MlbSeasonSplit> use = lines.stream().filter(MlbSeasonSplit::combined).findFirst()
-                    .map(List::of)
-                    .orElseGet(() -> lines.stream().filter(l -> !l.combined()).toList());
+        MlbSeasonSplit.bySeason(splits).forEach((year, lines) -> {
+            List<MlbSeasonSplit> use = MlbSeasonSplit.pick(lines);
             result.put(year, pitcher
                     ? new KoreanMlbSeason.Counts(sum(use, MlbSeasonSplit.Stat::gamesPlayed), null, null, null, null,
                             sum(use, MlbSeasonSplit.Stat::wins), sum(use, MlbSeasonSplit.Stat::saves),
@@ -149,17 +138,5 @@ public class KoreanRecordsRefresher {
                             null));
         });
         return result;
-    }
-
-    /** 줄들의 값을 더한다. 모든 줄에 값이 없으면 null */
-    private static Integer sum(List<MlbSeasonSplit> lines, Function<MlbSeasonSplit.Stat, Integer> value) {
-        Integer total = null;
-        for (MlbSeasonSplit line : lines) {
-            Integer v = value.apply(line.stat());
-            if (v != null) {
-                total = (total == null ? 0 : total) + v;
-            }
-        }
-        return total;
     }
 }

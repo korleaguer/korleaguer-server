@@ -1,5 +1,7 @@
 package com.korleaguer.ingest;
 
+import static com.korleaguer.client.MlbSeasonSplit.sum;
+
 import com.korleaguer.client.MlbApiException;
 import com.korleaguer.client.MlbBlockedException;
 import com.korleaguer.client.MlbClient;
@@ -20,7 +22,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -169,27 +170,17 @@ public class LeaguePositionRefresher {
     }
 
     /**
-     * yearByYear 줄들 → 시즌마다 합계. 여러 팀 시즌은 합친 줄을 쓰고(팀 번호는 팀별 줄에서 뛴 순서로),
-     * 합친 줄이 없으면 팀별 줄의 개수 기록만 더한다(타율·OPS·평균자책점은 모른다).
+     * yearByYear 줄들 → 시즌마다 합계. 쓸 줄은 MlbSeasonSplit.pick으로 고르고(팀 번호는 팀별 줄에서 뛴 순서로),
+     * 고른 줄이 여럿이면(합친 줄이 없는 여러 팀 시즌) 개수 기록만 더한다(타율·OPS·평균자책점은 모른다).
      */
     static Map<Integer, PlayerCareerSeason.Totals> careerTotals(List<MlbSeasonSplit> splits, Role role) {
-        Map<Integer, List<MlbSeasonSplit>> bySeason = new TreeMap<>();
-        for (MlbSeasonSplit split : splits) {
-            Integer year = split.seasonYear();
-            if (split.stat() != null && year != null) {
-                bySeason.computeIfAbsent(year, y -> new ArrayList<>()).add(split);
-            }
-        }
         Map<Integer, PlayerCareerSeason.Totals> result = new TreeMap<>();
-        bySeason.forEach((year, lines) -> {
+        MlbSeasonSplit.bySeason(splits).forEach((year, lines) -> {
             Set<Long> teamIds = new LinkedHashSet<>();
             lines.stream().filter(l -> l.team() != null && l.team().id() != null).forEach(l -> teamIds.add(l.team().id()));
-            List<MlbSeasonSplit> teamLines = lines.stream().filter(l -> !l.combined()).toList();
-            MlbSeasonSplit.Stat one = lines.stream().filter(MlbSeasonSplit::combined).findFirst()
-                    .map(MlbSeasonSplit::stat)
-                    .orElse(teamLines.size() == 1 ? teamLines.getFirst().stat() : null);
-            result.put(year, one != null ? totals(one, role, List.copyOf(teamIds))
-                    : summed(teamLines, role, List.copyOf(teamIds)));
+            List<MlbSeasonSplit> used = MlbSeasonSplit.pick(lines);
+            result.put(year, used.size() == 1 ? totals(used.getFirst().stat(), role, List.copyOf(teamIds))
+                    : summed(used, role, List.copyOf(teamIds)));
         });
         return result;
     }
@@ -213,18 +204,6 @@ public class LeaguePositionRefresher {
         }
         return new PlayerCareerSeason.Totals(teamIds, games, sum(lines, MlbSeasonSplit.Stat::plateAppearances), null,
                 sum(lines, MlbSeasonSplit.Stat::homeRuns), null, null, null, null);
-    }
-
-    /** 줄들의 값을 더한다. 모든 줄에 값이 없으면 null */
-    private static Integer sum(List<MlbSeasonSplit> lines, Function<MlbSeasonSplit.Stat, Integer> value) {
-        Integer total = null;
-        for (MlbSeasonSplit line : lines) {
-            Integer v = value.apply(line.stat());
-            if (v != null) {
-                total = (total == null ? 0 : total) + v;
-            }
-        }
-        return total;
     }
 
     /**
