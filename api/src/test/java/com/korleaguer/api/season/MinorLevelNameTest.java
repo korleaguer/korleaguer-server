@@ -61,6 +61,26 @@ class MinorLevelNameTest {
         assertThat(row.teamKo()).isEqualTo("Team 2"); // 팀은 그대로 마지막 경기의 팀
     }
 
+    @Test
+    @DisplayName("기간 경기가 모두 같은 단계일 때만 단계를 알려 주고 섞이거나 모르면 비운다")
+    void singleLevelIsNullWhenMixed() {
+        // when // then
+        assertThat(MinorRecords.singleLevel(List.of(game(1, "AAA"), game(2, "AAA")))).isEqualTo("AAA");
+        assertThat(MinorRecords.singleLevel(List.of(game(3, "AA"), game(4, "AAA")))).isNull();
+        assertThat(MinorRecords.singleLevel(List.of(game(5, null)))).isNull();
+    }
+
+    @Test
+    @DisplayName("아는 단계가 둘 이상일 때만 단계를 오간 것으로 본다")
+    void mixedLevelsOnlyWhenTwoKnownLevels() {
+        // when // then
+        assertThat(MinorRecords.mixedLevels(List.of(game(6, "AAA"), game(7, "AAA")))).isFalse();
+        assertThat(MinorRecords.mixedLevels(List.of(game(8, "ROK"), game(9, "AA"), game(10, "AAA")))).isTrue();
+        // 단계를 모르는 경기는 '오갔다'의 근거가 아니다
+        assertThat(MinorRecords.mixedLevels(List.of(game(11, "AAA"), game(12, null)))).isFalse();
+        assertThat(MinorRecords.mixedLevels(List.of())).isFalse();
+    }
+
     private static MinorGameLog game(long gamePk, String level) {
         MinorGameLog game = new MinorGameLog(GO, 2026, gamePk);
         game.updateGame(LocalDate.of(2026, 6, 1).plusDays(gamePk), level, "Team " + gamePk, "Opponent", true, true);
