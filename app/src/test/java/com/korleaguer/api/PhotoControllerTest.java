@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,8 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-// 준비한 사진은 공용 테스트 DB에 남기지 않는다. 남으면 뒤에 도는 테스트의 사진 주소에 버전(?v=)이 붙는다(이슈 #335)
+// 준비한 사진은 뒤 테스트에 남기지 않는다. 남으면 사진 주소에 버전(?v=)이 붙는다(이슈 #335).
+// DB 줄은 되돌리고(@Transactional), 사진을 내려 줄 때 메모리(PhotoSources)에 넣은 버전은 문맥째 버린다(@DirtiesContext)
 @Transactional
+@DirtiesContext
 class PhotoControllerTest {
 
     @Autowired
