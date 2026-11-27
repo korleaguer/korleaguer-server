@@ -119,7 +119,8 @@ public class GameDetailService {
         Map<String, String> korean = highlightTitles.koreanOf(
                 response.highlights().stream().map(GameDetail.GameHighlight::title).toList());
         List<GameDetail.GameHighlight> highlights = response.highlights().stream()
-                .map(h -> h.withTitleKo(korean.get(h.title()))).toList();
+                // 제목이 빈 영상도 있다. 번역 표는 제목이 모두 비면 Map.of()라 null을 물으면 예외다
+                .map(h -> h.title() == null ? h : h.withTitleKo(korean.get(h.title()))).toList();
         return new GameDetail(response.playerId(), response.gamePk(), response.role(), response.available(),
                 response.clips(), response.plays(), highlights);
     }

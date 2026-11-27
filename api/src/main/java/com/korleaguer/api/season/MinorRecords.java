@@ -7,6 +7,7 @@ import com.korleaguer.api.game.GameLine;
 import com.korleaguer.api.game.MinorGameLine;
 import com.korleaguer.api.player.MinorTeamNames;
 
+import com.korleaguer.api.game.GameSummary;
 import com.korleaguer.domain.Appearance;
 import com.korleaguer.domain.Batting;
 import com.korleaguer.domain.MinorGameLog;
@@ -17,7 +18,6 @@ import com.korleaguer.domain.Role;
 import com.korleaguer.domain.SeasonType;
 import com.korleaguer.support.BaseballMath;
 import com.korleaguer.support.GameStatuses;
-import com.korleaguer.support.GameSummary;
 import com.korleaguer.support.KoreanTime;
 import com.korleaguer.support.MlbTime;
 
@@ -65,12 +65,29 @@ public final class MinorRecords {
     /**
      * 여러 마이너 경기를 더한 기록의 단계 이름. 모두 한 단계면 그 단계(트리플A), 단계가 섞였으면 "마이너"
      * (더블A·트리플A를 더한 평균자책점에 '트리플A'를 붙이면 트리플A 기록으로 읽힌다, 이슈 #134).
-     * 단계를 모르는 경기(level null)도 한 단계로 센다: 트리플A + 모름이면 "마이너", 모두 모르면 levelKo(null)로 "마이너".
-     * 성적표 숫자 칸의 단계 이름(SeasonRates.levelKo, statLevelKo)도 같은 규칙이다(한쪽을 바꾸면 다른 쪽도 바꾼다).
+     * 홈 마이너 줄, 성적표 숫자 칸(SeasonRates), 카드 기간 기록이 이 한 규칙(singleLevelOf)을 쓴다.
      */
     public static String levelKo(List<MinorGameLog> games) {
-        List<String> levels = games.stream().map(MinorGameLog::getLevel).distinct().toList();
-        return levels.size() == 1 ? levelKo(levels.getFirst()) : "마이너";
+        return levelKo(singleLevel(games));
+    }
+
+    /** 마이너 경기들이 모두 한 단계면 그 약어, 섞였거나 단계를 모르면 null (여러 단계를 한 평균에 견주지 않는다) */
+    static String singleLevel(List<MinorGameLog> games) {
+        return singleLevelOf(games.stream().map(MinorGameLog::getLevel).toList());
+    }
+
+    /**
+     * 경기마다의 단계 약어 → 모두 한 단계면 그 약어, 섞였으면 null. 단계를 모르는 경기(null)도 한 단계로 센다:
+     * 트리플A + 모름이면 null, 모두 모르면 null. 그래서 이름은 levelKo(null)인 "마이너"가 된다
+     */
+    static String singleLevelOf(List<String> levels) {
+        List<String> distinct = levels.stream().distinct().toList();
+        return distinct.size() == 1 ? distinct.getFirst() : null;
+    }
+
+    /** 마이너 경기들이 아는 단계 둘 이상에 걸쳐 있는가(단계를 모르는 경기는 세지 않는다). 이때 singleLevel은 늘 null이다 */
+    static boolean mixedLevels(List<MinorGameLog> games) {
+        return games.stream().map(MinorGameLog::getLevel).filter(Objects::nonNull).distinct().count() > 1;
     }
 
     /**
@@ -107,12 +124,12 @@ public final class MinorRecords {
         int atBats = sum(lines, Batting::atBats);
         int hits = sum(lines, Batting::hits);
         // 기간 wRC+는 그 단계 리그 평균과 견준다(한 단계일 때만, 아니면 null)
-        String level = PeriodRates.singleLevel(period);
+        String level = singleLevel(period);
         Double wrc = level == null ? null : PeriodRates.wrcPlusOf(lines, leagues.apply(level));
         return new PeriodHitting(lines.size(), atBats, hits, sum(lines, Batting::homeRuns),
                 sum(lines, Batting::rbi), sum(lines, Batting::walks), sum(lines, Batting::stolenBases),
                 BaseballMath.avg(hits, atBats), BaseballMath.avg(sum(all, Batting::hits), sum(all, Batting::atBats)),
-                wrc, wrc == null ? null : level, PeriodRates.mixedLevels(period));
+                wrc, wrc == null ? null : level, mixedLevels(period));
     }
 
     /** 기간 투구 합계(마이너). 평균자책점은 아웃 수를 아는 경기만 센다. seasonEra는 그 시즌 마이너 전체다. */
@@ -121,15 +138,15 @@ public final class MinorRecords {
         List<Pitching> lines = pitchings(period);
         List<Pitching> known = lines.stream().filter(p -> p.pitchingOuts() != null).toList();
         List<Pitching> allKnown = pitchings(season).stream().filter(p -> p.pitchingOuts() != null).toList();
-        int outs = sumP(known, Pitching::pitchingOuts);
-        int earnedRuns = sumP(known, Pitching::earnedRuns);
-        String level = PeriodRates.singleLevel(period);
+        int outs = sum(known, Pitching::pitchingOuts);
+        int earnedRuns = sum(known, Pitching::earnedRuns);
+        String level = singleLevel(period);
         Double eraPlus = level == null ? null : PeriodRates.eraPlusOf(lines, leagues.apply(level));
         return new PeriodPitching(lines.size(), outs, BaseballMath.inningsText(outs), earnedRuns,
-                BaseballMath.era(earnedRuns, outs), sumP(lines, Pitching::pitcherStrikeouts), sumP(lines, Pitching::wins),
-                sumP(lines, Pitching::losses), sumP(lines, Pitching::saves),
-                BaseballMath.era(sumP(allKnown, Pitching::earnedRuns), sumP(allKnown, Pitching::pitchingOuts)),
-                eraPlus, eraPlus == null ? null : level, PeriodRates.mixedLevels(period));
+                BaseballMath.era(earnedRuns, outs), sum(lines, Pitching::pitcherStrikeouts), sum(lines, Pitching::wins),
+                sum(lines, Pitching::losses), sum(lines, Pitching::saves),
+                BaseballMath.era(sum(allKnown, Pitching::earnedRuns), sum(allKnown, Pitching::pitchingOuts)),
+                eraPlus, eraPlus == null ? null : level, mixedLevels(period));
     }
 
     /**
@@ -247,11 +264,7 @@ public final class MinorRecords {
         return games.stream().map(MinorGameLog::getPitching).filter(Objects::nonNull).toList();
     }
 
-    private static int sum(List<Batting> lines, Function<Batting, Integer> field) {
-        return lines.stream().map(field).filter(Objects::nonNull).mapToInt(Integer::intValue).sum();
-    }
-
-    private static int sumP(List<Pitching> lines, Function<Pitching, Integer> field) {
+    private static <T> int sum(List<T> lines, Function<T, Integer> field) {
         return lines.stream().map(field).filter(Objects::nonNull).mapToInt(Integer::intValue).sum();
     }
 

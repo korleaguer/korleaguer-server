@@ -5,7 +5,7 @@ import java.util.Set;
 
 /**
  * MLB 경기 상태(status.abstractGameState / codedGameState / detailedState)를 DB와 응답(GameLine.gameStatus)에 쓰는
- * 소문자 값으로 바꾸는 표. 웹과 GameSummary.notPlayed가 이 값을 쓴다.
+ * 소문자 값으로 바꾸는 표. 웹과 경기 한 줄 문장(api의 GameSummary.notPlayed)이 이 값을 쓴다.
  * <ul>
  *   <li>scheduled(경기 전), in_progress(경기 중), final(끝남)</li>
  *   <li>postponed(연기), canceled(취소), delayed(지연), suspended(중단)</li>
