@@ -161,10 +161,22 @@ class MyPlayersInSeasonTest {
         return JsonPath.read(body, "$.players[0].streak");
     }
 
-    /** 타수만 있고 안타가 없는 타격 기록(나머지 칸은 0) */
+    /** 타수만 있고 안타가 없는 타격 기록(나머지 칸은 0, 타석은 타수와 같다) */
     private static Batting hitless(int atBats) {
+        int runs = 0;
         int hits = 0;
+        int doubles = 0;
+        int triples = 0;
         int homeRuns = 0;
-        return new Batting(atBats, 0, hits, 0, 0, homeRuns, 0, 0, 0, 0, 0, 0, atBats, 0);
+        int rbi = 0;
+        int walks = 0;
+        int strikeouts = 0;
+        int hitByPitch = 0;
+        int stolenBases = 0;
+        int sacFlies = 0;
+        int plateAppearances = atBats;
+        int totalBases = 0;
+        return new Batting(atBats, runs, hits, doubles, triples, homeRuns, rbi, walks, strikeouts, hitByPitch,
+                stolenBases, sacFlies, plateAppearances, totalBases);
     }
 }
