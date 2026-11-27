@@ -23,7 +23,11 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 시즌 중 응답도 명세(openapi.json)대로인지 본다. 홈이 최근 경기와 성적표를 채운다. */
-@SpringBootTest(properties = {"springdoc.api-docs.enabled=true", "springdoc.paths-to-match=/api/**", "springdoc.use-fqn=true",
+// 공용 테스트 DB를 쓰지 않는다: 시각이 시즌 중이라, 이 테스트가 먼저 떠서 공용 DB를 채우면 막 끝난 경기가 굳지 않은 채 남는다
+// (선발·교체가 비어 비시즌 테스트가 깨진다, 이슈 #335)
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:open-api-spec-in-season-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "springdoc.api-docs.enabled=true", "springdoc.paths-to-match=/api/**", "springdoc.use-fqn=true",
         "springdoc.default-produces-media-type=application/json"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
