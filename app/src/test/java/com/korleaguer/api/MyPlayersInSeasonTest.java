@@ -1,20 +1,36 @@
 package com.korleaguer.api;
 
+import com.jayway.jsonpath.JsonPath;
+import com.korleaguer.domain.Appearance;
+import com.korleaguer.domain.AppearanceRepository;
+import com.korleaguer.domain.Batting;
+import com.korleaguer.domain.Game;
+import com.korleaguer.domain.GameRepository;
+import com.korleaguer.domain.Player;
+import com.korleaguer.domain.PlayerRepository;
+import com.korleaguer.domain.SeasonType;
+import com.korleaguer.domain.Team;
+import com.korleaguer.domain.TeamRepository;
+import com.korleaguer.support.GameStatuses;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,6 +44,27 @@ class MyPlayersInSeasonTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private CacheManager cacheManager;
+
+    @Autowired
+    private PlayerRepository players;
+
+    @Autowired
+    private TeamRepository teams;
+
+    @Autowired
+    private GameRepository games;
+
+    @Autowired
+    private AppearanceRepository appearances;
+
+    /** 진행 중 경기를 넣고 뜬 응답이 캐시에 남아 다른 테스트로 새지 않게 비운다 */
+    @AfterEach
+    void clearCaches() {
+        cacheManager.getCacheNames().forEach(name -> cacheManager.getCache(name).clear());
+    }
 
     // 2026-09-27 22:00 KST. 마지막 경기(9월 27일 KST)가 오늘이라 대신하지 않는다.
     @TestConfiguration
@@ -86,5 +123,60 @@ class MyPlayersInSeasonTest {
                 .andExpect(jsonPath("$.players[0].hitting.games").value(2))
                 .andExpect(jsonPath("$.players[0].hitting.avg").value(0.429))
                 .andExpect(jsonPath("$.players[0].streak").value(1));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("진행 중 경기에서 아직 안타가 없어도 연속 안타 숫자는 끝난 경기까지로 센다")
+    void liveGameDoesNotBreakStreak() throws Exception {
+        // given
+        // 이정후는 9월 26일(미국) 1003에서 안타를 쳐 연속 안타가 이어지는 중이다. 지금(9월 27일 13:00 UTC) 진행 중인
+        // 경기에서 2타수 무안타라도, 경기가 끝나기 전에는 한 줄 소식처럼 연속 기록을 끊지 않는다
+        clearCaches();
+        int before = streakOf("1");
+        Player lee = players.findByNameKo("이정후").orElseThrow();
+        Team giants = teams.findById(137L).orElseThrow();
+        Team rockies = teams.findById(115L).orElseThrow();
+        Game live = new Game(99_305L);
+        live.update(2026, SeasonType.REGULAR.stored(), Instant.parse("2026-09-27T11:00:00Z"), giants, rockies,
+                0, 0, GameStatuses.IN_PROGRESS, null);
+        games.save(live);
+        Appearance hitlessSoFar = new Appearance(lee, live);
+        hitlessSoFar.update(giants, hitless(2), null);
+        appearances.save(hitlessSoFar);
+        clearCaches();
+
+        // when
+        int during = streakOf("1");
+
+        // then
+        assertThat(before).isPositive();
+        assertThat(during).isEqualTo(before);
+    }
+
+    private int streakOf(String ids) throws Exception {
+        String body = mockMvc.perform(get("/api/my").param("ids", ids).param("days", "14"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return JsonPath.read(body, "$.players[0].streak");
+    }
+
+    /** 타수만 있고 안타가 없는 타격 기록(나머지 칸은 0, 타석은 타수와 같다) */
+    private static Batting hitless(int atBats) {
+        int runs = 0;
+        int hits = 0;
+        int doubles = 0;
+        int triples = 0;
+        int homeRuns = 0;
+        int rbi = 0;
+        int walks = 0;
+        int strikeouts = 0;
+        int hitByPitch = 0;
+        int stolenBases = 0;
+        int sacFlies = 0;
+        int plateAppearances = atBats;
+        int totalBases = 0;
+        return new Batting(atBats, runs, hits, doubles, triples, homeRuns, rbi, walks, strikeouts, hitByPitch,
+                stolenBases, sacFlies, plateAppearances, totalBases);
     }
 }

@@ -89,7 +89,9 @@ class MyPlayersFormSummaryTest {
                 .andExpect(jsonPath("$.players[0].games[0].startTimeKst").value("2026-09-21T08:05:00+09:00"))
                 .andExpect(jsonPath("$.players[0].games[0].played").value(true))
                 .andExpect(jsonPath("$.players[0].fact.tone").value("HOT"))
-                .andExpect(jsonPath("$.players[0].fact.text").value("트리플A 최근 5번 등판 중 4번 무실점"));
+                .andExpect(jsonPath("$.players[0].fact.text").value("트리플A 최근 5번 등판 중 4번 무실점"))
+                // 연속 무실점도 소식과 같은 마이너 등판으로 센다(메이저 등판은 없다)
+                .andExpect(jsonPath("$.players[0].streak").value(2));
     }
 
     @Test
