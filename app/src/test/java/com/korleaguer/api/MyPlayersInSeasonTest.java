@@ -37,7 +37,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** 시즌 중이면 내 선수 기간은 선수마다 오늘(한국 날짜)까지다(isFallback=false). */
-@SpringBootTest
+// 공용 테스트 DB를 쓰지 않는다: 시각이 시즌 중이라, 이 테스트가 먼저 떠서 공용 DB를 채우면 막 끝난 경기가 굳지 않은 채 남는다
+// (선발·교체가 비어 비시즌 테스트가 깨진다, 이슈 #335)
+@SpringBootTest(properties =
+        "spring.datasource.url=jdbc:h2:mem:my-players-in-season-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class MyPlayersInSeasonTest {
