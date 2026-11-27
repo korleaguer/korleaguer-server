@@ -15,6 +15,8 @@ import com.korleaguer.api.screen.SameGamesResponse;
 import com.korleaguer.api.screen.SameGamesService;
 
 import com.korleaguer.domain.GameDetail;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -111,6 +113,8 @@ public class BaseballController {
     }
 
     /** 그 경기 상세에 나온 공 하나의 영상 주소(Baseball Savant mp4). 없으면 404 */
+    // 영상 주소를 못 찾으면 본문 없는 404다(응답 모양 명세에 그렇게 적는다)
+    @ApiResponse(responseCode = "404", description = "Not Found", content = @Content)
     @GetMapping("/players/{id}/games/{gamePk}/clips/{playId}")
     public ResponseEntity<ClipResponse> clip(@PathVariable long id, @PathVariable long gamePk,
                                              @PathVariable String playId) {

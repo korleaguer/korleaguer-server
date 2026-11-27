@@ -6,6 +6,7 @@ import com.korleaguer.domain.Role;
 import com.korleaguer.domain.Team;
 import com.korleaguer.support.BirthDates;
 import com.korleaguer.support.PositionNames;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDate;
 
@@ -23,20 +24,20 @@ import java.time.LocalDate;
 public record PlayerSummary(
         long id,
         String nameKo,
-        String photoUrl,
-        String nameEn,
+        @Nullable String photoUrl,
+        @Nullable String nameEn,
         Role role,
-        String position,
-        String positionKo,
-        String teamKo,
-        String teamAbbr,
-        Integer age,
-        String jersey,
-        Level level,
-        String levelTeam,
+        @Nullable String position,
+        @Nullable String positionKo,
+        @Nullable String teamKo,
+        @Nullable String teamAbbr,
+        @Nullable Integer age,
+        @Nullable String jersey,
+        @Nullable Level level,
+        @Nullable String levelTeam,
         boolean freeAgent,
-        String returnedKo,
-        String photoTeamAbbr) {
+        @Nullable String returnedKo,
+        @Nullable String photoTeamAbbr) {
 
     /**
      * team은 지금 소속(소속이 끝났으면 마지막 소속, 없으면 null), todayKst는 나이를 셀 한국 날짜,

@@ -1,6 +1,7 @@
 package com.korleaguer.api.screen;
 
 import com.korleaguer.api.game.GameLine;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -18,11 +19,16 @@ public record SameGamesResponse(int season, long playerId, List<Pair> pairs) {
      * 시즌 중 팀을 옮겨 둘 이상이면 null이다.
      * meetings는 경기마다 두 사람의 한 줄(오래된 경기부터, 더블헤더는 경기마다 한 줄)이라 games == meetings.size()다.
      */
-    public record Pair(Other other, int games, int wins, int losses, String teamKo, List<Meeting> meetings) {
+    public record Pair(Other other, int games, int wins, int losses, @Nullable String teamKo, List<Meeting> meetings) {
     }
 
     /** 상대 선수. photoTeamAbbr은 사진 속 유니폼 팀(웹 사진 원 바탕색), teamAbbr은 지금(마지막) 소속 팀이다. 없으면 null */
-    public record Other(long playerId, String nameKo, String photoUrl, String photoTeamAbbr, String teamAbbr) {
+    public record Other(
+            long playerId,
+            String nameKo,
+            @Nullable String photoUrl,
+            @Nullable String photoTeamAbbr,
+            @Nullable String teamAbbr) {
     }
 
     /** 같은 경기 하나. mine은 이 선수의 줄, other는 상대 선수의 줄(둘의 gameId가 같다) */

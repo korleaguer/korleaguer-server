@@ -2,6 +2,7 @@ package com.korleaguer.api.player;
 
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.PlayerMove;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -18,11 +19,11 @@ import java.util.Set;
  */
 public record MoveEntry(
         LocalDate date,
-        String typeCode,
+        @Nullable String typeCode,
         String labelKo,
-        String fromTeam,
-        String toTeam,
-        Level toLevel) {
+        @Nullable String fromTeam,
+        @Nullable String toTeam,
+        @Nullable Level toLevel) {
 
     /**
      * 이동 기록(최신순) 중 팬에게 보일 것만 고른다. 이름(labelKo)이 없는 줄(의미 없는 상태 변경)은 빼고,

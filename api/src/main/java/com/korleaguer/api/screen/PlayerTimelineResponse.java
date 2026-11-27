@@ -3,6 +3,7 @@ package com.korleaguer.api.screen;
 import com.korleaguer.api.player.MoveEntry;
 
 import com.korleaguer.domain.Level;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -31,7 +32,7 @@ public record PlayerTimelineResponse(int season, List<Integer> seasons, LocalDat
      * @param stat       펼친 줄에 쓸 시즌 숫자 한 줄. 표본이 없으면 null
      */
     public record PlayerTimeline(long playerId, List<TimelineSegment> segments, List<MoveEntry> moves,
-                                 LocalDate lastMoveOn, Stat stat) {
+                                 @Nullable LocalDate lastMoveOn, @Nullable Stat stat) {
     }
 
     /**
@@ -46,7 +47,13 @@ public record PlayerTimelineResponse(int season, List<Integer> seasons, LocalDat
      * @param eraPlus 투수 시즌 ERA+(리그 평균 = 100, 높을수록 잘함). 타자거나 표본(10이닝)이 작으면 null
      * @param era     투수 평균자책점. 타자거나 아웃이 없으면 null
      */
-    public record Stat(Level level, String levelKo, int games, Integer wrcPlus, Double avg, Integer eraPlus,
-                       Double era) {
+    public record Stat(
+            Level level,
+            @Nullable String levelKo,
+            int games,
+            @Nullable Integer wrcPlus,
+            @Nullable Double avg,
+            @Nullable Integer eraPlus,
+            @Nullable Double era) {
     }
 }

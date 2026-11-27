@@ -46,6 +46,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-mysql'
+	// 응답 모양 명세(openapi.json)를 뽑는 데만 쓴다. 운영 실행 파일에는 넣지 않는다(OpenApiSpecTest)
+	testImplementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -58,6 +60,11 @@ tasks.named('test') {
 	useJUnitPlatform()
 	// KORLEAGUER_TEST_DB=mysql이면 여러 테스트가 함께 쓰는 DB를 운영과 같은 MySQL(Testcontainers, Docker 필요)로 바꾼다.
 	// CI가 켠다(ci.yml). 로컬은 빠른 H2다. 클래스마다 자기 H2 이름을 적은 테스트는 늘 H2다. 판은 MySqlCompatibilityTest와 같게 둔다.
+	// OPENAPI_UPDATE=1이면 OpenApiSpecTest가 명세 파일(저장소 맨 위 openapi.json)을 다시 쓴다. 명세 파일도 입력으로 적어야
+	// 손으로 고쳤거나 지웠을 때 '바뀐 것 없음'으로 건너뛰지 않는다
+	inputs.property('openapiUpdate', providers.environmentVariable('OPENAPI_UPDATE').getOrElse(''))
+	inputs.files(rootProject.file('openapi.json')).withPropertyName('openapiSpec')
+	systemProperty 'openapi.file', rootProject.file('openapi.json').absolutePath
 	def testDb = providers.environmentVariable('KORLEAGUER_TEST_DB').getOrElse('h2')
 	// 환경 변수는 테스트 작업의 입력으로 치지 않는다. 적어 두지 않으면 DB를 바꿔도 '바뀐 것 없음'으로 건너뛴다
 	inputs.property('testDb', testDb)

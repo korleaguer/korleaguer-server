@@ -1,0 +1,5011 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "KOR Leaguer API",
+    "version" : "1"
+  },
+  "paths" : {
+    "/api/home" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "home",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HomeResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/my" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "my",
+        "parameters" : [
+          {
+            "name" : "ids",
+            "in" : "query",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "name" : "days",
+            "in" : "query",
+            "required" : false,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int32",
+              "default" : 7
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MyPlayersResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/news" : {
+      "get" : {
+        "tags" : [
+          "news-controller"
+        ],
+        "operationId" : "list",
+        "parameters" : [
+          {
+            "name" : "player",
+            "in" : "query",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "name" : "before",
+            "in" : "query",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "name" : "q",
+            "in" : "query",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NewsListResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/news/{id}" : {
+      "get" : {
+        "tags" : [
+          "news-controller"
+        ],
+        "operationId" : "news",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NewsPageResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head" : {
+        "tags" : [
+          "news-controller"
+        ],
+        "operationId" : "newsExists",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "description" : "Bad Request"
+          },
+          "404" : {
+            "description" : "Not Found"
+          }
+        }
+      }
+    },
+    "/api/players" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "players",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PlayerSummary"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/players/timeline" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "timeline",
+        "parameters" : [
+          {
+            "name" : "season",
+            "in" : "query",
+            "required" : false,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerTimelineResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/players/{id}" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "player",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerPageResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "playerExists",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "description" : "Bad Request"
+          },
+          "404" : {
+            "description" : "Not Found"
+          }
+        }
+      }
+    },
+    "/api/players/{id}/compare" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "compare",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CompareResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/players/{id}/games/{gamePk}" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "gameDetail",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          {
+            "name" : "gamePk",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/players/{id}/games/{gamePk}/clips/{playId}" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "clip",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          {
+            "name" : "gamePk",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          {
+            "name" : "playId",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BaseballControllerClipResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found"
+          }
+        }
+      }
+    },
+    "/api/players/{id}/same-games" : {
+      "get" : {
+        "tags" : [
+          "baseball-controller"
+        ],
+        "operationId" : "sameGames",
+        "parameters" : [
+          {
+            "name" : "id",
+            "in" : "path",
+            "required" : true,
+            "schema" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SameGamesResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/records" : {
+      "get" : {
+        "tags" : [
+          "records-controller"
+        ],
+        "operationId" : "records",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecordsResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "BaseballControllerClipResponse" : {
+        "type" : "object",
+        "properties" : {
+          "mp4Url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "mp4Url"
+        ]
+      },
+      "CardFact" : {
+        "type" : "object",
+        "properties" : {
+          "tone" : {
+            "type" : "string",
+            "enum" : [
+              "HOT",
+              "COLD"
+            ]
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "tone",
+          "text"
+        ]
+      },
+      "CardPlay" : {
+        "type" : "object",
+        "properties" : {
+          "recent" : {
+            "type" : [
+              "array",
+              "null"
+            ],
+            "items" : {
+              "type" : "string",
+              "enum" : [
+                "STARTER",
+                "SUB",
+                "PLAYED",
+                "ABSENT"
+              ]
+            }
+          },
+          "after" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "RETURNED",
+              "CALLED_UP",
+              null
+            ]
+          },
+          "appearances14" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "daysSinceLast" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "recent",
+          "after",
+          "appearances14",
+          "daysSinceLast"
+        ]
+      },
+      "CardStatus" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [
+              "IL",
+              "RETURNED",
+              "CALLED_UP",
+              "MINORS",
+              "MINORS_IL",
+              "SUSPENDED",
+              "DFA",
+              "FA",
+              "SEASON_OVER",
+              "KBO"
+            ]
+          },
+          "since" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "days" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "level" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamName" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "lastGameDate" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "lastGameLevel" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "kind",
+          "since",
+          "days",
+          "level",
+          "teamName",
+          "lastGameDate",
+          "lastGameLevel"
+        ]
+      },
+      "CareerSeason" : {
+        "oneOf" : [
+          {
+            "$ref" : "#/components/schemas/CareerSeasonHitter"
+          },
+          {
+            "$ref" : "#/components/schemas/CareerSeasonPitcher"
+          }
+        ]
+      },
+      "CareerSeasonHitter" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "games" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "plateAppearances" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "homeRuns" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "ops" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "war" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          }
+        },
+        "required" : [
+          "season",
+          "teamKo",
+          "games",
+          "plateAppearances",
+          "avg",
+          "homeRuns",
+          "ops",
+          "wrcPlus",
+          "war"
+        ]
+      },
+      "CareerSeasonPitcher" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "games" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "inningsOuts" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "era" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "strikeouts" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "eraMinus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "war" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          }
+        },
+        "required" : [
+          "season",
+          "teamKo",
+          "games",
+          "inningsOuts",
+          "era",
+          "strikeouts",
+          "eraMinus",
+          "war"
+        ]
+      },
+      "CompareResponse" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "me" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/CompareResponseLine"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "others" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CompareResponseLine"
+            }
+          }
+        },
+        "required" : [
+          "season",
+          "playerId",
+          "me",
+          "others"
+        ]
+      },
+      "CompareResponseLine" : {
+        "type" : "object",
+        "properties" : {
+          "player" : {
+            "$ref" : "#/components/schemas/PlayerSummary"
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plateAppearances" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "homeRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rbi" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stolenBases" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ops" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          }
+        },
+        "required" : [
+          "player",
+          "games",
+          "plateAppearances",
+          "avg",
+          "homeRuns",
+          "rbi",
+          "stolenBases",
+          "ops",
+          "wrcPlus"
+        ]
+      },
+      "ErrorResponse" : {
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "error"
+        ]
+      },
+      "GameBatting" : {
+        "type" : "object",
+        "properties" : {
+          "atBats" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "homeRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rbi" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "walks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stolenBases" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "doubles" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "triples" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "hitByPitch" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "sacFlies" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "plateAppearances" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "strikeouts" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "atBats",
+          "hits",
+          "homeRuns",
+          "rbi",
+          "walks",
+          "stolenBases",
+          "doubles",
+          "triples",
+          "hitByPitch",
+          "sacFlies",
+          "plateAppearances",
+          "strikeouts"
+        ]
+      },
+      "GameBuzz" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "gameId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [
+              "PASSED",
+              "FIRST",
+              "STREAK",
+              "SEASON_BEST"
+            ]
+          },
+          "stat" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "homeRuns",
+              "hits",
+              "rbi",
+              "stolenBases",
+              "wins",
+              "saves",
+              "strikeouts",
+              null
+            ]
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "playerId",
+          "gameId",
+          "kind",
+          "stat",
+          "text"
+        ]
+      },
+      "GameDetail" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "gamePk" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [
+              "HITTER",
+              "PITCHER"
+            ]
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "clips" : {
+            "type" : "boolean"
+          },
+          "plays" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameDetailGamePlay"
+            }
+          },
+          "highlights" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameDetailGameHighlight"
+            }
+          }
+        },
+        "required" : [
+          "playerId",
+          "gamePk",
+          "role",
+          "available",
+          "clips",
+          "plays",
+          "highlights"
+        ]
+      },
+      "GameDetailGameHighlight" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "titleKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "durationSec" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "mp4Url" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "hlsUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "title",
+          "titleKo",
+          "durationSec",
+          "mp4Url",
+          "hlsUrl",
+          "imageUrl"
+        ]
+      },
+      "GameDetailGamePlay" : {
+        "type" : "object",
+        "properties" : {
+          "inning" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "top" : {
+            "type" : "boolean"
+          },
+          "resultKo" : {
+            "type" : "string"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "rbi" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "opponentName" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "balls" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "strikes" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "pitches" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pitchKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "pitchKmh" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "exitKmh" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "launchAngle" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "distanceM" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "playId" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "inning",
+          "top",
+          "resultKo",
+          "eventType",
+          "rbi",
+          "opponentName",
+          "balls",
+          "strikes",
+          "pitches",
+          "pitchKo",
+          "pitchKmh",
+          "exitKmh",
+          "launchAngle",
+          "distanceM",
+          "playId"
+        ]
+      },
+      "GameLine" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [
+              "HITTER",
+              "PITCHER"
+            ]
+          },
+          "gameId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startTimeKst" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "opponentKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "opponentAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "home" : {
+            "type" : "boolean"
+          },
+          "teamScore" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "opponentScore" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "result" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "W",
+              "L",
+              "T",
+              null
+            ]
+          },
+          "gameStatus" : {
+            "type" : "string"
+          },
+          "played" : {
+            "type" : "boolean"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "batting" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/GameBatting"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "pitching" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/GamePitching"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "lineup" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "STARTER",
+              "SUB",
+              null
+            ]
+          },
+          "seasonType" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "REGULAR",
+              "POSTSEASON",
+              null
+            ]
+          },
+          "photoTeamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "playerId",
+          "nameKo",
+          "photoUrl",
+          "role",
+          "gameId",
+          "startTimeKst",
+          "teamKo",
+          "teamAbbr",
+          "opponentKo",
+          "opponentAbbr",
+          "home",
+          "teamScore",
+          "opponentScore",
+          "result",
+          "gameStatus",
+          "played",
+          "summary",
+          "batting",
+          "pitching",
+          "lineup",
+          "seasonType",
+          "photoTeamAbbr"
+        ]
+      },
+      "GamePitching" : {
+        "type" : "object",
+        "properties" : {
+          "outs" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "inningsText" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "runs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "earnedRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "strikeouts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "win" : {
+            "type" : "boolean"
+          },
+          "loss" : {
+            "type" : "boolean"
+          },
+          "save" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "outs",
+          "inningsText",
+          "runs",
+          "earnedRuns",
+          "strikeouts",
+          "win",
+          "loss",
+          "save"
+        ]
+      },
+      "HitterSeason" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "photoTeamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minorGames" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "mainlyMinors" : {
+            "type" : "boolean"
+          },
+          "plateAppearances" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "atBats" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "doubles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "homeRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rbi" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "walks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "strikeouts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stolenBases" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "obp" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "slg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "ops" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "levelKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "playerId",
+          "nameKo",
+          "photoUrl",
+          "teamKo",
+          "teamAbbr",
+          "photoTeamAbbr",
+          "games",
+          "minorGames",
+          "mainlyMinors",
+          "plateAppearances",
+          "atBats",
+          "hits",
+          "doubles",
+          "homeRuns",
+          "rbi",
+          "walks",
+          "strikeouts",
+          "stolenBases",
+          "avg",
+          "obp",
+          "slg",
+          "ops",
+          "levelKo"
+        ]
+      },
+      "HomeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dataMode" : {
+            "type" : "string",
+            "enum" : [
+              "sample",
+              "mlb"
+            ]
+          },
+          "statsAvailable" : {
+            "type" : "boolean"
+          },
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recent" : {
+            "$ref" : "#/components/schemas/RecentGames"
+          },
+          "ranking" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/RankingMinimums"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "hitters" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HitterSeason"
+            }
+          },
+          "pitchers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PitcherSeason"
+            }
+          },
+          "minorHitters" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HitterSeason"
+            }
+          },
+          "minorPitchers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PitcherSeason"
+            }
+          },
+          "offseason" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/OffSeason"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "posting" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PostingSummary"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "dataMode",
+          "statsAvailable",
+          "season",
+          "generatedAt",
+          "recent",
+          "ranking",
+          "hitters",
+          "pitchers",
+          "minorHitters",
+          "minorPitchers",
+          "offseason",
+          "posting"
+        ]
+      },
+      "LevelTotals" : {
+        "type" : "object",
+        "properties" : {
+          "level" : {
+            "type" : "string"
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "atBats" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "homeRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "outs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inningsText" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "era" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "strikeouts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "saves" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "holds" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "level",
+          "games",
+          "atBats",
+          "hits",
+          "homeRuns",
+          "avg",
+          "outs",
+          "inningsText",
+          "era",
+          "strikeouts",
+          "saves",
+          "holds"
+        ]
+      },
+      "MinorGameLine" : {
+        "type" : "object",
+        "properties" : {
+          "gamePk" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startTimeKst" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "level" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "levelKo" : {
+            "type" : "string"
+          },
+          "teamId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "opponentId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "opponentKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "home" : {
+            "type" : [
+              "boolean",
+              "null"
+            ]
+          },
+          "teamScore" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "opponentScore" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "result" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "W",
+              "L",
+              "T",
+              null
+            ]
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "batting" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/GameBatting"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "pitching" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/GamePitching"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "seasonType" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "REGULAR",
+              "POSTSEASON",
+              null
+            ]
+          }
+        },
+        "required" : [
+          "gamePk",
+          "startTimeKst",
+          "level",
+          "levelKo",
+          "teamId",
+          "teamKo",
+          "opponentId",
+          "opponentKo",
+          "home",
+          "teamScore",
+          "opponentScore",
+          "result",
+          "summary",
+          "batting",
+          "pitching",
+          "seasonType"
+        ]
+      },
+      "MoveEntry" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "typeCode" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "labelKo" : {
+            "type" : "string"
+          },
+          "fromTeam" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "toTeam" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "toLevel" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "MLB",
+              "MINORS",
+              null
+            ]
+          }
+        },
+        "required" : [
+          "date",
+          "typeCode",
+          "labelKo",
+          "fromTeam",
+          "toTeam",
+          "toLevel"
+        ]
+      },
+      "MyPlayersResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dataMode" : {
+            "type" : "string",
+            "enum" : [
+              "sample",
+              "mlb"
+            ]
+          },
+          "statsAvailable" : {
+            "type" : "boolean"
+          },
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "fromKst" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "toKst" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "isFallback" : {
+            "type" : "boolean"
+          },
+          "players" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MyPlayersResponseMyPlayer"
+            }
+          },
+          "buzz" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameBuzz"
+            }
+          }
+        },
+        "required" : [
+          "dataMode",
+          "statsAvailable",
+          "season",
+          "generatedAt",
+          "days",
+          "fromKst",
+          "toKst",
+          "isFallback",
+          "players",
+          "buzz"
+        ]
+      },
+      "MyPlayersResponseMyPlayer" : {
+        "type" : "object",
+        "properties" : {
+          "player" : {
+            "$ref" : "#/components/schemas/PlayerSummary"
+          },
+          "fromKst" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "toKst" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "isFallback" : {
+            "type" : "boolean"
+          },
+          "hitting" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PeriodHitting"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "pitching" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PeriodPitching"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "streak" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "games" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameLine"
+            }
+          },
+          "status" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/CardStatus"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "play" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/CardPlay"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "fact" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/CardFact"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [
+              "RECENT",
+              "LAST_PLAYED",
+              "BEFORE_INJURY",
+              "REHAB",
+              "SEASON",
+              "NONE"
+            ]
+          },
+          "level" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "seasonTotals" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/MyPlayersResponseSeasonTotals"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "player",
+          "fromKst",
+          "toKst",
+          "isFallback",
+          "hitting",
+          "pitching",
+          "streak",
+          "games",
+          "status",
+          "play",
+          "fact",
+          "basis",
+          "level",
+          "seasonTotals"
+        ]
+      },
+      "MyPlayersResponseSeasonTotals" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "primary" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "MLB",
+              "MINORS",
+              null
+            ]
+          },
+          "mlb" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/LevelTotals"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "minors" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/LevelTotals"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "season",
+          "primary",
+          "mlb",
+          "minors"
+        ]
+      },
+      "NewsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "players" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NewsListResponseSubject"
+            }
+          },
+          "player" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NewsListResponseItem"
+            }
+          },
+          "next" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "query" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "topics" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NewsTopic"
+            }
+          },
+          "queryCount" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "players",
+          "player",
+          "items",
+          "next",
+          "query",
+          "topics",
+          "queryCount"
+        ]
+      },
+      "NewsListResponseItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "publisher" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "titleKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "alsoBy" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "who" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [
+          "id",
+          "title",
+          "url",
+          "publisher",
+          "publishedAt",
+          "titleKo",
+          "imageUrl",
+          "alsoBy",
+          "who"
+        ]
+      },
+      "NewsListResponseSubject" : {
+        "type" : "object",
+        "properties" : {
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "playerId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "posting" : {
+            "type" : "boolean"
+          },
+          "latestAt" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date-time"
+          }
+        },
+        "required" : [
+          "nameKo",
+          "photoUrl",
+          "playerId",
+          "posting",
+          "latestAt"
+        ]
+      },
+      "NewsPageResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "player" : {
+            "type" : "string"
+          },
+          "playerPhotoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "titleKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "publisher" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "imageUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "summary" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "lead" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "more" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryHeadline"
+            }
+          },
+          "alsoBy" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [
+          "id",
+          "player",
+          "playerPhotoUrl",
+          "title",
+          "titleKo",
+          "url",
+          "publisher",
+          "publishedAt",
+          "imageUrl",
+          "summary",
+          "lead",
+          "more",
+          "alsoBy"
+        ]
+      },
+      "NewsTopic" : {
+        "type" : "object",
+        "properties" : {
+          "word" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "word",
+          "count"
+        ]
+      },
+      "OffSeason" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextSeason" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextOpeningDay" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "daysToOpening" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "playerIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "report" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SeasonReport"
+            }
+          }
+        },
+        "required" : [
+          "season",
+          "nextSeason",
+          "nextOpeningDay",
+          "daysToOpening",
+          "playerIds",
+          "report"
+        ]
+      },
+      "PastTeamPhoto" : {
+        "type" : "object",
+        "properties" : {
+          "teamKo" : {
+            "type" : "string"
+          },
+          "years" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "photoUrl" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "teamKo",
+          "years",
+          "photoUrl"
+        ]
+      },
+      "PeriodHitting" : {
+        "type" : "object",
+        "properties" : {
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "atBats" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "homeRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rbi" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "walks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stolenBases" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "seasonAvg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "plusLevel" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "mixedLevels" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "games",
+          "atBats",
+          "hits",
+          "homeRuns",
+          "rbi",
+          "walks",
+          "stolenBases",
+          "avg",
+          "seasonAvg",
+          "wrcPlus",
+          "plusLevel",
+          "mixedLevels"
+        ]
+      },
+      "PeriodPitching" : {
+        "type" : "object",
+        "properties" : {
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inningsText" : {
+            "type" : "string"
+          },
+          "earnedRuns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "era" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "strikeouts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wins" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "losses" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "saves" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "seasonEra" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "eraPlus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "plusLevel" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "mixedLevels" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "games",
+          "outs",
+          "inningsText",
+          "earnedRuns",
+          "era",
+          "strikeouts",
+          "wins",
+          "losses",
+          "saves",
+          "seasonEra",
+          "eraPlus",
+          "plusLevel",
+          "mixedLevels"
+        ]
+      },
+      "PitcherSeason" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "photoTeamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minorGames" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "mainlyMinors" : {
+            "type" : "boolean"
+          },
+          "outs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inningsText" : {
+            "type" : "string"
+          },
+          "era" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "wins" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "losses" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "saves" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "strikeouts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "walks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hitsAllowed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "levelKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "playerId",
+          "nameKo",
+          "photoUrl",
+          "teamKo",
+          "teamAbbr",
+          "photoTeamAbbr",
+          "games",
+          "minorGames",
+          "mainlyMinors",
+          "outs",
+          "inningsText",
+          "era",
+          "wins",
+          "losses",
+          "saves",
+          "strikeouts",
+          "walks",
+          "hitsAllowed",
+          "levelKo"
+        ]
+      },
+      "PlayerPageResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dataMode" : {
+            "type" : "string",
+            "enum" : [
+              "sample",
+              "mlb"
+            ]
+          },
+          "statsAvailable" : {
+            "type" : "boolean"
+          },
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generatedAt" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date-time"
+          },
+          "player" : {
+            "$ref" : "#/components/schemas/PlayerPageResponsePlayerInfo"
+          },
+          "hitting" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/HitterSeason"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "pitching" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PitcherSeason"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "minorHitting" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/HitterSeason"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "minorPitching" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PitcherSeason"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "games" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameLine"
+            }
+          },
+          "moves" : {
+            "type" : [
+              "array",
+              "null"
+            ],
+            "items" : {
+              "$ref" : "#/components/schemas/MoveEntry"
+            }
+          },
+          "saber" : {
+            "anyOf" : [
+              {
+                "oneOf" : [
+                  {
+                    "$ref" : "#/components/schemas/PlayerSaberHitter"
+                  },
+                  {
+                    "$ref" : "#/components/schemas/PlayerSaberPitcher"
+                  }
+                ]
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "seasons" : {
+            "type" : "array",
+            "items" : {
+              "oneOf" : [
+                {
+                  "$ref" : "#/components/schemas/CareerSeasonHitter"
+                },
+                {
+                  "$ref" : "#/components/schemas/CareerSeasonPitcher"
+                }
+              ]
+            }
+          },
+          "news" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryHeadline"
+            }
+          },
+          "minorGames" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MinorGameLine"
+            }
+          }
+        },
+        "required" : [
+          "dataMode",
+          "statsAvailable",
+          "season",
+          "generatedAt",
+          "player",
+          "hitting",
+          "pitching",
+          "minorHitting",
+          "minorPitching",
+          "games",
+          "moves",
+          "saber",
+          "seasons",
+          "news",
+          "minorGames"
+        ]
+      },
+      "PlayerPageResponsePlayerInfo" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "mlbUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "nameEn" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [
+              "HITTER",
+              "PITCHER"
+            ]
+          },
+          "position" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "positionKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamEn" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "birthPlace" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "jersey" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "birthDate" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "age" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "heightCm" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "weightKg" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "batsThrowsKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "debutYear" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "careerKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "level" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "MLB",
+              "MINORS",
+              null
+            ]
+          },
+          "levelTeam" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "freeAgent" : {
+            "type" : "boolean"
+          },
+          "returnedKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "careerPhotos" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PastTeamPhoto"
+            }
+          },
+          "photoTeamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "id",
+          "nameKo",
+          "photoUrl",
+          "mlbUrl",
+          "nameEn",
+          "role",
+          "position",
+          "positionKo",
+          "teamKo",
+          "teamAbbr",
+          "teamEn",
+          "birthPlace",
+          "jersey",
+          "birthDate",
+          "age",
+          "heightCm",
+          "weightKg",
+          "batsThrowsKo",
+          "debutYear",
+          "careerKo",
+          "level",
+          "levelTeam",
+          "freeAgent",
+          "returnedKo",
+          "careerPhotos",
+          "photoTeamAbbr"
+        ]
+      },
+      "PlayerSaber" : {
+        "oneOf" : [
+          {
+            "$ref" : "#/components/schemas/PlayerSaberHitter"
+          },
+          {
+            "$ref" : "#/components/schemas/PlayerSaberPitcher"
+          }
+        ]
+      },
+      "PlayerSaberHitter" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "war" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "poolSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plateAppearances" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "batting" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "baseRunning" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "fielding" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "percentiles" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PlayerSaberHitterPercentiles"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "season",
+          "war",
+          "poolSize",
+          "plateAppearances",
+          "wrcPlus",
+          "batting",
+          "baseRunning",
+          "fielding",
+          "percentiles"
+        ]
+      },
+      "PlayerSaberHitterPercentiles" : {
+        "type" : "object",
+        "properties" : {
+          "overall" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "batting" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "baseRunning" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "fielding" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "overall",
+          "batting",
+          "baseRunning",
+          "fielding"
+        ]
+      },
+      "PlayerSaberPitcher" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "war" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "poolSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inningsOuts" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "eraMinus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "eraPlus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "fipMinus" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "strikeoutRate" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "walkRate" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "percentiles" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PlayerSaberPitcherPercentiles"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "season",
+          "war",
+          "poolSize",
+          "inningsOuts",
+          "eraMinus",
+          "eraPlus",
+          "fipMinus",
+          "strikeoutRate",
+          "walkRate",
+          "percentiles"
+        ]
+      },
+      "PlayerSaberPitcherPercentiles" : {
+        "type" : "object",
+        "properties" : {
+          "overall" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "runPrevention" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "strikeouts" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "walks" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "overall",
+          "runPrevention",
+          "strikeouts",
+          "walks"
+        ]
+      },
+      "PlayerSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "nameEn" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [
+              "HITTER",
+              "PITCHER"
+            ]
+          },
+          "position" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "positionKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "age" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "jersey" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "level" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "enum" : [
+              "MLB",
+              "MINORS",
+              null
+            ]
+          },
+          "levelTeam" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "freeAgent" : {
+            "type" : "boolean"
+          },
+          "returnedKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "photoTeamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "id",
+          "nameKo",
+          "photoUrl",
+          "nameEn",
+          "role",
+          "position",
+          "positionKo",
+          "teamKo",
+          "teamAbbr",
+          "age",
+          "jersey",
+          "level",
+          "levelTeam",
+          "freeAgent",
+          "returnedKo",
+          "photoTeamAbbr"
+        ]
+      },
+      "PlayerTimelineResponse" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "seasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "today" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "inSeason" : {
+            "type" : "boolean"
+          },
+          "players" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlayerTimelineResponsePlayerTimeline"
+            }
+          }
+        },
+        "required" : [
+          "season",
+          "seasons",
+          "from",
+          "to",
+          "today",
+          "inSeason",
+          "players"
+        ]
+      },
+      "PlayerTimelineResponsePlayerTimeline" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "segments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TimelineSegment"
+            }
+          },
+          "moves" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MoveEntry"
+            }
+          },
+          "lastMoveOn" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "stat" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PlayerTimelineResponseStat"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "playerId",
+          "segments",
+          "moves",
+          "lastMoveOn",
+          "stat"
+        ]
+      },
+      "PlayerTimelineResponseStat" : {
+        "type" : "object",
+        "properties" : {
+          "level" : {
+            "type" : "string",
+            "enum" : [
+              "MLB",
+              "MINORS"
+            ]
+          },
+          "levelKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "eraPlus" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "era" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          }
+        },
+        "required" : [
+          "level",
+          "levelKo",
+          "games",
+          "wrcPlus",
+          "avg",
+          "eraPlus",
+          "era"
+        ]
+      },
+      "PostingSummary" : {
+        "type" : "object",
+        "properties" : {
+          "players" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryPlayer"
+            }
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryPast"
+            }
+          }
+        },
+        "required" : [
+          "players",
+          "history"
+        ]
+      },
+      "PostingSummaryDeal" : {
+        "type" : "object",
+        "properties" : {
+          "mlbTeamId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "mlbTeamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "agreedOn" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "years" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "guaranteedUsd" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "krwPerUsd" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          }
+        },
+        "required" : [
+          "mlbTeamId",
+          "mlbTeamKo",
+          "agreedOn",
+          "years",
+          "guaranteedUsd",
+          "krwPerUsd"
+        ]
+      },
+      "PostingSummaryHeadline" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "publisher" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "titleKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "lead" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "summary" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "alsoBy" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [
+          "id",
+          "title",
+          "url",
+          "publisher",
+          "publishedAt",
+          "titleKo",
+          "lead",
+          "summary",
+          "imageUrl",
+          "alsoBy"
+        ]
+      },
+      "PostingSummaryLinkedArticle" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "titleKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "publisher" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "imageUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "alsoBy" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "reason" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "reasonName" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "id",
+          "title",
+          "titleKo",
+          "publisher",
+          "publishedAt",
+          "imageUrl",
+          "alsoBy",
+          "reason",
+          "reasonName"
+        ]
+      },
+      "PostingSummaryLinkedTeam" : {
+        "type" : "object",
+        "properties" : {
+          "abbreviation" : {
+            "type" : "string"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "linked" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "doubted" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "today" : {
+            "type" : "boolean"
+          },
+          "articles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryLinkedArticle"
+            }
+          }
+        },
+        "required" : [
+          "abbreviation",
+          "nameKo",
+          "linked",
+          "doubted",
+          "today",
+          "articles"
+        ]
+      },
+      "PostingSummaryLinkedTeams" : {
+        "type" : "object",
+        "properties" : {
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "teams" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryLinkedTeam"
+            }
+          }
+        },
+        "required" : [
+          "days",
+          "teams"
+        ]
+      },
+      "PostingSummaryPast" : {
+        "type" : "object",
+        "properties" : {
+          "nameKo" : {
+            "type" : "string"
+          },
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deadline" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "daysBeforeDeadline" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "deal" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PostingSummaryDeal"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "nameKo",
+          "season",
+          "deadline",
+          "daysBeforeDeadline",
+          "deal",
+          "photoUrl"
+        ]
+      },
+      "PostingSummaryPlayer" : {
+        "type" : "object",
+        "properties" : {
+          "nameKo" : {
+            "type" : "string"
+          },
+          "kboTeam" : {
+            "type" : "string"
+          },
+          "positionKo" : {
+            "type" : "string"
+          },
+          "birthYear" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [
+              "UPCOMING",
+              "NEGOTIATING",
+              "SIGNED",
+              "NO_DEAL",
+              "CLOSED"
+            ]
+          },
+          "windowOpensAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "deadlineAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "daysLeft" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "elapsedRatio" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "deal" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PostingSummaryDeal"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "news" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryHeadline"
+            }
+          },
+          "linkedTeams" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PostingSummaryLinkedTeams"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "nameKo",
+          "kboTeam",
+          "positionKo",
+          "birthYear",
+          "photoUrl",
+          "status",
+          "windowOpensAt",
+          "deadlineAt",
+          "daysLeft",
+          "elapsedRatio",
+          "deal",
+          "news",
+          "linkedTeams"
+        ]
+      },
+      "RankingMinimums" : {
+        "type" : "object",
+        "properties" : {
+          "teamGames" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minPlateAppearances" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minOuts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minInningsText" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "teamGames",
+          "minPlateAppearances",
+          "minOuts",
+          "minInningsText"
+        ]
+      },
+      "RecentGames" : {
+        "type" : "object",
+        "properties" : {
+          "isFallback" : {
+            "type" : "boolean"
+          },
+          "dateKst" : {
+            "type" : [
+              "string",
+              "null"
+            ],
+            "format" : "date"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameLine"
+            }
+          },
+          "buzz" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GameBuzz"
+            }
+          }
+        },
+        "required" : [
+          "isFallback",
+          "dateKst",
+          "lines",
+          "buzz"
+        ]
+      },
+      "RecordBest" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "group" : {
+            "type" : "string",
+            "enum" : [
+              "HITTING",
+              "PITCHING"
+            ]
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordSeasonRow"
+            }
+          }
+        },
+        "required" : [
+          "key",
+          "label",
+          "group",
+          "unit",
+          "rows"
+        ]
+      },
+      "RecordCategory" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "group" : {
+            "type" : "string",
+            "enum" : [
+              "HITTING",
+              "PITCHING"
+            ]
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "leaders" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordLeader"
+            }
+          }
+        },
+        "required" : [
+          "key",
+          "label",
+          "group",
+          "unit",
+          "leaders"
+        ]
+      },
+      "RecordLeader" : {
+        "type" : "object",
+        "properties" : {
+          "rank" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "playerId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "mlbId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "firstSeason" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lastSeason" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "active" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "rank",
+          "playerId",
+          "mlbId",
+          "nameKo",
+          "photoUrl",
+          "value",
+          "firstSeason",
+          "lastSeason",
+          "active"
+        ]
+      },
+      "RecordNext" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "mlbId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rank" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "targetNameKo" : {
+            "type" : "string"
+          },
+          "targetValue" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "targetActive" : {
+            "type" : "boolean"
+          },
+          "toPass" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rankAfter" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "playerId",
+          "mlbId",
+          "nameKo",
+          "photoUrl",
+          "category",
+          "label",
+          "unit",
+          "value",
+          "rank",
+          "targetNameKo",
+          "targetValue",
+          "targetActive",
+          "toPass",
+          "rankAfter"
+        ]
+      },
+      "RecordPassed" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "mlbId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "gameId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dateKst" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "passedNameKo" : {
+            "type" : "string"
+          },
+          "passedValue" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [
+          "playerId",
+          "mlbId",
+          "nameKo",
+          "photoUrl",
+          "category",
+          "label",
+          "unit",
+          "gameId",
+          "dateKst",
+          "passedNameKo",
+          "passedValue"
+        ]
+      },
+      "RecordSeasonRow" : {
+        "type" : "object",
+        "properties" : {
+          "rank" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "playerId" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int64"
+          },
+          "mlbId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "active" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "rank",
+          "playerId",
+          "mlbId",
+          "nameKo",
+          "season",
+          "value",
+          "active"
+        ]
+      },
+      "RecordsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dataMode" : {
+            "type" : "string",
+            "enum" : [
+              "sample",
+              "mlb"
+            ]
+          },
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "categories" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordCategory"
+            }
+          },
+          "next" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordNext"
+            }
+          },
+          "passed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPassed"
+            }
+          },
+          "singleSeason" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordBest"
+            }
+          }
+        },
+        "required" : [
+          "dataMode",
+          "season",
+          "generatedAt",
+          "categories",
+          "next",
+          "passed",
+          "singleSeason"
+        ]
+      },
+      "SameGamesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "season" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pairs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SameGamesResponsePair"
+            }
+          }
+        },
+        "required" : [
+          "season",
+          "playerId",
+          "pairs"
+        ]
+      },
+      "SameGamesResponseMeeting" : {
+        "type" : "object",
+        "properties" : {
+          "mine" : {
+            "$ref" : "#/components/schemas/GameLine"
+          },
+          "other" : {
+            "$ref" : "#/components/schemas/GameLine"
+          }
+        },
+        "required" : [
+          "mine",
+          "other"
+        ]
+      },
+      "SameGamesResponseOther" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nameKo" : {
+            "type" : "string"
+          },
+          "photoUrl" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "photoTeamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamAbbr" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "playerId",
+          "nameKo",
+          "photoUrl",
+          "photoTeamAbbr",
+          "teamAbbr"
+        ]
+      },
+      "SameGamesResponsePair" : {
+        "type" : "object",
+        "properties" : {
+          "other" : {
+            "$ref" : "#/components/schemas/SameGamesResponseOther"
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wins" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "losses" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "meetings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SameGamesResponseMeeting"
+            }
+          }
+        },
+        "required" : [
+          "other",
+          "games",
+          "wins",
+          "losses",
+          "teamKo",
+          "meetings"
+        ]
+      },
+      "SeasonReport" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tier" : {
+            "type" : "string",
+            "enum" : [
+              "GOOD",
+              "SHORT_GOOD",
+              "SOLID",
+              "MINORS",
+              "SHORT",
+              "POOR"
+            ]
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "headline" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "level" : {
+            "type" : "string",
+            "enum" : [
+              "MLB",
+              "MINORS"
+            ]
+          },
+          "war" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "eraPlus" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "statLevelKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SeasonReportMonth"
+            }
+          },
+          "winterMoves" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SeasonReportWinterMove"
+            }
+          },
+          "news" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PostingSummaryHeadline"
+            }
+          },
+          "linkedTeams" : {
+            "anyOf" : [
+              {
+                "$ref" : "#/components/schemas/PostingSummaryLinkedTeams"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "saber" : {
+            "anyOf" : [
+              {
+                "oneOf" : [
+                  {
+                    "$ref" : "#/components/schemas/PlayerSaberHitter"
+                  },
+                  {
+                    "$ref" : "#/components/schemas/PlayerSaberPitcher"
+                  }
+                ]
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "playerId",
+          "tier",
+          "label",
+          "headline",
+          "reason",
+          "level",
+          "war",
+          "wrcPlus",
+          "eraPlus",
+          "statLevelKo",
+          "months",
+          "winterMoves",
+          "news",
+          "linkedTeams",
+          "saber"
+        ]
+      },
+      "SeasonReportMonth" : {
+        "type" : "object",
+        "properties" : {
+          "month" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [
+              "MLB",
+              "MINORS",
+              "INJURED",
+              "FREE_AGENT",
+              "NONE"
+            ]
+          },
+          "levelKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "games" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "avg" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "wrcPlus" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "era" : {
+            "type" : [
+              "number",
+              "null"
+            ],
+            "format" : "double"
+          },
+          "eraPlus" : {
+            "type" : [
+              "integer",
+              "null"
+            ],
+            "format" : "int32"
+          },
+          "few" : {
+            "type" : "boolean"
+          },
+          "hot" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "month",
+          "kind",
+          "levelKo",
+          "games",
+          "avg",
+          "wrcPlus",
+          "era",
+          "eraPlus",
+          "few",
+          "hot"
+        ]
+      },
+      "SeasonReportWinterMove" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "date",
+          "label"
+        ]
+      },
+      "TimelineSegment" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [
+              "MLB",
+              "MINORS",
+              "INJURED",
+              "NO_TEAM"
+            ]
+          },
+          "levelKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "teamKo" : {
+            "type" : [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required" : [
+          "from",
+          "to",
+          "kind",
+          "levelKo",
+          "teamKo"
+        ]
+      }
+    }
+  }
+}

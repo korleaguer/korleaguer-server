@@ -9,6 +9,8 @@ import com.korleaguer.api.player.PlayerSummary;
 import com.korleaguer.api.records.GameBuzz;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -24,7 +26,7 @@ import java.util.List;
  * statsAvailable은 늘 true다(MLB 공식 API는 경기별 선수 기록을 늘 준다). 웹 호환 때문에 남겨 둔다.
  */
 public record MyPlayersResponse(
-        String dataMode,
+        @Schema(allowableValues = {"sample", "mlb"}) String dataMode,
         boolean statsAvailable,
         int season,
         Instant generatedAt,
@@ -54,16 +56,16 @@ public record MyPlayersResponse(
             LocalDate fromKst,
             LocalDate toKst,
             @JsonProperty("isFallback") boolean isFallback,
-            PeriodHitting hitting,
-            PeriodPitching pitching,
-            Integer streak,
+            @Nullable PeriodHitting hitting,
+            @Nullable PeriodPitching pitching,
+            @Nullable Integer streak,
             List<GameLine> games,
-            CardStatus status,
-            CardPlay play,
-            CardFact fact,
+            @Nullable CardStatus status,
+            @Nullable CardPlay play,
+            @Nullable CardFact fact,
             Basis basis,
-            String level,
-            SeasonTotals seasonTotals) {
+            @Nullable String level,
+            @Nullable SeasonTotals seasonTotals) {
     }
 
     /**
@@ -85,7 +87,8 @@ public record MyPlayersResponse(
      * 시즌 합계(FA·시즌 끝·KBO). primary는 크게 보일 쪽(MLB: 메이저 20경기 이상이거나 메이저가 더 많을 때, 아니면 MINORS).
      * mlb·minors는 그 단계 경기가 없으면 null이다.
      */
-    public record SeasonTotals(int season, String primary, LevelTotals mlb, LevelTotals minors) {
+    public record SeasonTotals(int season, @Schema(allowableValues = {"MLB", "MINORS"}) @Nullable String primary,
+                                @Nullable LevelTotals mlb, @Nullable LevelTotals minors) {
     }
 
 }

@@ -3,6 +3,7 @@ package com.korleaguer.api.web;
 import com.korleaguer.domain.Photo;
 import com.korleaguer.photo.PhotoLoader;
 import com.korleaguer.photo.PhotoSources;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -42,6 +43,8 @@ public class PhotoController {
         this.store = store;
     }
 
+    // 사진 파일(JSON 아님)이라 응답 모양 명세에 넣지 않는다. 웹은 이 주소를 그림 주소로만 쓴다
+    @Hidden
     @GetMapping("/api/photos/{key}")
     public ResponseEntity<byte[]> photo(@PathVariable String key,
                                         @RequestParam(value = "v", required = false) String version,

@@ -1,6 +1,7 @@
 package com.korleaguer.api.offseason;
 
 import com.korleaguer.api.season.SeasonReport;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -16,7 +17,7 @@ import java.util.List;
  * @param report         선수별 시즌 성적표(SeasonReport). 좋은 시즌 먼저, 그 안에서 메이저 경기 많은 순.
  *                       만들지 못했으면 빈 목록
  */
-public record OffSeason(int season, int nextSeason, LocalDate nextOpeningDay, Integer daysToOpening,
+public record OffSeason(int season, int nextSeason, @Nullable LocalDate nextOpeningDay, @Nullable Integer daysToOpening,
                         List<Long> playerIds, List<SeasonReport> report) {
 
     /** 성적표만 바꾼 사본 */

@@ -5,6 +5,7 @@ import com.korleaguer.api.player.TeamLabels;
 import com.korleaguer.domain.PlayerCareerSeason;
 import com.korleaguer.domain.PlayerSeasonMetric;
 import com.korleaguer.support.BaseballMath;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -31,12 +32,27 @@ public sealed interface CareerSeason permits CareerSeason.Hitter, CareerSeason.P
     }
 
     /** 타자 한 시즌: 경기·타석·타율·홈런·OPS·wRC+·WAR */
-    record Hitter(int season, String teamKo, Integer games, Integer plateAppearances, Double avg, Integer homeRuns,
-                  Double ops, Double wrcPlus, Double war) implements CareerSeason {
+    record Hitter(
+            int season,
+            @Nullable String teamKo,
+            @Nullable Integer games,
+            @Nullable Integer plateAppearances,
+            @Nullable Double avg,
+            @Nullable Integer homeRuns,
+            @Nullable Double ops,
+            @Nullable Double wrcPlus,
+            @Nullable Double war) implements CareerSeason {
     }
 
     /** 투수 한 시즌: 경기·이닝(아웃 수)·평균자책점·삼진·ERA-·WAR */
-    record Pitcher(int season, String teamKo, Integer games, Integer inningsOuts, Double era, Integer strikeouts,
-                   Double eraMinus, Double war) implements CareerSeason {
+    record Pitcher(
+            int season,
+            @Nullable String teamKo,
+            @Nullable Integer games,
+            @Nullable Integer inningsOuts,
+            @Nullable Double era,
+            @Nullable Integer strikeouts,
+            @Nullable Double eraMinus,
+            @Nullable Double war) implements CareerSeason {
     }
 }
