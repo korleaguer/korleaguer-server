@@ -189,6 +189,11 @@ public class MyPlayersService {
         }
     }
 
+    /** 끝난 경기인지. 진행 중 경기의 중간 기록은 연속 기록·소식에 넣지 않는다 */
+    private static boolean finished(Appearance appearance, Instant now) {
+        return !appearance.getGame().getStartTimeUtc().isAfter(now) && appearance.getGame().isFinal();
+    }
+
     /** 고른 선수들의 카드를 계산한다(캐시 없이). 같은 기간인 선수끼리 묶어 DB를 한 번에 읽는다 */
     private List<MyPlayersResponse.MyPlayer> cards(List<Long> requested, int days) {
         Instant now = clock.instant();
@@ -202,7 +207,7 @@ public class MyPlayersService {
         // 끝난 경기만 본다(진행 중 경기의 중간 기록으로 연속 기록 소식이 사라지거나 미리 붙지 않게, 출전 줄과 같은 기준).
         Map<Long, List<Appearance>> majorSeason = anyMembers ? oldestFirst(byPlayer(
                 appearances.findSeason(ids(members), season, STREAK_SEASON_TYPES).stream()
-                        .filter(a -> !a.getGame().getStartTimeUtc().isAfter(now) && a.getGame().isFinal())
+                        .filter(a -> finished(a, now))
                         .toList())) : Map.of();
         Map<Long, List<MinorGameLog>> minorSeason = anyMembers ? minorGameLogs.findSeason(ids(members), season).stream()
                 .filter(g -> !g.getGameDate().isAfter(usToday))
@@ -370,7 +375,7 @@ public class MyPlayersService {
      * @param minorSeason 이번 시즌 마이너 경기(오늘 미국 날짜까지)
      * @param lines       카드 기간 안 경기 한 줄 기록(결장·경기 전 포함, 최신순)
      * @param periodGames 카드 기간 안 메이저 출전(정규+포스트, 시범경기 뺌). 기간 합계·wRC+·ERA+용
-     * @param cardSeason  카드 기간이 속한 시즌의 메이저 출전(정규+포스트, 진행 중 경기 포함, 오래된 것부터). 연속 기록·시즌 비교용.
+     * @param cardSeason  카드 기간이 속한 시즌의 메이저 출전(정규+포스트, 진행 중 경기 포함, 오래된 것부터). 연속 기록(끝난 경기만)·시즌 비교용.
      *                    개막 직후 지난 시즌 끝으로 당긴 카드는 지난 시즌이라 majorSeason과 다를 수 있다
      */
     private record Card(RosterMember member, Period range, CardStatuses.Resolved resolved, List<Appearance> majorSeason,
@@ -399,9 +404,11 @@ public class MyPlayersService {
         List<Appearance> regular = card.cardSeason().stream()
                 .filter(a -> REGULAR.equals(a.getGame().getSeasonType()))
                 .toList();
-        // 연속 기록은 한 줄 소식('5경기 연속 안타')과 같은 규칙으로 센다. 세는 경기는 다르다: 이 숫자는 카드 기간이
-        // 속한 시즌의 메이저 출전(진행 중 경기 포함)이고, 소식은 이번 시즌 끝난 경기(마이너 카드면 마이너 경기)다
-        Integer streak = FormFacts.streak(card.cardSeason().stream().map(MinorRecords::stat).toList(), pitcher);
+        // 연속 기록은 한 줄 소식('5경기 연속 안타')과 같은 규칙, 같은 경기(끝난 경기)로 센다. 마이너 카드는 아래에서 마이너 경기로 센다
+        int streak = FormFacts.streak(card.cardSeason().stream()
+                .filter(a -> finished(a, now))
+                .map(MinorRecords::stat)
+                .toList(), pitcher);
         // 기간 wRC+·ERA+의 기준은 카드 기간이 속한 시즌의 메이저 리그 평균이다(마이너·재활 기록은 MinorRecords가 따로 만들고 값이 없다)
         LeagueEnv league = leagues.get(currentSeason.seasonAt(range.to().minusMillis(1)),
                 LeagueEnv.MLB);
@@ -426,6 +433,8 @@ public class MyPlayersService {
         // 마이너(부상자 명단·출장 정지·지명 할당 포함): 큰 숫자·막대를 마이너 기록으로
         if (inMinors(card, player)) {
             List<MinorGameLog> minor = card.minorSeason();
+            // 연속 기록도 소식과 같은 마이너 경기로 센다(큰 숫자·막대와 같은 기록)
+            int minorStreak = FormFacts.streak(minorStats, pitcher);
             // 지금 단계 기간의 경기. 마이너 경기 숫자의 날짜는 공식 날짜라 since(minorStats, ...)와 같은 경기다
             LocalDate stintStart = card.resolved().stintStart();
             List<MinorGameLog> stintGames = stintStart == null ? minor
@@ -442,15 +451,15 @@ public class MyPlayersService {
             MinorWindow window = joinedNoGames ? null : minorWindow(minor, today, days);
             if (window == null) {
                 return new MyPlayersResponse.MyPlayer(summary, range.fromKst(), range.toKst(), range.fallback(), null,
-                        null, streak, List.of(), status, null, fact, MyPlayersResponse.Basis.NONE, null, null);
+                        null, minorStreak, List.of(), status, null, fact, MyPlayersResponse.Basis.NONE, null, null);
             }
             // 마이너 부상자 명단은 오른 날을 믿기 어려워(배지에도 날수를 붙이지 않는다) "다치기 전"이라 하지 않는다.
             MyPlayersResponse.Basis basis = window.fallback() ? MyPlayersResponse.Basis.LAST_PLAYED
                     : MyPlayersResponse.Basis.RECENT;
             return new MyPlayersResponse.MyPlayer(summary, window.fromKst(), window.toKst(), window.fallback(),
                     pitcher ? null : MinorRecords.hitting(window.games(), minor, minorLeague(window.games())),
-                    pitcher ? MinorRecords.pitching(window.games(), minor, minorLeague(window.games())) : null, streak,
-                    MinorRecords.lines(player, photoUrl, photoTeam, window.games()), status, null, fact, basis,
+                    pitcher ? MinorRecords.pitching(window.games(), minor, minorLeague(window.games())) : null,
+                    minorStreak, MinorRecords.lines(player, photoUrl, photoTeam, window.games()), status, null, fact, basis,
                     window.games().getLast().getLevel(), null);
         }
 
