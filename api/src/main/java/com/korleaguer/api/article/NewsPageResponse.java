@@ -1,5 +1,7 @@
 package com.korleaguer.api.article;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -18,9 +20,20 @@ import java.util.List;
  * @param alsoBy         이 기사와 같은 글을 실은 다른 언론사(낸 순, 이 기사의 언론사는 빼고). 뉴스 탭 목록 한 줄의
  *                       alsoBy와 같은 계산이다(SameArticles.Group.alsoBy). 없으면 빈 목록
  */
-public record NewsPageResponse(long id, String player, String playerPhotoUrl, String title, String titleKo, String url,
-                               String publisher, Instant publishedAt, String imageUrl, String summary, String lead,
-                               List<PostingSummary.Headline> more, List<String> alsoBy) {
+public record NewsPageResponse(
+        long id,
+        String player,
+        @Nullable String playerPhotoUrl,
+        String title,
+        @Nullable String titleKo,
+        String url,
+        String publisher,
+        Instant publishedAt,
+        @Nullable String imageUrl,
+        @Nullable String summary,
+        @Nullable String lead,
+        List<PostingSummary.Headline> more,
+        List<String> alsoBy) {
 
     public NewsPageResponse {
         alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);

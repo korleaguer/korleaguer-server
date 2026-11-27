@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 기간 투구 합계. outs·earnedRuns·era는 아웃 수를 아는 경기만 센다(아웃이 0이면 era는 null).
  * seasonEra는 선수 페이지와 같은 정규시즌 평균자책점이다.
@@ -11,13 +13,13 @@ public record PeriodPitching(
         int outs,
         String inningsText,
         int earnedRuns,
-        Double era,
+        @Nullable Double era,
         int strikeouts,
         int wins,
         int losses,
         int saves,
-        Double seasonEra,
-        Double eraPlus,
-        String plusLevel,
+        @Nullable Double seasonEra,
+        @Nullable Double eraPlus,
+        @Nullable String plusLevel,
         boolean mixedLevels) {
 }

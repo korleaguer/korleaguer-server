@@ -1,5 +1,7 @@
 package com.korleaguer.api.season;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 타자 시즌 성적(메이저 정규시즌). 비율은 소수(0.276)이고 계산할 수 없으면 null이다. photoUrl은 공식 사진 주소(없으면 null), photoTeamAbbr은 그 사진 속 유니폼 팀 약어(없으면 null)다.
  * minorGames는 같은 시즌 마이너(트리플A ~ 루키)에서 타자로 나온 경기 수(받기 전이면 0),
@@ -9,10 +11,10 @@ package com.korleaguer.api.season;
 public record HitterSeason(
         long playerId,
         String nameKo,
-        String photoUrl,
-        String teamKo,
-        String teamAbbr,
-        String photoTeamAbbr,
+        @Nullable String photoUrl,
+        @Nullable String teamKo,
+        @Nullable String teamAbbr,
+        @Nullable String photoTeamAbbr,
         int games,
         int minorGames,
         boolean mainlyMinors,
@@ -25,9 +27,9 @@ public record HitterSeason(
         int walks,
         int strikeouts,
         int stolenBases,
-        Double avg,
-        Double obp,
-        Double slg,
-        Double ops,
-        String levelKo) {
+        @Nullable Double avg,
+        @Nullable Double obp,
+        @Nullable Double slg,
+        @Nullable Double ops,
+        @Nullable String levelKo) {
 }

@@ -13,6 +13,8 @@ import com.korleaguer.api.season.PlayerSaber;
 
 import com.korleaguer.domain.Level;
 import com.korleaguer.domain.Role;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -38,18 +40,18 @@ import java.util.List;
  * statsAvailable은 늘 true다(MLB 공식 API는 경기별 선수 기록을 늘 준다). 웹 호환 때문에 남겨 둔다.
  */
 public record PlayerPageResponse(
-        String dataMode,
+        @Schema(allowableValues = {"sample", "mlb"}) String dataMode,
         boolean statsAvailable,
         int season,
-        Instant generatedAt,
+        @Nullable Instant generatedAt,
         PlayerInfo player,
-        HitterSeason hitting,
-        PitcherSeason pitching,
-        HitterSeason minorHitting,
-        PitcherSeason minorPitching,
+        @Nullable HitterSeason hitting,
+        @Nullable PitcherSeason pitching,
+        @Nullable HitterSeason minorHitting,
+        @Nullable PitcherSeason minorPitching,
         List<GameLine> games,
-        List<MoveEntry> moves,
-        PlayerSaber saber,
+        @Nullable List<MoveEntry> moves,
+        @Nullable PlayerSaber saber,
         List<CareerSeason> seasons,
         List<PostingSummary.Headline> news,
         List<MinorGameLine> minorGames) {
@@ -67,30 +69,30 @@ public record PlayerPageResponse(
     public record PlayerInfo(
             long id,
             String nameKo,
-            String photoUrl,
-            String mlbUrl,
-            String nameEn,
+            @Nullable String photoUrl,
+            @Nullable String mlbUrl,
+            @Nullable String nameEn,
             Role role,
-            String position,
-            String positionKo,
-            String teamKo,
-            String teamAbbr,
-            String teamEn,
-            String birthPlace,
-            String jersey,
-            LocalDate birthDate,
-            Integer age,
-            Integer heightCm,
-            Integer weightKg,
-            String batsThrowsKo,
-            Integer debutYear,
-            String careerKo,
-            Level level,
-            String levelTeam,
+            @Nullable String position,
+            @Nullable String positionKo,
+            @Nullable String teamKo,
+            @Nullable String teamAbbr,
+            @Nullable String teamEn,
+            @Nullable String birthPlace,
+            @Nullable String jersey,
+            @Nullable LocalDate birthDate,
+            @Nullable Integer age,
+            @Nullable Integer heightCm,
+            @Nullable Integer weightKg,
+            @Nullable String batsThrowsKo,
+            @Nullable Integer debutYear,
+            @Nullable String careerKo,
+            @Nullable Level level,
+            @Nullable String levelTeam,
             boolean freeAgent,
-            String returnedKo,
+            @Nullable String returnedKo,
             List<PastTeamPhoto> careerPhotos,
-            String photoTeamAbbr) {
+            @Nullable String photoTeamAbbr) {
     }
 
 }

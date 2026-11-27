@@ -1,5 +1,7 @@
 package com.korleaguer.api.card;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.LocalDate;
 
 /**
@@ -15,12 +17,12 @@ import java.time.LocalDate;
  */
 public record CardStatus(
         Kind kind,
-        LocalDate since,
-        Integer days,
-        String level,
-        String teamName,
-        LocalDate lastGameDate,
-        String lastGameLevel) {
+        @Nullable LocalDate since,
+        @Nullable Integer days,
+        @Nullable String level,
+        @Nullable String teamName,
+        @Nullable LocalDate lastGameDate,
+        @Nullable String lastGameLevel) {
 
     /** 상태 종류. 응답에는 이름 그대로 나간다(웹이 이 글자로 배지를 고른다) */
     public enum Kind {

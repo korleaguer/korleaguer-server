@@ -5,6 +5,8 @@ import com.korleaguer.api.offseason.OffSeason;
 import com.korleaguer.api.season.HitterSeason;
 import com.korleaguer.api.season.PitcherSeason;
 import com.korleaguer.api.season.RankingMinimums;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.List;
@@ -18,16 +20,16 @@ import java.util.List;
  * statsAvailable은 늘 true다(MLB 공식 API는 경기별 선수 기록을 늘 준다). 웹 호환 때문에 남겨 둔다.
  */
 public record HomeResponse(
-        String dataMode,
+        @Schema(allowableValues = {"sample", "mlb"}) String dataMode,
         boolean statsAvailable,
         int season,
         Instant generatedAt,
         RecentGames recent,
-        RankingMinimums ranking,
+        @Nullable RankingMinimums ranking,
         List<HitterSeason> hitters,
         List<PitcherSeason> pitchers,
         List<HitterSeason> minorHitters,
         List<PitcherSeason> minorPitchers,
-        OffSeason offseason,
-        PostingSummary posting) {
+        @Nullable OffSeason offseason,
+        @Nullable PostingSummary posting) {
 }

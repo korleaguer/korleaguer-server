@@ -1,5 +1,7 @@
 package com.korleaguer.api.article;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -17,8 +19,14 @@ import java.util.List;
  *                   같은 셈이라 알약 'FA 21'을 눌러 연 검색(q=FA)도 21이다. query가 있는 첫 쪽에만 있고, 검색어가 없거나
  *                   둘째 쪽부터는 null(웹은 첫 쪽 값을 그대로 둔다)
  */
-public record NewsListResponse(List<Subject> players, String player, List<Item> items, String next, String query,
-                               List<NewsTopic> topics, Integer queryCount) {
+public record NewsListResponse(
+        List<Subject> players,
+        @Nullable String player,
+        List<Item> items,
+        @Nullable String next,
+        @Nullable String query,
+        List<NewsTopic> topics,
+        @Nullable Integer queryCount) {
 
     public NewsListResponse {
         players = List.copyOf(players);
@@ -39,7 +47,12 @@ public record NewsListResponse(List<Subject> players, String player, List<Item> 
      * @param latestAt 이 선수의 보일 기사 중 가장 최근 발행 시각. 웹이 '마지막으로 본 뒤 새 기사가 있나'를 볼 때 쓴다(이슈 #155).
      *                 같은 기사 묶음은 가장 늦게 실린 사본까지 본다
      */
-    public record Subject(String nameKo, String photoUrl, Long playerId, boolean posting, Instant latestAt) {
+    public record Subject(
+            String nameKo,
+            @Nullable String photoUrl,
+            @Nullable Long playerId,
+            boolean posting,
+            @Nullable Instant latestAt) {
 
         Subject withLatestAt(Instant at) {
             return new Subject(nameKo, photoUrl, playerId, posting, at);
@@ -53,8 +66,16 @@ public record NewsListResponse(List<Subject> players, String player, List<Item> 
      * @param alsoBy 같은 글을 실은 다른 언론사(낸 순)
      * @param who    누구 기사인지(한글 이름). 같은 기사가 여러 선수에 걸렸으면 모두, 대표 기사의 선수가 먼저
      */
-    public record Item(Long id, String title, String url, String publisher, Instant publishedAt, String titleKo,
-                       String imageUrl, List<String> alsoBy, List<String> who) {
+    public record Item(
+            @Nullable Long id,
+            String title,
+            String url,
+            String publisher,
+            Instant publishedAt,
+            @Nullable String titleKo,
+            @Nullable String imageUrl,
+            List<String> alsoBy,
+            List<String> who) {
 
         public Item {
             alsoBy = alsoBy == null ? List.of() : List.copyOf(alsoBy);

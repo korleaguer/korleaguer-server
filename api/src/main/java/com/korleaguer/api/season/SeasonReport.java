@@ -3,6 +3,7 @@ package com.korleaguer.api.season;
 import com.korleaguer.api.article.PostingSummary;
 
 import com.korleaguer.domain.Level;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,10 +36,22 @@ import java.util.List;
  *                    펼친 카드가 선수 화면에 가지 않고 백분위를 보인다(이슈 #179). 그 시즌 MLB 기록이 없거나 아직 받지
  *                    않았으면 null. 메이저 기록이라 마이너 합계인 wrcPlus·eraPlus와 단계가 다를 수 있다
  */
-public record SeasonReport(long playerId, SeasonTier tier, String label, String headline, String reason, Level level,
-                           Double war, Integer wrcPlus, Integer eraPlus, String statLevelKo, List<Month> months,
-                           List<WinterMove> winterMoves, List<PostingSummary.Headline> news,
-                           PostingSummary.LinkedTeams linkedTeams, PlayerSaber saber) {
+public record SeasonReport(
+        long playerId,
+        SeasonTier tier,
+        String label,
+        String headline,
+        @Nullable String reason,
+        Level level,
+        @Nullable Double war,
+        @Nullable Integer wrcPlus,
+        @Nullable Integer eraPlus,
+        @Nullable String statLevelKo,
+        List<Month> months,
+        List<WinterMove> winterMoves,
+        List<PostingSummary.Headline> news,
+        PostingSummary.@Nullable LinkedTeams linkedTeams,
+        @Nullable PlayerSaber saber) {
 
     /** 기사·거론 구단과 'MLB 안 위치'를 붙인 성적표(DB를 읽는 SeasonReportFinder가 붙인다) */
     SeasonReport withDbParts(List<PostingSummary.Headline> headlines, PostingSummary.LinkedTeams linked,
@@ -62,8 +75,17 @@ public record SeasonReport(long playerId, SeasonTier tier, String label, String 
      * @param few     경기가 적은 달(타자 10경기·투수 5등판 미만). 화면이 막대를 옅게 그린다
      * @param hot     아주 잘한 달(메이저 타자 15경기 이상 wRC+ 130 이상, 투수 15이닝 이상 ERA+ 143 이상). 화면이 숫자를 주황으로
      */
-    public record Month(int month, Kind kind, String levelKo, int games, Double avg, Integer wrcPlus, Double era,
-                        Integer eraPlus, boolean few, boolean hot) {
+    public record Month(
+            int month,
+            Kind kind,
+            @Nullable String levelKo,
+            int games,
+            @Nullable Double avg,
+            @Nullable Integer wrcPlus,
+            @Nullable Double era,
+            @Nullable Integer eraPlus,
+            boolean few,
+            boolean hot) {
 
         /** MLB 메이저 · MINORS 마이너 · INJURED 부상(재활 경기만 뛰었거나 경기 없이 부상자 명단) · FREE_AGENT 팀 없음 · NONE 기록 없음 */
         public enum Kind { MLB, MINORS, INJURED, FREE_AGENT, NONE }

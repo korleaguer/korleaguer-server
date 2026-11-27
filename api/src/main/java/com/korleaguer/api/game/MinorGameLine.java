@@ -3,6 +3,8 @@ package com.korleaguer.api.game;
 import com.korleaguer.api.player.MoveEntry;
 
 import com.korleaguer.domain.SeasonType;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 
@@ -26,18 +28,18 @@ import java.time.OffsetDateTime;
 public record MinorGameLine(
         long gamePk,
         OffsetDateTime startTimeKst,
-        String level,
+        @Nullable String level,
         String levelKo,
-        Long teamId,
-        String teamKo,
-        Long opponentId,
-        String opponentKo,
-        Boolean home,
-        Integer teamScore,
-        Integer opponentScore,
-        String result,
+        @Nullable Long teamId,
+        @Nullable String teamKo,
+        @Nullable Long opponentId,
+        @Nullable String opponentKo,
+        @Nullable Boolean home,
+        @Nullable Integer teamScore,
+        @Nullable Integer opponentScore,
+        @Schema(allowableValues = {"W", "L", "T"}) @Nullable String result,
         String summary,
-        GameBatting batting,
-        GamePitching pitching,
-        SeasonType seasonType) {
+        @Nullable GameBatting batting,
+        @Nullable GamePitching pitching,
+        @Nullable SeasonType seasonType) {
 }
