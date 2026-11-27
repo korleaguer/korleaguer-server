@@ -62,3 +62,41 @@ jobs:
             api/build/reports/tests/test
             app/build/reports/tests/test
           retention-days: 7
+
+  # 이 PR의 응답 모양 명세(openapi.json)로 웹(develop)의 타입을 만들어 검사한다. 웹이 쓰는 응답 필드를 지우거나 바꾸면 여기서 실패한다.
+  # 웹은 이 명세에서 타입을 만든다(korleaguer-web의 npm run api:types). PR에서만 돈다(배포는 막지 않는다).
+  web-types:
+    name: 웹 타입 검사
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: korleaguer/korleaguer-web
+          ref: develop
+          path: web
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 웹 의존성 설치
+        working-directory: web
+        run: npm ci
+
+      - name: 이 PR의 응답 명세로 웹 타입 검사
+        working-directory: web
+        run: |
+          cp ../openapi.json openapi/server.json
+          npm run api:types
+          npx next typegen
+          if ! npx tsc --noEmit; then
+            echo "::error::이 PR의 응답 모양 변경이 웹(develop)이 쓰는 필드를 깨뜨린다. 웹을 먼저 새 모양에도 맞게 고쳐 develop에 넣은 뒤 다시 돌린다"
+            exit 1
+          fi
